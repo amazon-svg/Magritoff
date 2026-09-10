@@ -38,6 +38,7 @@ import {
   OrderFileLineNotFoundError,
   OrderFileNotFoundError,
   OrderFileRejectedError,
+  OrderFileUploadExpiredError,
   OrderFileUploadMissingError,
   OrderNotFoundError,
   type ListOrderFilesResult,
@@ -433,6 +434,13 @@ function mapOrderFileError(error: { code?: string; message: string }): Error {
   }
   if (message.includes('order_file.already_confirmed')) {
     return new OrderFileAlreadyConfirmedError(message);
+  }
+  if (message.includes('order_file.upload_expired')) {
+    // qa-review round 1 (B2, BLOQUANT GRAVE, E10.22b/c) : l objet storage
+    // est deja plus vieux que le delai des orphelins au moment de la
+    // confirmation -- refuse par la fonction SQL (20260910000700), jamais
+    // par ce seul adaptateur.
+    return new OrderFileUploadExpiredError(message);
   }
   if (message.includes('order_file.limit_reached')) {
     return new OrderFileLimitReachedError(message);

@@ -36,6 +36,7 @@ import {
   OrderFileLineNotFoundError,
   OrderFileNotFoundError,
   OrderFileRejectedError,
+  OrderFileUploadExpiredError,
   OrderFileUploadMissingError,
   OrderNotFoundError,
 } from '../../modules/order-files/application/order-files-repository.ts';
@@ -231,6 +232,17 @@ async function withDomainErrors<T>(operation: () => Promise<T>): Promise<T> {
         status: 404,
         title: 'Aucun fichier depose',
         code: 'order_file.upload_missing',
+        detail: error.message,
+      });
+    }
+    if (error instanceof OrderFileUploadExpiredError) {
+      // qa-review round 1 (B2, BLOQUANT GRAVE, E10.22b/c) : meme statut que
+      // `quote.decision_expired` (precedent du depot) pour une ressource
+      // perimee.
+      throw problem({
+        status: 409,
+        title: 'Depot expire',
+        code: 'order_file.upload_expired',
         detail: error.message,
       });
     }

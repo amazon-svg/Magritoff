@@ -1,18 +1,28 @@
 /**
  * Implementation Supabase du mecanisme de purge des fichiers de commande
- * (E10.22a/E10.22a-bis, docs/api/CONVENTIONS.md §8.22). Client `service_role`
- * EXIGE partout : chaque fonction SQL appelee est `security definer`,
- * `grant execute` au SEUL `service_role` (migration `20260910000500`) --
- * meme discipline que `SupabaseOutboxDispatchRepository` (E10.10b-3).
+ * (E10.22a/E10.22a-bis/E10.22b/E10.22c, docs/api/CONVENTIONS.md §8.22).
+ * Client `service_role` EXIGE partout : chaque fonction SQL appelee est
+ * `security definer`, `grant execute` au SEUL `service_role` (migrations
+ * `20260910000500` et `20260910000600`) -- meme discipline que
+ * `SupabaseOutboxDispatchRepository` (E10.10b-3).
  *
- * DEUX classes, DEUX responsabilites (meme separation que le port) :
- *  - `SupabaseOrderFilePurgeSweepRepository` -- le balayage quotidien
+ * QUATRE classes, QUATRE responsabilites (meme separation que les ports) :
+ *  - `SupabaseOrderFilePurgeSweepRepository` -- le balayage des rappels
  *    (`PurgeSweepRepository`), consomme par `magrit-order-file-purge`.
  *  - `SupabaseOrderFilePurgeNoticeGateway` -- resolution des destinataires
  *    A LA REMISE et consignation des tentatives d envoi
  *    (`PurgeNoticeRecipientGateway` + `PurgeNoticeDeliveryGateway`),
  *    consomme par le consommateur outbox (drain EXISTANT, minute par
  *    minute).
+ *  - `SupabaseOrderFilePurgeExecutionRepository` (E10.22b) -- purge REELLE :
+ *    reclame/marque les fichiers dont la garde des deux rappels confirmes
+ *    est remplie, retire les objets par lot, emet `order_files.purged`.
+ *  - `SupabaseOrphanObjectRepository` (E10.22c) -- objets orphelins, dette
+ *    D7 : liste et retire par lot, AUCUNE ligne a marquer.
+ *
+ * `BUCKET`/`storagePathFor` REUTILISES depuis `order-files-repository.ts`
+ * (E10.17a) -- meme bucket, meme forme de chemin, jamais une seconde source
+ * qui pourrait diverger.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { TenantId } from '../../kernel/ids/index.ts';
@@ -30,6 +40,14 @@ import type {
   ExpiredPurgeNoticeSummary,
   PurgeSweepRepository,
 } from '../../modules/order-files/application/purge-sweep-repository.ts';
+import type {
+  BlockedPurgeCount,
+  BlockedPurgeReason,
+  PurgeExecutionRepository,
+  PurgeExecutionSummary,
+} from '../../modules/order-files/application/purge-execution-repository.ts';
+import type { OrphanObjectRepository } from '../../modules/order-files/application/orphan-object-repository.ts';
+import { BUCKET, storagePathFor } from './order-files-repository.ts';
 
 export class SupabaseOrderFilePurgeSweepRepository implements PurgeSweepRepository {
   /** @param client Client `service_role` -- seul role habilite sur les six fonctions de ce mecanisme. */
@@ -139,5 +157,144 @@ export class SupabaseOrderFilePurgeNoticeGateway
     }
     const row = data as Readonly<{ id: string; accepted_at: string | null }>;
     return { id: row.id, accepted: row.accepted_at !== null };
+  }
+}
+
+/**
+ * E10.22b — purge REELLE. `client` = `service_role` (RPC des fonctions
+ * `security definer` de la migration `20260910000600` ET acces au bucket
+ * prive `commercial_order_files`, AUCUNE policy `storage.objects`, contrat
+ * §8.19 §3 -- meme client pour les deux, ce mecanisme tourne ENTIEREMENT
+ * sous `service_role` (Edge Function `magrit-order-file-purge`), pas de
+ * distinction caller-JWT / service_role a faire ici, CONTRAIREMENT a
+ * `SupabaseOrderFilesRepository` (E10.17a) qui sert des requetes HTTP
+ * authentifiees.
+ */
+export class SupabaseOrderFilePurgeExecutionRepository implements PurgeExecutionRepository {
+  constructor(private readonly client: SupabaseClient<any>) {}
+
+  async purgeEligibleFiles(limit: number): Promise<readonly PurgeExecutionSummary[]> {
+    const { data, error } = await this.client.rpc('api_claim_order_files_for_purge', { p_limit: limit });
+    if (error) throw new Error(`Reclamation des fichiers a purger impossible: ${error.message}`);
+    const rows = (data ?? []) as readonly Readonly<{
+      purged_file_id: string;
+      purged_order_id: string;
+      purged_tenant_id: string;
+      purged_byte_size: number | string;
+    }>[];
+    if (rows.length === 0) return [];
+
+    // Ordre PRESCRIT par E10.17a, non renegociable : la LIGNE est DEJA
+    // marquee (fonction SQL ci-dessus, transactionnelle) -- l objet de
+    // stockage est retire ENSUITE, PAR LOT, best-effort (§5 du contrat :
+    // point de non-retour deja franchi, un echec ici ne doit JAMAIS
+    // empecher la suite ni remonter d erreur a l appelant -- rattrape par
+    // E10.22c au tour suivant si necessaire).
+    const paths = rows.map((row) =>
+      storagePathFor(row.purged_tenant_id as TenantId, row.purged_order_id, row.purged_file_id),
+    );
+    const { error: removeError } = await this.client.storage.from(BUCKET).remove(paths);
+    if (removeError) {
+      console.error('[order-file-purge] retrait par lot des objets purges echoue', removeError);
+    }
+
+    // UN evenement order_files.purged PAR ESPACE (§5/§9 du contrat), APRES
+    // le retrait des objets -- jamais avant. Regroupement PAR TENANT, borne
+    // a 50 order_ids par evenement (meme regle que order_files.purge_scheduled).
+    const byTenant = new Map<string, { orderIds: Set<string>; byteSizeFreed: number; fileCount: number }>();
+    for (const row of rows) {
+      const entry = byTenant.get(row.purged_tenant_id) ?? {
+        orderIds: new Set<string>(),
+        byteSizeFreed: 0,
+        fileCount: 0,
+      };
+      entry.orderIds.add(row.purged_order_id);
+      entry.byteSizeFreed += Number(row.purged_byte_size);
+      entry.fileCount += 1;
+      byTenant.set(row.purged_tenant_id, entry);
+    }
+
+    const summaries: PurgeExecutionSummary[] = [];
+    for (const [tenantId, entry] of byTenant) {
+      const orderIds = [...entry.orderIds].slice(0, 50);
+      const { error: recordError } = await this.client.rpc('api_record_order_files_purged', {
+        p_tenant_id: tenantId,
+        p_file_count: entry.fileCount,
+        p_order_count: entry.orderIds.size,
+        p_byte_size_freed: entry.byteSizeFreed,
+        p_order_ids: orderIds,
+      });
+      if (recordError) {
+        // N2 (qa-review round 1) : NE JAMAIS avorter tout le tour. Les
+        // fichiers de CE tenant sont DEJA purges (ligne + objets, point de
+        // non-retour deja franchi) -- seul l evenement de trace echoue a
+        // s ecrire pour CET espace. Journalise, le tour continue pour les
+        // tenants suivants ET pour l etape suivante du balayage (E10.22c,
+        // orphelins) : un throw ici privait ces deux choses d avoir lieu.
+        console.error(
+          `[order-file-purge] consignation de order_files.purged (${tenantId}) echouee -- fichiers deja purges, evenement manquant`,
+          recordError,
+        );
+        continue;
+      }
+      summaries.push({
+        tenantId,
+        fileCount: entry.fileCount,
+        orderCount: entry.orderIds.size,
+        byteSizeFreed: entry.byteSizeFreed,
+        orderIds,
+      });
+    }
+    return summaries;
+  }
+
+  /** B1 (qa-review round 1, BLOQUANT) : voir le port. */
+  async countBlockedFiles(): Promise<readonly BlockedPurgeCount[]> {
+    const { data, error } = await this.client.rpc('api_count_blocked_order_file_purges');
+    if (error) throw new Error(`Comptage des blocages de purge impossible: ${error.message}`);
+    const rows = (data ?? []) as readonly Readonly<{
+      blocked_tenant_id: string;
+      blocked_reason: string;
+      blocked_count: number;
+    }>[];
+    return rows.map((row) => ({
+      tenantId: row.blocked_tenant_id,
+      reason: row.blocked_reason as BlockedPurgeReason,
+      count: row.blocked_count,
+    }));
+  }
+}
+
+/**
+ * E10.22c — objets orphelins, dette D7. Meme discipline de client unique
+ * `service_role` que `SupabaseOrderFilePurgeExecutionRepository` ci-dessus.
+ * AUCUNE ligne n est marquee ici : soit l objet n a jamais eu de ligne
+ * (jamais confirme), soit sa ligne est deja marquee `deleted_at` (M2
+ * qa-review round 1 : purge AUTOMATIQUE **ou** suppression MANUELLE dont le
+ * retrait storage a echoue).
+ */
+export class SupabaseOrphanObjectRepository implements OrphanObjectRepository {
+  constructor(private readonly client: SupabaseClient<any>) {}
+
+  async removeOrphanObjects(olderThanHours: number, limit: number): Promise<number> {
+    const { data, error } = await this.client.rpc('api_claim_orphan_order_file_objects', {
+      p_older_than: `${olderThanHours} hours`,
+      p_limit: limit,
+    });
+    if (error) throw new Error(`Reclamation des objets orphelins impossible: ${error.message}`);
+    const rows = (data ?? []) as readonly Readonly<{ orphan_object_id: string; orphan_object_path: string }>[];
+    if (rows.length === 0) return 0;
+
+    // N1 (qa-review round 1) : le compte rendu DERIVE du resultat REEL de
+    // `remove()`, jamais de `rows.length` -- un echec de retrait ne doit
+    // JAMAIS etre annonce comme un succes dans le rapport du tour.
+    const { data: removed, error: removeError } = await this.client.storage
+      .from(BUCKET)
+      .remove(rows.map((row) => row.orphan_object_path));
+    if (removeError) {
+      console.error('[order-file-purge] retrait par lot des objets orphelins echoue', removeError);
+      return 0;
+    }
+    return removed?.length ?? 0;
   }
 }

@@ -31,6 +31,22 @@ export class OrderFileUploadMissingError extends Error {
   }
 }
 
+/**
+ * L objet depose existe mais est DEJA plus vieux que le delai de securite du
+ * nettoyage des objets orphelins (24h, E10.22c) au moment de la confirmation
+ * (409 `order_file.upload_expired`). qa-review round 1 (B2, BLOQUANT GRAVE,
+ * E10.22b/c) : sans ce refus, une confirmation tardive peut creer une ligne
+ * vivante sur un chemin DEJA liste comme candidat par le balayage orphelins
+ * — destruction d un fichier legitime, sans aucune trace. Redemander un
+ * billet de depot NEUF est le seul recours.
+ */
+export class OrderFileUploadExpiredError extends Error {
+  constructor(message = 'Ce depot est expire ; redemander un billet de depot.') {
+    super(message);
+    this.name = 'OrderFileUploadExpiredError';
+  }
+}
+
 /** Ce `file_id` porte deja une ligne : deposer deux fois les memes octets ne cree pas deux fichiers (409 `order_file.already_confirmed`). */
 export class OrderFileAlreadyConfirmedError extends Error {
   constructor(message = 'Ce fichier a deja ete confirme.') {
@@ -109,8 +125,9 @@ export interface OrderFilesRepository {
    * decision #7), verifie type/poids en defense en profondeur, puis appelle
    * `api_confirm_order_file_upload` (chemin recalcule EN BASE, jamais recu en
    * parametre). Leve `OrderNotFoundError`/`OrderFileUploadMissingError`/
-   * `OrderFileRejectedError`/`OrderFileLimitReachedError`/
-   * `OrderFileLineNotFoundError`/`OrderFileAlreadyConfirmedError`.
+   * `OrderFileUploadExpiredError`/`OrderFileRejectedError`/
+   * `OrderFileLimitReachedError`/`OrderFileLineNotFoundError`/
+   * `OrderFileAlreadyConfirmedError`.
    */
   confirmUpload(
     tenantId: TenantId,

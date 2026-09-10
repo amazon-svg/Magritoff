@@ -1,25 +1,33 @@
 /**
  * Points de composition du mecanisme de purge des fichiers de commande
- * (E10.22a/E10.22a-bis, docs/api/CONVENTIONS.md §8.22). Meme contre-mesure
- * que `createOutboxDispatchApplication()` pour la dette M1 (§8.2) : les
- * Edge Functions (`magrit-order-file-purge`, NEUVE, ET `magrit-outbox-
- * dispatcher`, EXISTANTE) ne font qu instancier des adaptateurs -- toute la
- * composition, typecheckee et testable, vit ici.
+ * (E10.22a/E10.22a-bis/E10.22b/E10.22c, docs/api/CONVENTIONS.md §8.22). Meme
+ * contre-mesure que `createOutboxDispatchApplication()` pour la dette M1
+ * (§8.2) : les Edge Functions (`magrit-order-file-purge`, ETENDUE par E10.22b/
+ * E10.22c, PAS une nouvelle fonction, ET `magrit-outbox-dispatcher`,
+ * EXISTANTE) ne font qu instancier des adaptateurs -- toute la composition,
+ * typecheckee et testable, vit ici.
  *
  * DEUX exports, pour DEUX consommateurs distincts (§3 du contrat) :
  *  - `createOrderFilePurgeSweepApplication()` -- le balayage quotidien
  *    (SECOND `pg_cron`, dedie), consomme par `magrit-order-file-purge`.
- *    N ENVOIE AUCUN COURRIEL.
+ *    N ENVOIE AUCUN COURRIEL. Porte desormais CINQ etapes (E10.22a/a-bis :
+ *    rappels + preuve de livraison ; E10.22b : purge REELLE des fichiers
+ *    dont les deux rappels sont confirmes delivres ; E10.22c : objets
+ *    orphelins, dette D7) -- voir `PurgeSweepService`.
  *  - `createOrderFilePurgeNoticeConsumer()` -- le consommateur outbox
  *    `order_files.purge_scheduled`, a BRANCHER dans le registre du drain
  *    EXISTANT (`outbox-dispatch-composition.ts`), PAS dans une Edge
  *    Function separee : c est lui qui envoie reellement le courriel, via le
- *    relais deja fiable (reprise, backoff) d E10.10b-3.
+ *    relais deja fiable (reprise, backoff) d E10.10b-3. INCHANGE par E10.22b/
+ *    E10.22c : `order_files.purged` n a AUCUN consommateur (§9 du contrat --
+ *    seule trace versionnee, personne ne l ecoute aujourd hui).
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
+  SupabaseOrderFilePurgeExecutionRepository,
   SupabaseOrderFilePurgeNoticeGateway,
   SupabaseOrderFilePurgeSweepRepository,
+  SupabaseOrphanObjectRepository,
 } from '../../adapters/supabase/order-file-purge-repository.ts';
 import { ResendOrderFilePurgeNoticeEmailSender } from '../../adapters/resend/order-file-purge-notice-email-sender.ts';
 import { ResendEmailDeliveryStatusGateway } from '../../adapters/resend/resend-email-delivery-status-gateway.ts';
@@ -48,10 +56,16 @@ export function createOrderFilePurgeSweepApplication(
     dependencies.resendApiKey,
     dependencies.fetchImplementation ?? globalThis.fetch,
   );
+  // E10.22b/E10.22c -- MEME client service_role (RPC + storage), aucune
+  // dependance neuve a cabler : les deux volets ajoutes par ce lot.
+  const execution = new SupabaseOrderFilePurgeExecutionRepository(dependencies.serviceRoleClient);
+  const orphans = new SupabaseOrphanObjectRepository(dependencies.serviceRoleClient);
 
   const service = new PurgeSweepService({
     repository,
     deliveryStatus,
+    execution,
+    orphans,
     settings: dependencies.settings ?? DEFAULT_PURGE_SWEEP_SETTINGS,
   });
 

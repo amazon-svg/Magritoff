@@ -7,6 +7,12 @@ import type {
   PurgeSweepRepository,
 } from '@/modules/order-files/application/purge-sweep-repository';
 import type { EmailDeliveryStatusGateway } from '@/modules/order-files/application/purge-notice-delivery-status-gateway';
+import type {
+  BlockedPurgeCount,
+  PurgeExecutionRepository,
+  PurgeExecutionSummary,
+} from '@/modules/order-files/application/purge-execution-repository';
+import type { OrphanObjectRepository } from '@/modules/order-files/application/orphan-object-repository';
 
 function buildRepository(overrides: Partial<PurgeSweepRepository> = {}): PurgeSweepRepository {
   return {
@@ -35,6 +41,29 @@ function buildStatusGateway(overrides: Partial<EmailDeliveryStatusGateway> = {})
   };
 }
 
+function buildExecutionRepository(overrides: Partial<PurgeExecutionRepository> = {}): PurgeExecutionRepository {
+  return {
+    async purgeEligibleFiles() {
+      return [];
+    },
+    async countBlockedFiles() {
+      return [];
+    },
+    ...overrides,
+  };
+}
+
+function buildOrphanRepository(overrides: Partial<OrphanObjectRepository> = {}): OrphanObjectRepository {
+  return {
+    async removeOrphanObjects() {
+      return 0;
+    },
+    ...overrides,
+  };
+}
+
+const EMPTY_REPORT_TAIL = { filesPurged: 0, purgeEventsEmitted: 0, orphanObjectsRemoved: 0, blockedFiles: [] };
+
 describe('DEFAULT_PURGE_SWEEP_SETTINGS', () => {
   it('reglages confirmes au contrat §4/§10 (E10.22a) : 20/15 jours de recul, fenetre de 3 jours', () => {
     expect(DEFAULT_PURGE_SWEEP_SETTINGS.leadDaysByStage).toEqual({ first: 20, second: 15 });
@@ -48,6 +77,8 @@ describe('PurgeSweepService', () => {
     const service = new PurgeSweepService({
       repository: buildRepository({ claimNotices }),
       deliveryStatus: buildStatusGateway(),
+      execution: buildExecutionRepository(),
+      orphans: buildOrphanRepository(),
     });
 
     await service.runOnce();
@@ -81,6 +112,8 @@ describe('PurgeSweepService', () => {
     const service = new PurgeSweepService({
       repository: buildRepository({ claimNotices, expireStaleNotices, claimDeliveriesForRecheck, recordDeliveryCheck }),
       deliveryStatus: buildStatusGateway({ fetchStatus }),
+      execution: buildExecutionRepository(),
+      orphans: buildOrphanRepository(),
     });
 
     const report = await service.runOnce();
@@ -90,6 +123,7 @@ describe('PurgeSweepService', () => {
       noticesExpired: 1,
       deliveriesChecked: 2,
       deliveriesConfirmed: 1,
+      ...EMPTY_REPORT_TAIL,
     });
     expect(recordDeliveryCheck).toHaveBeenCalledWith('d1', 'delivered');
     expect(recordDeliveryCheck).toHaveBeenCalledWith('d2', 'queued');
@@ -104,6 +138,8 @@ describe('PurgeSweepService', () => {
     const service = new PurgeSweepService({
       repository: buildRepository({ claimDeliveriesForRecheck, recordDeliveryCheck }),
       deliveryStatus: buildStatusGateway({ async fetchStatus() { return null; } }),
+      execution: buildExecutionRepository(),
+      orphans: buildOrphanRepository(),
     });
 
     const report = await service.runOnce();
@@ -126,6 +162,8 @@ describe('PurgeSweepService', () => {
     const service = new PurgeSweepService({
       repository: buildRepository({ claimNotices }),
       deliveryStatus: buildStatusGateway(),
+      execution: buildExecutionRepository(),
+      orphans: buildOrphanRepository(),
     });
 
     await expect(service.runOnce()).resolves.toEqual({
@@ -133,6 +171,111 @@ describe('PurgeSweepService', () => {
       noticesExpired: 0,
       deliveriesChecked: 0,
       deliveriesConfirmed: 0,
+      ...EMPTY_REPORT_TAIL,
+    });
+  });
+
+  it('(E10.22b) appelle purgeEligibleFiles APRES la relecture des livraisons (etape 2), et compte fichiers/evenements', async () => {
+    const callOrder: string[] = [];
+    const claimDeliveriesForRecheck = vi.fn(async (): Promise<readonly DeliveryPendingCheck[]> => {
+      callOrder.push('claimDeliveriesForRecheck');
+      return [];
+    });
+    const purgeEligibleFiles = vi.fn(async (limit: number): Promise<readonly PurgeExecutionSummary[]> => {
+      callOrder.push('purgeEligibleFiles');
+      expect(limit).toBe(DEFAULT_PURGE_SWEEP_SETTINGS.purgeExecutionLimit);
+      return [
+        { tenantId: 't1', fileCount: 2, orderCount: 1, byteSizeFreed: 300, orderIds: ['o1'] },
+        { tenantId: 't2', fileCount: 1, orderCount: 1, byteSizeFreed: 100, orderIds: ['o2'] },
+      ];
+    });
+
+    const service = new PurgeSweepService({
+      repository: buildRepository({ claimDeliveriesForRecheck }),
+      deliveryStatus: buildStatusGateway(),
+      execution: buildExecutionRepository({ purgeEligibleFiles }),
+      orphans: buildOrphanRepository(),
+    });
+
+    const report = await service.runOnce();
+
+    expect(report.filesPurged).toBe(3);
+    expect(report.purgeEventsEmitted).toBe(2);
+    expect(callOrder).toEqual(['claimDeliveriesForRecheck', 'purgeEligibleFiles']);
+  });
+
+  it('(E10.22c) appelle removeOrphanObjects APRES purgeEligibleFiles, avec les reglages par defaut (24h, 200)', async () => {
+    const callOrder: string[] = [];
+    const purgeEligibleFiles = vi.fn(async (): Promise<readonly PurgeExecutionSummary[]> => {
+      callOrder.push('purgeEligibleFiles');
+      return [];
+    });
+    const removeOrphanObjects = vi.fn(async (olderThanHours: number, limit: number): Promise<number> => {
+      callOrder.push('removeOrphanObjects');
+      expect(olderThanHours).toBe(DEFAULT_PURGE_SWEEP_SETTINGS.orphanObjectOlderThanHours);
+      expect(limit).toBe(DEFAULT_PURGE_SWEEP_SETTINGS.orphanObjectLimit);
+      return 5;
+    });
+
+    const service = new PurgeSweepService({
+      repository: buildRepository(),
+      deliveryStatus: buildStatusGateway(),
+      execution: buildExecutionRepository({ purgeEligibleFiles }),
+      orphans: buildOrphanRepository({ removeOrphanObjects }),
+    });
+
+    const report = await service.runOnce();
+
+    expect(report.orphanObjectsRemoved).toBe(5);
+    expect(callOrder).toEqual(['purgeEligibleFiles', 'removeOrphanObjects']);
+  });
+
+  it('(B1, qa-review round 1) appelle countBlockedFiles APRES purgeEligibleFiles (etape 4), rend le compte par tenant/motif', async () => {
+    const callOrder: string[] = [];
+    const purgeEligibleFiles = vi.fn(async (): Promise<readonly PurgeExecutionSummary[]> => {
+      callOrder.push('purgeEligibleFiles');
+      return [];
+    });
+    const blocked: readonly BlockedPurgeCount[] = [
+      { tenantId: 't1', reason: 'rappel_non_confirme', count: 4000 },
+      { tenantId: 't1', reason: 'rappel_en_echec', count: 2 },
+    ];
+    const countBlockedFiles = vi.fn(async (): Promise<readonly BlockedPurgeCount[]> => {
+      callOrder.push('countBlockedFiles');
+      return blocked;
+    });
+
+    const service = new PurgeSweepService({
+      repository: buildRepository(),
+      deliveryStatus: buildStatusGateway(),
+      execution: buildExecutionRepository({ purgeEligibleFiles, countBlockedFiles }),
+      orphans: buildOrphanRepository(),
+    });
+
+    const report = await service.runOnce();
+
+    expect(report.blockedFiles).toEqual(blocked);
+    // APRES purgeEligibleFiles (etape 4) -- voir en-tete de fichier. L ordre
+    // exact vis-a-vis de removeOrphanObjects (etape 5) n est PAS garanti par
+    // ce test (independant), seul l ordre par rapport a la purge compte.
+    expect(callOrder[0]).toBe('purgeEligibleFiles');
+    expect(callOrder).toContain('countBlockedFiles');
+  });
+
+  it('rien de du (execution et orphelins vides) : rapport a zero sur les trois nouveaux champs', async () => {
+    const service = new PurgeSweepService({
+      repository: buildRepository(),
+      deliveryStatus: buildStatusGateway(),
+      execution: buildExecutionRepository(),
+      orphans: buildOrphanRepository(),
+    });
+
+    await expect(service.runOnce()).resolves.toEqual({
+      noticesCreated: 0,
+      noticesExpired: 0,
+      deliveriesChecked: 0,
+      deliveriesConfirmed: 0,
+      ...EMPTY_REPORT_TAIL,
     });
   });
 });

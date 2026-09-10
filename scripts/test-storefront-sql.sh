@@ -65,6 +65,8 @@ SQL_CASES=(
   tests/sql/gescom-e10-20a-order-upload-links.sql
   tests/sql/gescom-e10-20b-order-upload-link-deposit.sql
   tests/sql/gescom-e10-22a-order-file-purge-notices.sql
+  tests/sql/gescom-e10-22b-22c-purge-execution.sql
+  tests/sql/gescom-e10-22c-qa-round1-confirm-expiry-guard.sql
 )
 
 for sql_case in "${SQL_CASES[@]}"; do

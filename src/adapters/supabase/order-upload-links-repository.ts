@@ -42,6 +42,7 @@ import type { OrderFileUploadTicketDto } from '../../modules/order-files/api/con
 import {
   OrderFileAlreadyConfirmedError,
   OrderFileRejectedError,
+  OrderFileUploadExpiredError,
   OrderFileUploadMissingError,
 } from '../../modules/order-files/application/order-files-repository.ts';
 import type {
@@ -414,6 +415,12 @@ function mapOrderUploadLinkFileError(error: { code?: string; message: string }):
   }
   if (message.includes('order_file.upload_missing')) {
     return new OrderFileUploadMissingError(message);
+  }
+  if (message.includes('order_file.upload_expired')) {
+    // qa-review round 1 (B2, BLOQUANT GRAVE, E10.22b/c) : meme code REUTILISE
+    // qu `api_confirm_order_file_upload`, leve par cette fonction depuis
+    // `20260910000700`.
+    return new OrderFileUploadExpiredError(message);
   }
   if (message.includes('order_file.rejected')) {
     return new OrderFileRejectedError(message);

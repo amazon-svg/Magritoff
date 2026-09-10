@@ -1,18 +1,32 @@
 /**
- * Edge Function `magrit-order-file-purge` (stories E10.22a/E10.22a-bis,
- * docs/api/CONVENTIONS.md §8.22 §3).
+ * Edge Function `magrit-order-file-purge` (stories E10.22a/E10.22a-bis/
+ * E10.22b/E10.22c, docs/api/CONVENTIONS.md §8.22 §3, §5, §6).
  *
- * Balayage QUOTIDIEN : reclame les rappels des DEUX paliers (`first` J+20,
- * `second` J+15), expire les rappels sans livraison confirmee au bout de la
- * fenetre, relit `GET /emails/{id}` pour les livraisons en attente de
- * confirmation. N ENVOIE AUCUN COURRIEL (§3 du contrat) -- l ecriture d
+ * Balayage QUOTIDIEN, ETENDU par E10.22b/E10.22c (PAS une nouvelle fonction,
+ * meme fichier, meme declencheur -- voir `PurgeSweepService`) : reclame les
+ * rappels des DEUX paliers (`first` J+20, `second` J+15), expire les rappels
+ * sans livraison confirmee au bout de la fenetre, relit `GET /emails/{id}`
+ * pour les livraisons en attente de confirmation, PURGE REELLEMENT les
+ * fichiers dont les DEUX rappels sont CONFIRMES DELIVRES (E10.22b : octets
+ * detruits, ligne conservee, objets retires par lot), compte et JOURNALISE
+ * les fichiers BLOQUES par la garde (B1, qa-review round 1, BLOQUANT -- voir
+ * plus bas), puis retire les objets orphelins du bucket (E10.22c, dette D7).
+ * Le rappel N ENVOIE AUCUN COURRIEL (§3 du contrat) -- l ecriture d
  * `order_files.purge_scheduled` dans `outbox_events` est remise au drain
  * EXISTANT (`magrit-outbox-dispatcher`, minute par minute), qui la porte au
- * `PurgeNoticeNotificationConsumer` (branche dans
- * `outbox-dispatch-composition.ts`).
+ * `PurgeNoticeNotificationConsumer` (branche dans `outbox-dispatch-
+ * composition.ts`). `order_files.purged` (E10.22b) est ecrit APRES le
+ * retrait des objets, dans le meme bus, sans consommateur enregistre (§9 du
+ * contrat).
  *
- * AUCUNE DESTRUCTION ICI (E10.22b, hors perimetre de ce lot) : rien n est
- * retire de `storage.objects`, aucune ligne n est marquee `purged_at`.
+ * qa-review round 1 (« REJETE »), corrige AVANT tout deploiement -- voir
+ * `supabase/migrations/20260910000600` (garde durcie M1/N4, nettoyage
+ * orphelins durci M2/N3, comptage des blocages B1) et
+ * `supabase/migrations/20260910000700` (B2, BLOQUANT GRAVE : les fonctions
+ * de confirmation de depot refusent desormais toute confirmation dont
+ * l objet storage est deja plus vieux que le delai des orphelins -- ferme
+ * PAR CONSTRUCTION la course entre une confirmation tardive et le nettoyage
+ * des objets orphelins).
  *
  * Declenchee par un SECOND `pg_cron` + `pg_net`, DEDIE, QUOTIDIEN, DISTINCT
  * de celui de `magrit-outbox-dispatcher` (migration `20260910000500`, §3 du
@@ -75,6 +89,16 @@ Deno.serve(async (request: Request): Promise<Response> => {
 
   try {
     const report = await app.runOnce();
+    // B1 (qa-review round 1, BLOQUANT) — §5 du contrat : "l Edge Function
+    // journalise ce compte a chaque tour". Le corps de reponse HTTP (ci-dessous)
+    // n est pas un canal d observabilite fiable (reponse `pg_net` typiquement
+    // non relue) : c est ce `console.warn`, visible dans les logs de l Edge
+    // Function, qui rend le blocage REELLEMENT observable.
+    if (report.blockedFiles.length > 0) {
+      console.warn('[magrit-order-file-purge] fichiers bloques par la garde de purge, par espace et par motif', {
+        blockedFiles: report.blockedFiles,
+      });
+    }
     return new Response(JSON.stringify({ ok: true, ...report }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
