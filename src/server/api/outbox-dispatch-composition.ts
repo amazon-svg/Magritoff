@@ -23,6 +23,7 @@ import { SupabaseQuoteNotificationGateway } from '../../adapters/supabase/commer
 import { SupabaseQuoteDocumentAttachmentGateway } from '../../adapters/supabase/quote-document-attachment-gateway.ts';
 import { ResendQuoteSentEmailSender } from '../../adapters/resend/quote-sent-email-sender.ts';
 import { QuoteSentNotificationConsumer } from '../../modules/commercial-quotes/application/quote-sent-notification-consumer.ts';
+import { createOrderFilePurgeNoticeConsumer } from './order-file-purge-composition.ts';
 
 export type OutboxDispatchApplicationDependencies = Readonly<{
   /** Client `service_role` — seul role habilite sur la file (`api_claim_outbox_events`, colonnes de suivi). */
@@ -67,8 +68,23 @@ export function createOutboxDispatchApplication(
     baseUrl: dependencies.publicAppUrl,
   });
 
+  // E10.22a -- MEME client service_role, MEME cle Resend, MEME expediteur :
+  // le rappel de purge est un courriel de plus sur le relais EXISTANT,
+  // aucune dependance neuve a cabler (§3 du contrat : "le courriel ne passe
+  // pas par la nouvelle fonction [magrit-order-file-purge]").
+  const orderFilePurgeNoticeConsumer = createOrderFilePurgeNoticeConsumer({
+    serviceRoleClient: dependencies.serviceRoleClient,
+    resendApiKey: dependencies.resendApiKey,
+    fromEmail: dependencies.fromEmail,
+    // MEME `publicAppUrl` que le consommateur devis (qa-review round 1 B2) :
+    // deja disponible ici, une seule source pour les deux liens.
+    publicAppUrl: dependencies.publicAppUrl,
+    ...(dependencies.fetchImplementation ? { fetchImplementation: dependencies.fetchImplementation } : {}),
+  });
+
   const consumers: OutboxConsumerRegistry = {
     'quote.sent': quoteSentConsumer,
+    'order_files.purge_scheduled': orderFilePurgeNoticeConsumer,
   };
 
   const dispatcher = new OutboxDispatcher({

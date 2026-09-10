@@ -278,3 +278,160 @@ describe('createOutboxDispatchApplication — composition réelle', () => {
     expect(client.outboxUpdates).toEqual([]);
   });
 });
+
+// ── E10.22a — consommateur order_files.purge_scheduled, branche dans le
+// registre du drain EXISTANT (§3 du contrat : "le courriel ne passe pas par
+// la nouvelle fonction"). Faux DEDIE (rpc de resolution des destinataires +
+// de consignation des tentatives), distinct du faux quote.sent ci-dessus.
+function buildFakePurgeServiceRoleClient(options: {
+  claimedRows: readonly Record<string, unknown>[];
+  recipientRows: readonly Readonly<{ recipient_user_id: string | null; recipient_email: string }>[];
+}) {
+  const outboxUpdates: Array<{ patch: Record<string, unknown>; id: string }> = [];
+  const rpcCalls: Array<{ fn: string; args: unknown }> = [];
+  const deliveryAttempts: Array<Record<string, unknown>> = [];
+
+  const client = {
+    rpcCalls,
+    outboxUpdates,
+    deliveryAttempts,
+    async rpc(fn: string, args: Record<string, unknown>) {
+      rpcCalls.push({ fn, args });
+      if (fn === 'api_claim_outbox_events') return { data: options.claimedRows, error: null };
+      if (fn === 'api_resolve_order_file_purge_recipients') return { data: options.recipientRows, error: null };
+      if (fn === 'api_record_order_file_purge_notice_delivery_attempt') {
+        deliveryAttempts.push(args);
+        return {
+          data: { id: 'delivery-1', accepted_at: args['p_provider_message_id'] ? new Date().toISOString() : null },
+          error: null,
+        };
+      }
+      throw new Error(`rpc inattendu dans ce faux: ${fn}`);
+    },
+    from(table: string) {
+      if (table === 'outbox_events') {
+        return {
+          update(patch: Record<string, unknown>) {
+            return {
+              eq: async (_column: string, id: string) => {
+                outboxUpdates.push({ patch, id });
+                return { error: null };
+              },
+            };
+          },
+        };
+      }
+      if (table === 'tenants') {
+        const builder = {
+          select: () => builder,
+          eq: () => builder,
+          maybeSingle: async () => ({ data: { slug: 'atelier-test' }, error: null }),
+        };
+        return builder;
+      }
+      throw new Error(`table inattendue dans ce faux: ${table}`);
+    },
+  };
+
+  return client;
+}
+
+describe('createOutboxDispatchApplication — E10.22a order_files.purge_scheduled', () => {
+  it('resout les destinataires A LA REMISE, envoie un courriel par destinataire, consigne chaque tentative', async () => {
+    const client = buildFakePurgeServiceRoleClient({
+      claimedRows: [
+        {
+          id: 'event-purge-1',
+          tenant_id: 'tenant-1',
+          event_name: 'order_files.purge_scheduled',
+          event_version: 1,
+          aggregate_type: 'tenant',
+          aggregate_id: 'tenant-1',
+          payload: {
+            notice_id: 'notice-1',
+            stage: 'first',
+            file_count: 2,
+            order_count: 1,
+            purge_at: '2026-10-12T00:00:00Z',
+            days_before_purge: 20,
+            order_ids: ['order-1'],
+          },
+          occurred_at: '2026-09-10T05:00:00.000Z',
+          delivery_attempts: 1,
+        },
+      ],
+      recipientRows: [{ recipient_user_id: 'user-1', recipient_email: 'admin@example.com' }],
+    });
+
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ id: 'resend-msg-1' }), { status: 200 }));
+
+    const app = createOutboxDispatchApplication({
+      serviceRoleClient: client as any,
+      resendApiKey: 'secret',
+      fromEmail: 'Magrit <devis@magritapp.com>',
+      publicAppUrl: 'https://magritapp.com',
+      fetchImplementation: fetchMock as unknown as typeof fetch,
+    });
+
+    const report = await app.runOnce();
+
+    expect(report).toEqual({ claimed: 1, delivered: 1, failed: 0, errors: [] });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const emailPayload = JSON.parse(String((fetchMock.mock.calls[0]?.[1] as RequestInit).body));
+    expect(emailPayload.to).toEqual(['admin@example.com']);
+    expect(emailPayload.html).toContain('https://magritapp.com/t/atelier-test/dashboard/commercial-orders/order-1');
+    expect(client.deliveryAttempts).toEqual([
+      expect.objectContaining({
+        p_notice_id: 'notice-1',
+        p_recipient_user_id: 'user-1',
+        p_recipient_email: 'admin@example.com',
+        p_provider_message_id: 'resend-msg-1',
+      }),
+    ]);
+    expect(client.outboxUpdates).toEqual([
+      { patch: expect.objectContaining({ published_at: expect.any(String) }), id: 'event-purge-1' },
+    ]);
+  });
+
+  it('aucun destinataire a la remise -> livre SANS envoyer (cas nominal, le proprietaire a change)', async () => {
+    const client = buildFakePurgeServiceRoleClient({
+      claimedRows: [
+        {
+          id: 'event-purge-2',
+          tenant_id: 'tenant-1',
+          event_name: 'order_files.purge_scheduled',
+          event_version: 1,
+          aggregate_type: 'tenant',
+          aggregate_id: 'tenant-1',
+          payload: {
+            notice_id: 'notice-2',
+            stage: 'second',
+            file_count: 1,
+            order_count: 1,
+            purge_at: '2026-10-12T00:00:00Z',
+            days_before_purge: 15,
+            order_ids: ['order-1'],
+          },
+          occurred_at: '2026-09-10T05:00:00.000Z',
+          delivery_attempts: 1,
+        },
+      ],
+      recipientRows: [],
+    });
+    const fetchMock = vi.fn();
+
+    const app = createOutboxDispatchApplication({
+      serviceRoleClient: client as any,
+      resendApiKey: 'secret',
+      fromEmail: 'Magrit <devis@magritapp.com>',
+      publicAppUrl: 'https://magritapp.com',
+      fetchImplementation: fetchMock as unknown as typeof fetch,
+    });
+
+    const report = await app.runOnce();
+
+    expect(report).toEqual({ claimed: 1, delivered: 1, failed: 0, errors: [] });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(client.deliveryAttempts).toEqual([]);
+  });
+});

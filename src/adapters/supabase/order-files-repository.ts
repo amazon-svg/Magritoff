@@ -107,8 +107,12 @@ const UPLOAD_TICKET_FALLBACK_TTL_SECONDS = 7200;
 // `deposited_via` (E10.20b) rejoint la selection : servie desormais sur TOUS
 // les fichiers, atelier compris (contrat §8.21 §8bis, "20b le sert sur TOUS
 // les fichiers, y compris workspace").
+// `purge_at` (E10.22a) rejoint la selection : servie sur TOUS les fichiers
+// (la colonne est NOT NULL en base depuis la migration 20260910000500),
+// TOUJOURS transmise TELLE QUELLE (toIsoTimestamp) -- jamais recalculee ici,
+// c est precisement l interdiction du contrat (« figee au depot »).
 const FILE_COLUMNS =
-  'id, order_id, order_line_id, filename, content_type, byte_size, visibility, deposited_by, deposited_by_label, deposited_via, deposited_at, updated_at, deleted_at';
+  'id, order_id, order_line_id, filename, content_type, byte_size, visibility, deposited_by, deposited_by_label, deposited_via, deposited_at, purge_at, updated_at, deleted_at';
 
 export class SupabaseOrderFilesRepository implements OrderFilesRepository {
   constructor(
@@ -352,6 +356,7 @@ export class SupabaseOrderFilesRepository implements OrderFilesRepository {
       deposited_by: row.deposited_by ?? null,
       deposited_by_label: row.deposited_by_label ?? null,
       deposited_via: row.deposited_via ?? 'workspace',
+      purge_at: row.purge_at ? toIsoTimestamp(row.purge_at) : undefined,
       updated_at: toIsoTimestamp(row.updated_at),
       download_url: data.signedUrl,
       download_url_expires_at: new Date(Date.now() + DOWNLOAD_URL_TTL_SECONDS * 1000).toISOString(),
@@ -382,6 +387,7 @@ function toFileDto(row: Record<string, any>): OrderFileDto {
     deposited_by: row.deposited_by ?? null,
     deposited_by_label: row.deposited_by_label ?? null,
     deposited_via: row.deposited_via ?? 'workspace',
+    purge_at: row.purge_at ? toIsoTimestamp(row.purge_at) : undefined,
     updated_at: toIsoTimestamp(row.updated_at),
   };
 }

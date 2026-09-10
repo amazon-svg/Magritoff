@@ -43,6 +43,12 @@ export const orderFileSchema = z
     // `dev-story` (seul l agent `architecte` touche openapi/), a faire par le
     // lot qui cablera reellement ce champ cote contrat.
     deposited_via: orderFileDepositChannelSchema.optional(),
+    // OPTIONNEL DANS CET INCREMENT DE CONTRAT (E10.22a) : voir OrderFile.
+    // purge_at dans openapi/magrit-core.v1.yaml. « A partir de laquelle »,
+    // jamais « a » -- un consommateur ne doit jamais deduire une suppression
+    // de cette seule date (arbitrage Arnaud du 2026-09-10, purge subordonnee
+    // a une preuve de livraison, E10.22b promouvra ce champ `required`).
+    purge_at: timestampSchema.optional(),
     updated_at: timestampSchema,
   })
   .strict();
@@ -60,6 +66,7 @@ export const orderFileDetailSchema = z
     deposited_by: uuidSchema.nullable(),
     deposited_by_label: z.string().min(1).max(320).nullable(),
     deposited_via: orderFileDepositChannelSchema.optional(),
+    purge_at: timestampSchema.optional(),
     updated_at: timestampSchema,
     download_url: z.string().url(),
     download_url_expires_at: timestampSchema,

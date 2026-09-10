@@ -398,6 +398,16 @@ verify_jwt = false
 [functions.magrit-outbox-dispatcher]
 verify_jwt = false
 
+# E10.22a/E10.22a-bis — balayage QUOTIDIEN de purge des fichiers de commande,
+# declenche par un SECOND pg_cron + pg_net DEDIE (migration 20260910000500),
+# distinct de celui de magrit-outbox-dispatcher (§3 du contrat : deux axes,
+# deux cadences). Meme raisonnement que ci-dessus : authentification
+# ENTIEREMENT portee par le secret partage
+# `MAGRIT_ORDER_FILE_PURGE_SECRET` (en-tete `X-Magrit-Order-File-Purge-
+# Secret`, compare en temps constant), aucun JWT presente par pg_net.
+[functions.magrit-order-file-purge]
+verify_jwt = false
+
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 

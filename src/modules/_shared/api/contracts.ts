@@ -209,6 +209,7 @@ export const OUTBOX_EVENT_NAMES = [
   'quote_line.changed',
   'order.step_changed',
   'order.files_submitted',
+  'order_files.purge_scheduled',
   'customer.created',
   'project.created',
   'price_rule.changed',
