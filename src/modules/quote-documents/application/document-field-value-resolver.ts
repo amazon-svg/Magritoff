@@ -29,6 +29,17 @@
  * GENERIQUE (paire cle/valeur des champs primitifs), pas une mise en forme
  * imprimeur ("200 ex. — 135g couche brillant") qui exigerait un mapping par
  * gamme de produit — hors perimetre de ce lot, signale au rapport.
+ *
+ * ── E10.19b — extension au bon de commande ──────────────────────────────────
+ * `resolveOrderDocumentFieldValues` ci-dessous couvre les cinq valeurs
+ * `order.*` du contrat (docs/api/CONVENTIONS.md §8.20 §4/§6). Les familles
+ * `customer.*`/`totals.*` sont EXACTEMENT les memes qu au devis — factorisees
+ * dans `applyCustomerFields`/`applyTotalsFields` ci-dessous pour que les deux
+ * resolveurs ne puissent jamais diverger silencieusement sur ces deux
+ * familles partagees. `resolveDocumentLineFieldValues` est REUTILISEE TELLE
+ * QUELLE pour une ligne de commande (`line.*` vaut pour les deux types de
+ * document, contrat §8.20 §4 : "une ligne de commande porte les memes
+ * attributs qu une ligne de devis").
  */
 import type { DocumentFieldId, DocumentLineFieldId } from '../../document-templates/api/contracts.ts';
 import {
@@ -128,26 +139,8 @@ export function summarizeProductConfig(productConfig: Readonly<Record<string, un
  * tracer pour un champ absent, jamais a ce resolveur de fabriquer une valeur
  * de repli.
  */
-export function resolveDocumentFieldValues(
-  quote: ResolvableQuoteHeader,
-  customer: ResolvableCustomer,
-  totals: ResolvableTotals,
-): DocumentFieldValues {
-  const values: Record<string, string> = {
-    'quote.number': quote.number,
-    'quote.issued_at': formatShortFrenchDateFromTimestamp(quote.issuedAt),
-    'totals.net_total': formatMoneyFrench(totals.netTotal),
-    'totals.vat_rate': formatRatePercentFrench(totals.vatRate),
-    'totals.vat_amount': formatMoneyFrench(totals.vatAmount),
-    'totals.total_incl_tax': formatMoneyFrench(totals.totalInclTax),
-  };
-
-  // `quote.customer_reference` : ECART DE DONNEES documente en tete de
-  // fichier — aucune source, jamais renseigne.
-
-  if (quote.validUntil !== null) {
-    values['quote.valid_until'] = formatShortFrenchDate(quote.validUntil);
-  }
+/** Familles `customer.*`, PARTAGEES telles quelles entre devis et commande (contrat §8.20 §4). */
+function applyCustomerFields(values: Record<string, string>, customer: ResolvableCustomer): void {
   if (customer.companyName !== null && customer.companyName.trim() !== '') {
     values['customer.company_name'] = customer.companyName;
   }
@@ -173,13 +166,94 @@ export function resolveDocumentFieldValues(
   if (addressBlock.length > 0) {
     values['customer.billing_address_block'] = addressBlock.join('\n');
   }
+}
 
+/** Familles `totals.*`, PARTAGEES telles quelles entre devis et commande (contrat §8.20 §4). */
+function applyTotalsFields(values: Record<string, string>, totals: ResolvableTotals): void {
+  values['totals.net_total'] = formatMoneyFrench(totals.netTotal);
+  values['totals.vat_rate'] = formatRatePercentFrench(totals.vatRate);
+  values['totals.vat_amount'] = formatMoneyFrench(totals.vatAmount);
+  values['totals.total_incl_tax'] = formatMoneyFrench(totals.totalInclTax);
   if (totals.linesSubtotal !== null) values['totals.lines_subtotal'] = formatMoneyFrench(totals.linesSubtotal);
   if (totals.globalDiscount !== null) values['totals.global_discount'] = formatMoneyFrench(totals.globalDiscount);
+}
+
+export function resolveDocumentFieldValues(
+  quote: ResolvableQuoteHeader,
+  customer: ResolvableCustomer,
+  totals: ResolvableTotals,
+): DocumentFieldValues {
+  const values: Record<string, string> = {
+    'quote.number': quote.number,
+    'quote.issued_at': formatShortFrenchDateFromTimestamp(quote.issuedAt),
+  };
+
+  // `quote.customer_reference` : ECART DE DONNEES documente en tete de
+  // fichier — aucune source, jamais renseigne.
+
+  if (quote.validUntil !== null) {
+    values['quote.valid_until'] = formatShortFrenchDate(quote.validUntil);
+  }
+  applyCustomerFields(values, customer);
+  applyTotalsFields(values, totals);
 
   // qa-review B5 (BLOQUANT, corrige) — assainissement WinAnsi EN DERNIER,
   // sur les valeurs finales : un caractere hors repertoire (ex. "Ł" dans un
   // nom de client) ne doit plus jamais faire echouer `pdf-lib` a l ecriture.
+  return sanitizeFieldValues(values) as DocumentFieldValues;
+}
+
+/**
+ * E10.19b — entete de COMMANDE necessaire aux cinq valeurs `order.*` du
+ * contrat. `customerReference` reste `null` sur TOUTE commande tant que
+ * `commercial_quotes` n a pas de colonne source (ecart de donnees documente
+ * dans la migration `20260910000100`, meme famille que `quote.
+ * customer_reference` ci-dessus) — "valeur absente = rien imprime" fait le
+ * reste, jamais une valeur inventee.
+ */
+export type ResolvableOrderHeader = Readonly<{
+  number: string;
+  /** `commercial_orders.created_at` — LA date de commande (contrat : "nommee d apres la colonne et non l instant d envoi, qui n existe pas pour ce document"). */
+  createdAt: string;
+  /** `commercial_orders.quote_id -> commercial_quotes.number` : le devis d origine, pour que le client rapproche sa commande de son devis. */
+  quoteNumber: string;
+  /** `commercial_orders.customer_reference` (E10.19a, decision D) — `null` tant que la source amont sur `commercial_quotes` n existe pas. */
+  customerReference: string | null;
+  /** `commercial_orders.expected_delivery_date` (`YYYY-MM-DD`) — `null` sur 100% des commandes tant qu aucun ecrivain n existe (reserve (h), §8.17), inoffensif par construction ("valeur absente = rien imprime"). */
+  expectedDeliveryDate: string | null;
+}>;
+
+/**
+ * Construit la carte `DocumentFieldId -> valeur imprimable` pour UNE
+ * commande. Meme discipline que `resolveDocumentFieldValues` : une cle
+ * ABSENTE signifie « rien n est imprime », jamais une valeur de repli.
+ *
+ * `totals` est DEJA FILTRE par `commercial_orders.show_discounts` par
+ * l APPELANT (`CommercialOrdersService.generateDocument()`, meme discipline
+ * B4/decision (D) que le devis) : ce resolveur ne relit ni ne recalcule
+ * jamais cette regle.
+ */
+export function resolveOrderDocumentFieldValues(
+  order: ResolvableOrderHeader,
+  customer: ResolvableCustomer,
+  totals: ResolvableTotals,
+): DocumentFieldValues {
+  const values: Record<string, string> = {
+    'order.number': order.number,
+    'order.created_at': formatShortFrenchDateFromTimestamp(order.createdAt),
+    'order.quote_number': order.quoteNumber,
+  };
+
+  if (order.customerReference !== null && order.customerReference.trim() !== '') {
+    values['order.customer_reference'] = order.customerReference;
+  }
+  if (order.expectedDeliveryDate !== null) {
+    values['order.expected_delivery_date'] = formatShortFrenchDate(order.expectedDeliveryDate);
+  }
+  applyCustomerFields(values, customer);
+  applyTotalsFields(values, totals);
+
+  // qa-review B5 — meme assainissement WinAnsi qu au devis, EN DERNIER.
   return sanitizeFieldValues(values) as DocumentFieldValues;
 }
 

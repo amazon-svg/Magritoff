@@ -36,6 +36,13 @@ import type { CommercialQuotesService } from '../../modules/commercial-quotes/ap
 import { QuoteNotFoundError } from '../../modules/commercial-quotes/application/commercial-quotes-repository.ts';
 import type { ProductionStepsService } from '../../modules/production-steps/application/production-steps-service.ts';
 import { ProductionStepNotFoundError } from '../../modules/production-steps/application/production-steps-repository.ts';
+import { orderDocumentSchema } from '../../modules/order-documents/api/contracts.ts';
+import {
+  OrderDocumentAlreadyGeneratedError,
+  OrderDocumentGenerationFailedError,
+  OrderDocumentNotFoundError,
+  OrderDocumentTemplateMissingError,
+} from '../../modules/order-documents/application/order-documents-repository.ts';
 import { uuidSchema } from '../../modules/_shared/api/index.ts';
 import {
   buildPage,
@@ -252,6 +259,52 @@ export function createCommercialOrdersRoutes(
         );
       },
     }),
+
+    // ── E10.19b — bon de commande PDF. AUCUNE generation sur le GET (contrat
+    // §8.20 §6, "cette operation ne produit rien") ; la production est une
+    // ACTION EXPLICITE et REJOUABLE (POST), arbitrage (C2).
+    defineGescomRoute({
+      method: 'GET',
+      path: '/commercial-orders/{orderId}/documents',
+      operationId: 'getOrderDocument',
+      requiredScopes: ['orders:read'],
+      inputSchema: null,
+      dataSchema: orderDocumentSchema,
+      async handle(context) {
+        const orderId = context.params['orderId']!;
+        return withCommercialOrderErrors(
+          async () => {
+            const document = await orders.getDocument(context.tenantId, orderId);
+            return { status: 200, data: document };
+          },
+          undefined,
+          'order.not_found',
+        );
+      },
+    }),
+
+    defineGescomRoute({
+      method: 'POST',
+      path: '/commercial-orders/{orderId}/documents',
+      operationId: 'generateOrderDocument',
+      // Contrat : `security: [bearerAuth]` SEUL, AUCUNE `serviceKey` —
+      // "produire" est le geste d une personne, jamais d un module tiers.
+      authentication: 'user',
+      createsResource: true,
+      inputSchema: null,
+      dataSchema: orderDocumentSchema,
+      async handle(context) {
+        const orderId = context.params['orderId']!;
+        return withCommercialOrderErrors(
+          async () => {
+            const document = await orders.generateDocument(context.tenantId, requireUserId(context), orderId);
+            return { status: 201, data: document };
+          },
+          undefined,
+          'order.not_found',
+        );
+      },
+    }),
   ];
 }
 
@@ -330,6 +383,12 @@ function requireUserId(context: GescomRequestContext): import('../../kernel/ids/
 async function withCommercialOrderErrors<T>(
   operation: () => Promise<T>,
   getCurrentState?: () => Promise<Readonly<Record<string, unknown>>>,
+  // E10.19b — `getOrderDocument`/`generateOrderDocument` documentent EXPLICITEMENT
+  // le code `order.not_found` au contrat (§8.20 §6/§7), la ou les operations
+  // plus anciennes de ce fichier n avaient jamais precise de code au-dela du
+  // generique `$ref: NotFound`. Parametre optionnel, retro-compatible avec
+  // tous les appels existants (defaut INCHANGE).
+  orderNotFoundCode: string = SHARED_PROBLEM_CODES.notFound,
 ): Promise<T> {
   try {
     return await operation();
@@ -338,7 +397,7 @@ async function withCommercialOrderErrors<T>(
       throw problem({ status: 404, title: 'Devis introuvable', code: SHARED_PROBLEM_CODES.notFound });
     }
     if (error instanceof CommercialOrderNotFoundError) {
-      throw problem({ status: 404, title: 'Commande introuvable', code: SHARED_PROBLEM_CODES.notFound });
+      throw problem({ status: 404, title: 'Commande introuvable', code: orderNotFoundCode });
     }
     if (error instanceof QuoteConversionForbiddenStatusError) {
       const currentState = await readCurrentStateSafely(getCurrentState);
@@ -381,6 +440,40 @@ async function withCommercialOrderErrors<T>(
         code: 'production_step.not_found',
         detail: error.message,
       });
+    }
+    // E10.19b — bon de commande PDF. `document_not_generated` EST LE CAS
+    // NOMINAL (contrat §8.20 §6) : aucune commande n a de document tant que
+    // personne n a clique « Produire le bon de commande ».
+    if (error instanceof OrderDocumentNotFoundError) {
+      throw problem({
+        status: 404,
+        title: 'Aucun bon de commande',
+        code: 'order.document_not_generated',
+        detail: error.message,
+      });
+    }
+    if (error instanceof OrderDocumentAlreadyGeneratedError) {
+      throw problem({
+        status: 409,
+        title: 'Bon de commande deja produit',
+        code: 'order.document_already_generated',
+        detail: error.message,
+      });
+    }
+    if (error instanceof OrderDocumentTemplateMissingError) {
+      throw problem({
+        status: 409,
+        title: 'Aucun gabarit de bon de commande',
+        code: 'order.document_template_missing',
+        detail: error.message,
+      });
+    }
+    if (error instanceof OrderDocumentGenerationFailedError) {
+      // 500 — AUCUN code metier stable au contrat pour ce cas (meme parti
+      // que `quote.document_generation_failed`, jamais formalise en reponse
+      // JSON Schema dans le YAML) : propage telle quelle, le socle transverse
+      // la traduit en `api.internal_error`.
+      throw error;
     }
     throw error;
   }

@@ -20,7 +20,13 @@
  *  - CA3, gamme de fabrication Clariprint — capacite absente du depot,
  *    differee et rapprochee d E10.8 (gelee). Aucune section, aucun lien
  *    mort, aucun testid.
- *  - CA8, bon de commande PDF (E10.19) — non livree, aucun bouton.
+ *
+ * CA8 (bon de commande PDF, E10.19) — LIVRE PAR CE LOT (E10.19b) :
+ * `OrderDocumentPanel` (module `commercial-orders/ui/components`, la
+ * ressource vit sous `/commercial-orders/{orderId}/documents`, jamais un
+ * module `order-documents` distinct cote UI), quatrieme section, meme
+ * gabarit visuel que les trois precedentes. Production sur ACTION EXPLICITE
+ * UNIQUEMENT (bouton « Produire le bon de commande »), jamais automatique.
  *
  * CA5 (fichiers, E10.17) — PANNEAU A L ECHELLE DE LA COMMANDE LIVRE PAR CE
  * LOT (E10.17b), qa-review N1 (round 1) : le CA5 amende d E10.16 parlait
@@ -45,7 +51,7 @@ import { useTenantPath } from '@/modules/tenants/ui/hooks';
 import { TEST_IDS } from '@/shared/presentation/testIds';
 import type { ProductionStepDto } from '@/modules/production-steps';
 import { OrderFilesBlock } from '@/modules/order-files/ui';
-import { OrderStatusButton } from '../components';
+import { OrderDocumentPanel, OrderStatusButton } from '../components';
 import { useOrderDetail } from '../hooks/useOrderDetail';
 import { contactDisplayName, customerDisplayName, formatOrderDate, sourceQuoteStatusLabel } from './order-detail.helpers';
 
@@ -232,6 +238,10 @@ export function DashboardOrderDetail() {
       {/* CA5 — panneau de fichiers (E10.17b), troisieme section, meme gabarit
           visuel que les deux sections ci-dessus (arbitrage Q1 du 09/09/2026). */}
       <OrderFilesBlock orderId={order.id} />
+
+      {/* CA8 — panneau du bon de commande PDF (E10.19b), quatrieme section,
+          meme gabarit visuel. */}
+      <OrderDocumentPanel orderId={order.id} />
     </div>
   );
 }

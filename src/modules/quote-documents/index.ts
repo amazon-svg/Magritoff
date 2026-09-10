@@ -19,11 +19,13 @@ export {
 export {
   resolveDocumentFieldValues,
   resolveDocumentLineFieldValues,
+  resolveOrderDocumentFieldValues,
   summarizeProductConfig,
   type DocumentFieldValues,
   type DocumentLineFieldValues,
   type ResolvableCustomer,
   type ResolvableLine,
+  type ResolvableOrderHeader,
   type ResolvableQuoteHeader,
   type ResolvableTotals,
 } from './application/document-field-value-resolver';

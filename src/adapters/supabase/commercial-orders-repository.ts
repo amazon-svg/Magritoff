@@ -37,6 +37,7 @@ import {
   type ListCommercialOrdersResult,
   type ListOrderStepChangesParams,
   type ListOrderStepChangesResult,
+  type OrderDataForDocumentGeneration,
 } from '../../modules/commercial-orders/application/commercial-orders-repository.ts';
 import { toIsoTimestamp, toIsoTimestampOrNull } from '../../modules/_shared/application/index.ts';
 
@@ -245,6 +246,67 @@ export class SupabaseCommercialOrdersRepository implements CommercialOrdersRepos
     const row = Array.isArray(data) ? data[0] : data;
     if (!row) throw new Error('La transition n a rendu aucune entree de journal.');
     return toOrderStepChangeDto(row as Record<string, any>);
+  }
+
+  /**
+   * E10.19b — DEUX lectures, comme `findDetailById` : la ligne
+   * `commercial_orders` (colonnes GELEES `show_discounts`/`customer_reference`
+   * comprises, ABSENTES de `CommercialOrderDto`/`CommercialOrderDetailDto`)
+   * puis ses lignes. `quoteNumber` par une TROISIEME lecture, scopee au
+   * tenant (`commercial_quotes.number`, `quote_id`) : jamais une jointure
+   * PostgREST imbriquee ici, pour rester coherent avec le reste de cet
+   * adaptateur (qui n en utilise nulle part ailleurs) et parce qu un devis
+   * appartient TOUJOURS au meme tenant que sa commande (contrainte deja
+   * tenue par `api_convert_commercial_quote`).
+   */
+  async findForDocumentGeneration(
+    tenantId: TenantId,
+    orderId: string,
+  ): Promise<OrderDataForDocumentGeneration | null> {
+    const { data: orderRow, error: orderError } = await this.client
+      .from('commercial_orders')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('id', orderId)
+      .maybeSingle();
+    if (orderError) throw new Error(orderError.message);
+    if (!orderRow) return null;
+
+    const { data: quoteRow, error: quoteError } = await this.client
+      .from('commercial_quotes')
+      .select('number')
+      .eq('tenant_id', tenantId)
+      .eq('id', orderRow.quote_id)
+      .maybeSingle();
+    if (quoteError) throw new Error(quoteError.message);
+
+    const { data: lineRows, error: linesError } = await this.client
+      .from('commercial_order_lines')
+      .select('position, label, product_config, quantity, customer_price, discount_rate, sale_price')
+      .eq('order_id', orderId)
+      .order('position', { ascending: true });
+    if (linesError) throw new Error(linesError.message);
+
+    return {
+      id: orderRow.id,
+      number: orderRow.number,
+      createdAt: toIsoTimestamp(orderRow.created_at),
+      customerId: orderRow.customer_id,
+      quoteNumber: quoteRow?.number ?? '',
+      customerReference: orderRow.customer_reference ?? null,
+      expectedDeliveryDate: orderRow.expected_delivery_date ?? null,
+      showDiscounts: Boolean(orderRow.show_discounts),
+      totals: toCommercialOrderTotalsDto(orderRow),
+      lines: (lineRows ?? []).map((row: Record<string, any>) => ({
+        position: Number(row.position),
+        label: row.label,
+        productConfig: row.product_config ?? {},
+        quantity: Number(row.quantity),
+        customerPrice: toMoneyString(row.customer_price),
+        discountRate: toNullableRateString(row.discount_rate),
+        salePrice: toMoneyString(row.sale_price),
+      })),
+    };
   }
 }
 

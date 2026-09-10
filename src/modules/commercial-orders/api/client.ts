@@ -6,7 +6,8 @@
  * `CommercialOrder`, pas un `Quote` (voir en-tete de `../api/contracts.ts`).
  */
 import { successEnvelopeSchema } from '../../_shared/api/index.ts';
-import { API_V1_BASE_PATH, type ApiResponseWithEtag, FetchApiClient } from '../../../platform/api/index.ts';
+import { API_V1_BASE_PATH, ApiClientError, type ApiResponseWithEtag, FetchApiClient } from '../../../platform/api/index.ts';
+import { orderDocumentSchema, type OrderDocumentDto } from '../../order-documents/api/contracts.ts';
 import {
   changeOrderProductionStepCommandSchema,
   commercialOrderDetailSchema,
@@ -130,6 +131,42 @@ export class CommercialOrdersApiClient {
       body: changeOrderProductionStepCommandSchema.parse(command),
       headers: { 'Idempotency-Key': newIdempotencyKey() },
       responseSchema: successEnvelopeSchema(orderStepChangeSchema),
+    });
+    return envelope.data;
+  }
+
+  /**
+   * E10.19b — lit le bon de commande PDF deja produit. Rend `null` sur le CAS
+   * NOMINAL `order.document_not_generated` (contrat §8.20 §6 : "toute
+   * commande dont personne n a clique « Produire le bon de commande » rend ce
+   * code, indefiniment et sans anomalie") — jamais une exception a attraper
+   * par l ecran appelant pour ce seul cas. Toute AUTRE erreur (404
+   * `order.not_found`, 401, 403...) est propagee telle quelle.
+   */
+  async getDocument(orderId: string): Promise<OrderDocumentDto | null> {
+    try {
+      const envelope = await this.client.request({
+        path: `${ORDERS_BASE_PATH}/${orderId}/documents`,
+        responseSchema: successEnvelopeSchema(orderDocumentSchema),
+      });
+      return envelope.data;
+    } catch (cause) {
+      if (cause instanceof ApiClientError && cause.problem.code === 'order.document_not_generated') return null;
+      throw cause;
+    }
+  }
+
+  /**
+   * E10.19b — PRODUIT le bon de commande PDF (« Produire le bon de
+   * commande »), ACTION EXPLICITE. `Idempotency-Key` generee ici (double-clic
+   * depuis la fiche commande, geste rare mais possible).
+   */
+  async generateDocument(orderId: string): Promise<OrderDocumentDto> {
+    const envelope = await this.client.request({
+      method: 'POST',
+      path: `${ORDERS_BASE_PATH}/${orderId}/documents`,
+      headers: { 'Idempotency-Key': newIdempotencyKey() },
+      responseSchema: successEnvelopeSchema(orderDocumentSchema),
     });
     return envelope.data;
   }

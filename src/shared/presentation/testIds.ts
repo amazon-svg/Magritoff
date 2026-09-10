@@ -851,6 +851,23 @@ export const TEST_IDS = {
     deleteConfirmBtn: 'order-files-delete-confirm-btn',
     deleteCancelBtn: 'order-files-delete-cancel-btn',
   },
+
+  // ─── E10.19b — Bon de commande PDF sur la fiche commande ───────────────────
+  // Quatrieme section de `OrderDetailPage.tsx` (CA8 d E10.16, explicitement
+  // HORS PERIMETRE jusqu ici — "non livree, aucun bouton"). Meme gabarit
+  // visuel que `orderFiles`. Production sur ACTION EXPLICITE
+  // (`generateBtn`), jamais automatique. Aucun cas de test Notion publie a la
+  // remise de ce lot (sous-story nouvelle) : testids poses selon la
+  // convention documentee en tete de ce fichier, a faire confirmer par le
+  // scribe des que le cahier TF existera.
+  orderDocument: {
+    block: 'order-document-block',
+    emptyState: 'order-document-empty-state',
+    generateBtn: 'order-document-generate-btn',
+    downloadBtn: 'order-document-download-btn',
+    generatedLabel: 'order-document-generated-label',
+    errorBanner: 'order-document-error-banner',
+  },
 } as const;
 
 /**

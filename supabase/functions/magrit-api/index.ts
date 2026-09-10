@@ -79,6 +79,8 @@ import { SupabaseDocumentTemplatesRepository } from '../../../src/adapters/supab
 import { QuoteDocumentsService } from '../../../src/modules/quote-documents/application/quote-documents-service.ts';
 import { CustomersRepositoryDocumentDataGateway } from '../../../src/modules/quote-documents/application/customer-document-data-gateway.ts';
 import { SupabaseQuoteDocumentsRepository } from '../../../src/adapters/supabase/quote-documents-repository.ts';
+import { OrderDocumentsService } from '../../../src/modules/order-documents/application/order-documents-service.ts';
+import { SupabaseOrderDocumentsRepository } from '../../../src/adapters/supabase/order-documents-repository.ts';
 import { OrderFilesService } from '../../../src/modules/order-files/application/order-files-service.ts';
 import { SupabaseOrderFilesRepository } from '../../../src/adapters/supabase/order-files-repository.ts';
 import { SupabaseApiPrincipalVerifier } from '../../../src/adapters/supabase/api-principal-verifier.ts';
@@ -343,6 +345,23 @@ export async function handleRequest(request: Request): Promise<Response> {
     repository: new SupabaseQuoteDocumentsRepository(documentTemplatesStorageClient, storefrontClient),
   });
 
+  // E10.19b — document PDF de commande (bon de commande), PRODUIT SUR ACTION
+  // EXPLICITE (`generateOrderDocument`), jamais a la conversion. `templates`
+  // REUTILISE `documentTemplatesRepository` tel quel (deja generalise par
+  // E10.19a a `(tenantId, documentType)`), `customers` REUTILISE
+  // `CustomersRepositoryDocumentDataGateway` du module `quote-documents`
+  // (aucune notion de devis dedans, regle R5). `SupabaseOrderDocumentsRepository`
+  // recoit `client` (jeton de l acteur, EXIGE par `api_register_order_document`
+  // pour resoudre `auth.uid()` — ECART DELIBERE avec
+  // `SupabaseQuoteDocumentsRepository`, voir l en-tete de ce fichier
+  // d adaptateur) ET `documentTemplatesStorageClient` (`service_role`, bucket
+  // uniquement).
+  const orderDocumentsService = new OrderDocumentsService({
+    templates: documentTemplatesRepository,
+    customers: new CustomersRepositoryDocumentDataGateway(customersRepository),
+    repository: new SupabaseOrderDocumentsRepository(client, documentTemplatesStorageClient),
+  });
+
   // E10.3 — creation d un devis depuis un projet (selection multi-produits).
   // E10.9 — remises granulaires par ligne, ajout/suppression/reordonnancement
   // et journal d audit : le service resout desormais le prix de chaque ligne
@@ -430,6 +449,7 @@ export async function handleRequest(request: Request): Promise<Response> {
       newEventId: () => crypto.randomUUID(),
     }),
     quotes: commercialQuotesService,
+    documents: orderDocumentsService,
   });
 
   // E10.13 — referentiel des etapes de production du tenant, configurable et

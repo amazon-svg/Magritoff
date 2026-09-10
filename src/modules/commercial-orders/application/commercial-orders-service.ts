@@ -10,6 +10,8 @@
 import type { TenantId, UserId } from '../../../kernel/ids/index.ts';
 import type { OutboxPublisher } from '../../_shared/application/index.ts';
 import type { CommercialQuotesService } from '../../commercial-quotes/application/commercial-quotes-service.ts';
+import type { OrderDocumentDto } from '../../order-documents/api/contracts.ts';
+import type { OrderDocumentsService, OrderForDocumentGeneration } from '../../order-documents/application/order-documents-service.ts';
 import type {
   ChangeOrderProductionStepCommand,
   CommercialOrderDetailDto,
@@ -30,17 +32,21 @@ export type CommercialOrdersServiceDependencies = Readonly<{
   outbox: OutboxPublisher;
   /** E10.3/E10.9/E10.10a — lecture du devis a convertir (existence, numero). */
   quotes: CommercialQuotesService;
+  /** E10.19b — moteur de production/lecture du bon de commande PDF. */
+  documents: OrderDocumentsService;
 }>;
 
 export class CommercialOrdersService {
   private readonly repository: CommercialOrdersRepository;
   private readonly outbox: OutboxPublisher;
   private readonly quotes: CommercialQuotesService;
+  private readonly documents: OrderDocumentsService;
 
   constructor(dependencies: CommercialOrdersServiceDependencies) {
     this.repository = dependencies.repository;
     this.outbox = dependencies.outbox;
     this.quotes = dependencies.quotes;
+    this.documents = dependencies.documents;
   }
 
   list(tenantId: TenantId, params: ListCommercialOrdersParams): Promise<ListCommercialOrdersResult> {
@@ -153,5 +159,67 @@ export class CommercialOrdersService {
     });
 
     return order;
+  }
+
+  /**
+   * E10.19b — lit le bon de commande PDF deja produit. AUCUNE generation ici
+   * (contrat, `getOrderDocument` : "cette operation ne produit rien"). 404
+   * `order.not_found` si la commande est absente/hors tenant (verifie
+   * AVANT, meme discipline que `getDetail`) ; 404
+   * `order.document_not_generated` — via `OrderDocumentNotFoundError`,
+   * traduit par la ROUTE — si elle existe mais n a pas de document (CAS
+   * NOMINAL, contrat §8.20 §6).
+   */
+  async getDocument(tenantId: TenantId, orderId: string): Promise<OrderDocumentDto> {
+    await this.getSummary(tenantId, orderId);
+    return this.documents.getForOrder(tenantId, orderId);
+  }
+
+  /**
+   * E10.19b — PRODUIT le bon de commande PDF d une commande (« Produire le
+   * bon de commande »), ACTION EXPLICITE et REJOUABLE tant qu elle n a pas
+   * reussi (contrat §8.20 §6, arbitrage (C2)).
+   *
+   * Lit la commande dans sa forme COMPLETE (`findForDocumentGeneration`, y
+   * compris les colonnes GELEES `show_discounts`/`customer_reference`,
+   * E10.19a decision D) et applique le filtre `show_discounts` ICI, UNE
+   * SEULE FOIS, avant de deleguer au moteur (`OrderDocumentsService.generate()`)
+   * — MEME discipline que `CommercialQuotesService.send()` pour le devis
+   * (E10.10b-1 decision 3) : la regle de visibilite des remises reste
+   * SERVEUR, jamais recalculee cote client ni par le module `order-documents`
+   * lui-meme.
+   */
+  async generateDocument(tenantId: TenantId, actor: UserId, orderId: string): Promise<OrderDocumentDto> {
+    const data = await this.repository.findForDocumentGeneration(tenantId, orderId);
+    if (!data) throw new CommercialOrderNotFoundError();
+
+    const generationInput: OrderForDocumentGeneration = {
+      id: data.id,
+      customerId: data.customerId,
+      number: data.number,
+      createdAt: data.createdAt,
+      quoteNumber: data.quoteNumber,
+      customerReference: data.customerReference,
+      expectedDeliveryDate: data.expectedDeliveryDate,
+      totals: {
+        linesSubtotal: data.showDiscounts ? data.totals.lines_subtotal : null,
+        globalDiscount: data.showDiscounts ? data.totals.global_discount : null,
+        netTotal: data.totals.net_total,
+        vatRate: data.totals.vat_rate,
+        vatAmount: data.totals.vat_amount,
+        totalInclTax: data.totals.total_incl_tax,
+      },
+      lines: data.lines.map((line) => ({
+        position: line.position,
+        label: line.label,
+        productConfig: line.productConfig,
+        quantity: line.quantity,
+        priceBeforeDiscount: data.showDiscounts ? line.customerPrice : null,
+        discountRate: data.showDiscounts ? line.discountRate : null,
+        price: line.salePrice,
+      })),
+    };
+
+    return this.documents.generate(tenantId, actor, generationInput);
   }
 }

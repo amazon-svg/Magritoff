@@ -42,6 +42,7 @@ import { InMemoryCustomersRepository } from './_fakes/customers-repository.fake.
 import { InMemoryCommercialQuotesRepository } from './_fakes/commercial-quotes-repository.fake.ts';
 import { InMemoryPriceRulesRepository } from './_fakes/price-rules-repository.fake.ts';
 import { createNullQuoteDocumentsService } from './_fakes/quote-documents-service.fake.ts';
+import { createNullOrderDocumentsService } from './_fakes/order-documents-service.fake.ts';
 import { InMemoryCommercialOrdersRepository } from './_fakes/commercial-orders-repository.fake.ts';
 import { InMemoryProductionStepsRepository } from './_fakes/production-steps-repository.fake.ts';
 
@@ -140,6 +141,7 @@ beforeEach(() => {
     repository: ordersRepository,
     outbox,
     quotes: quotesService,
+    documents: createNullOrderDocumentsService(),
   });
   productionStepsRepository = new InMemoryProductionStepsRepository();
   productionStepsService = new ProductionStepsService({ repository: productionStepsRepository });

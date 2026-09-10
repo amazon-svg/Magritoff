@@ -32,6 +32,7 @@ import {
   type ListCommercialOrdersResult,
   type ListOrderStepChangesParams,
   type ListOrderStepChangesResult,
+  type OrderDataForDocumentGeneration,
 } from '@/modules/commercial-orders/application/commercial-orders-repository';
 import { ProductionStepNotFoundError } from '@/modules/production-steps/application/production-steps-repository';
 import type { InMemoryCommercialQuotesRepository } from './commercial-quotes-repository.fake.ts';
@@ -108,8 +109,23 @@ export class InMemoryCommercialOrdersRepository implements CommercialOrdersRepos
    * `InMemoryCommercialQuotesRepository.setDecidedByAccountIdForTest()`.
    */
   private readonly shopAccountContacts = new Map<string, string | null>();
+  /**
+   * E10.19a (decision D) — RECOPIEE de `commercial_quotes.show_discounts` A
+   * LA CONVERSION, meme regle que `customerContactIds` ci-dessus : vit en
+   * dehors de `StoredOrder`/`CommercialOrderDto` (jamais publiee sur
+   * `CommercialOrderDetail`, contrat §8.20 §10), consommee UNIQUEMENT par
+   * `findForDocumentGeneration` (E10.19b).
+   */
+  private readonly showDiscounts = new Map<string, boolean>();
+  /** E10.19a — `commercial_orders.customer_reference` : AUCUNE source reelle (meme ecart de donnees que la migration), `null` sauf pose explicite par `setCustomerReferenceForTest()`. */
+  private readonly customerReferences = new Map<string, string | null>();
 
   constructor(private readonly quotes: InMemoryCommercialQuotesRepository) {}
+
+  /** TEST UNIQUEMENT — E10.19b, pose `customer_reference` sur une commande deja creee (aucun chemin d ecriture reel n existe encore). */
+  setCustomerReferenceForTest(orderId: string, customerReference: string | null): void {
+    this.customerReferences.set(orderId, customerReference);
+  }
 
   /** TEST UNIQUEMENT — enregistre la resolution compte boutique -> interlocuteur (E10.5), consommee par `convertQuote()`. */
   registerShopAccountContactForTest(accountId: string, contactId: string | null): void {
@@ -271,6 +287,13 @@ export class InMemoryCommercialOrdersRepository implements CommercialOrdersRepos
       : null;
     this.customerContactIds.set(orderId, customerContactId);
 
+    // E10.19a (decision D) — MEME recopie que la migration
+    // `20260910000100` : `show_discounts` du devis source, RECOPIEE UNE
+    // FOIS a la conversion. `customer_reference` n a AUCUNE source (meme
+    // ecart de donnees que la migration) : reste absent de la map, donc
+    // `null` par defaut dans `findForDocumentGeneration`.
+    this.showDiscounts.set(orderId, applied.quote.show_discounts);
+
     const orderLines: CommercialOrderLineDto[] = detail.lines.map((line) => ({
       id: fakeOrderUuid(),
       order_id: orderId,
@@ -373,5 +396,43 @@ export class InMemoryCommercialOrdersRepository implements CommercialOrdersRepos
     this.stepChanges.set(orderId, [...existing, entry]);
 
     return entry;
+  }
+
+  /**
+   * E10.19b — MEME patron que `findDetailById` (deux lectures : la commande
+   * puis ses lignes), plus une TROISIEME lecture du devis source
+   * (`this.quotes.findById`) pour `quoteNumber` — exactement comme
+   * l adaptateur Supabase reel.
+   */
+  async findForDocumentGeneration(
+    tenantId: TenantId,
+    orderId: string,
+  ): Promise<OrderDataForDocumentGeneration | null> {
+    const order = await this.findById(tenantId, orderId);
+    if (!order) return null;
+
+    const quote = await this.quotes.findById(tenantId, order.quote_id);
+    const lines = this.lines.get(orderId) ?? [];
+
+    return {
+      id: order.id,
+      number: order.number,
+      createdAt: order.created_at,
+      customerId: order.customer_id,
+      quoteNumber: quote?.number ?? '',
+      customerReference: this.customerReferences.get(orderId) ?? null,
+      expectedDeliveryDate: null,
+      showDiscounts: this.showDiscounts.get(orderId) ?? false,
+      totals: order.totals,
+      lines: lines.map((line) => ({
+        position: line.position,
+        label: line.label,
+        productConfig: line.product_config,
+        quantity: line.quantity,
+        customerPrice: line.customer_price,
+        discountRate: line.discount_rate,
+        salePrice: line.sale_price,
+      })),
+    };
   }
 }

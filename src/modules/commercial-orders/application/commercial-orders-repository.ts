@@ -5,6 +5,7 @@ import type {
   CommercialOrderDto,
   CommercialOrderSort,
   CommercialOrderStatus,
+  CommercialOrderTotalsDto,
   OrderStepChangeDto,
 } from '../api/contracts.ts';
 
@@ -114,6 +115,52 @@ export type ListOrderStepChangesResult = Readonly<{
 }>;
 
 /**
+ * E10.19b — une ligne de commande, dans la forme necessaire au RESOLVEUR de
+ * valeurs du bon de commande (`line.*`). Sous-ensemble de
+ * `CommercialOrderLineDto` : ni `id`/`order_id`/`source_quote_line_id`
+ * (aucune trace n a de sens sur un document imprime), ni `breakdown`
+ * (detail de calcul, jamais imprime).
+ */
+export type OrderLineDataForDocumentGeneration = Readonly<{
+  position: number;
+  label: string;
+  productConfig: Readonly<Record<string, unknown>>;
+  quantity: number;
+  /** `customer_price` — masque par le SERVICE quand `showDiscounts` est faux (jamais filtre ici). */
+  customerPrice: string;
+  discountRate: string | null;
+  /** `sale_price` — TOUJOURS imprime, remises visibles ou non. */
+  salePrice: string;
+}>;
+
+/**
+ * E10.19b — donnees COMPLETES d une commande necessaires a la PRODUCTION de
+ * son bon de commande, y compris les deux colonnes GELEES qui ne sont
+ * JAMAIS publiees sur `CommercialOrderDetail` (`showDiscounts`,
+ * `customerReference` — E10.19a decision D, contrat §8.20 §10 : "ouvrirait a
+ * une interface d atelier de filtrer de son cote"). Distinct de
+ * `CommercialOrderDetailDto` : ce type est un port INTERNE au service, jamais
+ * serialise tel quel dans une reponse HTTP.
+ */
+export type OrderDataForDocumentGeneration = Readonly<{
+  id: string;
+  number: string;
+  /** Timestamp ISO — LA date de commande (contrat, `order.created_at`). */
+  createdAt: string;
+  customerId: string;
+  /** `commercial_quotes.number` du devis d origine (`quote_id`), pour `order.quote_number`. */
+  quoteNumber: string;
+  /** `commercial_orders.customer_reference` (E10.19a) — `null` tant que la source amont sur `commercial_quotes` n existe pas. */
+  customerReference: string | null;
+  /** `YYYY-MM-DD`, ou `null` (aucun ecrivain, reserve (h) du contrat E10.16/§8.17). */
+  expectedDeliveryDate: string | null;
+  /** `commercial_orders.show_discounts` (E10.19a decision D) — regle d IMPRESSION, jamais publiee sur `CommercialOrderDetail`. */
+  showDiscounts: boolean;
+  totals: CommercialOrderTotalsDto;
+  lines: readonly OrderLineDataForDocumentGeneration[];
+}>;
+
+/**
  * Port (interface) du referentiel Commandes de gestion commerciale.
  * L implementation Supabase vit dans
  * src/adapters/supabase/commercial-orders-repository.ts ; ce module n en
@@ -182,4 +229,14 @@ export interface CommercialOrdersRepository {
     command: ChangeOrderProductionStepCommand,
     serviceActorLabel: string | null,
   ): Promise<OrderStepChangeDto>;
+
+  /**
+   * E10.19b — lit une commande dans la forme COMPLETE necessaire a la
+   * production de son bon de commande (y compris `showDiscounts`/
+   * `customerReference`, jamais publiees ailleurs) et le numero du devis
+   * d origine (jointure `quote_id -> commercial_quotes.number`). `null` si
+   * la commande est absente/hors tenant (404 `order.not_found`, verifie par
+   * le SERVICE).
+   */
+  findForDocumentGeneration(tenantId: TenantId, orderId: string): Promise<OrderDataForDocumentGeneration | null>;
 }
