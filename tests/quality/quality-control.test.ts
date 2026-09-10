@@ -1,11 +1,12 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import { parse } from 'yaml';
 import { afterEach, describe, expect, it } from 'vitest';
+import { requestSemanticAssessment } from '../../scripts/run-quality-audit.mjs';
 
 const root = process.cwd();
 const temporaryDirectories: string[] = [];
@@ -56,6 +57,7 @@ describe('architecture de contrôle qualité', () => {
 
     for (const path of [
       'quality/specs/spec.schema.json',
+      'quality/schemas/agent-assessment.schema.json',
       'quality/schemas/agent-report.schema.json',
     ]) {
       const schema = JSON.parse(readFileSync(resolve(root, path), 'utf8')) as object;
@@ -124,5 +126,103 @@ describe('architecture de contrôle qualité', () => {
     );
     expect(upload).toBeDefined();
     expect(upload?.['if']).toBe('always()');
+    const workflowSource = readFileSync(resolve('.github/workflows/quality-audit.yml'), 'utf8');
+    expect(workflowSource).toContain('run_semantic:');
+    expect(workflowSource).toContain(
+      'QUALITY_LLM_BASE_URL: ${{ secrets.QUALITY_LLM_BASE_URL }}',
+    );
+    expect(workflowSource).toContain('EVENT_NAME" == "workflow_dispatch"');
+  });
+
+  it('envoie une requête Responses structurée sans stockage fournisseur', async () => {
+    const assessment = {
+      verdict: 'PASS',
+      summary: 'Le lot respecte les critères démontrés.',
+      findings: [],
+      limitations: [],
+    };
+    const schema = JSON.parse(
+      readFileSync(resolve(root, 'quality/schemas/agent-assessment.schema.json'), 'utf8'),
+    ) as object;
+    const originalFetch = globalThis.fetch;
+    let receivedUrl = '';
+    let receivedPayload: Record<string, unknown> | null = null;
+    globalThis.fetch = async (input, init) => {
+      receivedUrl = String(input);
+      receivedPayload = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return new Response(JSON.stringify({ output_text: JSON.stringify(assessment) }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    };
+    let result;
+    try {
+      result = await requestSemanticAssessment(
+        {
+          api: 'responses',
+          baseUrl: 'http://modele.test/v1',
+          model: 'modele-de-test',
+          apiKey: '',
+        },
+        'Instructions de test',
+        'Entrée de test',
+        schema,
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+    expect(receivedUrl).toBe('http://modele.test/v1/responses');
+    expect(receivedPayload).toMatchObject({
+      model: 'modele-de-test',
+      store: false,
+      text: { format: { type: 'json_schema', strict: true } },
+    });
+    expect(result.assessment).toEqual(assessment);
+  });
+
+  it('accepte un fournisseur local compatible Chat Completions', async () => {
+    const assessment = {
+      verdict: 'WARN',
+      summary: 'Un point reste à examiner.',
+      findings: [],
+      limitations: ['Test local'],
+    };
+    const schema = JSON.parse(
+      readFileSync(resolve(root, 'quality/schemas/agent-assessment.schema.json'), 'utf8'),
+    ) as object;
+    const originalFetch = globalThis.fetch;
+    let receivedUrl = '';
+    let receivedPayload: Record<string, unknown> | null = null;
+    globalThis.fetch = async (input, init) => {
+      receivedUrl = String(input);
+      receivedPayload = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return new Response(
+        JSON.stringify({ choices: [{ message: { content: JSON.stringify(assessment) } }] }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      );
+    };
+    let result;
+    try {
+      result = await requestSemanticAssessment(
+        {
+          api: 'chat-completions',
+          baseUrl: 'http://ollama.test/v1',
+          model: 'modele-local',
+          apiKey: '',
+        },
+        'Instructions locales',
+        'Entrée locale',
+        schema,
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+    expect(receivedUrl).toBe('http://ollama.test/v1/chat/completions');
+    expect(receivedPayload).toMatchObject({
+      model: 'modele-local',
+      stream: false,
+      response_format: { json_schema: { strict: true } },
+    });
+    expect(result.assessment).toEqual(assessment);
   });
 });

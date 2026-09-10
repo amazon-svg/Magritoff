@@ -3,6 +3,7 @@ import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename, dirname, relative, resolve } from 'node:path';
 import process from 'node:process';
 import { spawnSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import { parse } from 'yaml';
@@ -18,6 +19,7 @@ Options :
   --module <id>        Module requis pour le mode module
   --output <path>      Répertoire racine des rapports
   --plan               Générer le plan et les rapports sans exécuter les commandes
+  --semantic           Exécuter les profils avec le fournisseur LLM configuré
   --help               Afficher cette aide
 `;
 }
@@ -30,6 +32,7 @@ function parseArguments(argv) {
     module: null,
     output: null,
     plan: false,
+    semantic: false,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -40,6 +43,10 @@ function parseArguments(argv) {
     }
     if (argument === '--plan') {
       options.plan = true;
+      continue;
+    }
+    if (argument === '--semantic') {
+      options.semantic = true;
       continue;
     }
     if (['--mode', '--agent', '--base', '--module', '--output'].includes(argument)) {
@@ -66,6 +73,9 @@ function parseArguments(argv) {
   }
   if (options.mode !== 'module' && options.module) {
     throw new Error('--module est uniquement accepté avec --mode module');
+  }
+  if (options.plan && options.semantic) {
+    throw new Error('--plan et --semantic ne peuvent pas être utilisés ensemble');
   }
   return options;
 }
@@ -221,6 +231,398 @@ async function preflightCheck(check) {
   return null;
 }
 
+const semanticFilePatterns = {
+  architecture: [
+    /^(src|tests\/architecture|openapi|docs|quality)\//,
+    /^(ARCHITECTURE|CLAUDE|SPRINT_HANDOFF)\.md$/,
+  ],
+  api: [
+    /^openapi\//,
+    /^src\/server\/api\//,
+    /^src\/modules\/[^/]+\/(api|application)\//,
+    /^src\/adapters\/supabase\//,
+    /^tests\/(contract|sql|server)\//,
+    /^docs\/api\//,
+  ],
+  functional: [/^quality\/specs\//, /^src\/modules\//, /^tests\//, /^_bmad-output\//],
+  ux: [
+    /^docs\/UX_GUIDELINES\.md$/,
+    /^\.design-handoff\/(README\.md|wireframes\/)/,
+    /^_bmad-output\/planning-artifacts\/ux-/,
+    /^src\/styles\//,
+    /^src\/modules\/[^/]+\/ui\//,
+    /^tests\/e2e\//,
+    /^playwright\.config\.ts$/,
+  ],
+  'test-quality': [
+    /^tests\//,
+    /^quality\/specs\//,
+    /^openapi\//,
+    /^(vitest|playwright)\.config\.ts$/,
+    /^package\.json$/,
+  ],
+};
+
+const semanticTextExtensions = new Set([
+  '.css',
+  '.html',
+  '.js',
+  '.json',
+  '.jsx',
+  '.md',
+  '.mjs',
+  '.sql',
+  '.ts',
+  '.tsx',
+  '.txt',
+  '.yaml',
+  '.yml',
+]);
+
+function extensionOf(path) {
+  const match = path.match(/(\.[A-Za-z0-9]+)$/);
+  return match?.[1]?.toLowerCase() ?? '';
+}
+
+function semanticSourcesForAgent(agentId, context, policy) {
+  const candidates = new Set(context.trackedFiles);
+  const addSources = (sources) => {
+    for (const path of sources ?? []) {
+      if (!context.missingSources.includes(path)) candidates.add(path);
+    }
+  };
+
+  if (agentId === 'architecture') addSources(policy.context?.architectureSources);
+  if (agentId === 'ux') addSources(policy.context?.uxSources);
+  if (['functional', 'test-quality'].includes(agentId)) {
+    for (const path of splitLines(git(['ls-files'], true)).filter(
+      (trackedPath) =>
+        trackedPath.startsWith('quality/specs/') && trackedPath.endsWith('.spec.yaml'),
+    )) candidates.add(path);
+  }
+
+  const patterns = semanticFilePatterns[agentId] ?? [];
+  return [...candidates]
+    .filter((path) => patterns.some((pattern) => pattern.test(path)))
+    .filter((path) => semanticTextExtensions.has(extensionOf(path)))
+    .filter((path) => !basename(path).startsWith('.env'))
+    .sort();
+}
+
+function numberedFileParts(path, targetPartSize) {
+  let source;
+  try {
+    source = readFileSync(resolve(projectRoot, path), 'utf8');
+  } catch {
+    return [];
+  }
+  if (source.includes('\u0000')) return [];
+
+  const lines = source.split(/\r?\n/);
+  const parts = [];
+  let current = [];
+  let currentSize = 0;
+  let partStart = 1;
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const numberedLine = `${String(index + 1).padStart(6, '0')} | ${lines[index]}`;
+    if (current.length > 0 && currentSize + numberedLine.length + 1 > targetPartSize) {
+      parts.push({
+        path,
+        startLine: partStart,
+        endLine: index,
+        content: current.join('\n'),
+      });
+      current = [];
+      currentSize = 0;
+      partStart = index + 1;
+    }
+    current.push(numberedLine);
+    currentSize += numberedLine.length + 1;
+  }
+  if (current.length > 0) {
+    parts.push({
+      path,
+      startLine: partStart,
+      endLine: lines.length,
+      content: current.join('\n'),
+    });
+  }
+  return parts;
+}
+
+function buildSemanticBatches(agentId, context, policy) {
+  const requestedBatchChars = Number.parseInt(process.env.QUALITY_LLM_BATCH_CHARS ?? '80000', 10);
+  const requestedMaxBatches = Number.parseInt(process.env.QUALITY_LLM_MAX_BATCHES ?? '24', 10);
+  const batchChars = Number.isFinite(requestedBatchChars)
+    ? Math.min(Math.max(requestedBatchChars, 20000), 200000)
+    : 80000;
+  const maxBatches = Number.isFinite(requestedMaxBatches)
+    ? Math.min(Math.max(requestedMaxBatches, 1), 200)
+    : 24;
+  const files = semanticSourcesForAgent(agentId, context, policy);
+  const parts = files.flatMap((path) => numberedFileParts(path, Math.floor(batchChars * 0.8)));
+  const batches = [];
+  let current = [];
+  let currentSize = 0;
+
+  for (const part of parts) {
+    const header = `FILE ${part.path} L${part.startLine}-L${part.endLine}`;
+    const document = `${header}\n${part.content}`;
+    if (current.length > 0 && currentSize + document.length + 2 > batchChars) {
+      batches.push(current);
+      current = [];
+      currentSize = 0;
+    }
+    current.push({ ...part, document });
+    currentSize += document.length + 2;
+  }
+  if (current.length > 0) batches.push(current);
+
+  const selectedBatches = batches.slice(0, maxBatches);
+  const analyzedFiles = new Set(selectedBatches.flatMap((batch) => batch.map((part) => part.path)));
+  const omittedParts = batches.slice(maxBatches).reduce((count, batch) => count + batch.length, 0);
+  return {
+    files,
+    batches: selectedBatches,
+    analyzedFiles: [...analyzedFiles],
+    omittedParts,
+    batchChars,
+    maxBatches,
+  };
+}
+
+function semanticConfiguration() {
+  const baseUrl = (process.env.QUALITY_LLM_BASE_URL ?? '').replace(/\/$/, '');
+  const model = process.env.QUALITY_LLM_MODEL ?? '';
+  const api = process.env.QUALITY_LLM_API || 'responses';
+  if (!['responses', 'chat-completions'].includes(api)) {
+    return { error: `QUALITY_LLM_API invalide : ${api}` };
+  }
+  if (!baseUrl || !model) {
+    return {
+      error: 'QUALITY_LLM_BASE_URL et QUALITY_LLM_MODEL sont requis avec --semantic',
+    };
+  }
+  return {
+    api,
+    baseUrl,
+    model,
+    apiKey: process.env.QUALITY_LLM_API_KEY || process.env.OPENAI_API_KEY || '',
+  };
+}
+
+function providerSchema(schema) {
+  const result = structuredClone(schema);
+  delete result.$schema;
+  delete result.$id;
+  delete result.title;
+  return result;
+}
+
+function providerEndpoint(configuration) {
+  return configuration.api === 'responses'
+    ? `${configuration.baseUrl}/responses`
+    : `${configuration.baseUrl}/chat/completions`;
+}
+
+function extractProviderText(configuration, response) {
+  if (configuration.api === 'responses') {
+    if (typeof response.output_text === 'string') return response.output_text;
+    for (const item of response.output ?? []) {
+      for (const content of item.content ?? []) {
+        if (content.type === 'output_text' && typeof content.text === 'string') return content.text;
+      }
+    }
+  } else {
+    const content = response.choices?.[0]?.message?.content;
+    if (typeof content === 'string') return content;
+  }
+  throw new Error('Le fournisseur n’a retourné aucun texte exploitable');
+}
+
+export async function requestSemanticAssessment(configuration, instructions, input, schema) {
+  const format = {
+    type: 'json_schema',
+    name: 'quality_agent_assessment',
+    strict: true,
+    schema: providerSchema(schema),
+  };
+  const body =
+    configuration.api === 'responses'
+      ? {
+          model: configuration.model,
+          instructions,
+          input,
+          store: false,
+          text: { format },
+        }
+      : {
+          model: configuration.model,
+          messages: [
+            { role: 'system', content: instructions },
+            { role: 'user', content: input },
+          ],
+          response_format: {
+            type: 'json_schema',
+            json_schema: {
+              name: format.name,
+              strict: format.strict,
+              schema: format.schema,
+            },
+          },
+          stream: false,
+        };
+  const headers = { 'content-type': 'application/json' };
+  if (configuration.apiKey) headers.authorization = `Bearer ${configuration.apiKey}`;
+  const timeoutMs = Number.parseInt(process.env.QUALITY_LLM_TIMEOUT_MS ?? '180000', 10);
+  const response = await fetch(providerEndpoint(configuration), {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(Number.isFinite(timeoutMs) ? timeoutMs : 180000),
+  });
+  const responseBody = await response.text();
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status} du fournisseur : ${responseBody.slice(0, 1000)}`);
+  }
+  const parsedResponse = JSON.parse(responseBody);
+  const text = extractProviderText(configuration, parsedResponse);
+  return { providerResponse: parsedResponse, assessment: JSON.parse(text) };
+}
+
+function semanticVerdict(assessments) {
+  const order = ['FAIL', 'INCONCLUSIVE', 'WARN', 'PASS'];
+  return order.find((verdict) => assessments.some((item) => item.verdict === verdict)) ?? 'INCONCLUSIVE';
+}
+
+function deterministicEvidenceSummary(checks) {
+  return checks
+    .map(
+      (check) =>
+        `${check.id}: status=${check.status}, exitCode=${check.exitCode ?? 'null'}, evidence=${check.evidence ?? 'none'}, reason=${check.reason ?? 'none'}`,
+    )
+    .join('\n');
+}
+
+async function executeSemanticAgent(agentId, agent, checks, context, policy, runDirectory) {
+  const configuration = semanticConfiguration();
+  if (configuration.error) {
+    return {
+      status: 'failed',
+      verdict: 'INCONCLUSIVE',
+      summary: 'Analyse sémantique non exécutée faute de configuration du fournisseur.',
+      findings: [],
+      limitations: [configuration.error],
+      metadata: null,
+    };
+  }
+
+  const assessmentSchema = JSON.parse(
+    readFileSync(resolve(projectRoot, 'quality/schemas/agent-assessment.schema.json'), 'utf8'),
+  );
+  const assessmentAjv = new Ajv2020({ allErrors: true, strict: true });
+  addFormats(assessmentAjv);
+  const validateAssessment = assessmentAjv.compile(assessmentSchema);
+  const profile = readFileSync(resolve(projectRoot, agent.profile), 'utf8');
+  const sourceBatches = buildSemanticBatches(agentId, context, policy);
+  const semanticDirectory = resolve(runDirectory, 'evidence/semantic');
+  mkdirSync(semanticDirectory, { recursive: true });
+
+  if (sourceBatches.batches.length === 0) {
+    return {
+      status: 'failed',
+      verdict: 'INCONCLUSIVE',
+      summary: 'Aucun fichier textuel pertinent dans le périmètre de cet auditeur.',
+      findings: [],
+      limitations: ['Aucun fichier pertinent n’a été sélectionné pour l’analyse sémantique.'],
+      metadata: {
+        api: configuration.api,
+        baseUrl: configuration.baseUrl,
+        model: configuration.model,
+        batches: 0,
+        filesAnalyzed: 0,
+      },
+    };
+  }
+
+  const instructions = `${profile}\n\nRègles d'exécution :\n- Tu es en lecture seule.\n- Analyse uniquement les fichiers et preuves fournis.\n- Chaque constat doit citer une preuve du lot sous la forme chemin:ligne ou un contrôle nommé.\n- N'invente ni fichier, ni test, ni exigence.\n- Une zone non démontrée est une limitation, pas un succès.\n- Retourne uniquement l'objet JSON conforme au schéma imposé.`;
+  const assessments = [];
+  const semanticLimitations = [];
+
+  for (let index = 0; index < sourceBatches.batches.length; index += 1) {
+    const batch = sourceBatches.batches[index];
+    const input = `AUDIT MAGRIT\nAgent: ${agentId}\nMode: ${context.mode}${context.module ? `:${context.module}` : ''}\nCommit: ${context.commit.sha}\nLot: ${index + 1}/${sourceBatches.batches.length}\n\nPREUVES DETERMINISTES\n${deterministicEvidenceSummary(checks)}\n\nFICHIERS DU LOT\n${batch.map((part) => part.document).join('\n\n')}`;
+    try {
+      const result = await requestSemanticAssessment(
+        configuration,
+        instructions,
+        input,
+        assessmentSchema,
+      );
+      writeFileSync(
+        resolve(semanticDirectory, `${safeSegment(agentId)}-batch-${index + 1}.json`),
+        `${JSON.stringify(result.providerResponse, null, 2)}\n`,
+      );
+      if (!validateAssessment(result.assessment)) {
+        throw new Error(
+          `sortie non conforme : ${assessmentAjv.errorsText(validateAssessment.errors, { separator: '; ' })}`,
+        );
+      }
+      assessments.push(result.assessment);
+    } catch (error) {
+      semanticLimitations.push(`Lot ${index + 1} non analysé : ${error.message}`);
+      break;
+    }
+  }
+
+  if (sourceBatches.omittedParts > 0) {
+    semanticLimitations.push(
+      `${sourceBatches.omittedParts} partie(s) omise(s) par la limite QUALITY_LLM_MAX_BATCHES=${sourceBatches.maxBatches}.`,
+    );
+  }
+
+  const complete =
+    assessments.length === sourceBatches.batches.length &&
+    sourceBatches.omittedParts === 0 &&
+    semanticLimitations.length === 0;
+  const findingsByFingerprint = new Map();
+  for (const assessment of assessments) {
+    for (const finding of assessment.findings) {
+      const stableFingerprint = createHash('sha256')
+        .update(`${agentId}:${finding.rule ?? ''}:${finding.location ?? ''}:${finding.title}`)
+        .digest('hex')
+        .slice(0, 20);
+      if (!findingsByFingerprint.has(stableFingerprint)) {
+        findingsByFingerprint.set(stableFingerprint, {
+          ...finding,
+          id: `${agentId}-${stableFingerprint}`,
+          fingerprint: stableFingerprint,
+        });
+      }
+    }
+    semanticLimitations.push(...assessment.limitations);
+  }
+
+  return {
+    status: complete ? 'completed' : 'failed',
+    verdict: complete ? semanticVerdict(assessments) : 'INCONCLUSIVE',
+    summary:
+      assessments.length > 0
+        ? assessments.map((assessment) => assessment.summary).join(' ')
+        : 'Aucun lot n’a pu être analysé par le fournisseur.',
+    findings: [...findingsByFingerprint.values()],
+    limitations: [...new Set(semanticLimitations)],
+    metadata: {
+      api: configuration.api,
+      baseUrl: configuration.baseUrl,
+      model: configuration.model,
+      batches: assessments.length,
+      filesAnalyzed: sourceBatches.analyzedFiles.length,
+    },
+  };
+}
+
 function writeEvidence(path, checkId, check, result, startedAt, finishedAt) {
   const content = [
     `check: ${checkId}`,
@@ -293,12 +695,12 @@ function fingerprint(agentId, checkId) {
   return createHash('sha256').update(`${agentId}:${checkId}`).digest('hex').slice(0, 20);
 }
 
-function reportVerdict(checks, semanticAnalysis) {
+function reportVerdict(checks, semanticAnalysis, assessmentVerdict) {
   if (checks.some((check) => check.status === 'error')) return 'ERROR';
   if (checks.some((check) => check.status === 'failed')) return 'FAIL';
   if (semanticAnalysis !== 'completed') return 'INCONCLUSIVE';
   if (checks.some((check) => ['skipped', 'planned'].includes(check.status))) return 'INCONCLUSIVE';
-  return 'PASS';
+  return assessmentVerdict;
 }
 
 function buildFindings(agentId, checks) {
@@ -320,10 +722,13 @@ function buildFindings(agentId, checks) {
     }));
 }
 
-function buildLimitations(agentId, checks, context, policy) {
-  const limitations = [
-    "L'analyse sémantique par le profil d'agent n'est pas encore exécutée par ce socle déterministe.",
-  ];
+function buildLimitations(agentId, checks, context, policy, semanticResult) {
+  const limitations = [...semanticResult.limitations];
+  if (semanticResult.status === 'not-run') {
+    limitations.push(
+      "L'analyse sémantique par le profil d'agent n'est pas exécutée sans l'option --semantic.",
+    );
+  }
   for (const check of checks.filter((item) => ['skipped', 'planned'].includes(item.status))) {
     limitations.push(`${check.title} : ${check.reason}`);
   }
@@ -451,10 +856,20 @@ async function main() {
       checks.push(structuredClone(resultCache.get(checkId)));
     }
 
-    const semanticAnalysis = 'not-run';
-    const findings = buildFindings(agentId, checks);
-    const limitations = buildLimitations(agentId, checks, context, policy);
-    const verdict = reportVerdict(checks, semanticAnalysis);
+    const semanticResult = options.semantic
+      ? await executeSemanticAgent(agentId, agent, checks, context, policy, runDirectory)
+      : {
+          status: 'not-run',
+          verdict: 'INCONCLUSIVE',
+          summary: 'Analyse sémantique non demandée.',
+          findings: [],
+          limitations: [],
+          metadata: null,
+        };
+    const semanticAnalysis = semanticResult.status;
+    const findings = [...buildFindings(agentId, checks), ...semanticResult.findings];
+    const limitations = buildLimitations(agentId, checks, context, policy, semanticResult);
+    const verdict = reportVerdict(checks, semanticAnalysis, semanticResult.verdict);
     const finishedAt = new Date().toISOString();
     const report = {
       schemaVersion: '1.0',
@@ -475,12 +890,14 @@ async function main() {
         finishedAt,
         durationMs: Date.now() - started,
         semanticAnalysis,
+        semantic: semanticResult.metadata,
       },
       verdict,
-      summary:
+      summary: `${
         verdict === 'FAIL'
-          ? `${findings.length} contrôle(s) déterministe(s) en échec ; décision humaine requise.`
-          : 'Preuves déterministes collectées ; analyse sémantique restant à exécuter.',
+          ? `${findings.length} constat(s) ou contrôle(s) en échec ; décision humaine requise.`
+          : 'Preuves déterministes collectées.'
+      } ${semanticResult.summary}`,
       checks,
       findings,
       limitations,
@@ -525,7 +942,9 @@ async function main() {
   if (reports.some((report) => report.verdict === 'ERROR')) process.exitCode = 2;
 }
 
-main().catch((error) => {
-  console.error(`Erreur du runner qualité : ${error.message}`);
-  process.exitCode = 2;
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  main().catch((error) => {
+    console.error(`Erreur du runner qualité : ${error.message}`);
+    process.exitCode = 2;
+  });
+}
