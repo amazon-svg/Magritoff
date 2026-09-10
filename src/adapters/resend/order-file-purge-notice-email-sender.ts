@@ -8,12 +8,7 @@ import type {
  * Envoi Resend des rappels de purge des fichiers de commande (E10.22a,
  * docs/api/CONVENTIONS.md §8.22 §4).
  *
- * ⚠️ TEXTES NON VALIDES PAR ARNAUD -- REDACTION DE TRAVAIL. Exactement la
- * meme reserve que `ResendQuoteSentEmailSender` (E10.10b-4c) : « la
- * redaction de ces textes est un travail commercial, pas une decision
- * d architecte » (contrat §8.22 §4, qui renvoie a §8.13sexies reserve (a) et
- * §8.18 reserve (a)). A faire relire par Arnaud avant mise en service
- * (E10.22b, qui arme reellement la destruction).
+ * Textes valides par Arnaud le 2026-09-10.
  *
  * ── `providerMessageId` -- EXIGE par l arbitrage Arnaud du 2026-09-10 ─────
  * `POST /emails` ne rend RIEN d autre qu un `id` (`SendEmailResponse`,
