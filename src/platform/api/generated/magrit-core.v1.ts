@@ -2104,6 +2104,60 @@ export interface webhooks {
         patch?: never;
         trace?: never;
     };
+    "order_files.purge_scheduled": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Des fichiers de commande arrivent au terme de leur conservation et seront detruits automatiquement (E10.22). Charge utile : `OrderFilesPurgeScheduledPayload` (`event_version: 1`).
+         *
+         *     LE SEUL EVENEMENT DU BUS QUI N EST DECLENCHE PAR AUCUN GESTE. Tous les autres nomment ce que quelqu un a fait ; celui-ci nomme ce que le temps a fait. Il est emis par un balayage QUOTIDIEN qui compare la date de depot de chaque fichier a son echeance, jamais par une ecriture d utilisateur — un consommateur ne doit donc pas s attendre a le voir arriver « juste apres » quoi que ce soit.
+         *
+         *     SON CONSOMMATEUR DOIT RENDRE COMPTE, ET C EST UNIQUE SUR CE BUS. Pour tous les autres evenements, remettre est la fin de l histoire. Ici, la remise du courriel est ce qui AUTORISE une destruction quinze jours plus tard (arbitrage Arnaud du 2026-09-10) : le consommateur doit donc consigner, contre `notice_id`, l identifiant de message rendu par le prestataire, puis la confirmation de livraison quand elle arrive. Un rappel jamais confirme delivre BLOQUE la purge des fichiers qu il couvre, indefiniment.
+         *
+         *     UNE EMISSION PAR ESPACE ET PAR PALIER, PAS UNE PAR FICHIER. Le consommateur interne de ce lot en fait UN courriel au proprietaire de l espace ; un evenement par fichier lui en ferait envoyer douze le meme matin. C est le choix INVERSE de celui d `order.files_submitted`, et pour la raison inverse : la-bas le fait metier est le depot d un fichier precis et le regroupement est un probleme de consommateur ; ici le fait metier EST le lot echu du jour, et le degrouper detruirait l information au lieu de la porter.
+         *
+         *     DEUX PALIERS, DEUX EMISSIONS (`stage`) : un premier rappel dix jours apres le depot, un second cinq jours plus tard. Un fichier apparait donc au plus dans DEUX evenements de ce nom, jamais davantage — le rattachement au rappel est pose en base dans la meme transaction que l emission.
+         *
+         *     AGREGAT : `tenant`, `aggregate_id` = l espace. Voir la note de `EventName` sur l ecart entre le prefixe et le type d agregat.
+         */
+        post: operations["onOrderFilesPurgeScheduled"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "order_files.purged": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Des fichiers de commande ont ete detruits automatiquement (E10.22). Charge utile : `OrderFilesPurgedPayload` (`event_version: 1`).
+         *
+         *     EMIS APRES COUP, ET C EST TOUT CE QU IL EST. Il ne demande rien, il ne declenche rien, il constate. Les octets ne sont plus la au moment ou il part : aucun consommateur ne peut « rattraper » un fichier a partir de lui, et il ne faut pas concevoir d integration qui essaierait.
+         *
+         *     POURQUOI IL EXISTE ALORS QU AUCUN CONSOMMATEUR NE L ECOUTE. Une destruction automatique est le seul effet de ce systeme qui ne laisse AUCUNE trace consultable par l atelier : la ligne du fichier survit, mais rien dans aucun ecran ne dira jamais que c est une tache de fond qui l a videe, ni quand, ni combien. Cet evenement est cette trace, dans le seul endroit du systeme qui la conserve versionnee et horodatee. Il est aussi le point d accroche naturel du jour ou l atelier voudra un recapitulatif — cette story-la n existe pas.
+         *
+         *     UNE EMISSION PAR ESPACE ET PAR TOUR, meme raison qu au-dessus.
+         */
+        post: operations["onOrderFilesPurged"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "customer.created": {
         parameters: {
             query?: never;
@@ -2420,9 +2474,11 @@ export interface components {
         /**
          * EventName
          * @description Nom d evenement sortant, `agregat.action` en snake_case. Liste additive : une story ulterieure peut en ajouter, jamais en retirer.
+         *
+         *     LE PREFIXE NOMME LE SUJET, PAS TOUJOURS LE `aggregate_type` — et il faut le dire depuis E10.22, qui est le premier cas d ecart. Les deux evenements `order_files.*` de la purge automatique portent `aggregate_type: tenant`, parce que le fait qu ils nomment est tenant-large par construction (un rappel quotidien couvre les fichiers de PLUSIEURS commandes a la fois) alors que leur sujet, lui, est bien les fichiers de commande. Nommer le prefixe `tenant.` aurait rendu le nom illisible pour ce qu il annonce. Un consommateur route sur `event_name`, jamais sur une inference tiree du prefixe.
          * @enum {string}
          */
-        EventName: "quote.converted" | "quote.created" | "quote.sent" | "quote.accepted" | "quote.rejected" | "quote_line.changed" | "order.step_changed" | "order.files_submitted" | "customer.created" | "project.created" | "price_rule.changed";
+        EventName: "quote.converted" | "quote.created" | "quote.sent" | "quote.accepted" | "quote.rejected" | "quote_line.changed" | "order.step_changed" | "order.files_submitted" | "order_files.purge_scheduled" | "order_files.purged" | "customer.created" | "project.created" | "price_rule.changed";
         /**
          * EventEnvelope
          * @description Enveloppe versionnee d un evenement sortant (CA10). Le corps signe par `X-Magrit-Signature` est exactement la serialisation JSON de cette enveloppe, octet pour octet.
@@ -2447,6 +2503,7 @@ export interface components {
              * @example customer
              * @example project
              * @example price_rule
+             * @example tenant
              */
             aggregate_type: string;
             aggregate_id: components["schemas"]["Uuid"];
@@ -4756,6 +4813,8 @@ export interface components {
          *     DEUX ORIGINES DEPUIS E10.20, UN SEUL SCHEMA. Un fichier entre soit par l atelier (`deposited_via: workspace`), soit par un lien public de depot (`upload_link`). Rien d autre ne change : meme table, meme plafond, meme cycle de vie, meme suppression.
          *
          *     UNE LIGNE VIVANTE, TOUJOURS. Ce schema ne decrit jamais un fichier supprime : aucune operation n en rend, et `deleted_at` n est pas publie. La trace de suppression existe en base et sert l audit, elle n est pas une donnee d ecran.
+         *
+         *     ET DEPUIS E10.22, UNE LIGNE VIVANTE EST UNE LIGNE QUI A UNE DATE DE PEREMPTION. Tout fichier de commande devient destructible automatiquement trente jours apres SON depot (`purge_at`), quel que soit son canal d entree et que la commande soit close ou non. Une integration qui archive ou reference un fichier de commande doit lire `purge_at` et ne JAMAIS supposer une conservation indefinie : ce qu elle a lu hier peut ne plus exister demain, sans qu aucun geste humain ne l explique. C est le seul endroit du contrat ou une ressource disparait sans que personne ne l ait demande — d ou le fait de l ecrire ici plutot que de le laisser deduire d un champ.
          */
         OrderFile: {
             id: components["schemas"]["Uuid"];
@@ -4809,7 +4868,27 @@ export interface components {
              *     OPTIONNEL DANS CET INCREMENT DE CONTRAT, ET LA RAISON EST DE METHODE, PAS DE GOUT : le declarer `required` aujourd hui rendrait NON CONFORME l implementation d E10.17 deja en service, qui ne le sert pas. Un contrat ne decrit jamais un serveur qui n existe pas. E10.20b, qui livre l emetteur, le sert sur TOUS les fichiers — y compris `workspace` — et le fait alors passer `required` : une promotion optionnel -> requis est compatible au sens du CA13, un consommateur qui tolerait l absence continue de fonctionner. JUSQUE-LA, ABSENT SIGNIFIE `workspace` : aucun fichier ne peut etre entre autrement, faute de lien public.
              */
             deposited_via?: components["schemas"]["OrderFileDepositChannel"];
-            /** @description Derniere modification de la LIGNE, jamais du fichier — les octets ne changent pas. Aujourd hui, seule la visibilite peut la faire bouger. Source de l `ETag` exige par `updateOrderFile`. */
+            /**
+             * @description DATE A PARTIR DE LAQUELLE LES OCTETS DE CE FICHIER PEUVENT ETRE DETRUITS AUTOMATIQUEMENT (E10.22). Trente jours apres SON depot — pas apres la creation de la commande : chaque fichier porte son echeance PROPRE, deux pieces d une meme commande deposees a un mois d intervalle expirent a un mois d intervalle.
+             *
+             *     « A PARTIR DE », JAMAIS « A ». C est la propriete la plus importante de ce champ, et elle est contre-intuitive : cette date n est PAS une echeance absolue. ARBITRAGE ARNAUD DU 2026-09-10 : un fichier ne disparait JAMAIS sans qu un rappel ait ete CONFIRME DELIVRE au prealable au proprietaire de l espace. Tant que cette preuve manque — adresse en rebond, prestataire indisponible, espace sans proprietaire joignable — le fichier RESTE, au-dela de sa date, aussi longtemps qu il le faudra. Le systeme prefere garder des octets de trop que detruire sans avoir prevenu.
+             *
+             *     CONSEQUENCE OPPOSABLE POUR UN CONSOMMATEUR : ne jamais deduire « ce fichier n existe plus » de `purge_at` et d une horloge. Un fichier dont la date est passee peut etre parfaitement vivant et telechargeable, et le rester des semaines. La seule facon de savoir si un fichier existe reste de le demander.
+             *
+             *     SYMETRIQUEMENT, CE N EST PAS UNE PROMESSE DE CONSERVATION JUSQUE-LA : `deleteOrderFile` (geste d atelier) et la suppression de la commande (`on delete cascade`) le devancent.
+             *
+             *     VALEUR FIGEE, PAS DERIVEE. Calculee UNE FOIS au depot et stockee, jamais recalculee a la lecture depuis `deposited_at` plus un delai courant. Le motif n est pas la performance : cette date est ANNONCEE PAR COURRIEL avant l echeance. Une date deja annoncee ne bouge pas parce qu un reglage a change depuis. Meme doctrine que `deposited_by_label` fige au depot et que `Quote.valid_until` fige a l envoi.
+             *
+             *     AUCUNE OPERATION NE LA MODIFIE. Il n existe ni prolongation, ni exemption, ni « conserver ce fichier » : trente jours pour tous, sans exception (arbitrage Arnaud du 2026-09-10, explicite). Un consommateur ne doit donc pas batir d ecran de report sur ce champ.
+             *
+             *     OPTIONNEL DANS CET INCREMENT, MEME MOTIF DE METHODE QUE `deposited_via` EN SON TEMPS : la declarer `required` aujourd hui rendrait NON CONFORMES les implementations d E10.17/E10.20 deja en service, qui ne la servent pas. E10.22a, qui pose la colonne et la sert sur TOUS les fichiers (les deux canaux, et le passif par reprise), la fera promouvoir `required` — optionnel -> requis est compatible au sens du CA13. JUSQUE-LA, ABSENT SIGNIFIE « aucune purge automatique n est encore armee sur ce fichier », pas « jamais purge ».
+             */
+            purge_at?: components["schemas"]["Timestamp"];
+            /**
+             * @description Derniere modification de la LIGNE, jamais du fichier — les octets ne changent pas. Aujourd hui, seule la visibilite peut la faire bouger. Source de l `ETag` exige par `updateOrderFile`.
+             *
+             *     LA PURGE AUTOMATIQUE (E10.22) NE LA FAIT PAS BOUGER, ET C EST PRESCRIT PLUTOT QUE CONSTATE. Le seul moment ou ce mecanisme ecrit sur une ligne VIVANTE, c est pour y rattacher le rappel qui la concerne — une donnee d exploitation que ce contrat ne publie pas. E10.22a doit donc exclure ces colonnes du declencheur qui entretient `updated_at`, faute de quoi un tour de tache de fond perimerait en silence les `ETag` de tous les fichiers concernes et ferait rendre 409 a un utilisateur qui n a rien fait de mal. Une ligne PURGEE, elle, cesse simplement d etre rendue (voir « UNE LIGNE VIVANTE, TOUJOURS » ci-dessus).
+             */
             updated_at: components["schemas"]["Timestamp"];
         };
         /**
@@ -4831,6 +4910,8 @@ export interface components {
             deposited_by: components["schemas"]["Uuid"] | null;
             deposited_by_label: string | null;
             deposited_via?: components["schemas"]["OrderFileDepositChannel"];
+            /** @description Voir `OrderFile.purge_at` — meme champ, meme regime (« a partir de », jamais « a »), meme statut optionnel dans cet increment. Rendu ICI AUSSI, et pas seulement sur la liste : un ecran qui ouvre un fichier pour le telecharger est exactement celui ou « ce document peut disparaitre a partir du 12 octobre » doit se lire. */
+            purge_at?: components["schemas"]["Timestamp"];
             updated_at: components["schemas"]["Timestamp"];
             /**
              * Format: uri
@@ -5161,6 +5242,101 @@ export interface components {
             order_number: string;
             /** @description Client de la commande. Permet a un consommateur de router l evenement sans un aller-retour de lecture — c est ce dont E10.15 aura besoin pour savoir QUI prevenir. */
             customer_id: components["schemas"]["Uuid"];
+        };
+        /**
+         * OrderFilePurgeStage
+         * @description Palier de rappel avant destruction. DEUX VALEURS, et elles nomment le RANG du rappel, pas un nombre de jours : `first` puis `second`.
+         *
+         *     POURQUOI PAS `j10` / `j15`. Le delai est un reglage d exploitation (dix puis quinze jours apres le depot, pour une destruction a trente) ; le graver dans une enumeration de contrat le rendrait irretouchable sans version majeure, alors qu il est precisement ce qu Arnaud pourra vouloir ajuster. `days_before_purge` porte le nombre, la ou un nombre se lit ; cette enumeration porte le rang, qui lui ne bouge pas.
+         *
+         *     Liste ADDITIVE : un troisieme palier est ajoutable, jamais retirable.
+         * @enum {string}
+         */
+        OrderFilePurgeStage: "first" | "second";
+        /**
+         * OrderFilesPurgeScheduledPayload
+         * @description Charge utile de l evenement sortant `order_files.purge_scheduled` (`event_version: 1`), emis par le balayage quotidien d E10.22 pour CHAQUE espace ayant au moins un fichier atteignant un palier de rappel ce jour-la.
+         *
+         *     CE QU ELLE PORTE, ET POURQUOI EXACTEMENT CELA. Le consommateur interne doit pouvoir rediger un courriel COMPLET sans relire la base : combien de fichiers, a quelle date ils partent, sur quelles commandes, et le rang du rappel. Ce sont les seules donnees que le texte peut citer. Elle porte EN PLUS `notice_id`, qui n a rien a faire dans le texte : c est la reference contre laquelle le consommateur consigne ce que le prestataire de courriel lui repond (arbitrage du 2026-09-10, voir ce champ).
+         *
+         *     CE QU ELLE NE PORTE PAS, ET C EST DELIBERE :
+         *     - AUCUNE ADRESSE, AUCUN DESTINATAIRE. Le proprietaire de l espace est
+         *       resolu A LA REMISE, jamais transporte — meme doctrine qu en
+         *       §8.13sexies. Entre l emission et la remise, la propriete de l espace a
+         *       pu changer de mains, et c est l etat au moment de la remise qui fait
+         *       foi. C est ce qui rend la question « et si le proprietaire change
+         *       entre les deux rappels ? » sans objet : chaque rappel part au
+         *       proprietaire du moment ;
+         *
+         *     - AUCUN NOM DE FICHIER. Ce sont des chaines fournies par des tiers, dont
+         *       certains NON AUTHENTIFIES (depot par lien public) ; les faire traverser
+         *       le bus les livrerait a des consommateurs dont ce contrat ignore la
+         *       robustesse. Un courriel qui compte les fichiers dit ce qu il faut dire ;
+         *       celui qui les nomme tous devient une liste de trente lignes ;
+         *
+         *     - AUCUN IDENTIFIANT DE FICHIER. Il n existe aucun geste a faire sur un
+         *       fichier depuis ce rappel — ni prolonger, ni exempter. Publier des
+         *       identifiants sur lesquels rien n est possible serait une invitation a
+         *       batir un ecran qui ne peut rien.
+         *
+         *
+         *     `aggregate_type` vaut `tenant`, `aggregate_id` l espace concerne.
+         */
+        OrderFilesPurgeScheduledPayload: {
+            /**
+             * @description Identifiant du RAPPEL lui-meme — la ligne de suivi creee par le balayage, a laquelle les fichiers couverts sont rattaches.
+             *
+             *     IL EXISTE PARCE QUE LA REMISE DE CE COURRIEL A UNE CONSEQUENCE, ET C EST LE SEUL EVENEMENT DU BUS DANS CE CAS. Arbitrage Arnaud du 2026-09-10 : aucun fichier n est detruit sans qu un rappel ait ete CONFIRME DELIVRE. Le consommateur doit donc rendre compte de ce qu il a obtenu du prestataire — identifiant de message a l acceptation, puis confirmation de livraison quand elle arrive — et `notice_id` est la clef sous laquelle il l ecrit. Sans lui, il n aurait aucun moyen de designer ce qu il vient d envoyer.
+             *
+             *     CE N EST PAS UNE DONNEE DE TEXTE. Il ne s affiche pas, ne se cite pas, n ouvre aucun ecran. Un abonne tiers n a rien a en faire : c est un identifiant de plomberie interne, publie parce que la charge utile est fermee (`additionalProperties: false`) et qu un champ qui traverse le bus doit etre decrit.
+             *
+             *     PAS `event_id`, ET LA DISTINCTION COMPTE : un evenement rejoue — « au moins une fois » vaut aussi ici — porte le MEME `notice_id`. C est precisement ce qui permet au consommateur de reconnaitre un doublon et de ne pas consigner deux envois la ou il n y en a eu qu un.
+             */
+            notice_id: components["schemas"]["Uuid"];
+            stage: components["schemas"]["OrderFilePurgeStage"];
+            /** @description Nombre de fichiers VIVANTS atteignant ce palier dans cet espace ce jour-la. Toujours au moins 1 : un espace sans fichier echu n emet rien du tout, plutot qu un evenement a zero qui ferait partir un courriel disant qu il n y a rien a dire. */
+            file_count: number;
+            /** @description Nombre de commandes DISTINCTES portant ces fichiers. Rendu a cote de `file_count` parce que « 12 fichiers sur 3 commandes » et « 12 fichiers sur 12 commandes » ne se lisent pas de la meme facon quand on decide s il faut aller les recuperer. */
+            order_count: number;
+            /**
+             * @description DATE DE DESTRUCTION ANNONCEE. C est CETTE valeur que le courriel cite, et c est pour elle que `OrderFile.purge_at` est fige en base plutot que recalcule : une date annoncee ne bouge plus.
+             *
+             *     ANNONCEE, DONC AU PLUS TOT — jamais au plus tard. Si la livraison du second rappel n est pas confirmee, la destruction attend (arbitrage du 2026-09-10). Le systeme peut donc detruire APRES la date annoncee, jamais AVANT. L ecart est du bon cote : un destinataire prevenu le 12 pour le 12 ne s etonne pas que le fichier soit encore la le 14 ; l inverse serait un manquement.
+             *
+             *     TOUS LES FICHIERS D UNE MEME EMISSION PARTAGENT CETTE DATE, par construction : ils ont atteint le meme palier le meme jour, donc ils ont ete deposes le meme jour, donc ils expirent le meme jour. Un espace dont les depots s etalent sur trois jours recoit trois rappels, chacun avec sa date — jamais un rappel a dates multiples.
+             */
+            purge_at: components["schemas"]["Timestamp"];
+            /**
+             * @description Nombre de jours ENTIERS restant avant `purge_at` au moment de l emission. Vingt au premier palier, quinze au second, avec les reglages en vigueur.
+             *
+             *     RENDU PLUTOT QUE LAISSE A CALCULER, et le motif est le decalage : entre l emission et la remise du courriel il peut s ecouler plusieurs minutes, voire davantage si le relais reprend apres une panne. Un consommateur qui ecrirait « il vous reste `purge_at - now()` jours » afficherait un nombre qui n est pas celui que le systeme a decide. Ce champ fige ce que le rappel PROMET.
+             */
+            days_before_purge: number;
+            /** @description Commandes concernees, pour qu un courriel puisse pointer les fiches plutot que decrire un tas. BORNEE A 50 ENTREES : au-dela, la liste est TRONQUEE (`order_count` reste, lui, exact) — une charge utile d evenement ne se met pas a grossir avec l activite d un espace, et un courriel qui listerait deux cents liens n en serait pas un. */
+            order_ids: components["schemas"]["Uuid"][];
+        };
+        /**
+         * OrderFilesPurgedPayload
+         * @description Charge utile de l evenement sortant `order_files.purged` (`event_version: 1`), emis APRES une destruction effective, pour chaque espace dont au moins un fichier a ete purge au cours du tour.
+         *
+         *     SEULE TRACE VERSIONNEE ET HORODATEE D UNE DESTRUCTION QUE PERSONNE N A DEMANDEE. La ligne du fichier survit en base avec sa marque de purge, mais aucun ecran ne la rend et aucune operation du contrat ne l expose : sans cet evenement, « pourquoi ce BAT n est-il plus telechargeable ? » n aurait aucune reponse consultable.
+         *
+         *     `aggregate_type` vaut `tenant`, `aggregate_id` l espace concerne.
+         */
+        OrderFilesPurgedPayload: {
+            /** @description Nombre de fichiers dont les octets ont ete detruits durant ce tour. */
+            file_count: number;
+            /** @description Nombre de commandes DISTINCTES concernees. */
+            order_count: number;
+            /**
+             * Format: int64
+             * @description Somme des `byte_size` des fichiers purges. C est le chiffre qui justifie l existence du mecanisme, et le seul moyen de repondre a « est-ce que ca sert a quelque chose ? » autrement que par une impression.
+             *
+             *     SOMME DES TAILLES DECLAREES EN BASE, PAS UNE MESURE DU STOCKAGE. Elle vaut ce que valent les lignes ; un objet dont le retrait a echoue est compte alors qu il occupe encore de la place.
+             */
+            byte_size_freed: number;
+            /** @description Commandes concernees. BORNEE A 50 ENTREES, tronquee au-dela, meme regle et meme motif que sur `OrderFilesPurgeScheduledPayload`. */
+            order_ids: components["schemas"]["Uuid"][];
         };
     };
     responses: {
@@ -5506,6 +5682,9 @@ export type OrderUploadLinkContext = components['schemas']['OrderUploadLinkConte
 export type ConfirmOrderUploadLinkFileCommand = components['schemas']['ConfirmOrderUploadLinkFileCommand'];
 export type OrderUploadLinkDeposit = components['schemas']['OrderUploadLinkDeposit'];
 export type OrderFilesSubmittedPayload = components['schemas']['OrderFilesSubmittedPayload'];
+export type OrderFilePurgeStage = components['schemas']['OrderFilePurgeStage'];
+export type OrderFilesPurgeScheduledPayload = components['schemas']['OrderFilesPurgeScheduledPayload'];
+export type OrderFilesPurgedPayload = components['schemas']['OrderFilesPurgedPayload'];
 export type ResponseBadRequest = components['responses']['BadRequest'];
 export type ResponseUnauthorized = components['responses']['Unauthorized'];
 export type ResponseForbidden = components['responses']['Forbidden'];
@@ -10367,6 +10546,64 @@ export interface operations {
             content: {
                 "application/json": components["schemas"]["EventEnvelope"] & {
                     payload?: components["schemas"]["OrderFilesSubmittedPayload"];
+                };
+            };
+        };
+        responses: {
+            /** @description Evenement accepte par le consommateur. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    onOrderFilesPurgeScheduled: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Signature HMAC-SHA256 du corps brut de l evenement, au format `sha256=<hex minuscule>`. A verifier en comparaison a temps constant. */
+                "X-Magrit-Signature": components["parameters"]["MagritSignature"];
+                /** @description Nom de l evenement livre, identique a `EventEnvelope.event_name`. */
+                "X-Magrit-Event": components["parameters"]["MagritEventName"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EventEnvelope"] & {
+                    payload?: components["schemas"]["OrderFilesPurgeScheduledPayload"];
+                };
+            };
+        };
+        responses: {
+            /** @description Evenement accepte par le consommateur. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    onOrderFilesPurged: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Signature HMAC-SHA256 du corps brut de l evenement, au format `sha256=<hex minuscule>`. A verifier en comparaison a temps constant. */
+                "X-Magrit-Signature": components["parameters"]["MagritSignature"];
+                /** @description Nom de l evenement livre, identique a `EventEnvelope.event_name`. */
+                "X-Magrit-Event": components["parameters"]["MagritEventName"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EventEnvelope"] & {
+                    payload?: components["schemas"]["OrderFilesPurgedPayload"];
                 };
             };
         };
