@@ -3,6 +3,7 @@ import { createBrowserRouter, Navigate } from "react-router";
 import { workspaceRuntimeRoutes } from "@/app/surfaces/workspaceRuntimeRoutes";
 import { WorkspaceCapabilityGate } from "@/app/surfaces/WorkspaceCapabilityGate";
 import { portalRuntimePaths } from "@/app/surfaces/portalRuntimePaths";
+import { RouteErrorPage } from "@/app/layouts/RouteErrorPage";
 
 const AppShell = lazy(() =>
   import("@/app/AppShell").then((m) => ({ default: m.AppShell })),
@@ -119,6 +120,7 @@ export const router = createBrowserRouter([
     : []),
   {
     element: lazyRoute(<StorefrontRuntimeBoundary />),
+    errorElement: <RouteErrorPage />,
     children: [
       // Boutique publique — anonyme, pas de tenant.
       // S7.1 (ADR §4.19-1) : catch-all — les vues du portail sont des URLs
@@ -139,6 +141,7 @@ export const router = createBrowserRouter([
   },
   {
     element: lazyRoute(<WorkspaceRuntimeBoundary />),
+    errorElement: <RouteErrorPage />,
     children: [
       {
         element: lazyRoute(<AppShell />),

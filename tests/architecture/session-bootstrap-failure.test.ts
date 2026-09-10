@@ -8,6 +8,9 @@ const picker = readFileSync(resolve(process.cwd(), 'src/modules/tenants/ui/works
 const layout = readFileSync(resolve(process.cwd(), 'src/app/layouts/TenantAwareLayout.tsx'), 'utf8');
 const failure = readFileSync(resolve(process.cwd(), 'src/modules/tenants/ui/components/TenantLoadError.tsx'), 'utf8');
 const appShell = readFileSync(resolve(process.cwd(), 'src/app/AppShell.tsx'), 'utf8');
+const signupModal = readFileSync(resolve(process.cwd(), 'src/modules/account/ui/auth/SignupModal.tsx'), 'utf8');
+const routes = readFileSync(resolve(process.cwd(), 'src/app/routes.tsx'), 'utf8');
+const routeError = readFileSync(resolve(process.cwd(), 'src/app/layouts/RouteErrorPage.tsx'), 'utf8');
 
 describe('échec du bootstrap des espaces Magrit', () => {
   it('propage l erreur sans la convertir en liste vide métier', () => {
@@ -32,5 +35,19 @@ describe('échec du bootstrap des espaces Magrit', () => {
     );
     expect(appShell).toContain('<SessionBootstrapProvider apiClient={client}>');
     expect(bootstrapContext).toContain('new SessionApiClient(apiClient)');
+  });
+
+  it('ne demande une confirmation email que lorsque le signup ne cree pas de session', () => {
+    expect(signupModal).toContain("session ? 'authenticated' : 'confirmation_pending'");
+    expect(signupModal).toContain("success === 'confirmation_pending'");
+    expect(signupModal).toContain('Vous êtes maintenant connecté');
+    expect(signupModal).toContain('Revenir à la connexion');
+  });
+
+  it('remplace l erreur technique du routeur par une recuperation comprehensible', () => {
+    expect(routes.match(/errorElement: <RouteErrorPage \/>/g)).toHaveLength(2);
+    expect(routeError).toContain('Impossible de charger cette page');
+    expect(routeError).toContain('Recharger la page');
+    expect(routeError).toContain('window.location.reload()');
   });
 });

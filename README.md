@@ -9,6 +9,91 @@
 
   Run `pnpm run dev` to start the development server.
 
+  ## Après un gros checkout ou changement de branche
+
+  Un checkout important peut laisser un environnement local incohérent : les
+  dépendances peuvent venir de l'ancienne branche et la base Supabase locale
+  conserve son propre historique de migrations. Procédez dans cet ordre.
+
+  1. Vérifiez d'abord que vos modifications locales sont sauvegardées :
+
+     ```bash
+     git status --short
+     ```
+
+  2. Arrêtez les processus de l'ancienne branche :
+
+     ```bash
+     pnpm dev:b5:stop || true
+     pnpm db:local:stop
+     ```
+
+  3. Réinstallez les dépendances correspondant au nouveau `pnpm-lock.yaml` :
+
+     ```bash
+     pnpm install --frozen-lockfile
+     ```
+
+  4. Redémarrez Supabase et tentez d'appliquer les migrations manquantes sans
+     supprimer les données :
+
+     ```bash
+     pnpm db:local:start
+     pnpm db:local:push
+     pnpm supabase:use:local
+     ```
+
+  5. Si `db:local:push` signale `Remote migration versions not found in local
+     migrations directory`, la base appartient à l'historique d'une autre
+     branche. La solution fiable est alors de la recréer :
+
+     ```bash
+     pnpm db:local:reset
+     pnpm supabase:use:local
+     ```
+
+     **Attention :** `db:local:reset` supprime toutes les données de la base
+     Supabase locale de ce projet, puis rejoue les migrations et le seed. Il ne
+     touche pas au projet Supabase distant. N'utilisez pas `migration repair`
+     pour masquer une divergence de branche sans avoir identifié précisément
+     les migrations concernées.
+
+  6. Relancez enfin le front :
+
+     ```bash
+     pnpm dev
+     ```
+
+     Utilisez exactement cette commande, sans ajouter `start`. Avec
+     `pnpm dev start`, Vite interprète `start` comme le dossier racine à servir :
+     le port 5176 reste ouvert, mais toutes les pages répondent `404` et le
+     navigateur affiche un écran blanc.
+
+  Si Vite sert encore d'anciens modules après ces étapes, forcez une seule fois
+  la reconstruction de son cache :
+
+  ```bash
+  pnpm exec vite --port 5176 --strictPort --force
+  ```
+
+  Contrôles rapides en cas d'échec persistant :
+
+  ```bash
+  pnpm supabase:env:status  # vérifie la cible de .env.local
+  pnpm db:local:status      # vérifie les services Docker/Supabase
+  pnpm typecheck            # détecte une API ou un module désynchronisé
+  ```
+
+  Un HTTP 500 contenant `Could not find the table ... in the schema cache`
+  indique généralement que les migrations de la branche courante ne sont pas
+  appliquées. Reprenez alors les étapes 4 et 5.
+
+  Un HTTP 503 `BOOT_ERROR` accompagné de `Module not found` dans les logs de
+  l'Edge Runtime indique que le checkout a remplacé des fichiers montés dans
+  les conteneurs. Un simple redémarrage du conteneur ne suffit pas toujours :
+  exécutez `pnpm db:local:stop`, puis `pnpm db:local:start` pour recréer les
+  montages, sans réinitialiser les données.
+
   ## Choisir l'environnement Supabase
 
   - `pnpm dev:local` démarre Supabase local, sélectionne ses clés puis lance Vite.
@@ -19,6 +104,31 @@
   `pnpm supabase:use:local` ou `pnpm supabase:use:official`. Le switch ne modifie
   que les trois variables Supabase de `.env.local` et conserve les autres
   secrets locaux. Si Vite tourne déjà, redémarrez-le après le changement.
+
+  ## Générer des données volumiques pour les tests UX
+
+  Après avoir démarré Supabase local et appliqué les migrations, générez les
+  fixtures avec :
+
+  ```bash
+  pnpm db:seed:ux
+  ```
+
+  Sans argument, la commande crée **100 clients** et **200 commandes** dans le
+  tenant `pressetout`. Pour choisir le tenant et les volumes :
+
+  ```bash
+  pnpm db:seed:ux <tenant-slug> <nombre-clients> <nombre-commandes>
+
+  # Exemple
+  pnpm db:seed:ux pressetout 250 500
+  ```
+
+  Le tenant ciblé doit déjà posséder au moins un administrateur et une
+  boutique. Le générateur est réservé à la base locale et peut être relancé :
+  ses identifiants déterministes évitent de dupliquer les mêmes fixtures. Les
+  données produites couvrent plusieurs types de clients, statuts, boutiques et
+  dates pour tester les recherches, filtres, paginations et listes denses.
 
   ## Changer de branche avec Supabase local
 
