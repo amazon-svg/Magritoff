@@ -50,12 +50,24 @@
     "execution": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["startedAt", "finishedAt", "durationMs", "semanticAnalysis"],
+      "required": ["startedAt", "finishedAt", "durationMs", "semanticAnalysis", "semantic"],
       "properties": {
         "startedAt": { "type": "string", "format": "date-time" },
         "finishedAt": { "type": "string", "format": "date-time" },
         "durationMs": { "type": "integer", "minimum": 0 },
-        "semanticAnalysis": { "enum": ["not-run", "completed", "failed"] }
+        "semanticAnalysis": { "enum": ["not-run", "completed", "failed"] },
+        "semantic": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["api", "baseUrl", "model", "batches", "filesAnalyzed"],
+          "properties": {
+            "api": { "enum": ["responses", "chat-completions"] },
+            "baseUrl": { "type": "string", "minLength": 1 },
+            "model": { "type": "string", "minLength": 1 },
+            "batches": { "type": "integer", "minimum": 0 },
+            "filesAnalyzed": { "type": "integer", "minimum": 0 }
+          }
+        }
       }
     },
     "verdict": { "enum": ["PASS", "WARN", "FAIL", "INCONCLUSIVE", "ERROR"] },

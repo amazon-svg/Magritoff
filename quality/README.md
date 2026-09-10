@@ -49,10 +49,47 @@ pnpm quality:audit --mode module --module commercial-quotes
 pnpm quality:audit --mode full
 pnpm quality:audit --mode full --agent api
 pnpm quality:audit --mode full --plan
+pnpm quality:audit --mode diff --semantic
 ```
 
 Le mode `--plan` valide la configuration et affiche les contrôles prévus sans
 les exécuter.
+
+### Analyse sémantique optionnelle
+
+`--semantic` exécute réellement les profils d'auditeurs sur les fichiers du
+périmètre. Le fournisseur est configuré uniquement par variables
+d'environnement :
+
+```bash
+export QUALITY_LLM_BASE_URL=http://localhost:11434/v1
+export QUALITY_LLM_MODEL=modele-local
+export QUALITY_LLM_API=chat-completions
+pnpm quality:audit --mode module --module commercial-quotes --semantic
+```
+
+Variables disponibles :
+
+- `QUALITY_LLM_BASE_URL` : racine API, sans endpoint final ;
+- `QUALITY_LLM_MODEL` : identifiant exact du modèle ;
+- `QUALITY_LLM_API_KEY` : clé facultative pour un endpoint local ;
+- `QUALITY_LLM_API` : `responses` par défaut ou `chat-completions` ;
+- `QUALITY_LLM_BATCH_CHARS` : taille maximale approximative d'un lot ;
+- `QUALITY_LLM_MAX_BATCHES` : garde-fou de coût pour un audit intégral.
+
+Dans GitHub, l'analyse s'active uniquement en cochant `run_semantic` lors d'un
+déclenchement manuel. Le dépôt doit définir les secrets `QUALITY_LLM_BASE_URL`
+et `QUALITY_LLM_API_KEY`, ainsi que les variables `QUALITY_LLM_MODEL` et
+`QUALITY_LLM_API`. La clé peut rester vide pour un fournisseur compatible sans
+authentification. Une instance locale telle qu'Ollama exige un runner
+auto-hébergé ayant accès à cette instance : un runner GitHub hébergé ne peut pas
+joindre le `localhost` de votre poste.
+
+Les requêtes OpenAI utilisent `store: false` et une sortie structurée par le
+schéma `quality/schemas/agent-assessment.schema.json`. Un endpoint compatible
+Chat Completions, notamment local, reçoit le même schéma dans
+`response_format`. Une réponse invalide ou un lot non analysé rend le verdict
+`INCONCLUSIVE`.
 
 ## Rapports
 
@@ -88,8 +125,6 @@ La politique `advisory` est définie dans `quality/policy.yaml` :
 
 ## Limite du premier socle
 
-Le runner initial collecte et normalise les preuves déterministes. Les profils
-d'agents sont prêts pour une analyse LLM, mais aucun verdict sémantique ne doit
-être prétendu tant qu'un adaptateur de modèle n'a pas effectivement exécuté le
-profil sur le périmètre. Cette absence apparaît explicitement dans les
-limitations du rapport.
+Sans option `--semantic`, le runner collecte et normalise uniquement les
+preuves déterministes. Aucun verdict sémantique n'est alors prétendu et cette
+absence apparaît explicitement dans les limitations du rapport.

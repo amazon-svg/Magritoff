@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://magrit.local/schemas/quality-agent-assessment-1.0.json",
+  "title": "Évaluation sémantique d'un auditeur Magrit",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["verdict", "summary", "findings", "limitations"],
+  "properties": {
+    "verdict": {
+      "enum": ["PASS", "WARN", "FAIL", "INCONCLUSIVE"]
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "severity",
+          "title",
+          "description",
+          "rule",
+          "location",
+          "evidence",
+          "recommendation"
+        ],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "severity": { "enum": ["critical", "major", "minor", "info"] },
+          "title": { "type": "string", "minLength": 1 },
+          "description": { "type": "string", "minLength": 1 },
+          "rule": { "type": ["string", "null"] },
+          "location": { "type": ["string", "null"] },
+          "evidence": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "recommendation": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}
