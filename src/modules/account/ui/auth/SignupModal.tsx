@@ -15,7 +15,7 @@ export function SignupModal({ onClose, onSwitchToLogin }: Props) {
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [success, setSuccess] = useState<'authenticated' | 'confirmation_pending' | null>(null);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,12 +29,12 @@ export function SignupModal({ onClose, onSwitchToLogin }: Props) {
       return;
     }
     setLoading(true);
-    const { error } = await signUp(email, password, fullName);
+    const { error, session } = await signUp(email, password, fullName);
     setLoading(false);
     if (error) {
       setError(error.message);
     } else {
-      setSuccess(true);
+      setSuccess(session ? 'authenticated' : 'confirmation_pending');
     }
   };
 
@@ -51,13 +51,20 @@ export function SignupModal({ onClose, onSwitchToLogin }: Props) {
         {success ? (
           <div className="space-y-4">
             <p className="text-sm text-green-700 bg-green-50 p-3 rounded">
-              ✅ Compte créé. Vérifiez votre email pour confirmer votre inscription.
+              {success === 'confirmation_pending' ? (
+                <>
+                  Compte créé. Un e-mail de confirmation a été envoyé à <strong>{email}</strong>.
+                  Ouvrez-le pour activer votre compte, puis revenez vous connecter.
+                </>
+              ) : (
+                <>Compte créé. Vous êtes maintenant connecté et pouvez créer votre premier espace.</>
+              )}
             </p>
             <button
-              onClick={onClose}
+              onClick={success === 'confirmation_pending' ? onSwitchToLogin : onClose}
               className="w-full px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 font-medium"
             >
-              Fermer
+              {success === 'confirmation_pending' ? 'Revenir à la connexion' : 'Continuer'}
             </button>
           </div>
         ) : (
