@@ -29,6 +29,7 @@
     "gen:api": "./scripts/gen-api-types.sh",
     "gen:api:check": "./scripts/gen-api-types.sh --check",
     "test": "vitest run --maxWorkers=2",
+    "specs:validate": "node ./scripts/validate-functional-specs.mjs",
     "test:architecture": "vitest run tests/architecture",
     "test:contract": "vitest run tests/contract",
     "test:storefront:sql": "./scripts/test-storefront-sql.sh",
