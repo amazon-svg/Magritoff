@@ -1,0 +1,96 @@
+schemaVersion: "1.0"
+policy: advisory
+reportsDirectory: quality-reports
+
+context:
+  architectureSources:
+    - docs/REGLES_ARCHITECTURE.md
+    - docs/CONVENTION_GIT.md
+    - docs/project-context.md
+    - ARCHITECTURE.md
+    - _bmad-output/planning-artifacts/architecture.md
+  functionalSpecGlob: quality/specs/**/*.spec.yaml
+  uxSources:
+    - .design-handoff/README.md
+    - _bmad-output/planning-artifacts/ux-design-specification.md
+    - _bmad-output/planning-artifacts/ux-design-ecom-boutique-2026-07-07.md
+    - docs/UX_GUIDELINES.md
+
+checks:
+  specs-format:
+    title: Valider le format des spécifications fonctionnelles
+    command: [pnpm, specs:validate]
+    severity: major
+  typecheck:
+    title: Vérifier le typage du socle modulaire
+    command: [pnpm, typecheck]
+    severity: critical
+  architecture-tests:
+    title: Exécuter les tests de frontières architecturales
+    command: [pnpm, test:architecture]
+    severity: critical
+  generated-api-types:
+    title: Vérifier la dérive entre OpenAPI et les types générés
+    command: [pnpm, gen:api:check]
+    severity: critical
+  contract-tests:
+    title: Exécuter les tests de contrat API
+    command: [pnpm, test:contract]
+    severity: critical
+  complete-tests:
+    title: Exécuter la suite Vitest complète
+    command: [pnpm, test]
+    severity: critical
+  coverage:
+    title: Mesurer la couverture du code
+    command: [pnpm, test:coverage]
+    severity: major
+  accessibility:
+    title: Scanner les routes avec axe-core
+    command: [pnpm, a11y:scan]
+    severity: critical
+    requiresUrl:
+      environment: A11Y_BASE_URL
+      default: http://localhost:5177
+  browser-e2e:
+    title: Exécuter les parcours Playwright
+    command: [pnpm, exec, playwright, test]
+    severity: critical
+    enabledByEnvironment: QUALITY_RUN_E2E
+
+agents:
+  architecture:
+    title: Architecture
+    profile: quality/agents/architecture.md
+    checks:
+      diff: [typecheck, architecture-tests, generated-api-types]
+      module: [typecheck, architecture-tests, generated-api-types]
+      full: [typecheck, architecture-tests, generated-api-types]
+  api:
+    title: API
+    profile: quality/agents/api.md
+    checks:
+      diff: [generated-api-types, contract-tests]
+      module: [generated-api-types, contract-tests]
+      full: [generated-api-types, contract-tests]
+  functional:
+    title: Conformité fonctionnelle
+    profile: quality/agents/functional.md
+    checks:
+      diff: [specs-format]
+      module: [specs-format, complete-tests]
+      full: [specs-format, complete-tests]
+  ux:
+    title: Expérience utilisateur
+    profile: quality/agents/ux.md
+    checks:
+      diff: [accessibility, browser-e2e]
+      module: [accessibility, browser-e2e]
+      full: [accessibility, browser-e2e]
+  test-quality:
+    title: Qualité des tests
+    profile: quality/agents/test-quality.md
+    checks:
+      diff: [specs-format, contract-tests]
+      module: [specs-format, complete-tests, coverage]
+      full: [specs-format, complete-tests, coverage]
