@@ -195,9 +195,15 @@ export class SupabaseOrderUploadLinksRepository implements OrderUploadLinksRepos
 
     const fileId = crypto.randomUUID();
     const path = storagePathFor(resolved.tenantId as TenantId, resolved.orderId, fileId);
+    // `upsert: false` — MEME correctif, MEME raisonnement qu
+    // `order-files-repository.ts#issueUploadUrl` (correctif securite Arnaud,
+    // 2026-09-10, dette M3 qa-review E10.20b) : le porteur d un lien public,
+    // par construction anonyme et moins de confiance que l atelier, ne doit
+    // JAMAIS pouvoir re-ecrire le contenu d un fichier deja depose via le
+    // MEME billet (le meme signed URL, valide ~2h) apres confirmation.
     const { data, error } = await this.storageClient.storage
       .from(BUCKET)
-      .createSignedUploadUrl(path, { upsert: true });
+      .createSignedUploadUrl(path, { upsert: false });
     if (error || !data) throw new Error(error?.message ?? 'Emission du billet de depot impossible.');
 
     return {

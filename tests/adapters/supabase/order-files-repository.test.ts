@@ -255,3 +255,74 @@ describe('SupabaseOrderFilesRepository.confirmUpload — chemin RECALCULE, jamai
     expect(removeCalls).toEqual([[`${TENANT}/${ORDER_ID}/${FILE_ID}`]]);
   });
 });
+
+/**
+ * Correctif securite Arnaud (2026-09-10), dette M3 signalee en qa-review
+ * d E10.20b (non bloquante a l epoque, corrigee ici) : un billet de depot ne
+ * doit plus jamais accepter un SECOND `PUT` sur le MEME chemin — le
+ * `createSignedUploadUrl()` de `@supabase/storage-js` reste, sous cette
+ * option, la SEULE barriere technique disponible (il n accepte aucun
+ * parametre de duree, voir le commentaire d
+ * `UPLOAD_TICKET_FALLBACK_TTL_SECONDS`). AVANT ce correctif, `upsert: true`
+ * permettait au porteur d un billet deja utilise (le meme signed URL, valide
+ * ~2h) de remplacer le contenu d un fichier deja confirme. Un fichier existant
+ * ne se remplace pas (decision Arnaud) : il se supprime
+ * (`api_delete_order_file`, deja disponible) puis un NOUVEAU billet — donc un
+ * NOUVEAU `file_id`, donc un NOUVEAU chemin — permet d en deposer un autre.
+ */
+describe('SupabaseOrderFilesRepository.issueUploadUrl — billet SANS upsert (correctif securite 2026-09-10)', () => {
+  it('appelle createSignedUploadUrl avec { upsert: false } : un second PUT sur le MEME billet ne doit plus pouvoir ecraser un fichier deja depose', async () => {
+    const createSignedUploadUrlCalls: Array<{ path: string; options: unknown }> = [];
+
+    const client = {
+      from(table: string) {
+        if (table === 'commercial_orders') {
+          return {
+            select: () => ({
+              eq: () => ({
+                eq: () => ({
+                  maybeSingle: async () => ({ data: { id: ORDER_ID }, error: null }),
+                }),
+              }),
+            }),
+          };
+        }
+        if (table === 'commercial_order_files') {
+          // Chaine EXACTE d `issueUploadUrl` : `.select('id', {count, head})
+          // .eq('order_id', ...).is('deleted_at', null)`, awaited SANS
+          // `.maybeSingle()` (requete `head: true`, aucune ligne rendue).
+          return {
+            select: () => ({
+              eq: () => ({
+                is: async () => ({ count: 0, error: null }),
+              }),
+            }),
+          };
+        }
+        throw new Error(`table inattendue dans ce faux: ${table}`);
+      },
+    };
+
+    const storageClient = {
+      storage: {
+        from(_bucket: string) {
+          return {
+            createSignedUploadUrl: async (path: string, options: unknown) => {
+              createSignedUploadUrlCalls.push({ path, options });
+              return { data: { signedUrl: 'https://storage.test/signed', token: 'a.b.c', path }, error: null };
+            },
+          };
+        },
+      },
+    };
+
+    const repository = new SupabaseOrderFilesRepository(client as any, storageClient as any);
+
+    await repository.issueUploadUrl(TENANT, ORDER_ID);
+
+    expect(createSignedUploadUrlCalls).toHaveLength(1);
+    // AVANT ce correctif : `{ upsert: true }` — un second PUT sur ce meme
+    // billet aurait ete ACCEPTE et aurait ecrase l objet deja depose/confirme.
+    expect(createSignedUploadUrlCalls[0]!.options).toEqual({ upsert: false });
+  });
+});

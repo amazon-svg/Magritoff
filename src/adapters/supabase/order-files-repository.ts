@@ -186,9 +186,18 @@ export class SupabaseOrderFilesRepository implements OrderFilesRepository {
 
     const fileId = crypto.randomUUID();
     const path = storagePathFor(tenantId, orderId, fileId);
+    // `upsert: false` (correctif securite Arnaud, 2026-09-10, dette M3 qa-review
+    // E10.20b) : un chemin de stockage n est JAMAIS re-ecrit — `fileId` est
+    // NEUF a chaque billet (ligne ci-dessus), donc chaque billet cible deja un
+    // chemin UNIQUE. Le seul effet reel d `upsert: true` etait de permettre a
+    // un SECOND `PUT` sur LE MEME billet (le meme signed URL, valide ~2h) de
+    // remplacer un contenu DEJA CONFIRME — le porteur d un lien ou d une
+    // requete rejouee ne doit jamais pouvoir ecraser un fichier deja depose,
+    // confirme ou non. "Remplacer" n existe pas dans le produit : on supprime
+    // (`api_delete_order_file`) puis on redemande un billet NEUF si besoin.
     const { data, error } = await this.storageClient.storage
       .from(BUCKET)
-      .createSignedUploadUrl(path, { upsert: true });
+      .createSignedUploadUrl(path, { upsert: false });
     if (error || !data) throw new Error(error?.message ?? 'Emission du billet de depot impossible.');
 
     return {
