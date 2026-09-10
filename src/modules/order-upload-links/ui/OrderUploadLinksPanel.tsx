@@ -1,10 +1,12 @@
 /**
  * OrderUploadLinksPanel — panneau "Liens de depot" sur la fiche commande
- * (E10.20a). SOCLE UNIQUEMENT (contrat §8.21 §5, ligne E10.20a : "Panneau
- * «liens de depot» sur la fiche commande. Aucun depot possible.") : ce
- * panneau CREE/LISTE/REVOQUE des liens, il ne depose jamais de fichier —
- * E10.20b livrera la page publique de depot elle-meme.
+ * (E10.20a). CREE/LISTE/REVOQUE des liens, ne depose jamais de fichier
+ * lui-meme : le depot se fait sur la page publique `/depot/:token`
+ * (E10.20b, `ui/UploadLinkDepositPage.tsx`), livree — l avertissement "page
+ * pas encore disponible" pose en E10.20a est donc RETIRE (qa-review E10.20a
+ * round 1, N4 : sa raison d etre a disparu).
  *
+
  * MAGRIT N ENVOIE PAS LE LIEN (contrat). L atelier copie l URL publique et
  * la transmet par le canal de son choix : ce panneau propose donc un bouton
  * "Copier le lien", jamais un bouton "Envoyer".
@@ -218,14 +220,6 @@ export function OrderUploadLinksPanel({ orderId }: OrderUploadLinksPanelProps) {
               {copied ? 'Copié' : 'Copier'}
             </button>
           </div>
-          {/* N4 (qa-review E10.20a round 1) — la page publique de depot
-              (E10.20b) n est pas encore livree : le lien copie ne mene nulle
-              part avant sa mise en service. Le dire ici evite qu un lien
-              soit transmis a un client avant que la page existe. */}
-          <p className="text-xs text-amber-700" data-testid={TEST_IDS.orderUploadLinks.depotPageNotReadyNotice}>
-            La page de dépôt sera disponible lors d'une prochaine mise à jour — ne transmettez pas
-            encore ce lien à votre client.
-          </p>
         </div>
       )}
 

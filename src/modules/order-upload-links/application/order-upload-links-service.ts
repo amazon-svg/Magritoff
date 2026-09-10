@@ -1,5 +1,6 @@
 /**
- * Service applicatif du module Liens de depot publics (story E10.20a).
+ * Service applicatif du module Liens de depot publics
+ * (stories E10.20a/E10.20b).
  *
  * Orchestration pure : aucune dependance a Supabase ni au HTTP. AUCUNE garde
  * de capability, meme parti qu `order-files` (E10.17a decision #4) : emettre
@@ -7,12 +8,21 @@
  * qu attacher un fichier a une commande n en exige pas davantage — le
  * verrou UM1 rend de toute facon tout droit metier E10 admin-only tant qu il
  * tient (docs/api/CONVENTIONS.md §3.5).
+ *
+ * E10.20b ajoute `outbox` : `confirmFileUpload` publie `order.files_submitted`
+ * APRES l ecriture du repository (meme patron accepte que `quote.created`/
+ * `quote.sent` — dette M2 deja consignee, docs/api/CONVENTIONS.md §8.2), UNE
+ * FOIS PAR FICHIER (arbitrage (G) du contrat, jamais par lot).
  */
 import type { TenantId, UserId } from '../../../kernel/ids/index.ts';
+import type { OrderFileUploadTicketDto } from '../../order-files/api/contracts.ts';
+import type { OutboxPublisher } from '../../_shared/application/outbox.ts';
 import type {
+  ConfirmOrderUploadLinkFileCommand,
   CreateOrderUploadLinkCommand,
   OrderUploadLinkContextDto,
   OrderUploadLinkCreatedDto,
+  OrderUploadLinkDepositDto,
 } from '../api/contracts.ts';
 import {
   OrderNotFoundError,
@@ -23,13 +33,16 @@ import {
 
 export type OrderUploadLinksServiceDependencies = Readonly<{
   repository: OrderUploadLinksRepository;
+  outbox: OutboxPublisher;
 }>;
 
 export class OrderUploadLinksService {
   private readonly repository: OrderUploadLinksRepository;
+  private readonly outbox: OutboxPublisher;
 
   constructor(dependencies: OrderUploadLinksServiceDependencies) {
     this.repository = dependencies.repository;
+    this.outbox = dependencies.outbox;
   }
 
   /** `createOrderUploadLink`. Seul endroit ou le jeton en clair existe. */
@@ -66,5 +79,43 @@ export class OrderUploadLinksService {
     const context = await this.repository.getContext(token);
     if (context === null) throw new OrderUploadLinkNotFoundError();
     return context;
+  }
+
+  /**
+   * E10.20b — `issueOrderUploadLinkFileUrl`. `token` vient du
+   * `UploadLinkPrincipal` deja resolu par le middleware, jamais d un
+   * parametre d appelant.
+   */
+  async issueFileUploadUrl(token: string): Promise<OrderFileUploadTicketDto> {
+    return this.repository.issueFileUploadUrl(token);
+  }
+
+  /**
+   * E10.20b — `confirmOrderUploadLinkFile`. C EST ICI QUE LE FAIT METIER DU
+   * LOT SE PRODUIT : `order.files_submitted` est publie APRES l ecriture du
+   * repository, UNE FOIS PAR FICHIER (arbitrage (G)) — jamais rejoue sur une
+   * confirmation idempotente REJOUEE (la couche HTTP, `defineGescomRoute`,
+   * court-circuite deja le rejeu AVANT d atteindre ce service — voir
+   * `IdempotencyStore`, gescom-middleware.ts).
+   */
+  async confirmFileUpload(
+    token: string,
+    command: ConfirmOrderUploadLinkFileCommand,
+  ): Promise<OrderUploadLinkDepositDto> {
+    const result = await this.repository.confirmFileUpload(token, command);
+    await this.outbox.publish({
+      name: 'order.files_submitted',
+      tenantId: result.tenantId,
+      aggregateType: 'order',
+      aggregateId: result.orderId,
+      payload: {
+        file_id: result.deposit.file_id,
+        upload_link_id: result.uploadLinkId,
+        order_id: result.orderId,
+        order_number: result.orderNumber,
+        customer_id: result.customerId,
+      },
+    });
+    return result.deposit;
   }
 }

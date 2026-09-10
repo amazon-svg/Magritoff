@@ -1,5 +1,5 @@
 /**
- * Module Liens de depot publics (story E10.20a) contre le contrat.
+ * Module Liens de depot publics (stories E10.20a/E10.20b) contre le contrat.
  *
  * Exerce reellement `createOrderUploadLinksRoutes()` via
  * `createGescomApiHandler`, avec un `OrderUploadLinksRepository` en memoire
@@ -15,26 +15,36 @@
  *
  * Les REGLES TENUES EN BASE (isolation tenant, plafond de 10 SOUS VERROU,
  * jeton jamais stocke en clair, revocation) sont verifiees REELLEMENT par
- * `tests/sql/gescom-e10-20a-order-upload-links.sql` — ce fichier valide la
- * FORME HTTP/JSON (enveloppe, codes d erreur, gardes d authentification et
- * de cloisonnement) contre le contrat, pas l implementation SQL sous-jacente.
+ * `tests/sql/gescom-e10-20a-order-upload-links.sql`/
+ * `tests/sql/gescom-e10-20b-order-upload-link-deposit.sql` — ce fichier
+ * valide la FORME HTTP/JSON (enveloppe, codes d erreur, gardes
+ * d authentification et de cloisonnement) contre le contrat, pas
+ * l implementation SQL sous-jacente.
  *
- * PERIMETRE : E10.20a n enregistre PAS `issueOrderUploadLinkFileUrl` ni
- * `confirmOrderUploadLinkFile` (E10.20b) — ce fichier ne les exerce donc pas.
+ * E10.20b AJOUTE : `issueOrderUploadLinkFileUrl`/`confirmOrderUploadLinkFile`,
+ * verifies ICI EN PLUS des quatre operations d E10.20a, avec un
+ * `OutboxRepository` en memoire pour prouver que `order.files_submitted` est
+ * publie UNE FOIS PAR FICHIER (arbitrage (G)), jamais sur un rejeu
+ * idempotent.
  */
 import { describe, expect, it, beforeEach } from 'vitest';
 import { parseId, type TenantId, type UserId } from '@/kernel';
 import {
   InMemoryIdempotencyStore,
+  OutboxPublisher,
   type ApiPrincipal,
+  type OutboxEvent,
+  type OutboxRepository,
   type PrincipalVerifier,
 } from '@/modules/_shared/application';
 import { OrderUploadLinksService } from '@/modules/order-upload-links/application/order-upload-links-service';
 import type {
   OrderUploadLinkContextDto,
   OrderUploadLinkCreatedDto,
+  OrderUploadLinkDepositDto,
   OrderUploadLinkDto,
 } from '@/modules/order-upload-links/api/contracts';
+import type { OrderFileUploadTicketDto } from '@/modules/order-files/api/contracts';
 import { createOrderUploadLinksRoutes } from '@/server/api/order-upload-links-routes';
 import { createGescomApiHandler } from '@/server/api';
 import {
@@ -42,6 +52,13 @@ import {
   fakeOrderUploadLinkUuid,
 } from './_fakes/order-upload-links-repository.fake.ts';
 import { checkResponseAgainstContract } from './_harness.ts';
+
+class InMemoryOutboxRepository implements OutboxRepository {
+  readonly events: OutboxEvent[] = [];
+  async append(events: readonly OutboxEvent[]): Promise<void> {
+    this.events.push(...events);
+  }
+}
 
 const TENANT = brand<TenantId>('7f0d2a1e-1c4b-4f8a-9c3d-5b6e7a8f9020');
 const USER = brand<UserId>('a1b2c3d4-e5f6-4708-8910-1a2b3c4d5e80');
@@ -67,6 +84,7 @@ const studioPrincipal: ApiPrincipal = Object.freeze({
 });
 
 let repository: InMemoryOrderUploadLinksRepository;
+let outboxRepository: InMemoryOutboxRepository;
 let handler: (request: Request) => Promise<Response>;
 
 const verifier: PrincipalVerifier = {
@@ -97,7 +115,15 @@ const verifier: PrincipalVerifier = {
 
 beforeEach(() => {
   repository = new InMemoryOrderUploadLinksRepository();
-  const service = new OrderUploadLinksService({ repository });
+  outboxRepository = new InMemoryOutboxRepository();
+  const service = new OrderUploadLinksService({
+    repository,
+    outbox: new OutboxPublisher({
+      repository: outboxRepository,
+      now: () => new Date('2026-09-10T10:00:00.000Z'),
+      newEventId: () => `evt-${outboxRepository.events.length + 1}`,
+    }),
+  });
   handler = createGescomApiHandler({
     routes: createOrderUploadLinksRoutes(service),
     principalVerifier: verifier,
@@ -385,5 +411,248 @@ describe('module Liens de depot publics (E10.20a) contre le contrat', () => {
     expect(response.status).toBe(400);
     const body = (await response.json()) as { code: string };
     expect(body.code).toBe('api.tenant_not_addressable');
+  });
+
+  // ── E10.20b — le depot par le lien ────────────────────────────────────────
+
+  async function issueTicket(token: string): Promise<Response> {
+    return call('/api/v1/order-upload-links/current/file-upload-urls', {
+      method: 'POST',
+      headers: { 'X-Magrit-Upload-Link': token },
+    });
+  }
+
+  async function confirmDeposit(
+    token: string,
+    body: Readonly<Record<string, unknown>>,
+    idempotencyKeyValue: string = idempotencyKey(),
+  ): Promise<Response> {
+    return call('/api/v1/order-upload-links/current/files', {
+      method: 'POST',
+      headers: {
+        'X-Magrit-Upload-Link': token,
+        'Content-Type': 'application/json',
+        'Idempotency-Key': idempotencyKeyValue,
+      },
+      body: JSON.stringify(body),
+    });
+  }
+
+  it('issueOrderUploadLinkFileUrl : 200, alloue un file_id, PAS d Idempotency-Key exigee', async () => {
+    const orderId = seedOrder();
+    const created = await createLink(orderId);
+    const { data: createdData } = (await created.json()) as { data: OrderUploadLinkCreatedDto };
+
+    const response = await issueTicket(createdData.token);
+    await expectContract(response, { status: 200, dataSchema: 'OrderFileUploadTicket' });
+    const { data } = (await response.json()) as { data: OrderFileUploadTicketDto };
+    expect(data.file_id).toBeTruthy();
+    expect(data.max_byte_size).toBeGreaterThan(0);
+    expect(data.accepted_content_types.length).toBeGreaterThan(0);
+  });
+
+  it('issueOrderUploadLinkFileUrl : jeton invalide -> 401 upload_link.invalid ; jeton d un autre mode -> 403', async () => {
+    const invalid = await issueTicket('jeton-qui-n-existe-pas-00000000000000000000000000');
+    expect(invalid.status).toBe(401);
+    expect(((await invalid.json()) as { code: string }).code).toBe('upload_link.invalid');
+
+    const response = await call('/api/v1/order-upload-links/current/file-upload-urls', {
+      method: 'POST',
+      headers: asUser,
+    });
+    expect(response.status).toBe(403);
+    expect(((await response.json()) as { code: string }).code).toBe('identity.actor_kind_required');
+  });
+
+  it('confirmOrderUploadLinkFile : 201, cree le fichier, publie order.files_submitted UNE FOIS, deposited_count s incremente', async () => {
+    const orderId = seedOrder();
+    const created = await createLink(orderId, { label: 'BAT flyers' });
+    const { data: createdData } = (await created.json()) as { data: OrderUploadLinkCreatedDto };
+
+    const ticketResponse = await issueTicket(createdData.token);
+    const { data: ticket } = (await ticketResponse.json()) as { data: OrderFileUploadTicketDto };
+    repository.stageUploadForTest(ticket.file_id, { contentType: 'application/pdf', byteSize: 2048 });
+
+    const response = await confirmDeposit(createdData.token, { file_id: ticket.file_id, filename: 'bat.pdf' });
+    await expectContract(response, { status: 201, dataSchema: 'OrderUploadLinkDeposit' });
+    const { data } = (await response.json()) as { data: OrderUploadLinkDepositDto };
+    expect(data.file_id).toBe(ticket.file_id);
+    expect(data.filename).toBe('bat.pdf');
+    expect(data.deposited_count).toBe(1);
+    expect(data.max_files).toBe(10);
+    // Recu MINIMAL (arbitrage (E)) : aucun champ d atelier ne doit fuiter ici.
+    expect(data).not.toHaveProperty('visibility');
+    expect(data).not.toHaveProperty('deposited_by');
+
+    const events = outboxRepository.events.filter((event) => event.name === 'order.files_submitted');
+    expect(events).toHaveLength(1);
+    expect(events[0]!.payload).toMatchObject({
+      file_id: ticket.file_id,
+      upload_link_id: createdData.id,
+      order_id: orderId,
+      order_number: 'CDE-2026-08001',
+    });
+
+    const list = await call(`/api/v1/commercial-orders/${orderId}/upload-links`, { headers: asUser });
+    const { data: links } = (await list.json()) as { data: OrderUploadLinkDto[] };
+    expect(links[0]!.deposited_count).toBe(1);
+  });
+
+  it('confirmOrderUploadLinkFile : Idempotency-Key rejouee a l identique rend la MEME reponse, sans second evenement', async () => {
+    const orderId = seedOrder();
+    const created = await createLink(orderId);
+    const { data: createdData } = (await created.json()) as { data: OrderUploadLinkCreatedDto };
+
+    const ticketResponse = await issueTicket(createdData.token);
+    const { data: ticket } = (await ticketResponse.json()) as { data: OrderFileUploadTicketDto };
+    repository.stageUploadForTest(ticket.file_id, { contentType: 'application/pdf', byteSize: 2048 });
+
+    const key = idempotencyKey();
+    const first = await confirmDeposit(createdData.token, { file_id: ticket.file_id, filename: 'bat.pdf' }, key);
+    expect(first.status).toBe(201);
+
+    const replay = await confirmDeposit(createdData.token, { file_id: ticket.file_id, filename: 'bat.pdf' }, key);
+    expect(replay.status).toBe(201);
+    expect(replay.headers.get('idempotency-replayed')).toBe('true');
+
+    const events = outboxRepository.events.filter((event) => event.name === 'order.files_submitted');
+    expect(events).toHaveLength(1);
+  });
+
+  it('confirmOrderUploadLinkFile : SANS Idempotency-Key -> refusee (CA8, createsResource)', async () => {
+    const orderId = seedOrder();
+    const created = await createLink(orderId);
+    const { data: createdData } = (await created.json()) as { data: OrderUploadLinkCreatedDto };
+
+    const response = await call('/api/v1/order-upload-links/current/files', {
+      method: 'POST',
+      headers: { 'X-Magrit-Upload-Link': createdData.token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ file_id: fakeOrderUploadLinkUuid(), filename: 'x.pdf' }),
+    });
+    expect(response.status).toBe(400);
+    expect(((await response.json()) as { code: string }).code).toBe('api.idempotency_key_required');
+  });
+
+  it('confirmOrderUploadLinkFile : plafond du LIEN (max_files) -> 409 upload_link.file_limit_reached', async () => {
+    const orderId = seedOrder();
+    const created = await createLink(orderId, { max_files: 1 });
+    const { data: createdData } = (await created.json()) as { data: OrderUploadLinkCreatedDto };
+
+    const firstTicket = await issueTicket(createdData.token);
+    const { data: firstFile } = (await firstTicket.json()) as { data: OrderFileUploadTicketDto };
+    repository.stageUploadForTest(firstFile.file_id, { contentType: 'application/pdf', byteSize: 2048 });
+    const first = await confirmDeposit(createdData.token, { file_id: firstFile.file_id, filename: 'un.pdf' });
+    expect(first.status).toBe(201);
+
+    const secondTicket = await issueTicket(createdData.token);
+    expect(secondTicket.status).toBe(409);
+    expect(((await secondTicket.json()) as { code: string }).code).toBe('upload_link.file_limit_reached');
+
+    // Meme plafond exige A LA CONFIRMATION, meme sans passer par un nouveau
+    // billet (defense en profondeur, "verifie ICI sous verrou" — contrat) :
+    // un fichier deja stage pour un id neuf est quand meme refuse.
+    const secondFileId = fakeOrderUploadLinkUuid();
+    repository.stageUploadForTest(secondFileId, { contentType: 'application/pdf', byteSize: 10 });
+    const secondConfirm = await confirmDeposit(createdData.token, { file_id: secondFileId, filename: 'deux.pdf' });
+    expect(secondConfirm.status).toBe(409);
+    expect(((await secondConfirm.json()) as { code: string }).code).toBe('upload_link.file_limit_reached');
+  });
+
+  it('confirmOrderUploadLinkFile : plafond de la COMMANDE (30 fichiers vivants) -> 409 upload_link.file_limit_reached', async () => {
+    const orderId = seedOrder();
+    repository.seedLiveFileCountForTest(orderId, 30);
+    const created = await createLink(orderId);
+    const { data: createdData } = (await created.json()) as { data: OrderUploadLinkCreatedDto };
+
+    const ticket = await issueTicket(createdData.token);
+    expect(ticket.status).toBe(409);
+    expect(((await ticket.json()) as { code: string }).code).toBe('upload_link.file_limit_reached');
+  });
+
+  it('confirmOrderUploadLinkFile : aucun objet depose au chemin attendu -> 404 order_file.upload_missing', async () => {
+    const orderId = seedOrder();
+    const created = await createLink(orderId);
+    const { data: createdData } = (await created.json()) as { data: OrderUploadLinkCreatedDto };
+
+    const response = await confirmDeposit(createdData.token, {
+      file_id: fakeOrderUploadLinkUuid(),
+      filename: 'introuvable.pdf',
+    });
+    expect(response.status).toBe(404);
+    expect(((await response.json()) as { code: string }).code).toBe('order_file.upload_missing');
+  });
+
+  it('confirmOrderUploadLinkFile : meme file_id confirme deux fois -> 409 order_file.already_confirmed', async () => {
+    const orderId = seedOrder();
+    const created = await createLink(orderId);
+    const { data: createdData } = (await created.json()) as { data: OrderUploadLinkCreatedDto };
+
+    const ticketResponse = await issueTicket(createdData.token);
+    const { data: ticket } = (await ticketResponse.json()) as { data: OrderFileUploadTicketDto };
+    repository.stageUploadForTest(ticket.file_id, { contentType: 'application/pdf', byteSize: 2048 });
+    const first = await confirmDeposit(createdData.token, { file_id: ticket.file_id, filename: 'bat.pdf' });
+    expect(first.status).toBe(201);
+
+    repository.stageUploadForTest(ticket.file_id, { contentType: 'application/pdf', byteSize: 2048 });
+    const second = await confirmDeposit(createdData.token, { file_id: ticket.file_id, filename: 'bat.pdf' });
+    expect(second.status).toBe(409);
+    expect(((await second.json()) as { code: string }).code).toBe('order_file.already_confirmed');
+  });
+
+  it('confirmOrderUploadLinkFile : jeton invalide -> 401 upload_link.invalid ; autre mode -> 403', async () => {
+    const invalid = await confirmDeposit('jeton-qui-n-existe-pas-00000000000000000000000000', {
+      file_id: fakeOrderUploadLinkUuid(),
+      filename: 'x.pdf',
+    });
+    expect(invalid.status).toBe(401);
+    expect(((await invalid.json()) as { code: string }).code).toBe('upload_link.invalid');
+
+    const response = await call('/api/v1/order-upload-links/current/files', {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'Idempotency-Key': idempotencyKey() },
+      body: JSON.stringify({ file_id: fakeOrderUploadLinkUuid(), filename: 'x.pdf' }),
+    });
+    expect(response.status).toBe(403);
+  });
+
+  // qa-review round 1 (M2) — un nom de fichier portant un caractere de
+  // controle est refuse a la VALIDATION D ENTREE (422), avant meme d
+  // atteindre le repository : le texte est fourni par un tiers NON
+  // AUTHENTIFIE et alimente Content-Disposition en aval (getOrderFile).
+  it('confirmOrderUploadLinkFile : filename avec caractere de controle -> 422 api.validation_failed (qa-review M2)', async () => {
+    const orderId = seedOrder();
+    const created = await createLink(orderId);
+    const { data: createdData } = (await created.json()) as { data: OrderUploadLinkCreatedDto };
+
+    const ticketResponse = await issueTicket(createdData.token);
+    const { data: ticket } = (await ticketResponse.json()) as { data: OrderFileUploadTicketDto };
+    repository.stageUploadForTest(ticket.file_id, { contentType: 'application/pdf', byteSize: 2048 });
+
+    const response = await confirmDeposit(createdData.token, {
+      file_id: ticket.file_id,
+      // Caractere de controle INTERIEUR (tabulation, \x09) : ni en tete
+      // ni en fin de chaine, donc PAS retire par le `.trim()` qui precede
+      // le refus dans la chaine Zod.
+      filename: 'bat\tfacture.pdf',
+    });
+    expect(response.status).toBe(422);
+    expect(((await response.json()) as { code: string }).code).toBe('api.validation_failed');
+  });
+
+  it('CLOISONNEMENT : une cle de service n atteint JAMAIS les deux operations de depot (403), symetrique des trois operations d atelier verifiees plus haut', async () => {
+    const asStudioIssue = await call('/api/v1/order-upload-links/current/file-upload-urls', {
+      method: 'POST',
+      headers: asStudio,
+    });
+    expect(asStudioIssue.status).toBe(403);
+    expect(((await asStudioIssue.json()) as { code: string }).code).toBe('identity.actor_kind_required');
+
+    const asStudioConfirm = await call('/api/v1/order-upload-links/current/files', {
+      method: 'POST',
+      headers: { ...asStudio, 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey() },
+      body: JSON.stringify({ file_id: fakeOrderUploadLinkUuid(), filename: 'x.pdf' }),
+    });
+    expect(asStudioConfirm.status).toBe(403);
+    expect(((await asStudioConfirm.json()) as { code: string }).code).toBe('identity.actor_kind_required');
   });
 });

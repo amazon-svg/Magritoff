@@ -478,14 +478,30 @@ export async function handleRequest(request: Request): Promise<Response> {
     repository: new SupabaseOrderFilesRepository(client, documentTemplatesStorageClient),
   });
 
-  // E10.20a — liens publics de depot, SOCLE uniquement (quatrieme mode
-  // d authentification, `getOrderUploadLinkContext`, aucun depot possible
-  // dans ce lot). `client` (JWT de l appelant) pour les trois operations
-  // d atelier, `storefrontClient` (SANS JWT Magrit) pour `getContext` — le
-  // porteur d un lien n a par construction aucune credential Magrit, meme
+  // E10.20a/E10.20b — liens publics de depot ET depot lui-meme. `client`
+  // (JWT de l appelant) pour les trois operations d atelier,
+  // `storefrontClient` (SANS JWT Magrit) pour `getContext`/
+  // `issueOrderUploadLinkFileUrl`/`confirmOrderUploadLinkFile` — le porteur
+  // d un lien n a par construction aucune credential Magrit, meme
   // raisonnement que la resolution d une session boutique.
+  // `documentTemplatesStorageClient` (`service_role`) REUTILISE tel quel
+  // pour le bucket `commercial_order_files` (E10.17a, aucun second bucket) —
+  // meme raisonnement que `orderFilesService` ci-dessus. `outbox` partage la
+  // MEME construction que les autres services E10 : `order.files_submitted`
+  // est publie APRES l ecriture du repository (dette M2 deja consignee).
   const orderUploadLinksService = new OrderUploadLinksService({
-    repository: new SupabaseOrderUploadLinksRepository(client, storefrontClient),
+    repository: new SupabaseOrderUploadLinksRepository(client, storefrontClient, documentTemplatesStorageClient),
+    outbox: new OutboxPublisher({
+      repository: bestEffortOutbox(outboxRepository, (error, events) => {
+        console.error(
+          '[magrit-api] publication outbox echouee',
+          events.map((event) => event.name),
+          error,
+        );
+      }),
+      now: () => new Date(),
+      newEventId: () => crypto.randomUUID(),
+    }),
   });
 
   const handler = createMagritApiApplication({

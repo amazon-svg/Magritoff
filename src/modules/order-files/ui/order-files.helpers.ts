@@ -20,7 +20,17 @@ import {
 /** Contrat §8.19 §3 : 50 Mo = plafond du PROJET (`supabase/config.toml`), meme valeur que le bucket Storage (52428800 = 50 * 1024 * 1024). */
 export const ORDER_FILE_MAX_BYTE_SIZE = 50 * 1024 * 1024;
 
-/** Reserve (b) du contrat, position posee par Arnaud : 30 fichiers vivants par commande. */
+/**
+ * Reserve (b) du contrat, position posee par Arnaud : 30 fichiers vivants
+ * par commande. NE PEUT PAS importer `ORDER_FILE_LIVE_LIMIT`
+ * (`adapters/supabase/order-files-repository.ts`, valeur AUTHENTIQUE
+ * partagee cote serveur avec E10.20b) : une UI de module n a JAMAIS le
+ * droit d importer depuis `adapters/` (`.claude/rules/frontend.md`,
+ * `tests/architecture/modular-ui-boundaries.test.ts`). Cette copie reste
+ * donc un CONFORT UX distinct (qa-review round 1, N5), a maintenir a la
+ * main si le plafond serveur change — le serveur reste la seule barriere
+ * reelle dans tous les cas.
+ */
 export const ORDER_FILE_MAX_COUNT = 30;
 
 /** Microcopie FR complete du wireframe §4 — source UNIQUE, aucun texte litteral ailleurs dans le panneau. */
@@ -44,6 +54,11 @@ export const ORDER_FILES_COPY = {
   visibilityCustomer: 'Visible aussi par le client',
   visibilityWarning:
     "Cette option n'a pas d'effet pour le moment : aucun espace client n'affiche encore les fichiers d'une commande.",
+  // E10.20b — badge pose UNIQUEMENT sur `deposited_via: upload_link` (contrat :
+  // jamais deduit de `deposited_by_label`). Hors wireframe 17b (poste avant
+  // que ce canal existe) : microcopie neuve, a faire confirmer par Sally/le
+  // scribe des que le cahier TF de ce lot existera.
+  uploadLinkBadgeLabel: 'Déposé via le lien client',
   downloadTooltip: 'Télécharger',
   deleteTooltip: 'Supprimer',
   deleteDialogTitle: 'Supprimer ce fichier ?',

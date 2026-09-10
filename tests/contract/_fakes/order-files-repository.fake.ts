@@ -261,6 +261,9 @@ function toFileDto(row: StoredFile): OrderFileDto {
     deposited_at: row.deposited_at,
     deposited_by: row.deposited_by,
     deposited_by_label: row.deposited_by_label,
+    // E10.20b : servi desormais sur TOUS les fichiers, atelier compris — ce
+    // fake ne modelise que la voie `workspace` (E10.17a).
+    deposited_via: 'workspace',
     updated_at: row.updated_at,
   };
 }

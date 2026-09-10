@@ -16,6 +16,14 @@ import { timestampSchema, uuidSchema } from '../../_shared/api/index.ts';
 
 export const orderFileVisibilitySchema = z.enum(['internal', 'customer']);
 
+/**
+ * `OrderFileDepositChannel` (E10.20b) — PAR OU un fichier est entre.
+ * `workspace` : depose par un membre de l atelier (E10.17a). `upload_link` :
+ * depose par un client via un lien public (E10.20). Liste ADDITIVE : jamais
+ * retirable, seulement etendue (contrat).
+ */
+export const orderFileDepositChannelSchema = z.enum(['workspace', 'upload_link']);
+
 export const orderFileSchema = z
   .object({
     id: uuidSchema,
@@ -28,6 +36,13 @@ export const orderFileSchema = z
     deposited_at: timestampSchema,
     deposited_by: uuidSchema.nullable(),
     deposited_by_label: z.string().min(1).max(320).nullable(),
+    // OPTIONNEL DANS CET INCREMENT DE CONTRAT (E10.20b sert ce champ sur TOUS
+    // les fichiers qu il produit desormais, mais l OpenAPI le publie encore
+    // `optional` — voir docs/api/CONVENTIONS.md §8.21 §8bis, note de methode :
+    // la PROMOTION `required` est un changement de CONTRAT, hors du perimetre
+    // `dev-story` (seul l agent `architecte` touche openapi/), a faire par le
+    // lot qui cablera reellement ce champ cote contrat.
+    deposited_via: orderFileDepositChannelSchema.optional(),
     updated_at: timestampSchema,
   })
   .strict();
@@ -44,6 +59,7 @@ export const orderFileDetailSchema = z
     deposited_at: timestampSchema,
     deposited_by: uuidSchema.nullable(),
     deposited_by_label: z.string().min(1).max(320).nullable(),
+    deposited_via: orderFileDepositChannelSchema.optional(),
     updated_at: timestampSchema,
     download_url: z.string().url(),
     download_url_expires_at: timestampSchema,
@@ -82,6 +98,7 @@ export const updateOrderFileCommandSchema = z
   .strict();
 
 export type OrderFileVisibility = z.infer<typeof orderFileVisibilitySchema>;
+export type OrderFileDepositChannel = z.infer<typeof orderFileDepositChannelSchema>;
 export type OrderFileDto = z.infer<typeof orderFileSchema>;
 export type OrderFileDetailDto = z.infer<typeof orderFileDetailSchema>;
 export type OrderFileUploadTicketDto = z.infer<typeof orderFileUploadTicketSchema>;
@@ -95,6 +112,7 @@ export type UpdateOrderFileCommand = z.infer<typeof updateOrderFileCommandSchema
 import type {
   ConfirmOrderFileUploadCommand as ConfirmOrderFileUploadCommandContract,
   OrderFile as OrderFileContract,
+  OrderFileDepositChannel as OrderFileDepositChannelContract,
   OrderFileDetail as OrderFileDetailContract,
   OrderFileUploadTicket as OrderFileUploadTicketContract,
   OrderFileVisibility as OrderFileVisibilityContract,
@@ -105,6 +123,7 @@ type AssertAssignable<TSource, TTarget> = TSource extends TTarget ? true : never
 
 export const ORDER_FILES_CONTRACT_ALIGNMENT = Object.freeze({
   visibility: true as AssertAssignable<OrderFileVisibility, OrderFileVisibilityContract>,
+  depositChannel: true as AssertAssignable<OrderFileDepositChannel, OrderFileDepositChannelContract>,
   file: true as AssertAssignable<OrderFileDto, OrderFileContract>,
   fileDetail: true as AssertAssignable<OrderFileDetailDto, OrderFileDetailContract>,
   uploadTicket: true as AssertAssignable<OrderFileUploadTicketDto, OrderFileUploadTicketContract>,

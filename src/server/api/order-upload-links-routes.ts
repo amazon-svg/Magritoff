@@ -1,41 +1,48 @@
 /**
- * Routes HTTP du module Liens de depot publics (story E10.20a), sur la
- * facade Gestion commerciale (`defineGescomRoute`, E10.0).
+ * Routes HTTP du module Liens de depot publics (stories E10.20a/E10.20b),
+ * sur la facade Gestion commerciale (`defineGescomRoute`, E10.0).
  *
- * QUATRE operations (contrat, docs/api/CONVENTIONS.md §8.21) :
+ * SIX operations (contrat, docs/api/CONVENTIONS.md §8.21) :
  *  - `createOrderUploadLink`/`listOrderUploadLinks`/`revokeOrderUploadLink`
  *    sont RESERVEES au jeton UTILISATEUR (`authentication: 'user'`), jamais
  *    joignables par cle de service — meme decision que les operations
  *    d ecriture d `order-files` (E10.17a decision #5) : emettre/revoquer un
  *    lien de depot engage la responsabilite d un membre nomme.
- *  - `getOrderUploadLinkContext` est le QUATRIEME mode d authentification
+ *  - `getOrderUploadLinkContext`/`issueOrderUploadLinkFileUrl`/
+ *    `confirmOrderUploadLinkFile` sont le QUATRIEME mode d authentification
  *    (`authentication: 'upload_link'`) : ni jeton utilisateur, ni cle de
  *    service, ni session boutique n y a acces (403
  *    `identity.actor_kind_required`, cloisonnement ferme dans les deux
  *    sens — contrat §"story E10.20").
- *  - AUCUNE garde de capability sur aucune des quatre (meme arbitrage
- *    qu `order-files`) : tout membre du tenant peut emettre/lister/revoquer.
+ *  - AUCUNE garde de capability sur aucune des six (meme arbitrage
+ *    qu `order-files`) : tout membre du tenant peut emettre/lister/revoquer,
+ *    et aucun droit metier ne gouverne le depot par un porteur de lien.
  *
- * PERIMETRE STRICT DE CE LOT : `issueOrderUploadLinkFileUrl` et
- * `confirmOrderUploadLinkFile` (le billet et la confirmation de depot) ne
- * sont PAS enregistrees ici — elles sont le perimetre explicite d E10.20b
- * (docs/api/CONVENTIONS.md §8.21 §5, ligne E10.20a : "AUCUN DEPOT
- * POSSIBLE"). `tests/contract/gescom-routes.contract.test.ts` ne verifie que
- * les routes REGISTREES, jamais l exhaustivite des operations du contrat :
- * ne pas enregistrer ces deux operations ici est donc conforme au CA1.
+ * `issueOrderUploadLinkFileUrl` REUTILISE tel quel le schema
+ * `OrderFileUploadTicket` publie par `order-files` (contrat : "schema
+ * OrderFileUploadTicket REUTILISE tel quel") — aucune duplication.
  *
  * Enregistrement obligatoire dans `gescom-routes.ts` (CA1).
  */
 import { z } from 'zod';
+import { orderFileUploadTicketSchema } from '../../modules/order-files/api/contracts.ts';
 import {
+  OrderFileAlreadyConfirmedError,
+  OrderFileRejectedError,
+  OrderFileUploadMissingError,
+} from '../../modules/order-files/application/order-files-repository.ts';
+import {
+  confirmOrderUploadLinkFileCommandSchema,
   createOrderUploadLinkCommandSchema,
   orderUploadLinkContextSchema,
   orderUploadLinkCreatedSchema,
+  orderUploadLinkDepositSchema,
   orderUploadLinksListSchema,
 } from '../../modules/order-upload-links/api/contracts.ts';
 import type { OrderUploadLinksService } from '../../modules/order-upload-links/application/order-upload-links-service.ts';
 import {
   OrderNotFoundError,
+  OrderUploadLinkFileLimitReachedError,
   OrderUploadLinkLimitReachedError,
   OrderUploadLinkNotFoundError,
 } from '../../modules/order-upload-links/application/order-upload-links-repository.ts';
@@ -127,6 +134,92 @@ export function createOrderUploadLinksRoutes(
           // revoque/expire ENTRE-TEMPS. Meme code que toute autre cause
           // d invalidite — arbitrage (F), une seule reponse indistincte.
           if (error instanceof OrderUploadLinkNotFoundError) throw uploadLinkInvalid();
+          throw error;
+        }
+      },
+    }),
+
+    defineGescomRoute({
+      method: 'POST',
+      path: '/order-upload-links/current/file-upload-urls',
+      operationId: 'issueOrderUploadLinkFileUrl',
+      // QUATRIEME MODE. PATRON EXACT d `issueOrderFileUploadUrl` : 200, PAS
+      // d `Idempotency-Key` (un billet n est pas une ressource metier).
+      authentication: 'upload_link',
+      inputSchema: null,
+      dataSchema: orderFileUploadTicketSchema,
+      async handle(context) {
+        const principal = assertUploadLinkPrincipal(context.principal);
+        try {
+          const ticket = await service.issueFileUploadUrl(principal.token);
+          return { status: 200, data: ticket };
+        } catch (error) {
+          if (error instanceof OrderUploadLinkNotFoundError) throw uploadLinkInvalid();
+          if (error instanceof OrderUploadLinkFileLimitReachedError) {
+            throw problem({
+              status: 409,
+              title: 'Plafond de fichiers atteint',
+              code: 'upload_link.file_limit_reached',
+              detail: error.message,
+            });
+          }
+          throw error;
+        }
+      },
+    }),
+
+    defineGescomRoute({
+      method: 'POST',
+      path: '/order-upload-links/current/files',
+      operationId: 'confirmOrderUploadLinkFile',
+      // QUATRIEME MODE. `Idempotency-Key` EXIGEE (createsResource) : cette
+      // operation cree un fichier ET publie `order.files_submitted` — la
+      // rejouer NE DOIT PAS emettre un second evenement (contrat). La cle
+      // STOCKEE derive du LIEN (`deriveUploadLinkIdempotencyStorageKey`,
+      // gescom-middleware.ts, deja ecrite en E10.20a).
+      authentication: 'upload_link',
+      createsResource: true,
+      inputSchema: confirmOrderUploadLinkFileCommandSchema,
+      dataSchema: orderUploadLinkDepositSchema,
+      async handle(context, input) {
+        const principal = assertUploadLinkPrincipal(context.principal);
+        try {
+          const deposit = await service.confirmFileUpload(principal.token, input);
+          return { status: 201, data: deposit };
+        } catch (error) {
+          if (error instanceof OrderUploadLinkNotFoundError) throw uploadLinkInvalid();
+          if (error instanceof OrderUploadLinkFileLimitReachedError) {
+            throw problem({
+              status: 409,
+              title: 'Plafond de fichiers atteint',
+              code: 'upload_link.file_limit_reached',
+              detail: error.message,
+            });
+          }
+          if (error instanceof OrderFileAlreadyConfirmedError) {
+            throw problem({
+              status: 409,
+              title: 'Fichier deja confirme',
+              code: 'order_file.already_confirmed',
+              detail: error.message,
+            });
+          }
+          if (error instanceof OrderFileUploadMissingError) {
+            throw problem({
+              status: 404,
+              title: 'Aucun fichier depose',
+              code: 'order_file.upload_missing',
+              detail: error.message,
+            });
+          }
+          if (error instanceof OrderFileRejectedError) {
+            throw problem({
+              status: 422,
+              title: 'Fichier refuse',
+              code: 'order_file.rejected',
+              detail: error.message,
+            });
+          }
           throw error;
         }
       },

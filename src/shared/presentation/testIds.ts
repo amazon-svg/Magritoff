@@ -845,6 +845,10 @@ export const TEST_IDS = {
     visibilityToggle: 'order-files-visibility-toggle',
     visibilityOption: 'order-files-visibility-option',
     visibilityWarning: 'order-files-visibility-warning',
+    // E10.20b — indication que le fichier est entre PAR UN LIEN PUBLIC
+    // (`deposited_via: upload_link`), jamais deduite de `deposited_by_label`
+    // (contrat, interdiction reprise a la lettre).
+    uploadLinkBadge: 'order-files-upload-link-badge',
     downloadBtn: 'order-files-download-btn',
     deleteBtn: 'order-files-delete-btn',
     deleteDialog: 'order-files-delete-dialog',
@@ -892,10 +896,6 @@ export const TEST_IDS = {
     // "L interface DOIT l afficher immediatement et proposer de le copier").
     createdTokenPanel: 'order-upload-links-created-token-panel',
     createdUrlField: 'order-upload-links-created-url-field',
-    // N4 (qa-review E10.20a round 1) — la page publique /depot/:jeton n
-    // existe pas encore (E10.20b) : ce panneau le dit explicitement plutot
-    // que de laisser croire que l URL copiee est deja fonctionnelle.
-    depotPageNotReadyNotice: 'order-upload-links-depot-page-not-ready-notice',
     copyUrlBtn: 'order-upload-links-copy-url-btn',
     closeCreatedPanelBtn: 'order-upload-links-close-created-panel-btn',
     // `row` porte `data-link-id`, meme convention que `orderFiles.row`.
@@ -905,6 +905,29 @@ export const TEST_IDS = {
     revokeConfirmBtn: 'order-upload-links-revoke-confirm-btn',
     revokeCancelBtn: 'order-upload-links-revoke-cancel-btn',
     listErrorBanner: 'order-upload-links-list-error-banner',
+  },
+
+  // ─── E10.20b — page publique de depot (/depot/:token) ─────────────────────
+  // Vue par un NON-UTILISATEUR, souvent sur mobile, SANS session workspace
+  // (surface `storefront`). Aucun cas de test Notion publie a la remise de
+  // ce lot : testids poses selon la convention documentee en tete de ce
+  // fichier, a faire confirmer par le scribe des que le cahier TF existera.
+  uploadLinkDepot: {
+    page: 'upload-link-depot-page',
+    loadingState: 'upload-link-depot-loading-state',
+    invalidLinkBanner: 'upload-link-depot-invalid-link-banner',
+    printerName: 'upload-link-depot-printer-name',
+    orderNumber: 'upload-link-depot-order-number',
+    labelText: 'upload-link-depot-label-text',
+    counter: 'upload-link-depot-counter',
+    dropzone: 'upload-link-depot-dropzone',
+    browseBtn: 'upload-link-depot-browse-btn',
+    fileInput: 'upload-link-depot-file-input',
+    progressBar: 'upload-link-depot-progress-bar',
+    dropzoneError: 'upload-link-depot-dropzone-error',
+    depositErrorBanner: 'upload-link-depot-deposit-error-banner',
+    retryBtn: 'upload-link-depot-retry-btn',
+    successBanner: 'upload-link-depot-success-banner',
   },
 } as const;
 

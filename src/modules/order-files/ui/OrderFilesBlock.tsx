@@ -42,7 +42,7 @@
  * rafraichissement normal du panneau, sans avoir a recharger toute la page.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Archive, AlertTriangle, Download, Eye, FileIcon, FileText, Image as ImageIcon, Loader2, Trash2, UploadCloud, X } from 'lucide-react';
+import { Archive, AlertTriangle, Download, Eye, FileIcon, FileText, Image as ImageIcon, Link2, Loader2, Trash2, UploadCloud, X } from 'lucide-react';
 import { TEST_IDS } from '@/shared/presentation/testIds';
 import { useWorkspaceApi, useWorkspaceUiRuntime } from '@/platform/runtime/workspace-ui-runtime';
 import { Progress } from '@/shared/ui/progress';
@@ -517,6 +517,21 @@ export function OrderFilesBlock({ orderId }: OrderFilesBlockProps) {
                           data-testid={TEST_IDS.orderFiles.missingObjectIcon}
                         >
                           <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                        </span>
+                      )}
+                      {/* E10.20b — indication d origine, sur `deposited_via`
+                          UNIQUEMENT (jamais deduite de `deposited_by_label`,
+                          contrat). `deposited_via` est OPTIONNEL dans cet
+                          increment de contrat (§8.21 §8bis) : absent = un
+                          fichier `workspace`, la meme discipline que le
+                          serveur. */}
+                      {file.deposited_via === 'upload_link' && (
+                        <span
+                          className="inline-flex items-center gap-1 text-xs text-brand bg-brand/10 rounded px-1.5 py-0.5"
+                          data-testid={TEST_IDS.orderFiles.uploadLinkBadge}
+                        >
+                          <Link2 className="w-3 h-3" />
+                          {ORDER_FILES_COPY.uploadLinkBadgeLabel}
                         </span>
                       )}
                     </div>

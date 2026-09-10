@@ -44,7 +44,14 @@ import {
   type OrderFilesRepository,
 } from '../../modules/order-files/application/order-files-repository.ts';
 
-const BUCKET = 'commercial_order_files';
+/**
+ * EXPORTEE (E10.20b) : `SupabaseOrderUploadLinksRepository` reutilise le
+ * MEME bucket pour le billet/la confirmation par lien — un second canal de
+ * stockage pour le meme objet serait une duplication sans motif (contrat
+ * §8.21 §0 : "commercial_order_files (E10.17a) est REUTILISE tel quel par
+ * E10.20b — ce lot ne depose rien [de nouveau]").
+ */
+export const BUCKET = 'commercial_order_files';
 /**
  * Contrat §8.19 §3 : 50 Mo, plafond du PROJET (`supabase/config.toml`),
  * PERIMETRE du lot (decision (a)). EXPORTEE : E10.20a (`order-upload-links-
@@ -68,6 +75,20 @@ export const ACCEPTED_CONTENT_TYPES: readonly string[] = Object.freeze([
   'application/zip',
   'application/x-zip-compressed',
 ]);
+/**
+ * Contrat §8.19 decision (b) : 30 fichiers VIVANTS par commande, PARTAGE
+ * entre les deux voies d entree (atelier E10.17a, lien public E10.20b — meme
+ * verrou consultatif SQL, `api_confirm_order_file_upload_by_link`).
+ * EXPORTEE (qa-review round 1, N5 — cette valeur existait en plusieurs
+ * exemplaires disperses, risque de divergence silencieuse) : `order-upload-
+ * links-repository.ts` la REUTILISE telle quelle plutot que de la dupliquer
+ * sous un second nom. Cote SQL, la MEME valeur reste un litteral dans les
+ * DEUX fonctions `security definer` (`api_confirm_order_file_upload`,
+ * `api_confirm_order_file_upload_by_link`) : Postgres n a pas de constante
+ * partageable entre fonctions aussi simplement qu un module TypeScript, et
+ * toucher la fonction 17a deja livree est hors perimetre de ce correctif.
+ */
+export const ORDER_FILE_LIVE_LIMIT = 30;
 /** Arbitrage Arnaud du 2026-09-09 : 300 s, meme valeur que `QuoteDocument.download_url_expires_at`. */
 const DOWNLOAD_URL_TTL_SECONDS = 300;
 /**
@@ -83,8 +104,11 @@ const UPLOAD_TICKET_FALLBACK_TTL_SECONDS = 7200;
 // le chemin est TOUJOURS recalcule (`storagePathFor`), jamais lu d une
 // colonne — la colonne existe en base mais rien dans ce fichier n a le droit
 // de la consommer, autant ne pas la lire du tout.
+// `deposited_via` (E10.20b) rejoint la selection : servie desormais sur TOUS
+// les fichiers, atelier compris (contrat §8.21 §8bis, "20b le sert sur TOUS
+// les fichiers, y compris workspace").
 const FILE_COLUMNS =
-  'id, order_id, order_line_id, filename, content_type, byte_size, visibility, deposited_by, deposited_by_label, deposited_at, updated_at, deleted_at';
+  'id, order_id, order_line_id, filename, content_type, byte_size, visibility, deposited_by, deposited_by_label, deposited_via, deposited_at, updated_at, deleted_at';
 
 export class SupabaseOrderFilesRepository implements OrderFilesRepository {
   constructor(
@@ -158,7 +182,7 @@ export class SupabaseOrderFilesRepository implements OrderFilesRepository {
       .eq('order_id', orderId)
       .is('deleted_at', null);
     if (countError) throw new Error(countError.message);
-    if ((count ?? 0) >= 30) throw new OrderFileLimitReachedError();
+    if ((count ?? 0) >= ORDER_FILE_LIVE_LIMIT) throw new OrderFileLimitReachedError();
 
     const fileId = crypto.randomUUID();
     const path = storagePathFor(tenantId, orderId, fileId);
@@ -318,6 +342,7 @@ export class SupabaseOrderFilesRepository implements OrderFilesRepository {
       deposited_at: toIsoTimestamp(row.deposited_at),
       deposited_by: row.deposited_by ?? null,
       deposited_by_label: row.deposited_by_label ?? null,
+      deposited_via: row.deposited_via ?? 'workspace',
       updated_at: toIsoTimestamp(row.updated_at),
       download_url: data.signedUrl,
       download_url_expires_at: new Date(Date.now() + DOWNLOAD_URL_TTL_SECONDS * 1000).toISOString(),
@@ -325,8 +350,13 @@ export class SupabaseOrderFilesRepository implements OrderFilesRepository {
   }
 }
 
-/** `<tenant_id>/<order_id>/<file_id>`, SANS extension (contrat §8.19 §3) — TOUJOURS recalcule, jamais lu d une colonne. */
-function storagePathFor(tenantId: TenantId, orderId: string, fileId: string): string {
+/**
+ * `<tenant_id>/<order_id>/<file_id>`, SANS extension (contrat §8.19 §3) —
+ * TOUJOURS recalcule, jamais lu d une colonne. EXPORTEE (E10.20b) : le billet
+ * du lien public reforme le MEME chemin depuis le tenant RESOLU du lien
+ * (jamais recu en parametre), meme discipline, une seule fonction.
+ */
+export function storagePathFor(tenantId: TenantId, orderId: string, fileId: string): string {
   return `${tenantId}/${orderId}/${fileId}`;
 }
 
@@ -342,6 +372,7 @@ function toFileDto(row: Record<string, any>): OrderFileDto {
     deposited_at: toIsoTimestamp(row.deposited_at),
     deposited_by: row.deposited_by ?? null,
     deposited_by_label: row.deposited_by_label ?? null,
+    deposited_via: row.deposited_via ?? 'workspace',
     updated_at: toIsoTimestamp(row.updated_at),
   };
 }
@@ -352,7 +383,7 @@ function toFileDto(row: Record<string, any>): OrderFileDto {
  * (`decodeSignedUploadTicketExpiry`, document-templates-repository.ts),
  * reprise a l identique.
  */
-function decodeSignedUploadTicketExpiry(token: string): string {
+export function decodeSignedUploadTicketExpiry(token: string): string {
   try {
     const segments = token.split('.');
     const payloadSegment = segments[1];

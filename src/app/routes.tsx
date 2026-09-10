@@ -56,6 +56,12 @@ const StorefrontActivationPage = lazy(() =>
 const StorefrontPasswordResetPage = lazy(() =>
   import("@/modules/shop-customers/ui").then((m) => ({ default: m.StorefrontPasswordResetPage })),
 );
+// E10.20b — page publique de depot par un lien, SANS AUCUN tenant/session
+// workspace : montee sous StorefrontRuntimeBoundary, meme famille que les
+// deux pages ci-dessus (anonyme par construction).
+const UploadLinkDepositPage = lazy(() =>
+  import("@/modules/order-upload-links/ui").then((m) => ({ default: m.UploadLinkDepositPage })),
+);
 
 // REFONTE-UX (2026-08-08) — module Parc machine, wizard RP#070826 (point 8).
 const MachineParkWizard = lazy(() =>
@@ -116,6 +122,11 @@ export const router = createBrowserRouter([
       { path: `/${portalRuntimePaths.shopRoot}/${portalRuntimePaths.activation}`, element: lazyRoute(<StorefrontActivationPage />) },
       { path: `/${portalRuntimePaths.shopRoot}/${portalRuntimePaths.passwordReset}`, element: lazyRoute(<StorefrontPasswordResetPage />) },
       { path: `/${portalRuntimePaths.shopRoot}/*`, element: lazyRoute(<PublicShop />) },
+      // E10.20b — lien public de depot (`buildUploadLinkPublicUrl`, E10.20a).
+      // Hors du prefixe boutique : ce n est ni une boutique, ni un tenant,
+      // seulement un jeton porte par l URL — la credential `X-Magrit-Upload-
+      // Link` est posee par la page elle-meme (`OrderUploadLinkDepositApiClient`).
+      { path: "/depot/:token", element: lazyRoute(<UploadLinkDepositPage />) },
     ],
   },
   {

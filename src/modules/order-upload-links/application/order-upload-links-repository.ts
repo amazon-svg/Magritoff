@@ -1,8 +1,11 @@
 import type { TenantId, UserId } from '../../../kernel/ids/index.ts';
+import type { OrderFileUploadTicketDto } from '../../order-files/api/contracts.ts';
 import type {
+  ConfirmOrderUploadLinkFileCommand,
   CreateOrderUploadLinkCommand,
   OrderUploadLinkContextDto,
   OrderUploadLinkCreatedDto,
+  OrderUploadLinkDepositDto,
   OrderUploadLinkDto,
 } from '../api/contracts.ts';
 
@@ -30,19 +33,47 @@ export class OrderUploadLinkLimitReachedError extends Error {
   }
 }
 
+/**
+ * E10.20b — le lien a atteint son propre `max_files`, OU la commande ses 30
+ * fichiers vivants (409 `upload_link.file_limit_reached`). UN SEUL CODE pour
+ * les deux causes (contrat) : le porteur du lien ne peut agir sur ni l une
+ * ni l autre.
+ */
+export class OrderUploadLinkFileLimitReachedError extends Error {
+  constructor(message = 'Plafond de fichiers atteint pour ce lien ou cette commande.') {
+    super(message);
+    this.name = 'OrderUploadLinkFileLimitReachedError';
+  }
+}
+
 export type ListOrderUploadLinksResult = readonly OrderUploadLinkDto[];
 
 /**
- * Port (interface) du referentiel des liens publics de depot (E10.20a).
- * L implementation Supabase vit dans
+ * E10.20b — resultat de `confirmFileUpload`, PORTE en plus du recu client
+ * (`deposit`) ce dont le SERVICE a besoin pour publier `order.files_
+ * submitted` (`OrderFilesSubmittedPayload` : `file_id`, `upload_link_id`,
+ * `order_id`, `order_number`, `customer_id`) — sans obliger une seconde
+ * lecture de la commande apres l ecriture.
+ */
+export type ConfirmOrderUploadLinkFileResult = Readonly<{
+  deposit: OrderUploadLinkDepositDto;
+  tenantId: TenantId;
+  uploadLinkId: string;
+  orderId: string;
+  orderNumber: string;
+  customerId: string;
+}>;
+
+/**
+ * Port (interface) du referentiel des liens publics de depot
+ * (stories E10.20a/E10.20b). L implementation Supabase vit dans
  * src/adapters/supabase/order-upload-links-repository.ts ; ce module n en
  * connait que le contrat.
  *
- * PERIMETRE DE CE LOT : les TROIS operations d atelier (`create`/
- * `listByOrder`/`revoke`, jeton UTILISATEUR) plus `getContext`
- * (`getOrderUploadLinkContext`, credential `orderUploadLink`). L emission du
- * billet et la confirmation de depot restent E10.20b — "AUCUN DEPOT
- * POSSIBLE" dans ce lot (docs/api/CONVENTIONS.md §8.21 §5).
+ * PERIMETRE : les TROIS operations d atelier (`create`/`listByOrder`/
+ * `revoke`, jeton UTILISATEUR), `getContext` (`getOrderUploadLinkContext`,
+ * credential `orderUploadLink`), PLUS les deux operations de depot d E10.20b
+ * (`issueFileUploadUrl`/`confirmFileUpload`).
  */
 export interface OrderUploadLinksRepository {
   /**
@@ -85,4 +116,35 @@ export interface OrderUploadLinksRepository {
    * appel (un lien revoque entre les deux), traite ici plutot qu ignore.
    */
   getContext(token: string): Promise<OrderUploadLinkContextDto | null>;
+
+  /**
+   * E10.20b — `issueOrderUploadLinkFileUrl`. PATRON EXACT d
+   * `OrderFilesRepository.issueUploadUrl` : ALLOUE un `file_id` et le
+   * chemin qui en decoule, aucune ligne creee. RE-VERIFIE le jeton (jamais
+   * un `orderId`/`tenantId` de principal deja resolu transmis en clair
+   * comme authentifie), verifie les DEUX plafonds PAR COURTOISIE (le lien
+   * et la commande — la barriere qui compte est celle de `confirmFileUpload`,
+   * prise sous verrou). Leve `OrderUploadLinkNotFoundError` (401
+   * `upload_link.invalid` cote route, jeton invalide/expire/revoque entre la
+   * resolution du principal et cet appel) / `OrderUploadLinkFileLimitReachedError`.
+   */
+  issueFileUploadUrl(token: string): Promise<OrderFileUploadTicketDto>;
+
+  /**
+   * E10.20b — `confirmOrderUploadLinkFile`. RE-VERIFIE le jeton, relit la
+   * METADONNEE de l objet depose (`info(path)`, sans transferer les octets),
+   * verifie type/poids en defense en profondeur, puis appelle
+   * `api_confirm_order_file_upload_by_link` (chemin recalcule EN BASE
+   * depuis le TENANT DE LA COMMANDE resolue par le lien, jamais recu en
+   * parametre). Leve `OrderUploadLinkNotFoundError` (401 `upload_link.invalid`,
+   * y compris TOCTOU entre le billet et la confirmation) /
+   * `OrderFileUploadMissingError` (order-files, code REUTILISE) /
+   * `OrderFileRejectedError` (order-files, code REUTILISE) /
+   * `OrderFileAlreadyConfirmedError` (order-files, code REUTILISE) /
+   * `OrderUploadLinkFileLimitReachedError`.
+   */
+  confirmFileUpload(
+    token: string,
+    command: ConfirmOrderUploadLinkFileCommand,
+  ): Promise<ConfirmOrderUploadLinkFileResult>;
 }

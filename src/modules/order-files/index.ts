@@ -4,8 +4,13 @@ export {
   supportedOrderFileExtensions,
   UnsupportedOrderFileExtensionError,
 } from './api/content-type-map';
+// EXPORTEE (E10.20b) : la page publique de depot (`order-upload-links/ui/`)
+// REUTILISE ce meme helper de `PUT` sur URL signee, jamais un duplicata —
+// entree publique du module, MUX (`tests/architecture/modular-ui-boundaries.test.ts`).
+export { uploadFileToSignedUrl } from './api/signed-upload';
 export {
   confirmOrderFileUploadCommandSchema,
+  orderFileDepositChannelSchema,
   orderFileDetailSchema,
   orderFilesListSchema,
   orderFileSchema,
@@ -13,6 +18,7 @@ export {
   orderFileVisibilitySchema,
   updateOrderFileCommandSchema,
   type ConfirmOrderFileUploadCommand,
+  type OrderFileDepositChannel,
   type OrderFileDetailDto,
   type OrderFileDto,
   type OrderFileUploadTicketDto,

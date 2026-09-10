@@ -1,18 +1,18 @@
 /**
- * Contrats Zod du module Liens de depot publics (story E10.20a).
+ * Contrats Zod du module Liens de depot publics (stories E10.20a/E10.20b).
  *
  * Miroir d execution du contrat decrit dans openapi/magrit-core.v1.yaml
  * (schemas `OrderUploadLink`, `OrderUploadLinkCreated`,
- * `CreateOrderUploadLinkCommand`, `OrderUploadLinkContext`). Le YAML fait
- * foi ; docs/api/CONVENTIONS.md §8.21 en donne le detail arbitre.
+ * `CreateOrderUploadLinkCommand`, `OrderUploadLinkContext`,
+ * `ConfirmOrderUploadLinkFileCommand`, `OrderUploadLinkDeposit`). Le YAML
+ * fait foi ; docs/api/CONVENTIONS.md §8.21 en donne le detail arbitre.
  *
- * PERIMETRE DE CE FICHIER : les QUATRE operations de E10.20a (creation,
- * liste, revocation cote atelier ; contexte cote client). `Order
- * UploadLinkDeposit`/`ConfirmOrderUploadLinkFileCommand`/
- * `OrderFileUploadTicketDto` (le billet, deja publie par order-files) ne sont
- * PAS repris ici : `issueOrderUploadLinkFileUrl`/`confirmOrderUploadLinkFile`
- * sont le perimetre explicite d E10.20b (docs/api/CONVENTIONS.md §8.21 §5,
- * ligne E10.20a — "AUCUN DEPOT POSSIBLE").
+ * PERIMETRE : les QUATRE operations d E10.20a (creation, liste, revocation
+ * cote atelier ; contexte cote client) PLUS les deux operations de depot
+ * d E10.20b (`issueOrderUploadLinkFileUrl`/`confirmOrderUploadLinkFile`).
+ * `OrderFileUploadTicketDto` (le billet) N EST PAS reproduit ici : le
+ * contrat dit "schema `OrderFileUploadTicket` REUTILISE tel quel" — reexporte
+ * depuis `order-files/api/contracts.ts`, jamais duplique.
  */
 import { z } from 'zod';
 import { timestampSchema, uuidSchema } from '../../_shared/api/index.ts';
@@ -79,20 +79,70 @@ export const orderUploadLinkContextSchema = z
   })
   .strict();
 
+/**
+ * `ConfirmOrderUploadLinkFileCommand` (E10.20b) — DEUX champs, deliberement
+ * moins que `ConfirmOrderFileUploadCommand` : le porteur du lien ne choisit
+ * ni la visibilite (toujours `internal`) ni la ligne de commande (il ne les
+ * connait pas).
+ *
+ * qa-review round 1 (M2) — `filename` REFUSE les caracteres de controle
+ * (`\x00`-`\x1F`, `\x7F`) : ce texte est fourni par un tiers NON
+ * AUTHENTIFIE, stocke tel quel et rendu a l atelier (jamais interprete, mais
+ * il alimente `Content-Disposition` via `createSignedUrl` en aval,
+ * `getOrderFile`/E10.17a). Le chemin de stockage reste RECALCULE (jamais
+ * ce nom), donc aucune traversee de chemin n est possible — ce refus porte
+ * sur l HYGIENE de la valeur affichee/servie, pas sur une faille de chemin.
+ * MEME check repris cote SQL (`commercial_order_files_filename_check`,
+ * migration `20260910000400`) : deux barrieres, jamais une seule.
+ */
+export const confirmOrderUploadLinkFileCommandSchema = z
+  .object({
+    file_id: uuidSchema,
+    filename: z
+      .string()
+      .trim()
+      .min(1)
+      .max(255)
+      // eslint-disable-next-line no-control-regex -- refus DELIBERE des caracteres de controle (qa-review M2)
+      .regex(/^[^\x00-\x1F\x7F]+$/, 'Le nom de fichier ne doit pas contenir de caracteres de controle.'),
+  })
+  .strict();
+
+/**
+ * `OrderUploadLinkDeposit` (E10.20b) — RECU MINIMAL rendu au porteur du lien,
+ * DELIBEREMENT distinct d `OrderFile` : ni visibilite, ni deposant, ni
+ * rattachement de ligne, ni URL (arbitrage (E), depot seul).
+ */
+export const orderUploadLinkDepositSchema = z
+  .object({
+    file_id: uuidSchema,
+    filename: z.string().min(1).max(255),
+    content_type: z.string().min(1).max(255),
+    byte_size: z.number().int().min(1),
+    deposited_at: timestampSchema,
+    deposited_count: z.number().int().min(1),
+    max_files: z.number().int().min(1).max(30),
+  })
+  .strict();
+
 export type OrderUploadLinkDto = z.infer<typeof orderUploadLinkSchema>;
 export type OrderUploadLinkCreatedDto = z.infer<typeof orderUploadLinkCreatedSchema>;
 export type CreateOrderUploadLinkCommand = z.infer<typeof createOrderUploadLinkCommandSchema>;
 export type OrderUploadLinkContextDto = z.infer<typeof orderUploadLinkContextSchema>;
+export type ConfirmOrderUploadLinkFileCommand = z.infer<typeof confirmOrderUploadLinkFileCommandSchema>;
+export type OrderUploadLinkDepositDto = z.infer<typeof orderUploadLinkDepositSchema>;
 
 // ---------------------------------------------------------------------------
 // Alignement de compilation contrat <-> schemas (meme garde-fou que les
 // autres modules E10.x, voir src/modules/_shared/api/contracts.ts).
 // ---------------------------------------------------------------------------
 import type {
+  ConfirmOrderUploadLinkFileCommand as ConfirmOrderUploadLinkFileCommandContract,
   CreateOrderUploadLinkCommand as CreateOrderUploadLinkCommandContract,
   OrderUploadLink as OrderUploadLinkContract,
   OrderUploadLinkContext as OrderUploadLinkContextContract,
   OrderUploadLinkCreated as OrderUploadLinkCreatedContract,
+  OrderUploadLinkDeposit as OrderUploadLinkDepositContract,
 } from '../../../platform/api/generated/magrit-core.v1.ts';
 
 type AssertAssignable<TSource, TTarget> = TSource extends TTarget ? true : never;
@@ -105,4 +155,9 @@ export const ORDER_UPLOAD_LINKS_CONTRACT_ALIGNMENT = Object.freeze({
     CreateOrderUploadLinkCommandContract
   >,
   context: true as AssertAssignable<OrderUploadLinkContextDto, OrderUploadLinkContextContract>,
+  confirmFileCommand: true as AssertAssignable<
+    ConfirmOrderUploadLinkFileCommand,
+    ConfirmOrderUploadLinkFileCommandContract
+  >,
+  deposit: true as AssertAssignable<OrderUploadLinkDepositDto, OrderUploadLinkDepositContract>,
 });

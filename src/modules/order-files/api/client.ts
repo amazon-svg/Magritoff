@@ -4,20 +4,21 @@
  * Le tenant est resolu par la facade depuis le jeton (CA4 du socle E10.0) :
  * aucun chemin ici ne le porte.
  *
- * `uploadOrderFile()` pose le fichier par un `fetch(url, { method: 'PUT' })`
- * NU sur l URL signee du billet de depot — JAMAIS par le SDK Supabase
- * (`uploadToSignedUrl`), dont l import ferait echouer
- * `tests/architecture/modular-ui-boundaries.test.ts` (meme regle
- * qu `DocumentTemplatesApiClient.uploadPdfFile`, E10.10b-4a, reprise a
- * l identique — contrat §8.19 §0 verification n°1). Le `Content-Type` du
- * `PUT` est pose depuis le NOM DE FICHIER via la correspondance fermee de
+ * `uploadOrderFile()` pose le fichier par un `PUT` NU sur l URL signee du
+ * billet de depot — JAMAIS par le SDK Supabase (`uploadToSignedUrl`), dont
+ * l import ferait echouer `tests/architecture/modular-ui-boundaries.test.ts`
+ * (meme regle qu `DocumentTemplatesApiClient.uploadPdfFile`, E10.10b-4a,
+ * reprise a l identique — contrat §8.19 §0 verification n°1). DELEGUE a
+ * `uploadFileToSignedUrl` (`signed-upload.ts`, EXTRAIT ICI par E10.20b pour
+ * etre REUTILISE tel quel par la page publique de depot) : le `Content-Type`
+ * du `PUT` est pose depuis le NOM DE FICHIER via la correspondance fermee de
  * `content-type-map.ts`, jamais depuis `File.type` (consigne opposable a 17b,
  * §8.19 decision #6).
  */
 import { z } from 'zod';
 import { successEnvelopeSchema } from '../../_shared/api/index.ts';
 import { API_V1_BASE_PATH, type ApiResponseWithEtag, FetchApiClient } from '../../../platform/api/index.ts';
-import { resolveOrderFileContentType } from './content-type-map.ts';
+import { uploadFileToSignedUrl } from './signed-upload.ts';
 import {
   confirmOrderFileUploadCommandSchema,
   orderFileDetailSchema,
@@ -87,36 +88,7 @@ export class OrderFilesApiClient {
     file: Blob,
     onProgress?: (loadedBytes: number, totalBytes: number) => void,
   ): Promise<void> {
-    const contentType = resolveOrderFileContentType(filename);
-    if (!onProgress) {
-      const response = await fetch(ticket.url, {
-        method: 'PUT',
-        headers: { 'Content-Type': contentType },
-        body: file,
-      });
-      if (!response.ok) {
-        throw new Error(`Depot du fichier de commande impossible (HTTP ${response.status}).`);
-      }
-      return;
-    }
-
-    await new Promise<void>((resolvePut, rejectPut) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open('PUT', ticket.url, true);
-      xhr.setRequestHeader('Content-Type', contentType);
-      xhr.upload.onprogress = (event) => {
-        if (event.lengthComputable) onProgress(event.loaded, event.total);
-      };
-      xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          resolvePut();
-        } else {
-          rejectPut(new Error(`Depot du fichier de commande impossible (HTTP ${xhr.status}).`));
-        }
-      };
-      xhr.onerror = () => rejectPut(new Error('Depot du fichier de commande impossible (erreur reseau).'));
-      xhr.send(file);
-    });
+    return uploadFileToSignedUrl(ticket.url, filename, file, onProgress);
   }
 
   /**

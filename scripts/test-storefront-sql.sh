@@ -63,6 +63,7 @@ SQL_CASES=(
   tests/sql/gescom-e10-19a-order-document-template.sql
   tests/sql/gescom-e10-19b-order-documents.sql
   tests/sql/gescom-e10-20a-order-upload-links.sql
+  tests/sql/gescom-e10-20b-order-upload-link-deposit.sql
 )
 
 for sql_case in "${SQL_CASES[@]}"; do
