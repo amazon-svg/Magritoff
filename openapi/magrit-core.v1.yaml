@@ -11691,6 +11691,17 @@ components:
             « non » — exactement la dette D7 que ce chantier ferme.
 
 
+            `false` PAR DEFAUT, POUR TOUT ESPACE QUI N Y A JAMAIS TOUCHE
+            (arbitrage Arnaud du 2026-09-11). C est la doctrine du chantier
+            appliquee au reglage lui-meme : on echoue toujours du cote qui
+            CONSERVE les octets, et la facade n arme pas une destruction a la
+            place d une decision que personne n a prise — meme parti que
+            `default_validity_days`, qui vaut `null` plutot que 30 jours
+            inventes. CONSEQUENCE POUR UN CONSOMMATEUR : ne jamais supposer
+            qu un espace purge ses fichiers ; c est l exception, pas la regle,
+            tant qu un administrateur ne l a pas armee.
+
+
             ABSENT DE `required` DANS CET INCREMENT, meme motif de methode que
             `deposited_via` et `purge_at` en leur temps : le declarer requis
             aujourd hui rendrait NON CONFORME l implementation d E10.10a DEJA
