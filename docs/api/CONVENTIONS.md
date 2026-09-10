@@ -3095,6 +3095,196 @@ Les deux réserves closes sont **conservées à l'état clos plutôt que supprim
 
 Ce qui **n'est pas** vérifiable ici, et qui l'était déjà pour E10.10b-3 : le comportement réel du `pg_cron`, des fonctions `security definer` et du retrait d'objets de stockage. `pnpm test:storefront:sql` exige Docker (§9). Les cas SQL de ce lot rejoignent donc ceux qui n'ont **jamais tourné** — c'est la même dette, elle mord plus fort ici, puisque le code qu'elle ne couvre pas **détruit des données**.
 
+### 8.22bis E10.22d (activation de la purge par espace) — CADRAGE et CONTRAT ÉCRIT : un mécanisme qui détruit ne se met pas en service, il se propose
+
+> **Origine.** E10.22a/a-bis/b/c sont **livrés, commités et déployés** sur `ightkxebexuzfjdbpsdg` — et **inertes** : aucun `pg_cron` n'est planifié, aucun secret n'est posé au Vault (la planification vit en commentaire dans `20260910000500`, geste d'exploitation délibérément différé). Rien n'a donc jamais été détruit, ni annoncé. C'est la fenêtre exacte dans laquelle cette story s'insère : **poser l'interrupteur avant d'armer le mécanisme**, pas après.
+>
+> **Décision produit d'Arnaud, prise le 2026-09-11, non rouverte ici** : « il faut que l'on puisse gérer son activation. Il faut que le fait que ce soit activé/désactivé soit visible dans l'interface. » Précisée par question directe : **le pilotage est PAR ESPACE** — chaque imprimeur décide pour le sien. **Il n'y a pas d'interrupteur global Magrit, et ce cadrage n'en crée pas.**
+>
+> **Numéro de story : E10.22d — retenu sous la même réserve de vérification qu'en §8.22.** Aucun agent de cette session n'a d'accès Notion. Vérifié dans le dépôt : **aucun** `E10.22d` ni `E10.23` n'y existe (contrat, conventions, migrations, tests, artefacts BMAD) ; `E10.22a/a-bis/b/c` y sont tous. Si le backlog Notion porte déjà un E10.22d, **seul le numéro change**.
+>
+> **Phrase d'Arnaud à ne pas sur-interpréter, et c'est important pour la réserve (i) ci-dessous** : « les données existantes ne sont que des données de prod donc n'ont pas de valeur ». Elle répond à *« n'aie pas peur de tester »* — elle ne dit **pas** « active par défaut ». La valeur par défaut reste **à trancher**, et elle est la seule question ouverte de ce lot.
+
+#### 0. Ce qui a été vérifié dans le dépôt, plutôt que supposé
+
+| Dépendance | État réel constaté | Effet sur le cadrage |
+|---|---|---|
+| Le mécanisme de purge | Trois migrations **déjà appliquées en production** (`20260910000500`, `000600`, `000700`). Fonctions vivantes : `api_claim_order_file_purge_notices`, `api_expire_order_file_purge_notices`, `api_claim_order_files_for_purge`, `api_count_blocked_order_file_purges`, `api_claim_orphan_order_file_objects` | **Aucune de ces migrations ne sera touchée.** E10.22d écrit une migration **neuve** qui `create or replace` les fonctions concernées. Règle du dépôt, sans exception |
+| `commercial_settings` (`20260906160000`) | Singleton par tenant, `on delete cascade`, RLS lecture ouverte aux membres / écriture gardée `can_manage_pricing`, **création implicite à la première lecture** par `api_get_commercial_settings`, trigger `updated_at`, `ETag`/`If-Match` au contrat | **Domicile retenu** (§1). Tout ce qu'il faudrait sinon reconstruire pour un booléen y est déjà |
+| Écran de réglages | **Il en existe un**, et ce n'est pas une page « Réglages » : `DefaultValidityDaysPanel` vit dans `src/modules/pricing/ui/workspace/PricingRulesPage.tsx`, route `pricing-rules`, gardée `requiredCapabilities: ['can_manage_pricing']` | §5 : le panneau s'ajoute **là**, pas dans un écran neuf. Le nom de l'écran devient le vrai problème — réserve (k) |
+| `tests/contract/commercial-settings.contract.test.ts` | Valide les **réponses réelles** produites par les routes contre le schéma `CommercialSettings` (`additionalProperties: false`) | **Contrainte dure, vérifiée en la provoquant** : déclarer les deux champs `required` **aujourd'hui** met `pnpm test:contract` au rouge, l'implémentation d'E10.10a en service ne les servant pas. D'où « optionnels dans cet incrément, promus par le lot d'implémentation » (§4) — exactement le chemin de `purge_at` en §8.22 §9 |
+| Trigger `commercial_order_files_set_updated_at` (`20260910000500`) | **Déjà désarmé** sur les quatre colonnes de purge, `purge_notice_1_id`/`_2_id` comprises | La remise à zéro des pointeurs prescrite en §3 **ne périme aucun `ETag`**. Vérifié avant d'être prescrit |
+| Reprise du passif d'E10.22a | `purge_at = greatest(deposited_at + 30j, '2026-09-10'::timestamptz + 30j)` | **Aucun fichier existant n'est destructible avant le 2026-10-10**, quoi qu'on décide. La réserve (i) n'est donc pas une urgence — elle a un mois de marge |
+| Textes des rappels | Validés par Arnaud le 2026-09-10, `src/adapters/resend/order-file-purge-notice-email-sender.ts` : « *… arrivent au terme de leur durée de conservation (30 jours). Aucune prorogation n'est possible : si vous en avez besoin, téléchargez-les avant le … — passé cette date, ils seront supprimés automatiquement.* » | **C'est l'argument central du §2**, et il n'est pas rhétorique : ce texte **affirme** une suppression. L'envoyer dans un espace qui a désactivé la purge ferait mentir le produit |
+
+#### 1. Où vit le réglage — **`commercial_settings`**, et l'alternative a été regardée avant d'être écartée
+
+| Domicile candidat | Verdict |
+|---|---|
+| **`commercial_settings` (E10.10a)** | **Retenu.** Le nom trompe si on le lit « réglages de prix » : c'est le réglage de l'espace **en gestion commerciale**, et `commercial_order_files` porte le même préfixe parce qu'il est du même domaine. S'y ajouter, c'est hériter d'un coup de la création implicite, de la RLS, de l'`ETag`, de la garde d'écriture, du test de contrat et **du panneau d'écran** — pour un booléen |
+| **Table dédiée `order_file_retention_settings`** | **Écarté.** Il faudrait réécrire les six mêmes mécaniques, publier une seconde ressource singleton au contrat que Studio devrait apprendre, et répondre chaque trimestre à « pourquoi deux endroits pour les réglages d'un espace ? ». Le schéma `CommercialSettings` dit déjà, depuis E10.10a, qu'il est le domicile posé « pour accueillir sans créer une seconde ressource de réglages » — le premier usage qu'on en fait ne peut pas être de le contredire |
+| **`tenants.settings` (jsonb)** | **Écarté pour la deuxième fois**, même motif qu'en E10.10a : un sac libre, sans type ni garde. Y loger l'interrupteur d'un mécanisme qui détruit des fichiers clients serait le rendre inauditable |
+| **Une colonne sur `commercial_orders` ou sur le fichier** | **Écarté.** Ce serait une exemption par commande ou par fichier — précisément ce que la réserve (a) d'Arnaud a fermé le 2026-09-10 (« aucune exemption, aucune prorogation »). Le réglage porte sur la **politique de l'espace**, jamais sur une pièce |
+
+**Ce que ce choix coûte, écrit sans l'atténuer : l'écriture de la ressource n'a qu'une seule garde, `can_manage_pricing`.** Le porteur de ce droit pourra donc, du même geste, changer la validité des devis **et** arrêter ou armer la destruction des fichiers. Aujourd'hui ce droit n'est détenu que par les `admin` (dérivation `user_has_capability`, décision « admin unique » du 14/08) : la population est exactement celle qu'on veut. **Le jour où il devient délégable à un commercial, la fusion n'est plus défendable** — chemin de sortie nommé et additif : un droit dédié, vérifié **au champ** dans le service plutôt qu'à l'opération. Écrit au contrat sur `updateCommercialSettings`, pas seulement ici. Réserve (j).
+
+#### 2. Ce que « désactivé » arrête — **tout le pipeline de cet espace**, pas seulement la destruction finale
+
+| Étape (E10.22) | Espace `enabled = true` | Espace `enabled = false` |
+|---|---|---|
+| `purge_at` posé au dépôt (défaut de colonne) | Oui | **Oui, inchangé** — la colonne garde son défaut, la date continue d'être écrite. **Rien ne s'en suit** |
+| Rappel J-20, puis J-15 (`api_claim_order_file_purge_notices`) | Oui | **Non. Aucun rappel, aucun `notice`, aucun événement `order_files.purge_scheduled`** |
+| Destruction (`api_claim_order_files_for_purge`) | Oui, sous garde des deux livraisons confirmées | **Non** |
+| Nettoyage des objets orphelins (E10.22c) | Oui | **Oui — voir §3, et c'est la seule exception** |
+
+**Pourquoi tout, et pas seulement la destruction finale.** L'option « les rappels continuent, la purge s'arrête » a été examinée : elle est intenable, pour trois raisons dans cet ordre.
+
+1. **Le texte validé par Arnaud affirme une suppression** (§0). Un rappel envoyé dans un espace désactivé annoncerait, noir sur blanc, une destruction qui n'aura pas lieu — et pousserait un atelier à télécharger dans l'urgence des fichiers qui ne risquaient rien. Le produit mentirait, deux fois par mois, à ceux-là mêmes qui ont demandé qu'on ne détruise pas.
+2. **Un `notice` n'est pas une information, c'est une autorisation.** Toute la machinerie d'E10.22a-bis (deux tables, preuve de livraison, fenêtre d'expiration, ré-émission) n'existe que pour **autoriser** une destruction. Produire des autorisations pour une destruction impossible remplirait les tables de suivi de lignes qui n'autorisent rien, et rendrait illisible la seule visibilité opérationnelle du mécanisme (§8.22 §2).
+3. **Ça consommerait un quota d'envoi réel** (Resend, réserve (e) toujours ouverte) pour un effet nul, et ferait relire quotidiennement des statuts de livraison sans objet.
+
+**Rien dans le contrat existant ne plaide en sens inverse** — vérifié : §8.22 §4 et §5 ne donnent aux rappels aucun autre rôle que celui de préavis à une purge. **Pas de menace, donc pas de rappel.**
+
+**Conséquence à assumer, et à dire dans l'écran** : désactiver **n'annule pas** les rappels déjà remis. Un courriel parti ne se rappelle pas ; des destinataires auront lu une date de suppression qui n'arrivera pas. L'écart est du bon côté (on garde des fichiers annoncés détruits, jamais l'inverse), il est écrit au contrat sur `UpdateCommercialSettingsCommand.order_file_purge_enabled`.
+
+#### 3. Les objets orphelins (E10.22c) — **restent actifs, toujours**, et ce n'est pas une entorse
+
+Un objet orphelin est un téléversement **jamais confirmé** : le porteur d'un billet a poussé des octets, la confirmation n'est jamais venue, **aucune ligne `commercial_order_files` n'a jamais existé**. Il n'apparaît dans aucun `listOrderFiles`, aucun écran, aucune trace métier. Ce n'est pas « un fichier de l'espace » : c'est un déchet d'upload interrompu.
+
+Trois raisons de ne pas le soumettre au réglage :
+
+1. **Le réglage porte sur une politique de conservation**, c'est-à-dire sur des données que l'espace peut revendiquer. Un orphelin n'en est pas une — il n'y a rien à conserver, puisqu'il n'y a rien à montrer.
+2. **Le soumettre rouvrirait la dette D7 par la grande porte** : n'importe quel porteur de lien public pourrait remplir indéfiniment le stockage d'un espace ayant coché « non », et ce serait le comportement documenté du produit.
+3. **La branche (b) de `api_claim_orphan_order_file_objects` doit elle aussi rester active** : elle rattrape les objets dont la ligne est **déjà** marquée `deleted_at` — retrait précédent échoué, y compris après une **suppression manuelle** par l'atelier (M2 de la qa-review round 1). Rien de tout cela ne relève de la purge automatique ; désarmer cette branche transformerait un réglage de rétention en fuite de stockage sur un geste que l'utilisateur, lui, a bel et bien demandé.
+
+**`api_claim_orphan_order_file_objects` n'est donc pas modifiée par ce lot.** C'est la seule fonction du chantier qui ne l'est pas, et c'est délibéré.
+
+#### 4. Le piège trouvé en cadrant, et la seule chose que ce lot ajoute au-delà d'un booléen
+
+**Sans précaution, activer la purge détruit sous 48 h.** `purge_at` est posé au dépôt et **ne bouge jamais** (propriété du système, §8.22 §10 réserve (a)). Un espace qui active le réglage après quelques mois d'exploitation a donc des fichiers dont la date est **déjà passée** : au premier balayage, le palier `first` (`purge_at - 20j <= now()`) **et** le palier `second` (`purge_at - 15j <= now()`) sont tous deux atteints — deux courriels le même matin, puis destruction dès leur livraison confirmée. Trente jours de préavis annoncés, deux jours vécus. C'est exactement le piège du passif qu'E10.22a a traité par un plancher, et **le geste d'activation le rouvre en entier**.
+
+**Correctif retenu : un plancher d'activation, stocké dans les réglages, jamais sur le fichier.**
+
+- `order_file_purge_enabled_at` (base) enregistre l'instant de la **dernière** activation ; `null` quand le réglage est à l'arrêt.
+- **Échéance effective** d'un fichier = `greatest(purge_at, order_file_purge_enabled_at + interval '30 days')`. C'est **elle**, et non `purge_at`, qui gouverne les deux paliers, la purge, et **la date annoncée dans le courriel**.
+- Publiée en lecture seule au contrat sous `CommercialSettings.order_file_purge_effective_from` — l'écran en a besoin pour dire *« premières suppressions possibles à partir du … »*, sans quoi personne ne sait à quoi il consent.
+
+**Ce que le plancher achète, et pourquoi il change la nature du geste** : **activer ne détruit jamais rien avant trente jours pleins**, et se défait entièrement d'ici là. L'activation cesse d'être un saut dans le vide, ce qui vaut aussi — et c'est à noter pour la réserve (i) — pour un défaut à `true` posé au déploiement.
+
+**Et `purge_at` n'est pas touché**, donc la propriété « aucune opération ne la modifie » reste vraie, littéralement. Le plancher vit dans les réglages, pas sur la pièce.
+
+**Corollaire : un rappel confirmé sous une activation passée n'autorise rien sous la suivante.** Un espace désactivé six mois puis réactivé ne doit pas voir ses fichiers détruits trente jours plus tard sur la foi de deux courriels d'il y a six mois. Deux prescriptions, complémentaires et toutes deux nécessaires :
+
+- **Sûreté (garde)** : la garde de purge exige en plus `n.confirmed_at >= s.order_file_purge_enabled_at` sur **les deux** rappels. Aucune fenêtre de course, aucune tâche à passer.
+- **Vivacité (re-émission)** : un balayage qui trouve, dans un espace **armé**, des pointeurs vers des `notices` **créés avant l'activation courante** les remet à `null` — sans quoi la garde ci-dessus deviendrait insatisfiable et les fichiers resteraient bloqués pour toujours. Fonction dédiée `api_reset_stale_order_file_purge_notices()`, appelée **en tête de tour**, symétrique d'`api_expire_order_file_purge_notices`. Le trigger `updated_at` étant déjà désarmé sur ces colonnes (§0), aucun `ETag` n'en souffre.
+
+#### 5. Schéma de données — **deux colonnes sur `commercial_settings`**, une contrainte, un trigger
+
+| Colonne | Forme | Rôle |
+|---|---|---|
+| `order_file_purge_enabled` | `boolean not null default <à trancher, réserve (i)>` | L'interrupteur. Publié, écrivable |
+| `order_file_purge_enabled_at` | `timestamptz` | Instant de la dernière activation. `null` ⇔ à l'arrêt. **Jamais écrit par l'application** |
+
+- **Cohérence par `check`, pas par discipline applicative** (règle `db.md`) : `check ((order_file_purge_enabled and order_file_purge_enabled_at is not null) or (not order_file_purge_enabled and order_file_purge_enabled_at is null))`. Un état « armé sans date d'armement » rendrait l'échéance effective indéfinie — la base doit le refuser, pas le service.
+- **Trigger `commercial_settings_track_purge_activation` (`before insert or update`)** : pose `now()` sur une transition `false → true`, `null` sur `true → false`, **laisse la valeur inchangée** quand le booléen ne change pas. C'est ce dernier point qui empêche de repousser le plancher en re-cliquant sur « activer ». Écrit en trigger et non dans le service : la valeur doit rester vraie même écrite par une migration, un rejeu ou un `super_admin`.
+- **Deux triggers `before update` cohabitent** sur cette table (`commercial_settings_set_updated_at` existe déjà). Ils ne touchent pas les mêmes colonnes et s'exécutent par ordre alphabétique de nom : sans effet de bord, mais à vérifier au rejeu.
+- **Pas de journal d'audit pour ce basculement** — réserve (l). `updated_at` et `order_file_purge_enabled_at` disent *quand*, jamais *qui*.
+- **Reprise** : les tenants qui n'ont **jamais lu** leurs réglages n'ont **aucune ligne** (création implicite à la première lecture). Le défaut de colonne les couvre donc automatiquement — **mais la forme de la jointure SQL dépend du défaut retenu**, et c'est le point le plus contre-intuitif de la réserve (i) : voir §9.
+
+#### 6. Mécanisme SQL — **une migration neuve, `create or replace` sur quatre fonctions déjà déployées**
+
+`20260911xxxxxx_gescom_e10_22d_purge_activation.sql`. **Aucune des trois migrations déjà appliquées n'est éditée** — elles sont en production.
+
+| Fonction | Ce qui change |
+|---|---|
+| `public.order_file_effective_purge_at(p_purge_at, p_enabled_at)` **(neuve)** | `immutable`, `returns null` si `p_enabled_at is null`, sinon `greatest(p_purge_at, p_enabled_at + interval '30 days')`. **Une seule définition pour trois appelants** — la leçon du littéral `24h` recopié dans deux fonctions (M3 d'E10.22c). Le `30 days` reste néanmoins dupliqué avec le `default` de `commercial_order_files.purge_at` : signalé en commentaire, comme M3 |
+| `api_claim_order_file_purge_notices(text, integer)` | Jointure **interne** sur `commercial_settings` filtrée `order_file_purge_enabled`; le CTE `candidates` et le `group by` passent de `f.purge_at` à l'échéance **effective**; le `notice.purge_at` inséré et le `days_before_purge` de la charge utile sont calculés sur elle. **Le reste ne bouge pas** : réclamation `for update skip locked`, vérification de destinataire joignable, transaction unique |
+| `api_claim_order_files_for_purge(integer)` | Même jointure interne ; `f.purge_at <= now()` devient `effective <= now()` ; **deux clauses de garde ajoutées** : `n.confirmed_at >= s.order_file_purge_enabled_at` sur chacun des deux rappels (§4). Les gardes existantes (M1, N4, `failed_at`, pointeurs distincts) sont **reconduites telles quelles** |
+| `api_count_blocked_order_file_purges()` | Jointure **externe** (elle doit continuer de voir les espaces désarmés) et **cinquième motif : `purge_desactivee`**. La fonction est documentée comme « la négation EXACTE de la garde » : la garde refusant désormais aussi les espaces à l'arrêt, ces fichiers **doivent** y apparaître, sous un motif qui ne se confond pas avec un incident. Bénéfice non demandé mais réel : le compte rendu de tour distingue « bloqué » (panne) de « désactivé » (choix), et rend l'adoption observable |
+| `api_reset_stale_order_file_purge_notices()` **(neuve)** | §4, vivacité. Remet à `null` les pointeurs de rappels **antérieurs à l'activation courante**, dans les espaces armés uniquement |
+| `api_expire_order_file_purge_notices(interval)` | **Inchangée.** Un `notice` pendant dans un espace qui vient de se désarmer expire de lui-même au bout de la fenêtre ; la ré-émission, elle, est déjà bloquée par le filtre de réclamation. Rien à ajouter |
+| `api_claim_orphan_order_file_objects(interval, integer)` | **Inchangée, délibérément** (§3) |
+
+**Côté application** : `PurgeSweepService` gagne une étape 0 (`resetStaleNotices`) et rien d'autre. **Aucun filtre de tenant n'est écrit en TypeScript** — la règle du chantier est que la garde vit en SQL et que le service ne la réimplémente jamais (`purge-sweep-service.ts`, étape 4).
+
+**Le `pg_cron` reste non planifié à l'issue de ce lot, et c'est le but.** E10.22d est ce qui rend le geste d'exploitation **sûr** : une fois posé, planifier le balayage ne peut détruire aucun fichier dans un espace qui n'a pas dit oui, ni moins de trente jours après qu'il l'a dit. La planification elle-même (secrets Vault + `cron.schedule`, script déjà écrit en commentaire dans `20260910000500`) est un **lot d'exploitation distinct**, §7.
+
+#### 7. Découpage — **un seul lot de code, plus un geste d'exploitation qui n'en est pas un**
+
+| Lot | Périmètre | Pourquoi pas ailleurs |
+|---|---|---|
+| **E10.22d** | Migration (2 colonnes, `check`, trigger, 2 fonctions neuves, 4 `create or replace`) + service/adaptateur/contrats Zod + **panneau d'écran** (§8) + tests | **Non découpable.** La décision d'Arnaud contient « visible dans l'interface » : un réglage livré sans son écran ne serait pas la moitié de la story, ce serait une story non livrée. Et une colonne sans filtre SQL serait un interrupteur qui ne coupe rien |
+| **E10.22e — mise en service** *(proposé, hors code)* | Poser `MAGRIT_ORDER_FILE_PURGE_URL`/`_SECRET` au Vault, exécuter le `cron.schedule` déjà rédigé, observer plusieurs tours à blanc, vérifier le domaine d'expédition Resend (réserve (e)) | **Mérite un numéro** précisément parce que ce n'est pas du code : sans lui, tout le chantier E10.22 reste inerte, et cette inertie est aujourd'hui **invisible du backlog**. Le tracer, c'est éviter qu'on croie livré ce qui ne tourne pas |
+
+#### 8. Surface UI — un troisième panneau sur l'écran qui en porte déjà deux
+
+**L'écran existe** (§0) : `PricingRulesPage` porte déjà `DefaultValidityDaysPanel`, alimenté par `CommercialSettingsApiClient`, sous la même garde d'ergonomie `can_manage_pricing`. Le panneau `OrderFilePurgePanel` s'y ajoute — **même client API, même `ETag`, même `If-Match`, aucun écran neuf**. En créer un pour un booléen fragmenterait les réglages d'un espace en deux endroits dès le deuxième réglage.
+
+**Ce que le panneau doit dire, et ce n'est pas décoratif** : le lecteur consent à une destruction. Le texte reprend donc **ce que les rappels validés par Arnaud annoncent déjà** (§0), sans réécrire une seconde promesse :
+
+- État courant, en toutes lettres — *« Purge automatique : activée / désactivée »*. C'est la demande littérale d'Arnaud.
+- Quand c'est activé : *« Les fichiers déposés sur vos commandes sont supprimés automatiquement 30 jours après leur dépôt. Deux rappels par courriel préviennent les administrateurs de l'espace avant chaque échéance ; aucune prorogation n'est possible — la seule action possible est de télécharger les fichiers avant la date annoncée. »*
+- **Le plancher, affiché** : *« Premières suppressions possibles à partir du {order_file_purge_effective_from}. »* Sans lui, activer est un geste dont on ne connaît pas la portée.
+- Quand c'est désactivé : *« Aucun fichier n'est supprimé automatiquement, et aucun rappel n'est envoyé. Les fichiers s'accumulent dans votre espace de stockage. »* — la contrepartie se dit, elle aussi.
+- À l'arrêt, une phrase sur les courriels déjà partis (§2), affichée seulement s'il existe des rappels émis.
+- `data-testid` **déclarés dans `src/shared/presentation/testIds.ts`**, sous le namespace `commercialSettings` existant. Aucun identifiant inventé à la volée (règle du dépôt).
+
+**Ce que le panneau ne fait pas** : aucune liste de fichiers menacés, aucun bouton « conserver celui-ci », aucun compte à rebours par pièce. La réserve (a) d'E10.22 est fermée — construire un écran de report sur un mécanisme qui n'en a pas serait promettre un geste inexistant.
+
+#### 9. Ce que le contrat gagne — écrit, additif, `pnpm gen:api` passé
+
+| Emplacement | Ajout | Compatibilité |
+|---|---|---|
+| `CommercialSettings.order_file_purge_enabled` | L'interrupteur, avec ce que « désactivé » arrête **exactement** (tout le pipeline), et ce qu'il n'arrête pas (les orphelins, argumenté sur place) | Additif. **Optionnel dans cet incrément** — vérifié : le déclarer `required` met `pnpm test:contract` au rouge (§0). Le lot d'implémentation le promeut, optionnel → requis étant compatible au sens du CA13 |
+| `CommercialSettings.order_file_purge_effective_from` | Le plancher d'activation, lecture seule, `null` à l'arrêt | Additif, optionnel, même motif |
+| `UpdateCommercialSettingsCommand.order_file_purge_enabled` | Booléen strict, **pas de `null`** : « ne rien décider » se dit en n'envoyant pas le champ. Porte l'effet de bord du plancher et le fait qu'un rappel déjà remis ne se rappelle pas | Additif sur un `minProperties: 1` déjà en place |
+| En-tête de `CommercialSettings` | Pourquoi ce domicile plutôt qu'une seconde ressource, **et ce que la garde unique `can_manage_pricing` coûte** (§1) | Description |
+| `getCommercialSettings` / `updateCommercialSettings` | Résumés étendus ; sur le `PATCH`, ce que le droit gouverne désormais et le chemin de sortie si `can_manage_pricing` devient délégable | Description |
+| `OrderFile.purge_at`, `OrderFileDetail.purge_at` | **« Elle peut être entièrement inerte, et rien dans le fichier ne le dit »** : un consommateur qui affiche une échéance doit lire les **deux** ressources. C'est l'ajout le plus important pour le partenaire — sans lui, Studio afficherait « supprimé le 12 octobre » à un imprimeur qui a tout désactivé | Description |
+| `OrderFilesPurgeScheduledPayload.purge_at` | La date annoncée peut être le plancher plutôt que le `purge_at` du fichier ; des dépôts de jours différents peuvent donc être annoncés ensemble. Corrige une phrase devenue fausse (« donc ils ont été déposés le même jour ») | Description |
+
+**Aucun endpoint nouveau, aucun événement nouveau.** L'extension d'une ressource singleton déjà publiée est exactement ce que le §8.12 avait prévu en la créant. **Aucun test de contrat nouveau non plus** : les cas d'E10.10a couvrent déjà `getCommercialSettings`/`updateCommercialSettings`; le lot d'implémentation y ajoutera des assertions, pas un fichier.
+
+#### 10. Cas limites — ce qui a été cherché
+
+| Cas | Traitement |
+|---|---|
+| **Espace sans ligne de réglages** (n'a jamais ouvert l'écran) | Aucune ligne n'existe : c'est le **défaut de colonne** qui décide, et **la forme de la jointure SQL en dépend** — jointure interne si le défaut est `false` (l'absence de ligne vaut « à l'arrêt », exact et sûr), jointure externe avec `coalesce` **plus** création de la ligne pour tous les tenants si le défaut est `true`, sinon un espace qui n'a jamais lu ses réglages serait silencieusement exempté. Réserve (i) : **le défaut ne décide pas d'une valeur, il décide d'une forme** |
+| **Activation puis désactivation dans la même journée** | Aucun balayage n'est passé : rien n'a été émis, rien n'a été détruit. `enabled_at` repasse à `null` |
+| **Désactivation pendant qu'un rappel attend sa confirmation** | Le `notice` expire seul (fenêtre de 3 jours), les pointeurs sont remis à zéro par la mécanique existante. Aucune ré-émission : le filtre de réclamation la bloque |
+| **Désactivation après deux rappels confirmés, avant la purge** | La purge ne se produit pas. À la réactivation, le plancher repousse l'échéance de 30 jours **et** la garde `confirmed_at >= enabled_at` invalide les deux rappels — deux rappels neufs seront émis, correctement espacés |
+| **Espace armé dont le stockage déborde parce qu'aucun rappel n'est délivrable** | Inchangé par ce lot (réserve (e) : domaine Resend). Le motif `rappel_non_confirme` le dit déjà dans le compte rendu, distinct de `purge_desactivee` |
+| **`super_admin` qui écrit directement en base** | Le `check` et le trigger tiennent : impossible d'obtenir « armé sans date d'armement » |
+| **Tenant supprimé** | `on delete cascade` depuis `tenants`, déjà en place sur `commercial_settings` |
+
+#### 11. Réserves
+
+- **(i) — LA SEULE QUESTION OUVERTE, ET ELLE EST POUR ARNAUD : la valeur par défaut.** Arnaud n'a pas tranché ce point ; sa phrase sur les données de production **n'y répond pas** (elle autorise à tester, elle ne choisit pas un défaut). Les deux options, avec ce qu'elles coûtent :
+
+  | Défaut | Ce que ça achète | Ce que ça coûte |
+  |---|---|---|
+  | **`false` — à l'arrêt** *(proposition de l'architecte)* | Cohérent avec la doctrine du chantier (« on échoue toujours du côté qui conserve les octets », §8.22 §1) et avec le précédent de la même ressource (`default_validity_days` vaut `null` : « la façade n'invente pas 30 jours à la place d'une décision commerciale que personne n'a prise »). **Aucun imprimeur ne voit disparaître un fichier qu'il n'a pas décidé de laisser partir.** Techniquement le plus sûr : la jointure interne rend l'absence de ligne exacte, sans reprise ni cas particulier | **Un mécanisme construit à grand frais qui ne sert personne tant que personne ne l'active** — et il faut le dire franchement : sans un geste commercial pour l'expliquer aux ateliers, ce défaut-là signifie « jamais ». Le stockage continue de croître partout |
+  | **`true` — armé** | Le chantier produit son effet dès la mise en service ; le stockage cesse de croître sans limite. Le plancher du §4 fait que **rien n'est détruit avant trente jours** même pour les espaces existants, et la reprise d'E10.22a repousse déjà toute destruction au-delà du 2026-10-10 | Un imprimeur qui n'a jamais entendu parler de ce mécanisme reçoit deux courriels puis perd des fichiers — décidé par nous, pas par lui. Impose en plus de **créer la ligne de réglages pour tous les tenants** et de passer en jointure externe (§10), donc une reprise de données et un chemin de plus à tester |
+
+  **Recommandation, à confirmer ou infirmer** : `false`, **et le rendre visible plutôt que discret** — l'écran affiche « désactivée » et propose l'activation, ce qui transforme la question en décision consciente de chaque imprimeur au lieu d'un défaut subi dans un sens ou dans l'autre. *(ouverte — bloque la migration, pas le contrat : le contrat ne publie pas la valeur par défaut, seulement le champ)*
+- **(j)** Garde unique `can_manage_pricing` sur l'écriture (§1). Défendable tant que seuls les `admin` la détiennent ; à séparer le jour où elle devient délégable. *(ouverte, non bloquante)*
+- **(k)** L'écran s'appelle **« Règles de prix »** et porte désormais trois panneaux dont deux n'ont rien à voir avec les prix. Le renommer en « Réglages commerciaux » (route incluse) est un lot d'ergonomie à part entière, hors périmètre ici — mais la dette est réelle et grandit à chaque réglage ajouté. *(ouverte)*
+- **(l)** Aucun journal d'audit sur le basculement : on saura *quand*, jamais *qui*. Pour un interrupteur qui gouverne une destruction, ça se discute. Chemin le moins cher si Arnaud le souhaite : un événement sortant versionné, pas une table neuve. *(ouverte, non bloquante)*
+- **(m)** Le plancher est fixé à **30 jours**, par symétrie avec la durée de conservation. Personne ne l'a arbitré ; c'est la valeur qui rend l'activation équivalente à un dépôt neuf. *(ouverte)*
+- Les réserves **(b)**, **(c)**, **(e)**, **(f)**, **(g)**, **(h)** de §8.22 restent ouvertes et **inchangées** — (e) en particulier, le domaine d'expédition Resend, qui reste à poser **avant** le lot d'exploitation E10.22e.
+
+#### 12. État des gates à la remise du cadrage
+
+| Commande | Résultat |
+|---|---|
+| `pnpm gen:api` | **régénéré** — deux champs optionnels sur `CommercialSettings`, un sur `UpdateCommercialSettingsCommand` |
+| `pnpm gen:api:check` | **vert** |
+| `pnpm typecheck` | **vert** — aucun fichier de `src/` touché hors généré |
+| `pnpm test:contract` | **vert — 381 cas, 20 fichiers** |
+| `git diff --stat` sur le contrat | **vérifié après la série d'éditions**, discipline imposée par l'incident d'écriture de §8.22 §11 |
+
+**Non vérifiable ici, comme pour tout le chantier E10.22** : le comportement réel des fonctions `security definer` et du trigger d'activation (`pnpm test:storefront:sql` exige Docker, absent). Le rejeu de la migration en base locale reste à la charge du lot d'implémentation, et il mord d'autant plus fort ici que la migration **remplace quatre fonctions déjà en production**.
+
 ## 9. Commandes
 
 ```bash

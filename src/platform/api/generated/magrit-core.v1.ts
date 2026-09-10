@@ -745,9 +745,9 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Reglages commerciaux du tenant courant. Aujourd hui : la duree de validite appliquee par defaut aux devis.
+         * Reglages commerciaux du tenant courant : la duree de validite appliquee par defaut aux devis, et l etat de la purge automatique des fichiers de commande (E10.22d).
          *
-         *     Lecture OUVERTE a tout membre de l espace, sans droit metier : c est un reglage que l editeur de devis doit pouvoir afficher (« validite par defaut : 30 jours ») pour que le commercial sache ce qui s appliquera s il ne pose rien. Seule l ECRITURE est gardee.
+         *     Lecture OUVERTE a tout membre de l espace, sans droit metier : c est un reglage que l editeur de devis doit pouvoir afficher (« validite par defaut : 30 jours ») pour que le commercial sache ce qui s appliquera s il ne pose rien. Meme raison pour le second : « les fichiers de cet espace sont-ils detruits automatiquement, et a partir de quand ? » est une question que se pose quiconque depose une piece, pas seulement celui qui a le droit de repondre. Seule l ECRITURE est gardee.
          */
         get: operations["getCommercialSettings"];
         put?: never;
@@ -759,6 +759,8 @@ export interface paths {
          * Modifie les reglages commerciaux du tenant.
          *
          *     RESERVE au droit `can_manage_pricing` (E10.11), aujourd hui detenu par les seuls `admin` de l espace. Ce n est pas un reglage d affichage : fixer la duree de validite des devis d un tenant, c est fixer une politique commerciale qui s applique a tout le monde. Le droit qui gouverne les regles de prix gouverne aussi les regles qui encadrent les devis — en ouvrir un second pour une famille voisine multiplierait les habilitations sans rien clarifier.
+         *
+         *     E10.22d ETEND CE QUE CE DROIT GOUVERNE, ET LE DIT PLUTOT QUE DE LE GLISSER : armer ou arreter la purge automatique des fichiers de commande (`order_file_purge_enabled`) se fait par cette meme operation, donc avec ce meme droit. C est defendable tant que `can_manage_pricing` n est detenu que par les `admin` de l espace, ce qui est le cas aujourd hui (derivation `user_has_capability`) ; c est a revoir le jour ou il devient delegable a un membre ordinaire, parce que « fixer les remises » et « decider de la destruction des fichiers clients » ne sont alors plus la meme responsabilite. Chemin de sortie, additif et sans rupture : un droit dedie, verifie au CHAMP plutot qu a l operation.
          */
         patch: operations["updateCommercialSettings"];
         trace?: never;
@@ -3370,6 +3372,10 @@ export interface components {
          *     A l inverse, cette ressource-ci est le domicile naturel d un reglage que le sprint attend deja : le SEUIL D ALERTE DE REMISE, que E10.9 a laisse en constante avec la mention « rendre le seuil configurable reste a faire, et ce sera l usage naturel de `can_manage_pricing` » (voir `QuoteLineWarning.threshold`). Il n est PAS livre ici — mais la forme est posee pour l accueillir sans creer une seconde ressource de reglages.
          *
          *     CE QU ELLE NE PORTE PAS, volontairement : le TAUX DE TVA. Le regime fiscal du tenant existe deja (`tenants.tax_regime`, voir `TaxRegime`) et sert les commandes ; en ajouter un second ici creerait deux verites sur la fiscalite du meme tenant. La surcharge par devis (`Quote.vat_rate`) couvre les cas que le regime ne couvre pas.
+         *
+         *     ELARGISSEMENT E10.22d — CE N EST PLUS SEULEMENT UNE POLITIQUE DE PRIX, C EST LA POLITIQUE DE L ESPACE EN GESTION COMMERCIALE. Cette ressource accueille desormais `order_file_purge_enabled`, l interrupteur PAR ESPACE de la purge automatique des fichiers de commande (E10.22). Domicile choisi plutot qu une seconde ressource de reglages, pour la raison ecrite ci-dessus et pour trois de plus : `commercial_order_files` appartient au meme domaine (« gestion commerciale », pas « prix ») ; la machinerie qu il faudrait sinon reconstruire — creation implicite a la premiere lecture, `ETag`/`If-Match`, RLS, garde d ecriture, panneau d ecran — existe deja ici, entiere, pour un seul booleen ; et un exploitant qui cherche « ce que mon espace fait tout seul » a un seul endroit ou regarder.
+         *
+         *     CE QUE CET ELARGISSEMENT COUTE, ET IL FAUT LE LIRE AVANT DE S EN SERVIR : l ECRITURE de cette ressource reste gardee par UN SEUL droit, `can_manage_pricing`. Le porteur de ce droit peut donc, du meme geste, changer la validite des devis ET arreter (ou armer) la destruction automatique des fichiers de l espace. Aujourd hui ce droit n est detenu que par les `admin` (derivation `user_has_capability`), donc la population est exactement celle qu on attendrait ; le jour ou il est delegue a un membre ordinaire, il faudra separer — un droit dedie, refuse au champ pres, est le chemin, et il est additif.
          */
         CommercialSettings: {
             tenant_id: components["schemas"]["Uuid"];
@@ -3381,6 +3387,26 @@ export interface components {
              *     Un reglage MODIFIE ne change aucun devis existant : les devis deja envoyes portent leur date, les brouillons prendront la nouvelle valeur a leur envoi. Recalculer l existant reecrirait des engagements pris.
              */
             default_validity_days: number | null;
+            /**
+             * @description PURGE AUTOMATIQUE DES FICHIERS DE COMMANDE : ARMEE OU A L ARRET POUR CET ESPACE (E10.22d, decision Arnaud du 2026-09-11). Le pilotage est PAR ESPACE — chaque imprimeur decide pour le sien. Ce n est PAS un interrupteur global Magrit, et il n en existe pas.
+             *
+             *     `false` ARRETE TOUT LE PIPELINE POUR CET ESPACE, pas seulement la destruction finale : aucun rappel n est emis (ni J-20, ni J-15), aucun fichier n est detruit, aucun evenement `order_files.purge_scheduled` ni `order_files.purged` n est produit. Le motif est de coherence, et il se lit dans le texte des rappels eux-memes : ils annoncent « passe cette date, ils seront supprimes automatiquement ». Continuer a les envoyer alors que rien ne sera detruit ferait tenir au systeme une affirmation fausse, et ferait telecharger dans l urgence des fichiers qui ne risquaient rien. Pas de menace, donc pas de rappel.
+             *
+             *     `true` applique le mecanisme complet decrit sur `OrderFile.purge_at` — deux rappels, puis destruction sous garde de LIVRAISON CONFIRMEE. Y COMPRIS SA CLAUSE DE PRUDENCE : armer la purge ne detruit jamais rien avant `order_file_purge_effective_from`, soit trente jours pleins apres le geste d activation. Activer n est donc jamais un geste irreversible dans l instant ; c est une decision qui prend effet dans un mois, et qui se defait d ici la.
+             *
+             *     CE QUE CE REGLAGE NE GOUVERNE PAS : le nettoyage des objets ORPHELINS (E10.22c) reste actif dans tous les cas. Un objet orphelin est un televersement jamais confirme, auquel ne correspond AUCUNE ligne `OrderFile` — donc aucun fichier de commande, aucune donnee que l espace puisse revendiquer, rien qui apparaisse jamais dans `listOrderFiles`. C est un dechet d upload interrompu, pas un choix de conservation. Le soumettre a un reglage de retention offrirait a n importe quel porteur de lien public un moyen de remplir indefiniment le stockage d un espace qui aurait coche « non » — exactement la dette D7 que ce chantier ferme.
+             *
+             *     ABSENT DE `required` DANS CET INCREMENT, meme motif de methode que `deposited_via` et `purge_at` en leur temps : le declarer requis aujourd hui rendrait NON CONFORME l implementation d E10.10a DEJA EN SERVICE, qui ne le sert pas. Le lot E10.22d, qui pose la colonne et la sert toujours, le fera promouvoir `required` — optionnel -> requis est compatible au sens du CA13. JUSQUE-LA, ABSENT SIGNIFIE « cet espace n a pas encore de reglage de purge », jamais « la purge tourne ».
+             */
+            order_file_purge_enabled?: boolean;
+            /**
+             * @description DATE AVANT LAQUELLE RIEN N ARRIVE AUX FICHIERS DE CET ESPACE, meme echus : ni rappel, ni destruction. Vaut l instant de la DERNIERE activation plus trente jours ; `null` quand la purge est a l arret. LECTURE SEULE — aucune commande ne l ecrit, elle se deduit de l activation.
+             *
+             *     POURQUOI ELLE EXISTE, ET CE N EST PAS UN LUXE. `OrderFile.purge_at` est pose au depot et ne bouge JAMAIS (propriete du systeme, pas lacune). Sans ce plancher, un espace qui active la purge apres plusieurs mois d exploitation verrait, le jour meme, ses fichiers deja echus reclamer leurs deux rappels dans le MEME tour de balayage — deux courriels le meme matin, puis destruction des que leur livraison est confirmee. Trente jours de preavis annonces, quarante-huit heures vecues. Le plancher rend l activation sure SANS toucher a `purge_at` : c est exactement la reprise de passif d E10.22a (« aucun fichier detruit moins de trente jours apres la mise en service »), generalisee au geste d activation.
+             *
+             *     CONSEQUENCE OPPOSABLE : tant que cette date n est pas passee, la DATE ANNONCEE par un rappel est cette date-ci, jamais le `purge_at` du fichier. C est aussi ce qu un ecran doit afficher a cote de l interrupteur — « premieres suppressions possibles a partir du … » — pour que celui qui active sache ce qu il declenche et quand.
+             */
+            order_file_purge_effective_from?: components["schemas"]["Timestamp"] | null;
             updated_at: components["schemas"]["Timestamp"];
         };
         /**
@@ -3390,6 +3416,14 @@ export interface components {
         UpdateCommercialSettingsCommand: {
             /** @description `null` retire la validite par defaut. */
             default_validity_days?: number | null;
+            /**
+             * @description Arme (`true`) ou arrete (`false`) la purge automatique des fichiers de commande de cet espace. PAS DE `null` : ce reglage n a que deux etats, et « ne rien decider » se dit en n envoyant pas le champ.
+             *
+             *     EFFET DE BORD ASSUME ET VOULU, LE SEUL DE CETTE RESSOURCE : passer de `false` a `true` REARME le plancher — `order_file_purge_effective_from` repart a trente jours pleins. Un espace qui arrete puis reprend ne retombe donc jamais sur un passif immediatement destructible ; il se redonne un mois. Repasser `true` alors que c etait deja `true` ne repousse RIEN (pas de transition, pas de plancher neuf) : le plancher ne se recule pas en cliquant.
+             *
+             *     PASSER A `false` N ANNULE PAS LES RAPPELS DEJA REMIS — un courriel parti ne se rappelle pas. Les destinataires ont pu lire une date de suppression qui n arrivera pas. L ecart est du bon cote (on garde des fichiers annonces detruits, jamais l inverse) mais il est reel, et un ecran qui propose l arret gagne a le dire.
+             */
+            order_file_purge_enabled?: boolean;
         };
         /**
          * QuoteSentPayload
@@ -4881,6 +4915,8 @@ export interface components {
              *
              *     AUCUNE OPERATION NE LA MODIFIE. Il n existe ni prolongation, ni exemption, ni « conserver ce fichier » : trente jours pour tous, sans exception (arbitrage Arnaud du 2026-09-10, explicite). Un consommateur ne doit donc pas batir d ecran de report sur ce champ.
              *
+             *     ELLE PEUT ETRE ENTIEREMENT INERTE, ET RIEN DANS LE FICHIER NE LE DIT (E10.22d). La purge automatique se pilote PAR ESPACE (`CommercialSettings.order_file_purge_enabled`) : dans un espace qui l a arretee, cette date continue d etre posee a chaque depot — la colonne a un defaut, pas une condition — mais RIEN ne s en suit : aucun rappel, aucune destruction. Elle reste egalement sans effet avant `CommercialSettings.order_file_purge_effective_from`. UN CONSOMMATEUR QUI VEUT AFFICHER UNE ECHEANCE DOIT DONC LIRE LES DEUX RESSOURCES : ce champ seul ne dit pas si l espace detruit quoi que ce soit. Afficher « supprime le 12 octobre » a un imprimeur qui a desactive la purge serait faux, et le prevenir pour rien.
+             *
              *     OPTIONNEL DANS CET INCREMENT, MEME MOTIF DE METHODE QUE `deposited_via` EN SON TEMPS : la declarer `required` aujourd hui rendrait NON CONFORMES les implementations d E10.17/E10.20 deja en service, qui ne la servent pas. E10.22a, qui pose la colonne et la sert sur TOUS les fichiers (les deux canaux, et le passif par reprise), la fera promouvoir `required` — optionnel -> requis est compatible au sens du CA13. JUSQUE-LA, ABSENT SIGNIFIE « aucune purge automatique n est encore armee sur ce fichier », pas « jamais purge ».
              */
             purge_at?: components["schemas"]["Timestamp"];
@@ -4910,7 +4946,7 @@ export interface components {
             deposited_by: components["schemas"]["Uuid"] | null;
             deposited_by_label: string | null;
             deposited_via?: components["schemas"]["OrderFileDepositChannel"];
-            /** @description Voir `OrderFile.purge_at` — meme champ, meme regime (« a partir de », jamais « a »), meme statut optionnel dans cet increment. Rendu ICI AUSSI, et pas seulement sur la liste : un ecran qui ouvre un fichier pour le telecharger est exactement celui ou « ce document peut disparaitre a partir du 12 octobre » doit se lire. */
+            /** @description Voir `OrderFile.purge_at` — meme champ, meme regime (« a partir de », jamais « a »), meme statut optionnel dans cet increment, et meme reserve E10.22d : la date est INERTE dans un espace qui a arrete la purge, ce que seul `CommercialSettings` dit. Rendu ICI AUSSI, et pas seulement sur la liste : un ecran qui ouvre un fichier pour le telecharger est exactement celui ou « ce document peut disparaitre a partir du 12 octobre » doit se lire — a condition que ce soit vrai. */
             purge_at?: components["schemas"]["Timestamp"];
             updated_at: components["schemas"]["Timestamp"];
             /**
@@ -5303,7 +5339,9 @@ export interface components {
              *
              *     ANNONCEE, DONC AU PLUS TOT — jamais au plus tard. Si la livraison du second rappel n est pas confirmee, la destruction attend (arbitrage du 2026-09-10). Le systeme peut donc detruire APRES la date annoncee, jamais AVANT. L ecart est du bon cote : un destinataire prevenu le 12 pour le 12 ne s etonne pas que le fichier soit encore la le 14 ; l inverse serait un manquement.
              *
-             *     TOUS LES FICHIERS D UNE MEME EMISSION PARTAGENT CETTE DATE, par construction : ils ont atteint le meme palier le meme jour, donc ils ont ete deposes le meme jour, donc ils expirent le meme jour. Un espace dont les depots s etalent sur trois jours recoit trois rappels, chacun avec sa date — jamais un rappel a dates multiples.
+             *     TOUS LES FICHIERS D UNE MEME EMISSION PARTAGENT CETTE DATE, par construction : ils ont atteint le meme palier le meme jour, donc ils expirent le meme jour. Un espace dont les depots s etalent sur trois jours recoit trois rappels, chacun avec sa date — jamais un rappel a dates multiples.
+             *
+             *     CETTE DATE N EST PAS TOUJOURS LE `purge_at` DU FICHIER (E10.22d) : quand un espace vient d armer la purge, c est `CommercialSettings.order_file_purge_effective_from` qui prevaut, parce que c est elle qui dit quand la destruction devient reellement possible. Des fichiers deposes a des jours differents peuvent alors etre annonces ensemble, sous cette date commune. La regle qui gouverne le texte du courriel reste la meme : ON ANNONCE LA DATE A LAQUELLE ON PEUT DETRUIRE, jamais une date interne.
              */
             purge_at: components["schemas"]["Timestamp"];
             /**
