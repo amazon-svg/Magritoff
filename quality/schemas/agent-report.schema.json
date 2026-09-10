@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://magrit.local/schemas/quality-agent-report-1.0.json",
+  "title": "Rapport d'un auditeur qualité Magrit",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "runId",
+    "generatedAt",
+    "mode",
+    "policy",
+    "commit",
+    "agent",
+    "execution",
+    "verdict",
+    "summary",
+    "checks",
+    "findings",
+    "limitations"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "runId": { "type": "string", "minLength": 1 },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "mode": { "enum": ["diff", "module", "full"] },
+    "module": { "type": ["string", "null"] },
+    "policy": { "const": "advisory" },
+    "commit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha", "branch", "base", "dirty"],
+      "properties": {
+        "sha": { "type": "string", "minLength": 7 },
+        "branch": { "type": "string", "minLength": 1 },
+        "base": { "type": ["string", "null"] },
+        "dirty": { "type": "boolean" }
+      }
+    },
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "profile"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "profile": { "type": "string", "minLength": 1 }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["startedAt", "finishedAt", "durationMs", "semanticAnalysis"],
+      "properties": {
+        "startedAt": { "type": "string", "format": "date-time" },
+        "finishedAt": { "type": "string", "format": "date-time" },
+        "durationMs": { "type": "integer", "minimum": 0 },
+        "semanticAnalysis": { "enum": ["not-run", "completed", "failed"] }
+      }
+    },
+    "verdict": { "enum": ["PASS", "WARN", "FAIL", "INCONCLUSIVE", "ERROR"] },
+    "summary": { "type": "string", "minLength": 1 },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "command", "status", "severity", "durationMs"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "title": { "type": "string", "minLength": 1 },
+          "command": { "type": "array", "items": { "type": "string" } },
+          "status": { "enum": ["passed", "failed", "skipped", "error", "planned"] },
+          "severity": { "enum": ["critical", "major", "minor"] },
+          "exitCode": { "type": ["integer", "null"] },
+          "durationMs": { "type": "integer", "minimum": 0 },
+          "evidence": { "type": ["string", "null"] },
+          "reason": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "severity", "title", "description", "evidence"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "severity": { "enum": ["critical", "major", "minor", "info"] },
+          "title": { "type": "string", "minLength": 1 },
+          "description": { "type": "string", "minLength": 1 },
+          "rule": { "type": ["string", "null"] },
+          "location": { "type": ["string", "null"] },
+          "evidence": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+          "recommendation": { "type": ["string", "null"] },
+          "fingerprint": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}
