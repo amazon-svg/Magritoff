@@ -628,10 +628,16 @@ export const TEST_IDS = {
   },
 
   // ─── E10.10a — Reglages commerciaux (validite par defaut des devis) ────
+  // E10.22d — pilotage PAR ESPACE de la purge automatique des fichiers de
+  // commande, meme ecran (§8.22bis §8 du contrat).
   commercialSettings: {
     defaultValiditySection: 'commercial-settings-default-validity-section',
     defaultValidityInput: 'commercial-settings-default-validity-input',
     defaultValiditySaveBtn: 'commercial-settings-default-validity-save-btn',
+    orderFilePurgeSection: 'commercial-settings-order-file-purge-section',
+    orderFilePurgeStatusLabel: 'commercial-settings-order-file-purge-status-label',
+    orderFilePurgeToggleBtn: 'commercial-settings-order-file-purge-toggle-btn',
+    orderFilePurgeEffectiveFromText: 'commercial-settings-order-file-purge-effective-from-text',
   },
 
   // ─── E10.6 — Referentiel des regles de prix (P13) ──────────────────────

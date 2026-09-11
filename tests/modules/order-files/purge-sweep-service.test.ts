@@ -28,6 +28,9 @@ function buildRepository(overrides: Partial<PurgeSweepRepository> = {}): PurgeSw
     async recordDeliveryCheck() {
       return;
     },
+    async resetStaleNotices() {
+      return 0;
+    },
     ...overrides,
   };
 }
@@ -63,6 +66,7 @@ function buildOrphanRepository(overrides: Partial<OrphanObjectRepository> = {}):
 }
 
 const EMPTY_REPORT_TAIL = { filesPurged: 0, purgeEventsEmitted: 0, orphanObjectsRemoved: 0, blockedFiles: [] };
+const EMPTY_REPORT_HEAD = { staleNoticesReset: 0 };
 
 describe('DEFAULT_PURGE_SWEEP_SETTINGS', () => {
   it('reglages confirmes au contrat §4/§10 (E10.22a) : 20/15 jours de recul, fenetre de 3 jours', () => {
@@ -119,6 +123,7 @@ describe('PurgeSweepService', () => {
     const report = await service.runOnce();
 
     expect(report).toEqual({
+      ...EMPTY_REPORT_HEAD,
       noticesCreated: 2,
       noticesExpired: 1,
       deliveriesChecked: 2,
@@ -167,6 +172,7 @@ describe('PurgeSweepService', () => {
     });
 
     await expect(service.runOnce()).resolves.toEqual({
+      ...EMPTY_REPORT_HEAD,
       noticesCreated: 2,
       noticesExpired: 0,
       deliveriesChecked: 0,
@@ -271,11 +277,37 @@ describe('PurgeSweepService', () => {
     });
 
     await expect(service.runOnce()).resolves.toEqual({
+      ...EMPTY_REPORT_HEAD,
       noticesCreated: 0,
       noticesExpired: 0,
       deliveriesChecked: 0,
       deliveriesConfirmed: 0,
       ...EMPTY_REPORT_TAIL,
     });
+  });
+
+  it('(E10.22d) appelle resetStaleNotices EN TETE de tour (etape 0), avant toute reclamation, et rend son compte', async () => {
+    const callOrder: string[] = [];
+    const resetStaleNotices = vi.fn(async (): Promise<number> => {
+      callOrder.push('resetStaleNotices');
+      return 3;
+    });
+    const claimNotices = vi.fn(async (): Promise<readonly ClaimedPurgeNoticeSummary[]> => {
+      callOrder.push('claimNotices');
+      return [];
+    });
+
+    const service = new PurgeSweepService({
+      repository: buildRepository({ resetStaleNotices, claimNotices }),
+      deliveryStatus: buildStatusGateway(),
+      execution: buildExecutionRepository(),
+      orphans: buildOrphanRepository(),
+    });
+
+    const report = await service.runOnce();
+
+    expect(report.staleNoticesReset).toBe(3);
+    expect(callOrder[0]).toBe('resetStaleNotices');
+    expect(callOrder).toContain('claimNotices');
   });
 });

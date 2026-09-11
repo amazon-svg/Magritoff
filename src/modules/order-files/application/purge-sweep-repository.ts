@@ -58,4 +58,16 @@ export interface PurgeSweepRepository {
 
   /** Consigne `last_event` releve chez Resend pour UNE livraison. */
   recordDeliveryCheck(deliveryId: string, lastStatus: string): Promise<void>;
+
+  /**
+   * E10.22d (§4 du contrat, VIVACITE) — remet a NULL, dans les espaces
+   * ARMES uniquement, les pointeurs de rappels CREES AVANT l activation
+   * courante (`commercial_settings.order_file_purge_enabled_at`) : sans quoi
+   * la garde etendue de `api_claim_order_files_for_purge` (confirmed_at >=
+   * enabled_at) bloquerait ces fichiers pour toujours apres une reactivation.
+   * Appelee EN TETE de tour (`PurgeSweepService`, etape 0), symetrique de
+   * `expireStaleNotices`. Rend le nombre de fichiers dont un pointeur a ete
+   * remis a null.
+   */
+  resetStaleNotices(): Promise<number>;
 }

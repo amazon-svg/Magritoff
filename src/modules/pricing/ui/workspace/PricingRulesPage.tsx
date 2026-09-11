@@ -308,6 +308,8 @@ export function DashboardPricingRules() {
 
       <DefaultValidityDaysPanel />
 
+      <OrderFilePurgePanel />
+
       {showCreate && (
         <PriceRuleFormModal
           onClose={() => setShowCreate(false)}
@@ -559,6 +561,150 @@ function DefaultValidityDaysPanel() {
       </form>
       {error && <p className="text-sm text-err-fg">{error}</p>}
       {savedAt !== null && !error && <p className="text-sm text-green-700">Validité par défaut enregistrée.</p>}
+    </div>
+  );
+}
+
+function formatEffectiveFrom(iso: string): string {
+  return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+/**
+ * Pilotage PAR ESPACE de la purge automatique des fichiers de commande
+ * (E10.22d, docs/api/CONVENTIONS.md §8.22bis §8) — TROISIEME panneau du meme
+ * ecran (`can_manage_pricing`, meme droit), MEME ressource `/commercial-
+ * settings`, MEME client API, MEME couple ETag/If-Match. Aucun calcul de
+ * seuil ni de date n a lieu ici au-dela d un formatage d affichage : l etat
+ * (activee/desactivee), le plancher d activation
+ * (`order_file_purge_effective_from`) et l effet de la bascule sont
+ * ENTIEREMENT decides par l API/la base (garde, trigger d activation,
+ * echeance effective) — ce composant se contente de les afficher et de
+ * poser la commande.
+ *
+ * Le texte reprend LITTERALEMENT ce que les rappels valides par Arnaud
+ * annoncent deja (E10.22a) : « le lecteur consent a une destruction », le
+ * panneau ne peut pas dire moins que le courriel qu il declenche.
+ *
+ * ECART DOCUMENTE (rapport de fin de story) : le contrat §8 prevoit une
+ * phrase sur les rappels DEJA REMIS, affichee "seulement s il existe des
+ * rappels emis" — aucun endpoint de lecture de
+ * `commercial_order_file_purge_notices` n existe cote workspace (E10.22d
+ * n en cree aucun, §9 du contrat : "aucun endpoint nouveau"). Cette
+ * condition ne peut donc pas etre evaluee depuis l ecran sans inventer un
+ * endpoint hors mandat de cette story. La phrase est affichee
+ * INCONDITIONNELLEMENT a la desactivation plutot qu omise a tort : un
+ * avertissement vrai affiche a tort est sans consequence, un avertissement
+ * vrai jamais affiche laisserait croire a une reversibilite qui n existe
+ * pas.
+ */
+function OrderFilePurgePanel() {
+  const api = useWorkspaceApi(CommercialSettingsApiClient);
+  const [enabled, setEnabled] = useState(false);
+  const [effectiveFrom, setEffectiveFrom] = useState<string | null>(null);
+  const [etag, setEtag] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [toggling, setToggling] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    api
+      .get()
+      .then(({ data, etag: nextEtag }) => {
+        if (cancelled) return;
+        setEnabled(Boolean(data.order_file_purge_enabled));
+        setEffectiveFrom(data.order_file_purge_effective_from ?? null);
+        setEtag(nextEtag ?? null);
+      })
+      .catch((cause) => {
+        if (!cancelled) {
+          setError(cause instanceof Error ? cause.message : 'Lecture du reglage de purge automatique impossible.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [api]);
+
+  const handleToggle = async () => {
+    if (!etag) return;
+    setToggling(true);
+    setError(null);
+    try {
+      const result = await api.update({ order_file_purge_enabled: !enabled }, etag);
+      setEnabled(Boolean(result.data.order_file_purge_enabled));
+      setEffectiveFrom(result.data.order_file_purge_effective_from ?? null);
+      setEtag(result.etag ?? null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Modification du reglage de purge automatique impossible.');
+    } finally {
+      setToggling(false);
+    }
+  };
+
+  return (
+    <div
+      className="border border-line-2 rounded-lg p-4 space-y-3"
+      data-testid={TEST_IDS.commercialSettings.orderFilePurgeSection}
+    >
+      <div>
+        <h2 className="text-sm font-semibold text-ink">Purge automatique des fichiers de commande</h2>
+        <p
+          className="text-xs font-medium mt-0.5"
+          data-testid={TEST_IDS.commercialSettings.orderFilePurgeStatusLabel}
+        >
+          Purge automatique : {enabled ? 'activée' : 'désactivée'}
+        </p>
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-ink-muted">Chargement…</p>
+      ) : enabled ? (
+        <p className="text-xs text-ink-muted">
+          Les fichiers déposés sur vos commandes sont supprimés automatiquement 30 jours après leur dépôt. Deux
+          rappels par courriel préviennent les administrateurs de l’espace avant chaque échéance ; aucune
+          prorogation n’est possible — la seule action possible est de télécharger les fichiers avant la date
+          annoncée.
+          {effectiveFrom && (
+            <>
+              {' '}
+              <span data-testid={TEST_IDS.commercialSettings.orderFilePurgeEffectiveFromText}>
+                Premières suppressions possibles à partir du {formatEffectiveFrom(effectiveFrom)}.
+              </span>
+            </>
+          )}
+        </p>
+      ) : (
+        <div className="space-y-1.5">
+          <p className="text-xs text-ink-muted">
+            Aucun fichier n’est supprimé automatiquement, et aucun rappel n’est envoyé. Les fichiers s’accumulent
+            dans votre espace de stockage.
+          </p>
+          <p className="text-xs text-ink-muted">
+            Activer ne détruira rien avant trente jours pleins, même pour des fichiers déjà déposés. Désactiver
+            n’annule pas les rappels déjà remis : un courriel parti ne se rappelle pas, et un destinataire a pu y
+            lire une date de suppression qui n’arrivera pas.
+          </p>
+        </div>
+      )}
+
+      {error && <p className="text-sm text-err-fg">{error}</p>}
+
+      <button
+        type="button"
+        onClick={() => void handleToggle()}
+        disabled={loading || toggling || !etag}
+        className={enabled ? btnGhost : btnPrimary}
+        data-testid={TEST_IDS.commercialSettings.orderFilePurgeToggleBtn}
+      >
+        {toggling && <Loader2 className="w-4 h-4 animate-spin" />}
+        {enabled ? 'Désactiver la purge automatique' : 'Activer la purge automatique'}
+      </button>
     </div>
   );
 }

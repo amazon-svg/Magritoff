@@ -110,6 +110,13 @@ export class SupabaseOrderFilePurgeSweepRepository implements PurgeSweepReposito
     });
     if (error) throw new Error(`Consignation du statut de livraison ${deliveryId} impossible: ${error.message}`);
   }
+
+  /** E10.22d — voir le port. */
+  async resetStaleNotices(): Promise<number> {
+    const { data, error } = await this.client.rpc('api_reset_stale_order_file_purge_notices');
+    if (error) throw new Error(`Remise a zero des rappels perimes impossible: ${error.message}`);
+    return Number(data ?? 0);
+  }
 }
 
 export class SupabaseOrderFilePurgeNoticeGateway

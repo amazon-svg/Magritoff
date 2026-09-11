@@ -23,6 +23,8 @@ function buildFakeServiceRoleClient(options: {
   recordPurgedErrorForTenant?: string;
   /** removeObjects best-effort : force une erreur de retrait storage (N1). */
   removeError?: boolean;
+  /** E10.22d, etape 0 — nombre de fichiers dont un pointeur perime a ete remis a null. */
+  resetStaleCount?: number;
 }) {
   const rpcCalls: Array<{ fn: string; args: Record<string, unknown> }> = [];
   const removeCalls: Array<{ bucket: string; paths: readonly string[] }> = [];
@@ -63,6 +65,10 @@ function buildFakeServiceRoleClient(options: {
       if (fn === 'api_count_blocked_order_file_purges') {
         return { data: options.blockedRows ?? [], error: null };
       }
+      // E10.22d, etape 0 — vivacite (remise a zero des rappels perimes).
+      if (fn === 'api_reset_stale_order_file_purge_notices') {
+        return { data: options.resetStaleCount ?? 0, error: null };
+      }
       throw new Error(`rpc inattendu dans ce faux: ${fn}`);
     },
     storage: {
@@ -100,6 +106,7 @@ describe('createOrderFilePurgeSweepApplication — composition réelle', () => {
     const report = await app.runOnce();
 
     expect(report).toEqual({
+      staleNoticesReset: 0,
       noticesCreated: 1,
       noticesExpired: 0,
       deliveriesChecked: 0,
@@ -157,6 +164,7 @@ describe('createOrderFilePurgeSweepApplication — composition réelle', () => {
     });
 
     await expect(app.runOnce()).resolves.toEqual({
+      staleNoticesReset: 0,
       noticesCreated: 0,
       noticesExpired: 0,
       deliveriesChecked: 0,
@@ -259,6 +267,22 @@ describe('createOrderFilePurgeSweepApplication — composition réelle', () => {
     expect(report.purgeEventsEmitted).toBe(1); // seul t2 a un evenement consigne
     expect(report.orphanObjectsRemoved).toBe(1); // etape 5 A BIEN tourne malgre l echec de t1
     expect(client.rpcCalls.filter((c) => c.fn === 'api_record_order_files_purged')).toHaveLength(2);
+  });
+
+  it('(E10.22d) appelle api_reset_stale_order_file_purge_notices et rend son compte dans staleNoticesReset', async () => {
+    const client = buildFakeServiceRoleClient({
+      claimedByStage: { first: [], second: [] },
+      expiredRows: [],
+      pendingDeliveries: [],
+      resetStaleCount: 3,
+    });
+
+    const app = createOrderFilePurgeSweepApplication({ serviceRoleClient: client as any, resendApiKey: null });
+
+    const report = await app.runOnce();
+
+    expect(report.staleNoticesReset).toBe(3);
+    expect(client.rpcCalls.map((call) => call.fn)).toContain('api_reset_stale_order_file_purge_notices');
   });
 
   it('(N1, qa-review round 1) un echec de retrait storage des orphelins ne rend PAS un compte de retraits reussis', async () => {

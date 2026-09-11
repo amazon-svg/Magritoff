@@ -1,8 +1,18 @@
 /**
  * Orchestrateur du balayage quotidien de purge (E10.22a/E10.22a-bis/E10.22b/
- * E10.22c, docs/api/CONVENTIONS.md §8.22 §3-§6). UN TOUR = SIX etapes, dans
- * cet ordre, aucune boucle interne (meme discipline que `OutboxDispatcher`,
- * isolat a duree bornee) :
+ * E10.22c/E10.22d, docs/api/CONVENTIONS.md §8.22/§8.22bis §3-§6). UN TOUR =
+ * SEPT etapes, dans cet ordre, aucune boucle interne (meme discipline que
+ * `OutboxDispatcher`, isolat a duree bornee) :
+ *
+ *   0. (E10.22d, §4 du contrat, VIVACITE) Remet a NULL, dans les espaces
+ *      ARMES uniquement, les pointeurs de rappels CREES AVANT l activation
+ *      courante -- sans cette etape, la garde etendue de l etape 4
+ *      (confirmed_at >= enabled_at) bloquerait pour toujours un fichier dont
+ *      les deux rappels datent d une activation anterieure a une
+ *      reactivation. AUCUN filtre de tenant n est ecrit ICI ou ailleurs dans
+ *      ce service en TypeScript : la garde (comme le filtre "espace arme")
+ *      vit ENTIEREMENT en SQL (`api_reset_stale_order_file_purge_notices`),
+ *      jamais reimplementee cote application.
  *
  *   1. Reclame les DEUX paliers (`first` J+20, `second` J+15 -- reglages
  *      confirmes au contrat). N ENVOIE AUCUN COURRIEL : ecrit `order_files.
@@ -89,6 +99,8 @@ export const DEFAULT_PURGE_SWEEP_SETTINGS: PurgeSweepSettings = Object.freeze({
 });
 
 export type PurgeSweepReport = Readonly<{
+  /** E10.22d, etape 0 -- nombre de fichiers dont un pointeur de rappel perime (activation anterieure) a ete remis a null. */
+  staleNoticesReset: number;
   noticesCreated: number;
   noticesExpired: number;
   deliveriesChecked: number;
@@ -119,6 +131,10 @@ export class PurgeSweepService {
   }
 
   async runOnce(): Promise<PurgeSweepReport> {
+    // Etape 0 (E10.22d) -- EN TETE de tour, avant toute reclamation : voir
+    // en-tete de fichier.
+    const staleNoticesReset = await this.dependencies.repository.resetStaleNotices();
+
     let noticesCreated = 0;
     for (const stage of ['first', 'second'] as const) {
       const claimed = await this.dependencies.repository.claimNotices(stage, this.settings.leadDaysByStage[stage]);
@@ -156,6 +172,7 @@ export class PurgeSweepService {
     const blockedFiles = await this.dependencies.execution.countBlockedFiles();
 
     return Object.freeze({
+      staleNoticesReset,
       noticesCreated,
       noticesExpired: expired.length,
       deliveriesChecked: pending.length,

@@ -79,6 +79,21 @@ begin
   insert into public.tenant_members (tenant_id, user_id, role, access_scope, allowed_shop_ids)
     values (v_tenant_a, v_admin_a, 'admin', 'magrit_full', '{}');
 
+  -- E10.22d (posterieur a ce cas) : la reclamation exige desormais
+  -- order_file_purge_enabled=true (jointure interne, defaut false). Ce cas
+  -- teste le MECANISME de purge lui-meme, pas le reglage d activation.
+  -- Active DEPUIS LONGTEMPS (enabled_at explicite, tres ancien) pour que le
+  -- plancher de 30 jours d E10.22d ne domine jamais les purge_at construits
+  -- par ce cas pour simuler des fichiers deja echus.
+  -- qa-review round 1 (E10.22d, B1) : le trigger ignore desormais toute
+  -- valeur d order_file_purge_enabled_at fournie a l INSERT. Desarme le
+  -- temps de cette seule instruction, meme patron que le scenario A de
+  -- gescom-e10-22d-purge-activation.sql.
+  alter table public.commercial_settings disable trigger commercial_settings_track_purge_activation;
+  insert into public.commercial_settings (tenant_id, order_file_purge_enabled, order_file_purge_enabled_at)
+    values (v_tenant_a, true, now() - interval '90 days');
+  alter table public.commercial_settings enable trigger commercial_settings_track_purge_activation;
+
   insert into public.customers (tenant_id, type, company_name, siret)
     values (v_tenant_a, 'company', 'E10.22b Client A', '73282932000074') returning id into v_customer_a;
   insert into public.projects (tenant_id, customer_id, name) values (v_tenant_a, v_customer_a, 'Projet E10.22b A') returning id into v_project_a;

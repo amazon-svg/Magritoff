@@ -122,6 +122,25 @@ begin
   insert into public.tenants (slug, name) values ('e10-22a-tenant-a', 'E10.22a Tenant A') returning id into v_tenant_a;
   insert into public.tenants (slug, name) values ('e10-22a-tenant-b', 'E10.22a Tenant B') returning id into v_tenant_b;
 
+  -- E10.22d (posterieur a ce cas) : la reclamation des rappels exige
+  -- desormais order_file_purge_enabled=true (jointure interne, defaut false
+  -- pour tout tenant qui n a jamais touche le reglage). Ce cas teste le
+  -- MECANISME de rappel lui-meme, pas le reglage d activation -- il doit
+  -- donc l activer explicitement pour rester representatif. Active DEPUIS
+  -- LONGTEMPS (enabled_at explicite, tres ancien) pour que le plancher de
+  -- 30 jours d E10.22d (enabled_at + 30j) ne domine JAMAIS les purge_at
+  -- deliberement proches (5-25 jours) que ce cas construit pour tester le
+  -- calendrier des rappels lui-meme.
+  -- qa-review round 1 (E10.22d, B1) : le trigger ignore desormais toute
+  -- valeur d order_file_purge_enabled_at fournie a l INSERT (plus de
+  -- coalesce). Le desarmer le temps de cette seule instruction est le
+  -- patron DEJA employe par le scenario A de gescom-e10-22d-purge-
+  -- activation.sql pour construire legitimement un plancher ancien.
+  alter table public.commercial_settings disable trigger commercial_settings_track_purge_activation;
+  insert into public.commercial_settings (tenant_id, order_file_purge_enabled, order_file_purge_enabled_at)
+    values (v_tenant_a, true, now() - interval '90 days'), (v_tenant_b, true, now() - interval '90 days');
+  alter table public.commercial_settings enable trigger commercial_settings_track_purge_activation;
+
   insert into public.tenant_members (tenant_id, user_id, role, access_scope, allowed_shop_ids)
     values (v_tenant_a, v_admin_a1, 'admin', 'magrit_full', '{}');
   insert into public.tenant_members (tenant_id, user_id, role, access_scope, allowed_shop_ids)
