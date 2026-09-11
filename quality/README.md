@@ -58,15 +58,17 @@ les exécuter.
 ### Analyse sémantique optionnelle
 
 `--semantic` exécute réellement les profils d'auditeurs sur les fichiers du
-périmètre. Le fournisseur est configuré uniquement par variables
-d'environnement :
+périmètre. Copier d'abord le modèle local, qui est ignoré par Git :
 
 ```bash
-export QUALITY_LLM_BASE_URL=http://localhost:11434/v1
-export QUALITY_LLM_MODEL=modele-local
-export QUALITY_LLM_API=chat-completions
+cp .env.quality.example .env.quality.local
+# renseigner ensuite le fournisseur, le modèle et la clé dans ce fichier
 pnpm quality:audit --mode module --module commercial-quotes --semantic
 ```
+
+Le runner charge automatiquement `.env.quality.local`. Une variable déjà
+définie dans le shell ou dans la CI reste prioritaire. Pour employer un autre
+fichier, définir `QUALITY_ENV_FILE` avec son chemin avant de lancer la commande.
 
 Variables disponibles :
 
@@ -76,6 +78,7 @@ Variables disponibles :
 - `QUALITY_LLM_API` : `responses` par défaut ou `chat-completions` ;
 - `QUALITY_LLM_BATCH_CHARS` : taille maximale approximative d'un lot ;
 - `QUALITY_LLM_MAX_BATCHES` : garde-fou de coût pour un audit intégral.
+- `QUALITY_LLM_TIMEOUT_MS` : délai maximal d'une requête au fournisseur.
 
 Dans GitHub, l'analyse s'active uniquement en cochant `run_semantic` lors d'un
 déclenchement manuel. Le dépôt doit définir les secrets `QUALITY_LLM_BASE_URL`

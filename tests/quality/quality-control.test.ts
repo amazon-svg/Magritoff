@@ -225,4 +225,17 @@ describe('architecture de contrôle qualité', () => {
     });
     expect(result.assessment).toEqual(assessment);
   });
+
+  it('documente une configuration LLM locale sans secret versionné', () => {
+    const example = readFileSync(resolve(root, '.env.quality.example'), 'utf8');
+    const runner = readFileSync(resolve(root, 'scripts/run-quality-audit.mjs'), 'utf8');
+    const gitignore = readFileSync(resolve(root, '.gitignore'), 'utf8');
+
+    expect(example).toContain('QUALITY_LLM_BASE_URL=');
+    expect(example).toContain('QUALITY_LLM_MODEL=');
+    expect(example).toContain('QUALITY_LLM_API_KEY=YOUR_API_KEY');
+    expect(runner).toContain("process.env.QUALITY_ENV_FILE || '.env.quality.local'");
+    expect(runner).toContain('override: false');
+    expect(gitignore).toContain('.env.*.local');
+  });
 });

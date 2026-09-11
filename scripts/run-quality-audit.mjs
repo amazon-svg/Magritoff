@@ -6,9 +6,15 @@ import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
+import { config as loadEnvironment } from 'dotenv';
 import { parse } from 'yaml';
 
 const projectRoot = process.cwd();
+const qualityEnvironmentFile = resolve(
+  projectRoot,
+  process.env.QUALITY_ENV_FILE || '.env.quality.local',
+);
+loadEnvironment({ path: qualityEnvironmentFile, override: false, quiet: true });
 
 function usage() {
   return `Usage : pnpm quality:audit --mode <diff|module|full> [options]
