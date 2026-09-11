@@ -2033,6 +2033,204 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/notification-events": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Catalogue des faits metier NOTIFIABLES, avec, pour chacun, les balises disponibles et les audiences possibles (CA1, CA4).
+         *
+         *     CE N EST PAS UN SECOND VOCABULAIRE D EVENEMENTS. Les valeurs rendues sont, au caractere pres, celles de `EventName` — le nom du fait metier est le meme dans le bus, dans le journal et dans un modele. Ce que ce catalogue publie, c est le SOUS-ENSEMBLE notifiable de `EventName` (`NotificationEventName`), plus ce qu un redacteur de modele doit savoir pour ecrire son texte : quelles balises existent, lesquelles peuvent etre vides, qui peut etre destinataire.
+         *
+         *     CATALOGUE SERVI PAR LE SERVEUR, JAMAIS ECRIT DANS L ECRAN. C est la raison d etre de cette operation : la liste blanche des balises est opposable a l enregistrement d un modele (CA5), donc l ecran qui propose les balises et le validateur qui les refuse doivent lire la MEME source. Une liste recopiee en dur cote navigateur diverge au premier ajout, et la divergence se manifeste par un modele refuse sans que l utilisateur comprenne pourquoi.
+         *
+         *     PAS DE PAGINATION, meme motif que `listProductionSteps` : c est une constante du produit, pas une donnee de tenant. Elle est identique pour tous les espaces — seule sa restriction par canal peut varier (un espace qui n a pas arme le SMS voit quand meme le canal, marque indisponible).
+         *
+         *     PAS DE `order.created`, ET CE N EST PAS UN OUBLI. Ce nom n existe pas dans `EventName` et le contrat a explicitement refuse de le creer (voir `QuoteConversionPayload` : « un seul evenement pour ce fait, et pas un second `order.created` »). La naissance d une commande se notifie sur `quote.converted`, dont la charge utile porte deja `order_id` et `order_number`.
+         */
+        get: operations["listNotificationEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notification-templates": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Liste les modeles de notification du tenant courant, actifs et desactives confondus sauf filtre `status` (CA2).
+         *
+         *     PAS DE PAGINATION, meme motif que `listProductionSteps` et `listDocumentPdfTemplates` : c est une CONFIGURATION bornee, et `createNotificationTemplate` refuse au-dela de 100 modeles par tenant (`notification_template.limit_reached`) precisement pour que cette phrase reste vraie.
+         *
+         *     AUCUN `ETag` DE COLLECTION : aucune operation ne reecrit la collection en tant que TOUT, la concurrence se joue modele par modele. Le PATCH exige l `ETag` rendu par `getNotificationTemplate`.
+         *
+         *     PLUSIEURS MODELES PEUVENT REPONDRE AU MEME EVENEMENT, et c est le fonctionnement normal : un courriel au client ET un SMS a l atelier sur `order.files_submitted` sont deux modeles. Tous les modeles ACTIFS dont la condition est satisfaite produisent chacun leur message ; il n y a ni priorite, ni premier gagnant, ni modele par defaut.
+         */
+        get: operations["listNotificationTemplates"];
+        put?: never;
+        /**
+         * Cree un modele de notification dans le tenant courant (CA2, CA5).
+         *
+         *     CREE DESACTIVE SI L APPELANT LE DEMANDE, ET C EST LE PARCOURS ATTENDU : `is_active` vaut `false` par defaut. Un modele s ecrit, se previsualise (`previewNotificationTemplate`), puis s arme. L inverse — armer d abord, relire ensuite — fait partir un texte non relu chez un client.
+         *
+         *     LES BALISES SONT VALIDEES ICI, PAS AU RENDU (CA5). Toute balise absente de la liste blanche de l evenement choisi fait echouer la creation en 422 `notification_template.unknown_tag`, avec la liste des fautives dans `errors`. Valider au rendu reviendrait a decouvrir la faute dans un tour de relais que personne ne regarde, sur un message qui ne partira jamais.
+         */
+        post: operations["createNotificationTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notification-templates/{templateId}": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fiche d un modele de notification, avec son `ETag`.
+         *
+         *     Cette operation existe pour la meme raison que `getProductionStep` : donner a `updateNotificationTemplate` la precondition qu il exige. Un ecran qui ouvre le formulaire d edition relit le modele ici.
+         */
+        get: operations["getNotificationTemplate"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Modifie un modele : nom, sujet, corps, destinataires explicites, filtre d etape, activation. Modification PARTIELLE : seuls les champs presents sont appliques (CA2, CA3).
+         *
+         *     `event_name` ET `channel` NE SONT PAS MODIFIABLES, et leur absence du corps est le point le plus important de cette operation. Changer l evenement invaliderait les balises deja ecrites ; changer le canal transformerait un courriel en SMS en gardant un sujet et un corps dimensionnes pour un courriel. Les deux se font en creant un autre modele — geste explicite, qui laisse l ancien lisible dans le journal.
+         *
+         *     UN MODELE MODIFIE NE CHANGE AUCUN MESSAGE DEJA RENDU. Le journal conserve le texte REELLEMENT envoye, pas une reference au modele : c est ce qui permet de repondre a « qu est-ce que mon client a recu ? » un mois plus tard, apres deux corrections du modele.
+         *
+         *     DESACTIVER EST L UNIQUE FACON D ARRETER UN MODELE : il n existe PAS de `DELETE`. Un modele cite par le journal doit rester lisible, exactement comme une etape de production traversee reste indelebile (E10.13). Un modele desactive cesse d etre selectionne, conserve son texte, et se reactive.
+         */
+        patch: operations["updateNotificationTemplate"];
+        trace?: never;
+    };
+    "/notification-templates/{templateId}/previews": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rend le modele avec un JEU D EXEMPLE, tel qu il partira (CA6).
+         *
+         *     POST ET NON GET, parce que l appelant ENVOIE le texte a rendre : un ecran d edition previsualise ce qui est A L ECRAN, pas ce qui est enregistre — sinon il faudrait enregistrer pour voir, c est-a-dire armer un texte non relu. `subject` et `body` absents -> le modele enregistre est rendu tel quel.
+         *
+         *     AUCUNE `Idempotency-Key`, ET C EST CONFORME AU CA8, pas une exception : cette operation ne cree AUCUNE ressource metier (200, jamais 201), n ecrit rien, n envoie rien. C est une fonction pure du corps envoye. La rejouer deux fois rend deux fois la meme chose.
+         *
+         *     JEU D EXEMPLE, JAMAIS UNE DONNEE REELLE. Les valeurs substituees sont celles publiees par `listNotificationEvents` (`NotificationTag.example`) : un numero de commande fictif, un client fictif. Previsualiser sur une vraie commande ferait transiter des donnees d un client dans un ecran de parametrage, pour un gain nul — ce qu on verifie ici, c est une phrase, pas une valeur.
+         *
+         *     CE QUE L APERCU PROUVE VRAIMENT, et ce qu il ne prouve pas : il prouve que les balises sont connues et que la phrase se lit ; il ne prouve NI qu il y aura un destinataire le jour venu, NI qu une valeur nullable sera renseignee. Les balises qui peuvent etre vides sont signalees par le catalogue (`NotificationTag.nullable`), et l apercu les rend a leur valeur d exemple — pas a vide.
+         *
+         *     POURQUOI UN `templateId` AU CHEMIN, alors qu un apercu est apatride. C est l arbitrage assume de cette story : le parcours d ecran est « creer desactive, ecrire, previsualiser, activer », donc un modele existe toujours au moment ou l on previsualise. Previsualiser AVANT la premiere sauvegarde n est pas possible en V1 ; l issue additive, le jour ou elle sera demandee, est un chemin de collection `/notification-template-previews` portant `event_name` et `channel` dans le corps — il s ajoute sans rien changer ici.
+         */
+        post: operations["previewNotificationTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notification-logs": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Journal des notifications de l espace : une entree par destinataire et par canal, du plus recent au plus ancien (CA9).
+         *
+         *     CETTE COLLECTION EST AUSSI LA FILE D ENVOI, pas seulement son archive. Une entree apparait des que le message est mis en file (`pending`), puis change d etat (`sent`, `failed`, `dropped`). Un exploitant voit donc ce qui est en train de partir, pas uniquement ce qui est parti — et c est la seule surface du produit qui montre un echec de notification. Le precedent est dans le depot : `outbox_events` est deja a la fois la file et la trace, avec les memes colonnes de suivi.
+         *
+         *     CE QU ELLE NE MONTRE PAS : les deux courriels NON configurables deja en service (`quote.sent` vers le client, rappels de purge de fichiers). Ils ne passent pas par ce mecanisme et n y laissent aucune trace. Le dire plutot que de laisser croire que ce journal est exhaustif.
+         *
+         *     RETENTION. Les entrees sont effacees passe le delai de conservation de l espace (`CommercialSettings.notification_retention_days`) : ce journal n est PAS un historique perpetuel, il porte des donnees personnelles (adresse, numero de telephone, texte adresse a une personne nommee). La recherche d une notification vieille de plus de ce delai ne rend rien, et c est le comportement voulu.
+         */
+        get: operations["listNotificationLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export interface webhooks {
     "quote.converted": {
@@ -3376,6 +3574,8 @@ export interface components {
          *     ELARGISSEMENT E10.22d — CE N EST PLUS SEULEMENT UNE POLITIQUE DE PRIX, C EST LA POLITIQUE DE L ESPACE EN GESTION COMMERCIALE. Cette ressource accueille desormais `order_file_purge_enabled`, l interrupteur PAR ESPACE de la purge automatique des fichiers de commande (E10.22). Domicile choisi plutot qu une seconde ressource de reglages, pour la raison ecrite ci-dessus et pour trois de plus : `commercial_order_files` appartient au meme domaine (« gestion commerciale », pas « prix ») ; la machinerie qu il faudrait sinon reconstruire — creation implicite a la premiere lecture, `ETag`/`If-Match`, RLS, garde d ecriture, panneau d ecran — existe deja ici, entiere, pour un seul booleen ; et un exploitant qui cherche « ce que mon espace fait tout seul » a un seul endroit ou regarder.
          *
          *     CE QUE CET ELARGISSEMENT COUTE, ET IL FAUT LE LIRE AVANT DE S EN SERVIR : l ECRITURE de cette ressource reste gardee par UN SEUL droit, `can_manage_pricing`. Le porteur de ce droit peut donc, du meme geste, changer la validite des devis ET arreter (ou armer) la destruction automatique des fichiers de l espace. Aujourd hui ce droit n est detenu que par les `admin` (derivation `user_has_capability`), donc la population est exactement celle qu on attendrait ; le jour ou il est delegue a un membre ordinaire, il faudra separer — un droit dedie, refuse au champ pres, est le chemin, et il est additif.
+         *
+         *     ELARGISSEMENT E10.15, ET LE CHEMIN DE SEPARATION EST PRIS DES MAINTENANT. Trois reglages de notification s ajoutent ici (`notification_retention_days`, `notification_sms_enabled`, `notification_sms_daily_cap`), pour le meme motif de domicile. Mais plutot que d elargir une fois de plus la portee d un seul droit, l ECRITURE DE CES TROIS CHAMPS EXIGE EN OUTRE `can_manage_notifications` — refus au CHAMP pres, en 403 `identity.capability_required`, exactement le chemin que le paragraphe ci-dessus avait nomme sans l emprunter. Aucun effet visible aujourd hui, les deux droits etant detenus par la meme population ; c est precisement pourquoi c est le bon moment pour l ecrire. `updateCommercialSettings` continue de declarer `can_manage_pricing` en `x-required-capabilities` : c est le droit MINIMAL pour atteindre l operation, la garde supplementaire est portee par les champs concernes.
          */
         CommercialSettings: {
             tenant_id: components["schemas"]["Uuid"];
@@ -3402,6 +3602,32 @@ export interface components {
              */
             order_file_purge_enabled?: boolean;
             /**
+             * Format: int32
+             * @description DUREE DE CONSERVATION DU JOURNAL DE NOTIFICATIONS (E10.15), en jours glissants, comptes depuis la creation de l entree. Passe ce delai, l entree est DETRUITE : destinataire, sujet et corps rendu compris.
+             *
+             *     POURQUOI UNE DUREE, ET POURQUOI COURTE PAR DEFAUT. Le journal porte des donnees personnelles au sens plein — une adresse ou un numero de telephone, associes a un nom, a une commande et au texte qu on leur a adresse. Le conserver sans terme serait une collecte sans finalite (RGPD art. 5.1.e) ; le conserver longtemps sans besoin en serait une autre (art. 5.1.c). Le besoin reel est court : « qu est-ce que mon client a recu, et l a-t-il recu ? » se pose dans les jours qui suivent, pas l annee suivante.
+             *
+             *     DEFAUT : 90 JOURS — valeur PROPOSEE, en attente d arbitrage (docs/api/CONVENTIONS.md §8.23, reserve RGPD). La fiche de la story proposait 12 mois ; ce contrat propose le tiers de ce delai par defaut en laissant le reglage ouvert jusqu a 730 jours pour un espace qui justifie plus long.
+             *
+             *     `null` N EST PAS PERMIS : il n existe pas de « conservation illimitee » sur ce journal. C est le seul reglage de cette ressource qui ne peut pas valoir `null`, et c est delibere — un defaut absent se lit ici « on garde tout », exactement l inverse de ce qu il faut.
+             *
+             *     ABSENT DE `required` DANS CET INCREMENT, meme methode que `order_file_purge_enabled` en son temps : optionnel -> requis est compatible au sens du CA13, et le declarer requis aujourd hui rendrait non conforme l implementation deja en service qui ne le sert pas.
+             */
+            notification_retention_days?: number;
+            /**
+             * @description CANAL SMS : ARME OU A L ARRET POUR CET ESPACE (E10.15). `false` par defaut, pour tout espace qui n y a jamais touche — meme doctrine que `order_file_purge_enabled`, appliquee a l autre risque : le SMS est le seul canal de ce produit qui COUTE DE L ARGENT A CHAQUE MESSAGE et qui atteint une personne sur un terminal personnel.
+             *
+             *     A L ARRET, un modele de canal `sms` peut etre ecrit et previsualise, mais aucun message n est mis en file : le journal n en porte aucune trace, et `listNotificationEvents` marque le canal indisponible. Un modele SMS arme dans un espace qui n a pas ouvert le canal est donc inerte, pas en erreur.
+             */
+            notification_sms_enabled?: boolean;
+            /**
+             * Format: int32
+             * @description PLAFOND DE SMS PAR ESPACE ET PAR JOUR (fenetre glissante de 24 h). Au-dela, les messages SMS supplementaires sont mis a l etat `dropped` avec le motif `notification.sms_daily_cap_reached`, VISIBLE dans le journal — jamais silencieusement perdus, jamais mis en attente indefinie.
+             *
+             *     CE PLAFOND N EST PAS UNE COMMODITE, C EST UN DISJONCTEUR. Un modele branche sur `order.step_changed` dans un atelier qui deplace ses commandes en lot peut produire des centaines de messages en quelques minutes ; sans plafond, une erreur de parametrage se solde par une facture et par des clients importunes, tous deux irrattrapables. Le plafond borne le degat a une journee.
+             */
+            notification_sms_daily_cap?: number;
+            /**
              * @description DATE AVANT LAQUELLE RIEN N ARRIVE AUX FICHIERS DE CET ESPACE, meme echus : ni rappel, ni destruction. Vaut l instant de la DERNIERE activation plus trente jours ; `null` quand la purge est a l arret. LECTURE SEULE — aucune commande ne l ecrit, elle se deduit de l activation.
              *
              *     POURQUOI ELLE EXISTE, ET CE N EST PAS UN LUXE. `OrderFile.purge_at` est pose au depot et ne bouge JAMAIS (propriete du systeme, pas lacune). Sans ce plancher, un espace qui active la purge apres plusieurs mois d exploitation verrait, le jour meme, ses fichiers deja echus reclamer leurs deux rappels dans le MEME tour de balayage — deux courriels le meme matin, puis destruction des que leur livraison est confirmee. Trente jours de preavis annonces, quarante-huit heures vecues. Le plancher rend l activation sure SANS toucher a `purge_at` : c est exactement la reprise de passif d E10.22a (« aucun fichier detruit moins de trente jours apres la mise en service »), generalisee au geste d activation.
@@ -3426,6 +3652,24 @@ export interface components {
              *     PASSER A `false` N ANNULE PAS LES RAPPELS DEJA REMIS — un courriel parti ne se rappelle pas. Les destinataires ont pu lire une date de suppression qui n arrivera pas. L ecart est du bon cote (on garde des fichiers annonces detruits, jamais l inverse) mais il est reel, et un ecran qui propose l arret gagne a le dire.
              */
             order_file_purge_enabled?: boolean;
+            /**
+             * Format: int32
+             * @description Duree de conservation du journal de notifications, en jours. PAS DE `null` : ce reglage n a pas d etat « illimite ».
+             *
+             *     RACCOURCIR CE DELAI DETRUIT DES ENTREES DES LE PROCHAIN BALAYAGE, et l ecran qui propose le reglage doit le dire avant de l appliquer. L allonger ne ressuscite rien : ce qui a ete efface l est definitivement.
+             */
+            notification_retention_days?: number;
+            /**
+             * @description Arme (`true`) ou arrete (`false`) le canal SMS de cet espace. PAS DE `null`, meme motif que `order_file_purge_enabled` : « ne rien decider » se dit en n envoyant pas le champ.
+             *
+             *     Passer a `false` n annule AUCUN message deja mis en file : la file se vide de ce qu elle porte, l arret vaut pour la suite.
+             */
+            notification_sms_enabled?: boolean;
+            /**
+             * Format: int32
+             * @description Plafond de SMS par jour pour cet espace. `0` bloque tout envoi SMS sans desarmer le canal — utile pour couper en urgence sans perdre le reglage.
+             */
+            notification_sms_daily_cap?: number;
         };
         /**
          * QuoteSentPayload
@@ -5378,6 +5622,285 @@ export interface components {
             /** @description Commandes concernees. BORNEE A 50 ENTREES, tronquee au-dela, meme regle et meme motif que sur `OrderFilesPurgeScheduledPayload`. */
             order_ids: components["schemas"]["Uuid"][];
         };
+        /**
+         * NotificationChannel
+         * @description Canal d acheminement d une notification. Enumeration ADDITIVE : un canal s ajoute (courrier postal, message dans l application, webhook client) sans qu aucun modele existant change de sens.
+         *
+         *     `email` — courriel. Servi par le compte Resend DEJA en service dans le produit (meme cle, meme expediteur que les courriels d invitation, de devis envoye et de rappel de purge). E10.15 ne change ni de fournisseur, ni de compte, ni de domaine d expedition.
+         *
+         *     `sms` — message court. AUCUN FOURNISSEUR N EST CHOISI A CE JOUR (docs/api/CONVENTIONS.md §8.23, reserve (b)) : Resend n envoie pas de SMS, c est necessairement un second prestataire, et ce choix engage un contrat, un cout par message et un traitement de donnees personnelles hors Magrit. Le contrat publie le canal parce que sa FORME ne depend pas du prestataire ; l espace qui ne l a pas arme (`CommercialSettings.notification_sms_enabled`) le voit indisponible.
+         * @enum {string}
+         */
+        NotificationChannel: "email" | "sms";
+        /**
+         * NotificationEventName
+         * @description Fait metier NOTIFIABLE. SOUS-ENSEMBLE STRICT de `EventName`, aux memes valeurs litterales — ce n est pas un second vocabulaire, c est la restriction de celui qui existe.
+         *
+         *     POURQUOI UN SOUS-ENSEMBLE PLUTOT QUE `EventName` TEL QUEL : tous les evenements du bus ne se notifient pas. `quote_line.changed` ou `price_rule.changed` sont des faits internes ; `order_files.purged` a deja son propre courriel non configurable. Publier une enumeration fermee donne au client genere un type exact et evite un 422 decouvert a l enregistrement.
+         *
+         *     CE QUI DECIDE DE L APPARTENANCE, et c est la regle a appliquer pour toute extension future : l evenement doit porter dans sa charge utile de quoi ROUTER la notification sans deviner — en pratique un `customer_id` ou, a defaut, une audience explicite qui rend le routage inutile.
+         *
+         *     `quote.sent` EN FAIT PARTIE, ALORS QU IL A DEJA UN COURRIEL NON CONFIGURABLE (E10.10b-3/4c, vers les comptes boutique du client, avec le devis en piece jointe). Les deux coexistent et ne se marchent pas dessus : le courriel existant continue d etre emis tel quel, valide par Arnaud, avec sa piece jointe ; un modele E10.15 sur `quote.sent` sert le cas que l autre ne couvre pas — un SMS « votre devis vient de partir », ou un courriel a une adresse choisie par l atelier. CONSEQUENCE A CONNAITRE AVANT D EN ECRIRE UN : un modele `email` + audience `customer` sur `quote.sent` fera recevoir DEUX courriels au client. Ce contrat ne l interdit pas — il n a pas a arbitrer la politique d un imprimeur — il l ecrit, et l ecran de parametrage doit l avertir.
+         *
+         *     ADDITIVE : cette liste peut grandir, jamais se reduire (CA13).
+         * @enum {string}
+         */
+        NotificationEventName: "quote.sent" | "quote.converted" | "order.step_changed" | "order.files_submitted" | "customer.created";
+        /**
+         * NotificationAudience
+         * @description QUI est prevenu. Deux valeurs en V1, et le choix des deux est deliberement etroit.
+         *
+         *     `customer` — l INTERLOCUTEUR PRINCIPAL du client concerne (`customer_contacts.is_primary`), resolu A LA REMISE depuis le `customer_id` de la charge utile, jamais porte par elle. Meme doctrine que le consommateur `quote.sent` (§8.13sexies) : la liste des interlocuteurs a pu changer entre le fait et la remise, et c est l etat au moment de la remise qui fait foi.
+         *
+         *     POURQUOI `customer_contacts` ET NON `shop_customer_accounts`, alors que le courriel `quote.sent` d E10.10b-3 utilise les seconds. Les deux ne repondent pas a la meme question. Un compte boutique est un ACCES au portail ; un interlocuteur est une PERSONNE A QUI ON PARLE. Les faits notifies ici — une etape de production franchie, des fichiers recus — n ouvrent aucun ecran client et ne supposent aucun compte. Exiger un compte boutique rendrait la quasi-totalite de ces notifications silencieuses chez les imprimeurs qui n ont pas ouvert de portail. Une audience `shop_customer_accounts` reste ajoutable, additive, le jour ou une notification devra mener a un ecran authentifie.
+         *
+         *     POURQUOI L INTERLOCUTEUR PRINCIPAL SEUL, et pas tous les contacts. Un gros client porte cinq a dix contacts ; notifier chaque passage d etape a tous les dix est un harcelement, et sur le canal SMS c est aussi une facture multipliee par dix. Le principal est celui que le referentiel designe comme destinataire par defaut. Une audience « tous les interlocuteurs » est ajoutable si le besoin est exprime.
+         *
+         *     `explicit` — une ou plusieurs ADRESSES CHOISIES par l atelier, portees par le modele (`recipients`). C est ainsi que l atelier se notifie lui-meme : « production@imprimerie.fr quand des fichiers arrivent ».
+         *
+         *     POURQUOI PAS UNE AUDIENCE « MEMBRES DE L ESPACE », qui serait le geste naturel. Parce que la question « quels membres » n a jamais ete tranchee, et qu elle est produit, pas technique : tous, l auteur du devis, les porteurs d un role ? a quelle adresse — celle d `auth.users`, une adresse de service ? avec quelles preferences d abonnement ? C est la reserve (d) de §8.13sexies, restee ouverte. Des adresses explicites rendent le service attendu aujourd hui sans trancher a la place d Arnaud, et sans creer une notion d abonnement que personne n a demandee.
+         * @enum {string}
+         */
+        NotificationAudience: "customer" | "explicit";
+        /**
+         * NotificationTagId
+         * @description Identifiant d une balise substituable dans le sujet ou le corps d un modele. LISTE BLANCHE FERMEE (CA5) : toute balise absente de cette enumeration fait refuser le modele a l ENREGISTREMENT, pas au rendu.
+         *
+         *     NOMS REPRIS DE LA FAMILLE `DocumentFieldId` (E10.10b-4b), au caractere pres quand la donnee est la meme (`customer.company_name`, `order.number`, `quote.valid_until`). Ce n est pas une coquetterie : un imprimeur qui a pose ces noms sur son gabarit PDF les retrouve ici, et une donnee qui change de nom entre deux ecrans du meme produit est une divergence en puissance.
+         *
+         *     QUELLES BALISES SONT DISPONIBLES DEPEND DE L EVENEMENT : cette enumeration est l union de toutes, `listNotificationEvents` publie le sous-ensemble valide pour chacun. Ecrire `{{step.label}}` dans un modele `customer.created` est refuse.
+         *
+         *     CE QU AUCUNE BALISE NE PORTE, ET C EST DEFINITIF : AUCUN MONTANT, aucun total, aucune remise, aucun taux. Meme regle que pour les charges utiles du bus (« les prix commerciaux ne transitent pas ») et meme motif supplementaire qu en §8.13sexies : un prix recopie dans un courriel ou un SMS devient une seconde version du document, se transfere, s archive, et ne se corrige plus. Un prix se lit sur le devis ou le bon de commande, qui sont faits pour cela.
+         *
+         *     AUCUN STATUT DE PRODUCTION HORS `step.label` NON PLUS : pas de `order.status`, meme regle que sur un document imprime — un etat mouvant fige dans un message est faux des le lendemain. `step.label` echappe a la regle parce qu il nomme precisement le passage qui vient d avoir lieu, date par le message lui-meme.
+         * @enum {string}
+         */
+        NotificationTagId: "tenant.name" | "customer.company_name" | "customer.contact_name" | "quote.number" | "quote.valid_until" | "quote.customer_reference" | "order.number" | "order.customer_reference" | "order.expected_delivery_date" | "step.label" | "step.previous_label" | "files.count" | "link.portal_quotes";
+        /**
+         * NotificationTag
+         * @description Une balise du catalogue, telle qu un ecran de parametrage doit la proposer et telle qu un apercu la rend.
+         */
+        NotificationTag: {
+            id: components["schemas"]["NotificationTagId"];
+            /** @description Forme EXACTE a ecrire dans le modele, rendue par le serveur plutot que reconstruite par l ecran : `{{order.number}}`. La grammaire est fermee — deux accolades, un identifiant de cette liste, deux accolades, aucun espace, aucune expression, aucune condition, aucune boucle, aucun filtre. Publier la syntaxe ici evite qu un ecran invente une variante (`{order.number}`, `{{ order.number }}`) que le validateur refusera. */
+            syntax: string;
+            /** @description Libelle francais lisible, pour la liste de choix de l ecran. */
+            label: string;
+            /** @description `true` si la donnee peut etre absente le jour de l envoi — la balise rend alors une CHAINE VIDE, jamais un tiret, jamais le nom de la balise. L ecran gagne a le signaler : « Livraison prevue le {{order.expected_delivery_date}} » donne une phrase bancale sur une commande sans date. */
+            nullable: boolean;
+            /** @description Valeur substituee par `previewNotificationTemplate`. FICTIVE, jamais tiree d une donnee reelle du tenant. */
+            example: string;
+        };
+        /**
+         * NotificationEventDescriptor
+         * @description Une entree du catalogue des faits notifiables : ce qu un ecran doit savoir pour proposer la creation d un modele, et ce que le validateur oppose a l enregistrement.
+         */
+        NotificationEventDescriptor: {
+            event_name: components["schemas"]["NotificationEventName"];
+            /** @description Libelle francais, ex. « Une commande change d etape de production ». */
+            label: string;
+            /** @description Ce que l evenement signifie et QUAND il se produit, en une phrase destinee a l administrateur qui choisit. C est le seul endroit ou il apprend, par exemple, que « des fichiers ont ete recus » est emis a chaque fichier et regroupe a la notification. */
+            description: string;
+            /** @description Audiences possibles pour cet evenement. `customer` n est propose que si la charge utile porte de quoi router — `customer.created`, `quote.sent`, `quote.converted`, `order.step_changed` et `order.files_submitted` la portent toutes. */
+            audiences: components["schemas"]["NotificationAudience"][];
+            /** @description Canaux utilisables POUR CET ESPACE. Un espace qui n a pas arme le SMS (`CommercialSettings.notification_sms_enabled`) recoit `[email]` — le canal n est pas masque par l ecran, il est absent du catalogue, ce qui evite deux verites sur la meme question. */
+            channels: components["schemas"]["NotificationChannel"][];
+            /** @description Liste blanche des balises valides pour cet evenement (CA5). */
+            tags: components["schemas"]["NotificationTag"][];
+            /** @description `true` pour `order.step_changed` SEUL : un modele peut y etre restreint a une etape d arrivee precise (`NotificationTemplate.production_step_id`). Sans ce filtre, un modele se declencherait a CHAQUE passage — y compris les passages internes que le client n a pas a connaitre. */
+            supports_step_filter: boolean;
+            /**
+             * Format: int32
+             * @description REGROUPEMENT DES OCCURRENCES RAPPROCHEES, en minutes. `0` = aucun regroupement (regime normal : un fait, un message).
+             *
+             *     NON NUL POUR `order.files_submitted` SEUL, et ce n est pas une optimisation, c est une PROMESSE DEJA ECRITE AU CONTRAT : `OrderFilesSubmittedPayload` dit « une emission par fichier, pas par j ai termine […] le regroupement est un probleme de consommateur — E10.15 groupera a la notification ». C est ici que cette phrase est tenue.
+             *
+             *     MECANISME, opposable : le PREMIER evenement d une fenetre cree le message en file avec une echeance a `now() + fenetre` ; les suivants, pour le MEME modele et le MEME objet, n en creent aucun — ils incrementent le compteur que rend `{{files.count}}`. L echeance n est JAMAIS repoussee par un evenement supplementaire : un client qui depose pendant une heure declenche un message toutes les fenetres, jamais un message indefiniment differe.
+             */
+            coalescing_window_minutes: number;
+        };
+        /**
+         * NotificationTemplateStatusFilter
+         * @description Filtre d etat d un modele. `active` vaut `is_active: true`, `disabled` vaut `is_active: false`. Meme forme que `ProductionStepStatusFilter`.
+         * @enum {string}
+         */
+        NotificationTemplateStatusFilter: "active" | "disabled";
+        /**
+         * NotificationTemplate
+         * @description Un modele de notification : la regle « quand CE fait se produit, envoyer CE texte a CETTE audience par CE canal ».
+         *
+         *     `event_name` + `channel` + `audience` + `production_step_id` forment la CONDITION ; `subject` + `body` forment le TEXTE. Rien d autre. Il n y a ni planification, ni relance, ni condition sur une valeur — un modele ne sait pas dire « seulement si le montant depasse X ». C est volontaire : un moteur de regles se demande, il ne se devine pas, et il ne se retire plus une fois publie.
+         */
+        NotificationTemplate: {
+            id: components["schemas"]["Uuid"];
+            /** @description Fait metier declencheur. NON MODIFIABLE apres creation. */
+            event_name: components["schemas"]["NotificationEventName"];
+            /** @description Canal d acheminement. NON MODIFIABLE apres creation. */
+            channel: components["schemas"]["NotificationChannel"];
+            audience: components["schemas"]["NotificationAudience"];
+            /**
+             * @description Destinataires explicites, pour l audience `explicit` UNIQUEMENT : adresses de courriel pour le canal `email`, numeros de telephone au format international (`+33...`) pour le canal `sms`. `null` pour l audience `customer`, ou le destinataire est resolu a la remise.
+             *
+             *     BORNE A 10 ENTREES. Un modele qui arrose vingt adresses est une liste de diffusion, et une liste de diffusion se gere ailleurs que dans un modele de message.
+             */
+            recipients?: string[] | null;
+            /**
+             * @description Restreint le modele a UNE etape d arrivee (`OrderStepChangedPayload.to_step_id`). Valide sur `order.step_changed` SEUL ; `null` = toutes les etapes.
+             *
+             *     REFERENCE UNE ETAPE DU REFERENTIEL EXISTANT (E10.13), jamais un libelle recopie : le libelle se renomme, et un modele accroche a une chaine cesserait silencieusement de se declencher au premier renommage.
+             *
+             *     SI L ETAPE EST SUPPRIMEE, LE MODELE L EST AUSSI (suppression en cascade). Une etape supprimee ne peut plus etre atteinte par aucune commande : le modele ne se declencherait plus jamais et resterait dans l ecran comme une regle morte, que son proprietaire croirait active. Une etape DESACTIVEE, elle, conserve ses modeles — elle reste au referentiel et peut etre reactivee.
+             */
+            production_step_id?: components["schemas"]["Uuid"] | null;
+            /** @description Etiquette d ecran, libre, NON UNIQUE. Sert a distinguer deux modeles du meme evenement dans une liste, jamais a en selectionner un. */
+            name: string;
+            /** @description Objet du courriel, balises comprises. OBLIGATOIRE sur le canal `email`, INTERDIT (`null`) sur le canal `sms`, qui n en a pas. */
+            subject?: string | null;
+            /**
+             * @description Corps du message, balises comprises. TEXTE BRUT, jamais du HTML fourni par le tenant : le courriel est mis en forme par le produit (meme gabarit visuel que les courriels existants), le modele n apporte que les phrases. Accepter du HTML de tenant ferait de chaque modele une surface d injection dans la boite d un tiers, pour un gain de mise en page que personne n a demande.
+             *
+             *     PLAFOND PAR CANAL : 4000 caracteres en `email`, 480 en `sms`. Le plafond SMS porte sur le modele ; le texte RENDU peut depasser une fois les balises substituees, auquel cas le message part a l etat `dropped` avec le motif `notification.sms_too_long` — visible au journal, jamais tronque en silence. L apercu rend le compte de caracteres et de segments sur le jeu d exemple, ce qui donne la mesure avant d armer.
+             */
+            body: string;
+            /** @description `false` = le modele existe mais ne declenche rien. ETAT INITIAL par defaut a la creation, et SEULE facon d arreter un modele — il n y a pas de suppression (voir `updateNotificationTemplate`). */
+            is_active: boolean;
+            created_at: components["schemas"]["Timestamp"];
+            created_by?: components["schemas"]["Uuid"] | null;
+            updated_at: components["schemas"]["Timestamp"];
+            updated_by?: components["schemas"]["Uuid"] | null;
+        };
+        /** CreateNotificationTemplateCommand */
+        CreateNotificationTemplateCommand: {
+            event_name: components["schemas"]["NotificationEventName"];
+            channel: components["schemas"]["NotificationChannel"];
+            audience: components["schemas"]["NotificationAudience"];
+            /** @description EXIGE avec l audience `explicit`, REFUSE avec l audience `customer` (422 `notification_template.recipients_required`). Un destinataire pose a la main sur une audience resolue par le systeme serait un second chemin silencieux vers la boite de quelqu un. */
+            recipients?: string[];
+            /** @description Valide sur `order.step_changed` seul (422 `notification_template.step_filter_not_applicable` ailleurs). */
+            production_step_id?: components["schemas"]["Uuid"];
+            name: string;
+            /** @description Exige sur le canal `email`, refuse sur le canal `sms`. */
+            subject?: string;
+            body: string;
+            /**
+             * @description `false` PAR DEFAUT. Creer arme n est pas interdit, mais ce n est pas le defaut : un texte s ecrit, se relit a l apercu, puis s arme.
+             * @default false
+             */
+            is_active: boolean;
+        };
+        /**
+         * UpdateNotificationTemplateCommand
+         * @description Modification partielle. `event_name` et `channel` sont ABSENTS de ce commande, et c est definitif en v1 (voir `updateNotificationTemplate`).
+         */
+        UpdateNotificationTemplateCommand: {
+            audience?: components["schemas"]["NotificationAudience"];
+            /** @description `null` retire les destinataires explicites — refuse si l audience resultante est `explicit`. */
+            recipients?: string[] | null;
+            /** @description `null` retire le filtre : le modele vaut alors pour toutes les etapes. */
+            production_step_id?: components["schemas"]["Uuid"] | null;
+            name?: string;
+            subject?: string | null;
+            body?: string;
+            is_active?: boolean;
+        };
+        /**
+         * PreviewNotificationTemplateCommand
+         * @description Texte a rendre. Les deux champs sont optionnels : absents, le modele ENREGISTRE est rendu tel quel ; presents, c est le texte de l ecran qui est rendu, sans etre enregistre.
+         *
+         *     Le corps ne porte NI jeu de donnees, NI identifiant d objet reel : les valeurs substituees sont celles du catalogue. Laisser l appelant fournir ses propres valeurs ferait de cet endpoint un rendu de gabarit generique, avec la surface d abus qui va avec.
+         */
+        PreviewNotificationTemplateCommand: {
+            subject?: string;
+            body?: string;
+        };
+        /**
+         * NotificationPreview
+         * @description Rendu du modele sur le jeu d exemple du catalogue.
+         */
+        NotificationPreview: {
+            channel: components["schemas"]["NotificationChannel"];
+            /** @description `null` sur le canal `sms`. */
+            subject?: string | null;
+            /** @description Corps rendu, balises substituees. TEXTE BRUT, comme le modele : ce que l ecran affiche est ce que le destinataire lira, a la mise en forme du gabarit de courriel pres. */
+            body: string;
+            /**
+             * Format: int32
+             * @description Longueur du corps rendu, en caracteres.
+             */
+            character_count: number;
+            /**
+             * @description Nombre de segments SMS que ce rendu consommerait, donc le multiple de son cout. `null` sur le canal `email`.
+             *
+             *     ESTIMATION, PAS UNE FACTURE : la segmentation reelle depend de l alphabet effectivement transmis et du prestataire, qui n est pas choisi (§8.23 reserve (b)). La valeur est rendue parce qu un ordre de grandeur affiche avant d armer vaut mieux qu une facture decouverte apres ; elle sera confirmee contre la documentation du prestataire retenu, jamais devinee.
+             */
+            sms_segment_count?: number | null;
+        };
+        /**
+         * NotificationStatus
+         * @description Etat d acheminement d un message. QUATRE etats, et la distinction entre les deux derniers est celle qui compte pour un exploitant.
+         *
+         *     `pending` — en file, pas encore remis, ou en attente d une nouvelle tentative. C est aussi l etat d un message regroupe dont la fenetre n est pas echue.
+         *
+         *     `sent` — accepte par le prestataire. N EST PAS UNE PREUVE DE LECTURE, ni meme toujours de remise : c est l accuse de prise en charge. Le produit sait relire un statut de livraison courriel (E10.22a-bis) ; ce lot ne branche pas cette relecture, l etat reste « accepte ».
+         *
+         *     `failed` — TENTE ET ABANDONNE, apres epuisement des tentatives ou passe le delai de fraicheur. Quelque chose n a pas marche, `last_error` dit quoi. C est la ligne qu un exploitant doit voir.
+         *
+         *     `dropped` — JAMAIS TENTE, pour une raison connue d avance et ecrite : aucun destinataire (`notification.no_recipient`), canal SMS a l arret pour l espace (`notification.sms_disabled`), plafond quotidien atteint (`notification.sms_daily_cap_reached`), texte rendu trop long (`notification.sms_too_long`).
+         *
+         *     POURQUOI UNE ENTREE EST QUAND MEME ECRITE QUAND PERSONNE N EST PREVENU. C est le point le plus important de ce journal et il corrige une faiblesse connue du bus (§8.13sexies, « personne ne regarde la file ») : un modele actif qui ne previent personne, faute d interlocuteur renseigne, est exactement le cas qu il faut voir. Ne rien ecrire laisserait l atelier croire qu il a prevenu son client.
+         * @enum {string}
+         */
+        NotificationStatus: "pending" | "sent" | "failed" | "dropped";
+        /**
+         * NotificationLog
+         * @description Une entree du journal des notifications : UN message, UN destinataire, UN canal.
+         *
+         *     CETTE TABLE EST AUSSI LA FILE D ENVOI. Une entree nait `pending` et change d etat ; l application n en reecrit jamais le TEXTE ni le DESTINATAIRE, seulement ses colonnes de suivi. Le precedent exact est `outbox_events`, append-only sauf ses colonnes de suivi, garde par trigger. Un journal separe de la file aurait duplique le corps rendu dans deux tables pour la seule elegance d un mot.
+         *
+         *     LE TEXTE EST FIGE A LA MISE EN FILE, pas relu au modele a l affichage. C est ce qui permet de repondre a « qu est-ce que mon client a recu ? » apres deux corrections du modele. Un journal qui rendrait le modele COURANT mentirait sur le passe.
+         */
+        NotificationLog: {
+            id: components["schemas"]["Uuid"];
+            /** @description Evenement du bus a l origine du message (`outbox_events.id`). C est la cle d idempotence du mecanisme : le couple (`event_id`, `template_id`, destinataire) est unique, si bien qu un rejeu du drain ne peut pas mettre deux fois le meme message en file. Sur un message REGROUPE, c est le PREMIER evenement de la fenetre. */
+            event_id: components["schemas"]["Uuid"];
+            event_name: components["schemas"]["NotificationEventName"];
+            /** @description Modele a l origine du message. `null` seulement si le modele a disparu avec son etape de production (cascade) : l entree survit au modele, elle ne depend pas de lui pour etre lisible. */
+            template_id?: components["schemas"]["Uuid"] | null;
+            channel: components["schemas"]["NotificationChannel"];
+            status: components["schemas"]["NotificationStatus"];
+            /** @description Type d objet concerne, recopie de l evenement (`order`, `quote`, `customer`). MEME VOCABULAIRE QUE `EventEnvelope`, pas un « sujet » invente. */
+            aggregate_type: string;
+            /** @description Objet concerne, recopie de l evenement. Sert le filtre `aggregate_id`. */
+            aggregate_id: components["schemas"]["Uuid"];
+            /**
+             * @description Adresse ou numero REELLEMENT vise. `null` quand l entree est `dropped` faute de destinataire.
+             *
+             *     SERVI EN CLAIR A TOUT MEMBRE DE L ESPACE, sans masquage : cette adresse est deja lisible dans la fiche du client (E10.4) par les memes personnes. La masquer ici donnerait l illusion d une protection que le produit n applique pas ailleurs, au prix de l enquete (« a-t-on ecrit a la bonne adresse ? » devient insoluble). La protection reelle de cette donnee est sa DUREE DE CONSERVATION, pas son affichage — voir `CommercialSettings.notification_retention_days`.
+             */
+            recipient?: string | null;
+            /** @description Objet rendu. `null` sur le canal `sms`. */
+            subject?: string | null;
+            /** @description Corps REELLEMENT envoye, balises substituees, fige a la mise en file. */
+            body: string;
+            /**
+             * Format: int32
+             * @description Nombre de remises tentees au prestataire. `0` sur une entree `pending` jamais reclamee ou `dropped`.
+             */
+            attempts: number;
+            /**
+             * Format: int32
+             * @description Nombre de faits metier regroupes dans ce message. Vaut `1` hors regroupement, et c est la valeur que rend `{{files.count}}`.
+             */
+            occurrence_count: number;
+            /** @description Identifiant rendu par le prestataire a l acceptation. Sert au rapprochement en cas de litige, et permettra une relecture de statut le jour ou elle sera branchee (le produit sait deja le faire pour le courriel, E10.22a-bis). */
+            provider_message_id?: string | null;
+            /** @description Motif du dernier echec, ou raison de l abandon sur une entree `dropped`. Porte un code metier lisible en tete (`notification.sms_daily_cap_reached`, `notification.no_recipient`, …) suivi du detail du prestataire quand il y en a un. */
+            last_error?: string | null;
+            /** @description Mise en file. */
+            created_at: components["schemas"]["Timestamp"];
+            /** @description Acceptation par le prestataire. `null` tant que l entree n est pas `sent`. */
+            sent_at?: components["schemas"]["Timestamp"] | null;
+        };
     };
     responses: {
         /** @description Requete malformee. */
@@ -5554,6 +6077,12 @@ export interface components {
         ProductionStepId: components["schemas"]["Uuid"];
         /** @description Identifiant technique du gabarit PDF (`document_pdf_templates`, E10.10b-4a), dans le tenant du jeton. Le gabarit n a pas de code metier stable : son `name` est libre et renommable, seul cet identifiant l adresse. Le meme identifiant forme le chemin de stockage du fond (`<tenant_id>/<template_id>.pdf`) — il n est jamais choisi par l appelant. */
         DocumentPdfTemplateId: components["schemas"]["Uuid"];
+        /**
+         * @description Identifiant technique du modele de notification (`notification_templates`, E10.15), dans le tenant du jeton.
+         *
+         *     MEME NOM DE PARAMETRE QUE `DocumentPdfTemplateId` (`templateId`), sur deux chemins distincts : il n y a aucune ambiguite possible, un chemin ne porte jamais les deux, et forcer un `notificationTemplateId` pour la seule raison qu un autre chemin utilise deja `templateId` alourdirait l URL sans rien clarifier.
+         */
+        NotificationTemplateId: components["schemas"]["Uuid"];
         /** @description Identifiant technique de la ligne de devis. Toujours resolu DANS le devis du chemin : une ligne d un autre devis rend 404 `quote_line.not_found`, jamais la ligne de l autre devis. */
         QuoteLineId: components["schemas"]["Uuid"];
         /** @description Identifiant technique de la regle de prix, dans le tenant du jeton. */
@@ -5725,6 +6254,20 @@ export type OrderFilesSubmittedPayload = components['schemas']['OrderFilesSubmit
 export type OrderFilePurgeStage = components['schemas']['OrderFilePurgeStage'];
 export type OrderFilesPurgeScheduledPayload = components['schemas']['OrderFilesPurgeScheduledPayload'];
 export type OrderFilesPurgedPayload = components['schemas']['OrderFilesPurgedPayload'];
+export type NotificationChannel = components['schemas']['NotificationChannel'];
+export type NotificationEventName = components['schemas']['NotificationEventName'];
+export type NotificationAudience = components['schemas']['NotificationAudience'];
+export type NotificationTagId = components['schemas']['NotificationTagId'];
+export type NotificationTag = components['schemas']['NotificationTag'];
+export type NotificationEventDescriptor = components['schemas']['NotificationEventDescriptor'];
+export type NotificationTemplateStatusFilter = components['schemas']['NotificationTemplateStatusFilter'];
+export type NotificationTemplate = components['schemas']['NotificationTemplate'];
+export type CreateNotificationTemplateCommand = components['schemas']['CreateNotificationTemplateCommand'];
+export type UpdateNotificationTemplateCommand = components['schemas']['UpdateNotificationTemplateCommand'];
+export type PreviewNotificationTemplateCommand = components['schemas']['PreviewNotificationTemplateCommand'];
+export type NotificationPreview = components['schemas']['NotificationPreview'];
+export type NotificationStatus = components['schemas']['NotificationStatus'];
+export type NotificationLog = components['schemas']['NotificationLog'];
 export type ResponseBadRequest = components['responses']['BadRequest'];
 export type ResponseUnauthorized = components['responses']['Unauthorized'];
 export type ResponseForbidden = components['responses']['Forbidden'];
@@ -5752,6 +6295,7 @@ export type ParameterOrderFileId = components['parameters']['OrderFileId'];
 export type ParameterOrderUploadLinkId = components['parameters']['OrderUploadLinkId'];
 export type ParameterProductionStepId = components['parameters']['ProductionStepId'];
 export type ParameterDocumentPdfTemplateId = components['parameters']['DocumentPdfTemplateId'];
+export type ParameterNotificationTemplateId = components['parameters']['NotificationTemplateId'];
 export type ParameterQuoteLineId = components['parameters']['QuoteLineId'];
 export type ParameterPriceRuleId = components['parameters']['PriceRuleId'];
 export type ParameterProductRangeId = components['parameters']['ProductRangeId'];
@@ -10512,6 +11056,430 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+        };
+    };
+    listNotificationEvents: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Catalogue complet, dans l ordre d affichage attendu par l ecran de parametrage. Jamais vide. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["NotificationEventDescriptor"][];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listNotificationTemplates: {
+        parameters: {
+            query?: {
+                /** @description Filtre sur le fait metier notifie. */
+                event_name?: components["schemas"]["NotificationEventName"];
+                /** @description Filtre sur le canal. */
+                channel?: components["schemas"]["NotificationChannel"];
+                /** @description `active` vaut `is_active: true`, `disabled` vaut `is_active: false`. Absent -> les deux. Forme reprise de `listProductionSteps`, pour ne pas introduire un second parametre booleen dans un contrat qui n en a aucun. */
+                status?: components["schemas"]["NotificationTemplateStatusFilter"];
+            };
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Modeles du tenant, tries par `event_name` puis `name` croissants. VIDE SUR UN ESPACE NEUF, et c est l etat normal : Magrit ne pose AUCUN modele par defaut. Consequence a dire a l atelier plutot qu a masquer — tant qu aucun modele n est cree, aucun de ces evenements ne notifie personne. Les deux courriels NON configurables qui existent deja (`quote.sent` vers le client, rappel de purge) ne sont pas des modeles et n apparaissent pas ici. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["NotificationTemplate"][];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    createNotificationTemplate: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+                /**
+                 * @description Cle d idempotence fournie par l appelant sur tout POST creant une ressource metier (CA8). Rejouer la meme cle avec la meme requete renvoie la reponse initiale, accompagnee de l en-tete `Idempotency-Replayed: true` ; la rejouer avec une requete differente renvoie 409 `api.idempotency_key_reused`.
+                 *
+                 *     L identite d une requete couvre la methode, le chemin, LA QUERY et le corps : deux POST au meme chemin avec des query differentes ne sont pas la meme requete.
+                 *
+                 *     Sur un rejeu, seul `meta.request_id` est recale sur la requete courante ; `data` est rendu inchange.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateNotificationTemplateCommand"];
+            };
+        };
+        responses: {
+            /** @description Modele cree. L `ETag` rendu est celui du MODELE, utilisable tel quel dans un `PATCH` ulterieur. */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    "Idempotency-Replayed": components["headers"]["IdempotencyReplayed"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["NotificationTemplate"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["ForbiddenCapability"];
+            /**
+             * @description La cle d idempotence a ete rejouee avec une requete differente (`api.idempotency_key_reused`).
+             *
+             *     AUCUN CONFLIT DE NOM : deux modeles peuvent porter le meme nom, a la difference d une etape de production. Un nom de modele est une etiquette d ecran, pas une cle de selection — c est le couple (evenement, canal, audience, filtre d etape) qui decide de ce qui part, et il est LEGITIMEMENT duplicable (deux SMS differents a deux destinataires explicites sur le meme evenement).
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /**
+             * @description Motifs, tous dans le meme corps RFC 7807 :
+             *
+             *     - `notification_template.unknown_tag` — au moins une balise du sujet
+             *       ou du corps est absente de la liste blanche de l evenement choisi
+             *       (CA5). `errors` porte une entree par balise fautive ;
+             *
+             *     - `notification_template.event_not_notifiable` — `event_name` existe
+             *       dans `EventName` mais n est pas au catalogue de
+             *       `listNotificationEvents` ;
+             *
+             *     - `notification_template.recipients_required` — audience `explicit`
+             *       sans `recipients`, ou `recipients` renseigne avec l audience
+             *       `customer` (ou l atelier choisirait le destinataire a la place du
+             *       systeme) ;
+             *
+             *     - `notification_template.step_filter_not_applicable` —
+             *       `production_step_id` pose sur un evenement autre que
+             *       `order.step_changed` ;
+             *
+             *     - `notification_template.limit_reached` — 100 modeles par tenant. Ce
+             *       plafond n est pas decoratif : c est lui qui autorise
+             *       `listNotificationTemplates` a ne pas paginer, et il borne aussi le
+             *       nombre de messages qu UN seul evenement peut engendrer ;
+             *
+             *     - `api.validation_failed` — le corps est invalide (sujet vide sur un
+             *       courriel, corps trop long pour le canal, etape inconnue).
+             */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getNotificationTemplate: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                /**
+                 * @description Identifiant technique du modele de notification (`notification_templates`, E10.15), dans le tenant du jeton.
+                 *
+                 *     MEME NOM DE PARAMETRE QUE `DocumentPdfTemplateId` (`templateId`), sur deux chemins distincts : il n y a aucune ambiguite possible, un chemin ne porte jamais les deux, et forcer un `notificationTemplateId` pour la seule raison qu un autre chemin utilise deja `templateId` alourdirait l URL sans rien clarifier.
+                 */
+                templateId: components["parameters"]["NotificationTemplateId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Modele du tenant. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["NotificationTemplate"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Aucun modele de cet identifiant dans le tenant du jeton (`notification_template.not_found`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    updateNotificationTemplate: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+                /**
+                 * @description Valeur d `ETag` de la representation lue, exigee sur tout PATCH (CA9). Absente -> 428 `api.if_match_required`. Differente de l etat courant -> 409 avec l etat courant dans `current_state`.
+                 *
+                 *     `If-Match: *` est REFUSE en 400 `api.if_match_invalid`, contrairement a la semantique RFC 7232 ou il signifie « pourvu que la ressource existe ». Ici il reviendrait a desactiver le controle de concurrence : deux modifications concurrentes s ecraseraient en silence, ce que le CA9 interdit. Le `pattern` ci-dessous n admet qu un ETag, faible ou fort.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /**
+                 * @description Identifiant technique du modele de notification (`notification_templates`, E10.15), dans le tenant du jeton.
+                 *
+                 *     MEME NOM DE PARAMETRE QUE `DocumentPdfTemplateId` (`templateId`), sur deux chemins distincts : il n y a aucune ambiguite possible, un chemin ne porte jamais les deux, et forcer un `notificationTemplateId` pour la seule raison qu un autre chemin utilise deja `templateId` alourdirait l URL sans rien clarifier.
+                 */
+                templateId: components["parameters"]["NotificationTemplateId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateNotificationTemplateCommand"];
+            };
+        };
+        responses: {
+            /** @description Modele modifie, `ETag` recalcule. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["NotificationTemplate"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["ForbiddenCapability"];
+            /** @description Aucun modele de cet identifiant dans le tenant du jeton (`notification_template.not_found`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+            /** @description Memes motifs que `createNotificationTemplate`, a l exception de `notification_template.limit_reached` : une modification ne cree pas de modele. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            428: components["responses"]["PreconditionRequired"];
+        };
+    };
+    previewNotificationTemplate: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                /**
+                 * @description Identifiant technique du modele de notification (`notification_templates`, E10.15), dans le tenant du jeton.
+                 *
+                 *     MEME NOM DE PARAMETRE QUE `DocumentPdfTemplateId` (`templateId`), sur deux chemins distincts : il n y a aucune ambiguite possible, un chemin ne porte jamais les deux, et forcer un `notificationTemplateId` pour la seule raison qu un autre chemin utilise deja `templateId` alourdirait l URL sans rien clarifier.
+                 */
+                templateId: components["parameters"]["NotificationTemplateId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreviewNotificationTemplateCommand"];
+            };
+        };
+        responses: {
+            /** @description Rendu du modele sur le jeu d exemple. Aucune ressource creee, aucun `ETag` : il n y a rien a valider plus tard. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["NotificationPreview"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Aucun modele de cet identifiant dans le tenant du jeton (`notification_template.not_found`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `notification_template.unknown_tag` — le texte soumis porte une balise absente de la liste blanche de l evenement du modele, avec la liste des fautives dans `errors`. C EST LA RAISON D ETRE PRINCIPALE DE CET ENDPOINT : la faute de frappe se decouvre ici, dans l ecran, et pas dans un tour de relais. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    listNotificationLogs: {
+        parameters: {
+            query?: {
+                /** @description Filtre sur le fait metier a l origine du message. */
+                event_name?: components["schemas"]["NotificationEventName"];
+                /** @description Filtre sur le canal. */
+                channel?: components["schemas"]["NotificationChannel"];
+                /** @description Filtre sur l etat d acheminement. */
+                status?: components["schemas"]["NotificationStatus"];
+                /** @description Filtre sur le modele a l origine du message. Un modele DESACTIVE garde ses entrees : c est tout l interet de ne pas pouvoir le supprimer. */
+                template_id?: components["schemas"]["Uuid"];
+                /** @description Filtre sur l objet metier concerne — la commande, le devis, le client. MEME VOCABULAIRE QUE `EventEnvelope`, deliberement : le journal recopie `aggregate_type` et `aggregate_id` de l evenement d origine plutot que d inventer un « sujet ». C est par ce filtre qu un ecran de commande repond a « qu a-t-on envoye a ce client sur cette commande ? ». */
+                aggregate_id?: components["schemas"]["Uuid"];
+                /** @description Nombre d elements par page. Defaut 50, maximum 200. */
+                "page[size]"?: components["parameters"]["PageSize"];
+                /** @description Curseur opaque renvoye par `meta.next_cursor` de la page precedente. Absent sur la premiere page. Ne jamais construire un curseur cote client : sa structure interne n est pas contractuelle. */
+                "page[cursor]"?: components["parameters"]["PageCursor"];
+            };
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Page d entrees de journal, de la plus recente a la plus ancienne. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["NotificationLog"][];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
         };
     };
     onQuoteConverted: {

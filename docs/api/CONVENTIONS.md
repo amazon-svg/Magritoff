@@ -3291,6 +3291,237 @@ Trois raisons de ne pas le soumettre au réglage :
 
 **Non vérifiable ici, comme pour tout le chantier E10.22** : le comportement réel des fonctions `security definer` et du trigger d'activation (`pnpm test:storefront:sql` exige Docker, absent). Le rejeu de la migration en base locale reste à la charge du lot d'implémentation, et il mord d'autant plus fort ici que la migration **remplace quatre fonctions déjà en production**.
 
+### 8.23 E10.15 (notification multicanal, courriel et SMS) — CADRAGE et CONTRAT ÉCRIT : généraliser un consommateur qui existe déjà, sans casser celui qui tourne
+
+> **Avertissement de méthode.** La fiche Notion de la story (`3cad0131973c81ff895ac6e40cbfba5f`) n'a **pas pu être lue** : l'agent qui a produit ce cadrage n'avait aucune surface d'outil Notion. Tout ce qui suit s'appuie sur le résumé détaillé transmis par le mandat (12 CA, 6 endpoints esquissés, catalogue d'événements V1, jeu de balises, architecture proposée, réserve RGPD) **et sur une vérification directe du dépôt**, fichier par fichier. Les trois écarts relevés au point 1 doivent être confrontés à la fiche avant que dev-story commence : si la fiche dit autre chose, c'est elle qui doit être corrigée ou ce cadrage qui doit être rouvert, pas l'implémentation qui doit trancher en silence.
+
+#### 1. Ce que la fiche suppose, et ce que le dépôt contient réellement — trois écarts
+
+**Vérifié plutôt que recopié**, dans l'ordre de gravité.
+
+| Point de la fiche | État réel, constaté | Conséquence |
+|---|---|---|
+| Catalogue V1 : `order.created` | **Ce nom n'existe pas** dans `OUTBOX_EVENT_NAMES` (`src/modules/_shared/api/contracts.ts`) et le contrat l'a **explicitement refusé** : « un seul événement pour ce fait, et pas un second `order.created` » (`QuoteConversionPayload`). `convertQuote` est le seul producteur de commandes, et il émet `quote.converted`. | **Retiré du catalogue.** La naissance d'une commande se notifie sur `quote.converted`, dont la charge utile porte déjà `order_id` et `order_number`. Avoir les deux au catalogue aurait fait **deux notifications pour un fait unique**. |
+| Catalogue V1 : `quote.sent` | Le nom existe **et il a déjà un consommateur**, `QuoteSentNotificationConsumer` (E10.10b-3, étendu 4c avec le PDF en pièce jointe). Le registre du drain est un `Partial<Record<EventNameDto, OutboxEventConsumer>>` : **un consommateur par événement**, pas une liste. | **Conservé**, mais il impose une décision de mécanisme (point 3) et une conséquence produit écrite au contrat : un modèle `email` + audience `customer` sur `quote.sent` fera recevoir **deux courriels** au client. L'écran doit l'avertir. |
+| `order.step_changed` (E10.14) | **Nom exact confirmé**, producteur confirmé (`POST /commercial-orders/{orderId}/step-changes`), et sa charge utile a été **écrite en prévision de cette story** : `customer_id` porte la mention « c'est ce dont E10.15 aura besoin pour savoir QUI notifier », `to_step_id` « c'est la clé de sélection attendue par E10.15 ». | Rien à changer, ni au producteur, ni à la charge utile. E10.15 **n'ajoute aucun événement et ne modifie aucun payload**. |
+
+**Trois autres constats, qui orientent le reste du cadrage :**
+
+- **`pg_cron` + `pg_net` sont actifs et éprouvés** sur `ightkxebexuzfjdbpsdg` (§8.22, ligne `magrit-outbox-dispatch`), cadence 1 minute, secrets en Vault. La réserve (f) de §8.13sexies est **close**. Un second planificateur n'est donc plus un pari.
+- **Le provider courriel est mutualisé** : une clé `RESEND_API_KEY`, un expéditeur `MAGRIT_FROM_EMAIL`, six adaptateurs (`src/adapters/resend/`) qui partagent tous le même patron (`apiKey: string | null` injecté, `fetch` injectable, **jamais de `throw`**, retour `{ sent, reason? }`).
+- **`send-order-notification`** (Edge Function pré-E10, Sprint 5 « S3.2-residual ») envoie déjà un courriel d'atelier à la création d'une commande boutique, avec une heuristique « admin tenant » écrite en dur. Ce mécanisme **n'est pas** repris par E10.15 et n'est pas non plus retiré par elle — mais il devient un doublon fonctionnel dès qu'un tenant configure un modèle équivalent. À signaler à Arnaud comme **dette de convergence** (point 9, réserve (f)), pas à traiter dans ce lot.
+
+#### 2. Ce que le contrat gagne — cinq chemins, sept opérations, aucun événement
+
+| Opération | Chemin | Garde |
+|---|---|---|
+| `listNotificationEvents` | `GET /notification-events` | membre |
+| `listNotificationTemplates` | `GET /notification-templates` | membre |
+| `createNotificationTemplate` | `POST /notification-templates` | `can_manage_notifications` + `Idempotency-Key` |
+| `getNotificationTemplate` | `GET /notification-templates/{templateId}` | membre, rend l'`ETag` |
+| `updateNotificationTemplate` | `PATCH /notification-templates/{templateId}` | `can_manage_notifications` + `If-Match` |
+| `previewNotificationTemplate` | `POST /notification-templates/{templateId}/previews` | membre, **200 et non 201** |
+| `listNotificationLogs` | `GET /notification-logs` | membre, pagination par curseur |
+
+**Cinq écarts avec l'esquisse de la fiche, tous motivés :**
+
+0. **Une opération de plus que les six esquissées : `getNotificationTemplate`.** Elle n'est pas un confort, elle est la **précondition de la sixième**. L'`ETag` d'une collection ne vaut pas pour le `PATCH` d'un de ses éléments — il ferait échouer la modification d'un modèle parce qu'un **autre** modèle a bougé. Sans fiche unitaire, `updateNotificationTemplate` n'a aucune source d'`If-Match`, donc le CA9 n'est pas tenable. Même construction, même motif qu'en E10.6 (`getPriceRule`) et E10.13 (`getProductionStep`), où la question s'est posée à l'identique.
+
+1. **`/previews` au pluriel**, pas `/preview`. `checkResourcePath` impose le pluriel sur tout segment de ressource (CA3) et cette règle est vérifiée des deux côtés (lint du contrat **et** `assertRoutePath`). Pluriel purement formel, comme `/quotes/{id}/documents` en son temps.
+2. **Aucune `Idempotency-Key` sur l'aperçu**, et ce n'est pas une dérogation au CA8 : l'aperçu ne crée aucune ressource métier (200, jamais 201), n'écrit rien, n'envoie rien. C'est une fonction pure du corps envoyé.
+3. **Pas de `DELETE` de modèle.** L'arrêt se fait par `is_active: false`. Un modèle cité par le journal doit rester lisible, exactement comme une étape de production traversée reste indélébile (E10.13). Supprimer un modèle rendrait illisible le « pourquoi » d'un message déjà envoyé.
+4. **Aucune clé de service** sur ces sept opérations. Un module tiers n'a pas à lire les coordonnées ni les textes envoyés aux clients d'un imprimeur ; s'il veut réagir à un fait métier, il s'abonne au bus — c'est exactement ce que le bus est.
+
+**Un droit nouveau, `can_manage_notifications`** (`x-magrit-capabilities`), même construction que `can_manage_document_templates` : lecture ouverte à tout membre, écriture réservée. Détenu aujourd'hui par le seul `admin`, par dérivation d'appartenance, verrou UM1 (§3.5) — aucune administration à faire, et la délégation future ne coûtera pas une ligne de contrat.
+
+**Trois réglages de plus sur `CommercialSettings`** : `notification_retention_days`, `notification_sms_enabled`, `notification_sms_daily_cap`. Domicile déjà argumenté par E10.10a et E10.22d. **L'écriture de ces trois champs exige en outre `can_manage_notifications`** — refus au **champ** près, en 403 `identity.capability_required`. C'est exactement le chemin que la description de `CommercialSettings` avait nommé sans l'emprunter (« un droit dédié, refusé au champ près, est le chemin ») : le prendre maintenant coûte une garde de trois champs et évite qu'un porteur de `can_manage_pricing` puisse, du même geste, changer la durée de conservation d'un journal de données personnelles.
+
+#### 3. Le mécanisme de consommation — **un consommateur de plus, un drain d'envoi séparé**, et le socle n'est pas touché
+
+C'est la décision structurante du lot. Trois questions, dans l'ordre où elles se posent.
+
+**(a) Comment brancher un second consommateur sur `quote.sent`, qui en a déjà un ?**
+
+| Piste | Verdict |
+|---|---|
+| Élargir `OutboxConsumerRegistry` en `Record<EventName, OutboxEventConsumer[]>` | **Écarté.** C'est une modification du **socle** (`src/modules/_shared/application/outbox-dispatcher.ts`) pour un besoin de composition, et elle a un coût invisible : deux consommateurs derrière un seul verdict `delivered` signifient qu'un échec du second fait **rejouer le premier**. Un consommateur de notifications défaillant ferait alors renvoyer le courriel de devis, avec sa pièce jointe, à chaque tour. |
+| Un `CompositeOutboxConsumer` **en composition**, dans `createOutboxDispatchApplication()` | **Retenu.** Combinateur générique (aucune connaissance métier, il a donc sa place dans `_shared/application/`) qui exécute une liste de consommateurs et échoue si l'un échoue. Le registre du socle reste « un consommateur par événement » : c'est la **composition** qui exprime l'éventail, exactement là où le dépôt a déjà décidé que le câblage vivait. |
+| Un second drain qui relirait la file après le premier | **Écarté.** Il faudrait une seconde notion de « publié », donc une colonne par consommateur sur une table append-only. On rebâtirait un registre d'abonnements pour un besoin interne. |
+
+**Ordre dans le composite, et il est opposable : le consommateur de notifications passe EN PREMIER.** Il est idempotent (index unique sur `(event_id, template_id, destinataire)`), donc un rejeu ne le refait pas ; l'envoyeur de devis, lui, ne l'est pas. Dans cet ordre, le risque de doublon reste **exactement celui d'aujourd'hui**, ni plus ni moins.
+
+**(b) Le consommateur envoie-t-il, ou met-il en file ?**
+
+**Il met en file, et il ne fait que ça.** C'est ce qui rend (a) sûr : un consommateur qui n'ouvre **aucune connexion réseau** n'échoue pratiquement jamais, donc ne fait jamais rejouer son voisin dans le composite. Il résout les modèles actifs, rend le texte, insère les messages, rend `delivered: true`. Tout le travail incertain — joindre un prestataire, réessayer, abandonner — est de l'autre côté de la file.
+
+Ce n'est pas une couche de plus pour le plaisir : c'est **le même raisonnement que le pattern outbox lui-même**, appliqué un cran plus loin. La file est le filet. Un échec Resend ne doit pas laisser un `order.step_changed` non publié pendant deux heures ; il doit laisser **un message** en attente de reprise, sans toucher au fait métier.
+
+**(c) Qui vide la file de messages ?**
+
+**Une Edge Function dédiée, `magrit-notification-sender`, son propre `pg_cron` à la minute, son propre secret partagé** — strictement le patron de `magrit-outbox-dispatcher` et de `magrit-order-file-purge` : secret en en-tête comparé en **temps constant** (`timingSafeEqual`, réutilisé, jamais réimplémenté), 401 sans corps, URL et secret en Vault, corps de la fonction réduit à l'instanciation des adaptateurs, **toute la composition dans `src/server/api/notification-send-composition.ts`** (typecheckée et testable, contre-mesure M1 de §8.2).
+
+**Pourquoi pas dans le tour du drain outbox**, qui tourne déjà à la minute : parce que ce serait faire attendre la publication des faits métier derrière vingt-cinq appels réseau. C'est le raisonnement de §8.22 §3 (« faire attendre une notification client derrière un ménage »), appliqué dans l'autre sens. Deux axes, deux isolats — même cadence, cette fois, parce que la promptitude est ici la qualité recherchée.
+
+**Aucun endpoint `/api/v1` pour ces deux drains**, pour les trois raisons déjà écrites en §8.13sexies §2 : un drain n'a pas de tenant, ce contrat est le livrable du partenaire, et la façade `magrit-api` est montée `verify_jwt = false`.
+
+#### 4. Le schéma de données
+
+**`notification_templates`** — la configuration.
+
+| Colonne | Type | Note |
+|---|---|---|
+| `id` | `uuid` pk | |
+| `tenant_id` | `uuid not null` | RLS, policies `notification_templates_select` / `_write`, filtrage `tenant_id in (select public.current_user_tenant_ids())`, échappatoire `is_super_admin()` en tête |
+| `event_name` | `text not null` | `check` sur la liste blanche des cinq noms notifiables. **Pas d'enum Postgres** : une enum se modifie mal et la liste est additive |
+| `channel` | `text not null` | `check (channel in ('email','sms'))` |
+| `audience` | `text not null` | `check (audience in ('customer','explicit'))` |
+| `recipients` | `text[]` | `check` : non vide ssi `audience = 'explicit'`, ≤ 10 entrées |
+| `production_step_id` | `uuid` fk → `production_steps(id) on delete cascade` | `check` : non nul seulement si `event_name = 'order.step_changed'` |
+| `name` | `text not null` | ≤ 120, **non unique** (voir le contrat : un nom est une étiquette, pas une clé) |
+| `subject` | `text` | `check` : non nul ssi `channel = 'email'` |
+| `body` | `text not null` | `check` : ≤ 4000 en `email`, ≤ 480 en `sms` |
+| `is_active` | `boolean not null default false` | |
+| audit | `created_at/by`, `updated_at/by` | trigger `updated_at` existant |
+
+Contraintes : `unique` **aucune** ; plafond de 100 modèles par tenant tenu par une fonction de garde à l'insertion (`notification_template.limit_reached`), pas par un `check` (qui ne sait pas compter ses voisins).
+
+**`notification_logs`** — la file d'envoi **et** le journal, une seule table.
+
+Le mot « journal » de la fiche et le mot « file d'envoi » de son schéma d'architecture désignent le même objet à deux instants de sa vie. **Le précédent est dans le dépôt** : `outbox_events` est à la fois la file (lignes `published_at is null`) et la trace, avec `delivery_attempts`, `last_error`, `next_attempt_at`. Deux tables auraient dupliqué le corps rendu — la colonne la plus lourde et la plus sensible — pour la seule élégance d'un mot.
+
+| Colonne | Type | Note |
+|---|---|---|
+| `id` | `uuid` pk | |
+| `tenant_id` | `uuid not null` | RLS, lecture ouverte aux membres, **écriture interdite à `authenticated`** : seule la fonction `security definer` du consommateur et le `service_role` écrivent |
+| `event_id` | `uuid not null` | `outbox_events.id` — **pas de FK** : le journal survit à la purge éventuelle de la file |
+| `event_name`, `aggregate_type`, `aggregate_id` | `text` / `text` / `uuid` | recopiés de l'événement, **même vocabulaire que `EventEnvelope`** |
+| `template_id` | `uuid` fk → `notification_templates(id) on delete set null` | l'entrée survit au modèle |
+| `channel`, `status` | `text not null` | `check` sur les énumérations du contrat |
+| `recipient` | `text` | `null` quand `dropped` faute de destinataire |
+| `subject`, `body` | `text` / `text not null` | **texte figé à la mise en file**, jamais relu au modèle |
+| `attempts` | `int not null default 0` | |
+| `occurrence_count` | `int not null default 1` | compteur de regroupement, rendu par `{{files.count}}` |
+| `next_attempt_at` | `timestamptz not null default now()` | même mécanique de backoff que `outbox_events` |
+| `provider_message_id`, `last_error` | `text` | |
+| `created_at`, `sent_at` | `timestamptz` | |
+
+**Index** : `(tenant_id, created_at desc)` pour la liste ; partiel `(next_attempt_at) where status = 'pending'` pour la réclamation ; **unique `(event_id, template_id, coalesce(recipient, ''))`** — c'est la garantie de non-doublon du mécanisme, et elle est en base, pas dans le code ; **unique partiel `(template_id, aggregate_id) where status = 'pending'`** pour le regroupement.
+
+**Immuabilité : trigger, pas `revoke`.** `.claude/rules/db.md` exige l'append-only sur les tables d'audit. Cette table-ci **doit** muter (une file change d'état) et **doit** pouvoir être détruite (rétention RGPD). La règle s'applique donc dans son intention, pas à la lettre : un trigger `notification_logs_reject_mutation()` **calqué sur `outbox_events_reject_mutation()`** refuse toute modification hors des colonnes de suivi (`status`, `attempts`, `next_attempt_at`, `provider_message_id`, `last_error`, `sent_at`, `occurrence_count`). `recipient`, `subject` et `body` sont **immuables après insertion** : c'est ce qui fait la valeur de preuve du journal.
+
+**Réclamation atomique** : `public.api_claim_notification_messages(p_limit, p_max_attempts, p_max_age)`, `security definer`, **grantée au seul `service_role`**, `revoke all from public, anon, authenticated`. `for update skip locked`, incrément des tentatives **à la réclamation** et non au verdict, échéance repoussée dans la même instruction. Copie conforme d'`api_claim_outbox_events`, dont la forme est éprouvée — ne pas la réinventer.
+
+**Reprise du passif : sans objet.** Contrairement à E10.10b-3, la table naît vide.
+
+**`commercial_settings`** gagne les trois colonnes du point 2 : `notification_retention_days int not null default 90`, `notification_sms_enabled boolean not null default false`, `notification_sms_daily_cap int not null default 200`.
+
+#### 5. Le moteur de rendu — grammaire fermée, liste blanche, refus à l'enregistrement
+
+**Décision : pas de moteur de gabarit tiers, une grammaire fermée et un automate.**
+
+La fiche suggérait « type Handlebars strict, jamais de regex artisanale ». La seconde moitié est retenue **intégralement** ; la première est écartée, et le motif n'est pas la paresse :
+
+- un moteur de gabarit est un **langage d'expressions** — chemins, helpers, partials, sortie brute non échappée. Nous n'avons besoin que d'une **substitution** sur treize identifiants connus. Importer un langage pour n'en utiliser aucune construction, c'est importer toute sa surface d'abus dans un texte **écrit par un tenant et rendu côté serveur** ;
+- je **n'affirme pas** ce que tel moteur autorise ou non aujourd'hui : ce serait une affirmation de mémoire d'entraînement sur une bibliothèque tierce, ce que la règle absolue du projet interdit. Si dev-story ou Arnaud veulent malgré tout un moteur tiers, sa surface réelle doit être **vérifiée sur sa documentation officielle** avant d'être choisie, pas supposée ;
+- une grammaire fermée se **prouve** : `{{` + un identifiant de `NotificationTagId` + `}}`, sans espace, sans variante. Rien d'autre n'est un jeton ; tout le reste est du texte littéral, y compris une accolade isolée.
+
+**Ce que « pas de regex artisanale » veut dire ici, concrètement** : le rendu est un **balayage à un seul passage** du texte, qui recopie les caractères littéraux et, à chaque `{{`, lit jusqu'au `}}` correspondant, résout l'identifiant dans la table de contexte et écrit la valeur. Une valeur substituée n'est **jamais re-balayée** — un client dont la raison sociale contiendrait `{{order.number}}` n'obtient pas un numéro de commande, il obtient sa raison sociale. C'est la propriété qu'une substitution par `String.replace` successifs **ne donne pas**, et c'est précisément pour ça qu'elle est écrite ici.
+
+**Échappement** : le corps de modèle est du **texte brut** ; le produit met en forme. Pour le courriel, chaque valeur substituée est échappée HTML **à l'insertion dans le gabarit visuel** (fonction `escapeHtml` déjà dupliquée dans chaque envoyeur Resend du dépôt), jamais avant — sinon la version texte du courriel porterait des `&amp;`. Pour le SMS, aucun échappement : il n'y a pas de balisage.
+
+**Validation à l'enregistrement (CA5)** : `createNotificationTemplate` et `updateNotificationTemplate` refusent en **422 `notification_template.unknown_tag`**, avec **une entrée `errors[]` par balise fautive**, toute balise absente de la liste blanche **de l'événement du modèle**. Valider au rendu reviendrait à découvrir la faute dans un tour de cron que personne ne regarde, sur un message qui ne partira jamais. Le validateur et l'écran lisent la **même** source (`listNotificationEvents`) : une liste recopiée en dur côté navigateur diverge au premier ajout.
+
+**Une valeur absente rend une chaîne vide** — jamais un tiret, jamais le nom de la balise, jamais `null`. Le catalogue signale d'avance les balises concernées (`NotificationTag.nullable`) pour qu'un rédacteur ne construise pas une phrase autour d'une donnée facultative.
+
+#### 6. Le contrat des adaptateurs de canal
+
+```ts
+export type RenderedNotification = Readonly<{
+  channel: NotificationChannel;
+  to: string;
+  subject: string | null;   // null en SMS
+  body: string;             // texte brut, deja rendu
+}>;
+
+export type NotificationDelivery =
+  | Readonly<{ sent: true; providerMessageId?: string }>
+  | Readonly<{ sent: false; reason: string; retryable: boolean }>;
+
+export interface NotificationChannelAdapter {
+  readonly channel: NotificationChannel;
+  send(message: RenderedNotification): Promise<NotificationDelivery>;
+}
+```
+
+**Ce port ajoute un champ que les six envoyeurs existants n'ont pas : `retryable`.** Aujourd'hui, `{ sent: false, reason }` ne distingue pas « Resend a renvoyé 429 » de « cette adresse n'existe pas ». Le premier mérite cinq tentatives, le second aucune — et sur le canal SMS, réessayer cinq fois un numéro invalide **coûte cinq fois**. Un échec non rejouable fait passer le message en `dropped`, pas en `pending`.
+
+**Le canal courriel RÉUTILISE le compte Resend en service**, sans le dupliquer : même `RESEND_API_KEY`, même `MAGRIT_FROM_EMAIL`, même `fetch` injectable, même discipline **« jamais de `throw` »**. L'implémentation est un adaptateur de plus, `src/adapters/resend/notification-email-sender.ts`.
+
+**Ce qui n'est PAS fait, et pourquoi** : `ResendQuoteSentEmailSender` n'est **pas** réécrit pour implémenter ce port. Il est typé sur un message métier précis (`QuoteSentEmail`, avec sa pièce jointe PDF et ses quatre variantes de texte **validées par Arnaud**) ; y faire entrer un message générique reviendrait à détruire un texte approuvé pour mutualiser vingt lignes de `fetch`. La factorisation du POST HTTP commun aux sept adaptateurs Resend est une **refonte séparée, optionnelle**, à ne pas glisser dans ce lot.
+
+**Le canal SMS** implémente le même port, derrière un second adaptateur. Le prestataire est donc une décision **tardive et réversible** : aucun code hors `src/adapters/<presta>/` ne le connaît. C'est la vraie réponse au point 7.
+
+#### 7. Le fournisseur SMS — **aucun choix n'existe dans le projet, et je n'en impose pas**
+
+**Vérifié** (`grep` sur `src`, `supabase`, `docs`, `openapi`, `_bmad-output`) : **aucun fournisseur SMS n'a jamais été choisi ni mentionné**. La seule occurrence est le bloc `[auth.sms.twilio]` de `supabase/config.toml` — **`enabled = false`**, généré par l'installateur Supabase CLI, jamais configuré, et concernant l'OTP d'authentification, pas la notification métier. Il ne vaut **pas** une décision antérieure.
+
+**Ce qui est certain** : Resend n'envoie pas de SMS. C'est nécessairement un **second prestataire**, donc un contrat, un coût par message, et un **sous-traitant de plus au registre RGPD** (numéro de téléphone + contenu du message transmis à un tiers).
+
+**Critères de choix, qui sont le vrai livrable de ce point :**
+
+1. API HTTP JSON appelable depuis l'Edge Runtime Deno **sans SDK** (tous nos adaptateurs sont du `fetch` nu, et un SDK npm dans une Edge Function est une dépendance de plus à faire vivre) ;
+2. hébergement et traitement **dans l'UE**, pour ne pas rouvrir un transfert hors-UE sur une donnée personnelle ;
+3. **expéditeur alphanumérique** (le nom de l'imprimeur plutôt qu'un numéro court) — soumis à déclaration en France ;
+4. statut de remise consultable **par message** (le port prévoit déjà `providerMessageId`) ;
+5. tarification à l'unité, sans engagement, pour qu'un pilote sur un seul imprimeur soit possible.
+
+**Candidats à instruire, par ordre de plausibilité pour le contexte AGE** — et je les donne comme **pistes, pas comme recommandation technique** : **Brevo** (société française, SMS transactionnel + courriel sous un seul compte, ce qui limiterait le nombre de prestataires si un jour le courriel migrait), **OVHcloud SMS** (français, souveraineté maximale), **smsmode** ou **SMSFactor** (français, spécialistes transactionnels), **Twilio** / **Vonage** (couverture et fiabilité maximales, questions de transfert hors-UE à traiter).
+
+> **RÉSERVE (b) — à trancher par Arnaud, pas par l'architecte ni par dev-story.** Le choix engage un contrat commercial, un budget récurrent et un sous-traitant RGPD. **Aucune caractéristique technique d'aucun de ces prestataires n'est affirmée ici** : elles doivent être vérifiées sur leur documentation officielle (via Context7 ou lecture directe de la source publiée) **au moment du choix**, jamais de mémoire. Tant que ce choix n'est pas fait, **E10.15e ne peut pas commencer** — et c'est sans conséquence sur les quatre autres lots, puisque le port de canal rend la décision réversible.
+
+**Deux points à ne pas découvrir en route, quel que soit le prestataire :**
+
+- **`customer_contacts.phone` est un champ libre de 40 caractères** (E10.4), qui contient aussi bien des fixes que des mobiles, dans n'importe quel format. Le lot SMS doit donc **normaliser en E.164** et **écarter ce qui n'est pas un mobile** — en `dropped` avec un motif lisible, jamais en erreur ;
+- **la mention d'opposition** (« STOP ») et le régime applicable au SMS **transactionnel** en France sont une question **juridique**, pas technique. À faire trancher en même temps que le prestataire.
+
+#### 8. Découpage en cinq sous-stories
+
+Même parti que E10.10b-4a/b/c, E10.19a/b, E10.20a/b et E10.22a-d : **un lot, un axe**, et chaque lot se termine sur quelque chose de vérifiable.
+
+| Lot | Contenu | Ce qu'il rend vérifiable | Dépend de |
+|---|---|---|---|
+| **E10.15a — le socle configurable** | Migration `notification_templates` + 3 colonnes de réglages ; module `src/modules/notifications/` (`api/contracts.ts`, `api/client.ts`, `application/`) ; **moteur de rendu et liste blanche** ; les **six opérations de configuration** (catalogue, liste, création, fiche, modification, aperçu) ; droit `can_manage_notifications` ; tests de contrat. **Aucun envoi, aucune file, aucune UI.** | Un tenant peut écrire un modèle, le prévisualiser, et se voir refuser une balise inconnue. Tout est testable **sans réseau**. | — |
+| **E10.15b — l'écran de paramétrage** | Liste, éditeur, aperçu, sous `src/modules/notifications/ui/`. `data-testid` déclarés dans `src/shared/presentation/testIds.ts` (scope `notificationTemplate`). **Aucun changement serveur.** | L'administrateur configure pour de vrai. Gardé par `modular-ui-boundaries` et `api-first-boundaries`. | a |
+| **E10.15c — la chaîne d'envoi, sur UN seul événement** | Migration `notification_logs` + `api_claim_notification_messages` + trigger d'immuabilité + purge SQL de rétention (`pg_cron` quotidien) ; `NotificationDispatchConsumer` + `CompositeOutboxConsumer` ; Edge Function `magrit-notification-sender` + composition + `pg_cron` à la minute ; adaptateur courriel Resend ; `GET /notification-logs`. **Événement branché : `order.step_changed` SEUL.** | La chaîne complète tourne en production sur un cas réel, et l'on **voit** ce qui part et ce qui échoue. La rétention naît **avec** la table qui porte les données personnelles, pas trois lots plus tard. | a |
+| **E10.15d — le reste du catalogue et le regroupement** | `quote.sent` (avec le composite sur l'existant), `quote.converted`, `customer.created`, `order.files_submitted` **avec sa fenêtre de regroupement** ; écran du journal. | La promesse écrite dans `OrderFilesSubmittedPayload` (« E10.15 groupera à la notification ») est tenue. | c |
+| **E10.15e — le canal SMS** | Adaptateur du prestataire retenu ; réglages `notification_sms_enabled` / `_daily_cap` et leur écran ; normalisation E.164 ; comptage de segments dans l'aperçu ; plafond quotidien. | Le second canal, une fois le prestataire choisi et payé. | c + **réserve (b) tranchée** |
+
+**Pourquoi la rétention est en (c) et non en dernier** : c'est le lot qui crée la table portant adresses, numéros et textes adressés à des personnes nommées. Livrer une collecte avant son terme d'effacement, même de quelques semaines, c'est exactement ce qu'on reproche aux produits qu'on remplace.
+
+**Pourquoi le SMS est en dernier** : il dépend d'une décision qui n'appartient pas à l'équipe, il coûte de l'argent par message, et il est le seul canal dont une erreur de paramétrage se paie deux fois — en facture et en clients importunés. Rien, dans les quatre premiers lots, ne l'attend.
+
+#### 9. Réserves à porter à Arnaud avant que dev-story commence
+
+- **(a) — RÉSERVE RGPD, SIGNALÉE PAR LA FICHE ELLE-MÊME, NON TRANCHÉE ICI.** Durée de conservation du corps rendu dans `notification_logs`. **La fiche propose 12 mois glissants, paramétrable par tenant. Le contrat écrit 90 jours par défaut, paramétrable de 7 à 730 jours.** Le désaccord est délibéré et se résume ainsi : la donnée conservée n'est pas une trace technique, c'est **le texte d'un message adressé à une personne nommée, avec son adresse ou son numéro**. Le besoin qui justifie la conservation — « qu'est-ce que mon client a reçu, et l'a-t-il reçu ? » — se pose dans les jours qui suivent, pas l'année suivante ; conserver douze mois par défaut, c'est conserver onze mois sans finalité (art. 5.1.c et 5.1.e). 90 jours couvre large un litige de production, et **un tenant qui justifie plus long peut monter le curseur** — ce qui est l'inverse exact d'un défaut long que personne ne baissera jamais. **Arnaud tranche la valeur par défaut** ; si 12 mois est retenu, une seule ligne de migration change, et il faudra alors le dire dans la politique de confidentialité. Deux variantes sont ouvertes s'il veut un compromis : purger le **corps** à 90 jours en gardant les métadonnées 12 mois (deux durées, plus fin, un peu plus de code), ou 180 jours pour tout.
+- **(b)** **Fournisseur SMS** — point 7. Bloquant pour E10.15e seulement.
+- **(c)** **Double courriel sur `quote.sent`.** Un modèle `email` + audience `customer` sur cet événement s'ajoute au courriel existant, il ne le remplace pas. Trois issues : l'accepter et l'avertir dans l'écran (**retenu par défaut**), interdire la combinaison au contrat (rigide, et ferme un usage légitime : une adresse explicite), ou faire de l'existant un modèle par défaut modifiable (c'est **un autre chantier** — il faudrait exposer la pièce jointe et quatre variantes de texte au moteur de balises).
+- **(d)** **Audience « membres de l'espace »** : non livrée, et c'est la réserve (d) de §8.13sexies qui reste ouverte (quels membres, quelle adresse, quelles préférences). Les **adresses explicites** rendent le service attendu sans trancher. À confirmer comme suffisant.
+- **(e)** **Valeurs de réglage, à confirmer plutôt qu'à subir** : rétention 90 j (réserve (a)), plafond SMS 200/jour, fenêtre de regroupement 10 min, plafond de 100 modèles par tenant, longueur maximale d'un corps SMS (480 au modèle, refus au-delà de 612 après rendu), cadence du drain d'envoi (1 min), tentatives (5) et fraîcheur (24 h) repris du drain outbox.
+- **(f)** **`send-order-notification`** (Edge Function pré-E10) fait déjà une notification d'atelier à la création d'une commande boutique, avec une heuristique « admin tenant » en dur. E10.15 ne la reprend pas et ne la retire pas. Dette de convergence à arbitrer : la laisser vivre, ou la remplacer par un modèle une fois E10.15d livrée.
+- **(g)** **Resend en mode test.** `SPRINT_HANDOFF.md` (§E9.5) indique que l'envoi reste limité à `amazon@ageservices.fr` tant qu'aucun domaine n'est vérifié. **La même réserve que §8.13sexies (a), et elle n'est toujours pas levée** : sans domaine d'expédition, E10.15c sera juste et inopérante chez un client réel.
+- **(h)** **La rédaction des textes de modèles n'est pas un livrable d'architecte.** Magrit ne fournit **aucun modèle par défaut** : un espace neuf ne notifie personne tant que l'atelier n'a rien écrit. C'est un choix (un texte commercial ne s'invente pas à la place de l'imprimeur), mais il a une conséquence à dire : **la fonctionnalité livrée est inerte jusqu'à ce que quelqu'un l'utilise**. Si Arnaud veut des modèles d'amorçage, c'est un lot de contenu, à valider par lui comme les textes de §8.22a l'ont été.
+
+#### 10. État des gates à la remise du cadrage
+
+| Commande | Résultat |
+|---|---|
+| `pnpm gen:api` | **régénéré** — 15 schémas neufs, 1 paramètre, 1 capability, 3 champs sur `CommercialSettings` et 3 sur sa commande |
+| `pnpm typecheck` | **vert** — aucun fichier de `src/` touché hors le fichier généré |
+| `pnpm test:contract` | **vert — 381 cas, 20 fichiers** (le lint du contrat couvre les six opérations neuves : nommage, tenant jamais adressable, `Idempotency-Key`, `If-Match`, couverture 400/401/403, enveloppe et `problem+json`) |
+| `pnpm test:architecture` | **vert — 146 cas, 34 fichiers** |
+
+**Aucun test de contrat spécifique à E10.15 n'est écrit ici**, et c'est conforme au CA12 : un test de contrat vérifie **une route contre le contrat**, or aucune route n'existe encore. `tests/contract/notifications.contract.test.ts` est un livrable de **E10.15a**, en même temps que les routes.
+
 ## 9. Commandes
 
 ```bash
