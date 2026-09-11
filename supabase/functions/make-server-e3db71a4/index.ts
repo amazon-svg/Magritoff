@@ -724,7 +724,7 @@ app.post("/make-server-e3db71a4/claude-proxy", async (c) => {
     // Le wrapper gere automatiquement : recherche cle API multi-secrets, limite 25 params (FR43),
     // tracking llm_usage_events (NFR23). Pas de logLlmUsage manuel.
     console.log(`🤖 Appel Claude via wrapper (mode=${mode}, ctx=${messages.length} msgs)...`);
-    const MODEL = "claude-sonnet-4-5-20250929";
+    const MODEL = "claude-sonnet-5";
     let result;
     try {
       result = await anthropicComplete({
@@ -928,7 +928,7 @@ app.post("/make-server-e3db71a4/claude-proxy-stream", async (c) => {
   const userMessage = messages[messages.length - 1].content;
 
   // S1.5 review fix P4 : modele partage entre call site et fallback finalPromise.catch.
-  const STREAM_MODEL = "claude-sonnet-4-5-20250929";
+  const STREAM_MODEL = "claude-sonnet-5";
 
   return streamSSE(c, async (stream) => {
     // Helper : emet un event "done" en mode demo (preserve le contrat client SSE).
