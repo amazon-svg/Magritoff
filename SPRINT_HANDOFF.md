@@ -11,7 +11,7 @@
 ### Branche et synchronisation
 
 - **Branche de travail unique** : `feat/gescom-e10-4-entite-client` (nom historique, porte en realite tout le lot E10.10b-4/17/19/20/22/15 de cette session — aucune branche par story, pattern deja etabli avant cette session et poursuivi pour rester coherent).
-- `main` est tenu **fast-forward synchronise** avec cette branche apres CHAQUE story approuvee et deployee (jamais de merge --no-ff, jamais de commit sur `main` directement). Dernier commit commun aux deux : `401f8939 feat(v5): E10.15a - socle configurable des notifications multicanal`.
+- `main` est tenu **fast-forward synchronise** avec cette branche apres CHAQUE story approuvee et deployee (jamais de merge --no-ff, jamais de commit sur `main` directement). Dernier commit commun aux deux : `1b26f88f feat(v5): E10.15b - ecran de configuration des notifications multicanal`.
 - **PAT Supabase** : redemande a chaque session (regle du projet), utilise pour `supabase db push --linked` et `supabase functions deploy` sur le projet `ightkxebexuzfjdbpsdg`.
 - Deux clones existent sur la machine (voir §"Copie de travail de reference" plus bas dans ce fichier si present, ou `CLAUDE.md` a la racine) — verifier qu on est bien dans le bon dossier avant tout `git`.
 
@@ -25,36 +25,13 @@
 | E10.20a/20b | Lien public de depot (4e mode d authentification), depot de fichier par le client final | **Faille de securite critique trouvee et fermee en qa-review** avant tout deploiement : la fonction de confirmation de depot etait appelable directement avec la cle anon publique, sans verification reelle du fichier |
 | E10.22a-bis/22a/22b/22c/22d | Purge automatique des fichiers de commande a J+30, rappels J+10/J+15 avec preuve de livraison Resend, nettoyage des orphelins, **pilotage par tenant** (desactive par defaut) | Un bug de migration aurait invalide l ETag de TOUS les fichiers deja en prod (ordre trigger/UPDATE inverse) — trouve et corrige avant deploiement. **Le mecanisme est deploye mais INERTE** : aucun `pg_cron` planifie, aucun secret Vault pose — activation deliberement differee |
 | E10.15a | Socle notifications multicanal : catalogue d evenements, modeles, moteur de rendu de balises a grammaire fermee, capability `can_manage_notifications`, apercu SANS envoi | Un bug aurait permis a un tenant de detruire en cascade un modele d un AUTRE tenant (production_step_id sans verification tenant) — corrige |
+| E10.15b | Ecran workspace de configuration des modeles de notification (catalogue d evenements, canal email/sms, audience, apercu sans envoi, insertion de balises au clic) | qa-review 2 rounds (3 bloquants + 4 moyens corriges round 1, APPROUVE round 2). N1 (bornes Zod manquantes sur `recipients`/`subject` dans `validateNotificationTemplateForm`) corrige avant commit en debut de session suivante. Commit `1b26f88f`, pousse et `main` fast-forward le 2026-09-12. Ecran pur, aucun deploiement Supabase necessaire |
 
 Correctif independant deploye : `upsert:false` sur les billets de depot de fichier (E10.17a/E10.20b) — un second PUT sur un billet deja utilise pouvait remplacer le contenu d un fichier deja confirme, contrairement a la decision produit "on ajoute, on ne remplace jamais".
 
-### EN COURS — PAS ENCORE COMMITE, qa-review round 2 TERMINEE (Approuve), commit non fait volontairement (fin de session)
-
-**E10.15b (ecran de configuration des notifications)** — **qa-review round 2 : APPROUVE.** Round 1 avait rejete sur 3 bloquants (fonction de test non appelee en reel pour l insertion de balise, effacement silencieux du filtre d etape de production sur un PATCH si le catalogue a mal charge, controle client plus strict que le serveur sur un changement d audience) + 4 points moyens (conflit 409 sans porte de sortie, erreurs de liste avalees silencieusement, ZodError brute possible sur 2 chemins, etapes desactivees affichees en UUID brut). Le dev-story a tout corrige, verifie par relecture de code reelle (pas de navigateur disponible, comme pour tout ce sprint).
-
-**Reste ouvert a la fin de la session (verdict Approuve, PAS bloquant, mais le reviewer recommande de le traiter avant merge)** :
-- **N1** (recommande de corriger AVANT commit, ~4 lignes) : `validateNotificationTemplateForm` (notification-templates.helpers.ts ~118-137) ne couvre pas 2 bornes du schema Zod (recipients min(3)/max(320) caractere par caractere, subject max(200)) — une ZodError brute (blob JSON) peut encore remonter dans la banniere sur ces 2 cas precis, MEME CLASSE de defaut que M3 deja declare corrige. Le reviewer suggere de le traiter dans ce lot plutot qu en dette.
-- N2/N3/N5/m3 : mineurs, deja consignes comme dette, pas bloquants.
-
-**Prochaine action pour la session qui reprend** : decider si on corrige N1 avant de committer (4 lignes, dev-story ou directement), PUIS committer avec le message qui synthetise les 2 rounds de qa-review (voir le patron des commits precedents de cette session pour le format), `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>` en pied de message (nouvelle regle d attribution de cette session), pousser sur `feat/gescom-e10-4-entite-client`, PAS de deploiement Supabase necessaire (ecran pur, aucune migration/edge function touchee par ce lot), puis fast-forward `main`.
-
-Fichiers non commites sur la branche a ce jour :
-```
-M  src/app/layouts/DashboardLayout.tsx
-M  src/app/surfaces/workspaceRuntimeRoutes.tsx
-M  src/modules/notifications/index.ts
-M  src/shared/presentation/testIds.ts
-M  src/surfaces/application-registry.ts
-?? _bmad-output/implementation-artifacts/story-E10.15b.md
-?? src/modules/notifications/manifest.ts
-?? src/modules/notifications/surface-contributions.ts
-?? src/modules/notifications/ui/**
-?? tests/modules/notifications/notification-templates-ui-helpers.test.ts
-```
-
 ### PAS ENCORE COMMENCE dans le decoupage E10.15
 
-Decoupage arrete par l architecte (docs/api/CONVENTIONS.md §8.23) : (a) socle — FAIT, (b) ecran — EN COURS (voir ci-dessus), (c) chaine d envoi complete sur `order.step_changed` + journal + retention, (d) reste du catalogue d evenements, (e) canal SMS.
+Decoupage arrete par l architecte (docs/api/CONVENTIONS.md §8.23) : (a) socle — FAIT, (b) ecran — FAIT (voir ci-dessus), (c) chaine d envoi complete sur `order.step_changed` + journal + retention — **EN COURS**, (d) reste du catalogue d evenements, (e) canal SMS.
 
 **Reserve ouverte, non bloquante avant (c)/(d)/(e)** : fournisseur SMS non tranche (Arnaud a choisi "a instruire plus tard" le 2026-09-11) — 4 candidats a etudier le moment venu (Brevo, OVHcloud SMS, smsmode/SMSFactor, Twilio/Vonage), le port de canal rend la decision reversible.
 
