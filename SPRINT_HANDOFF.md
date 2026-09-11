@@ -2,7 +2,97 @@
 
 > Document de reprise pour démarrer une nouvelle session de Claude code sur le projet sans recharger tout l'historique. À tenir à jour à chaque fin de sprint.
 >
-> **Dernière mise à jour : 2026-08-20 — refactoring API-first et modulaire clôturé sur `feat/storefront-identity-um2`.**
+> **Dernière mise à jour : 2026-09-12 — Sprint 5 Gestion commerciale (Epic E10), session marathon sur `feat/gescom-e10-4-entite-client`. Contexte de la session precedente sature, transition organisee ici.**
+
+---
+
+## ▶️ ÉTAT COURANT — SPRINT 5, EPIC E10 GESTION COMMERCIALE (2026-09-12)
+
+### Branche et synchronisation
+
+- **Branche de travail unique** : `feat/gescom-e10-4-entite-client` (nom historique, porte en realite tout le lot E10.10b-4/17/19/20/22/15 de cette session — aucune branche par story, pattern deja etabli avant cette session et poursuivi pour rester coherent).
+- `main` est tenu **fast-forward synchronise** avec cette branche apres CHAQUE story approuvee et deployee (jamais de merge --no-ff, jamais de commit sur `main` directement). Dernier commit commun aux deux : `401f8939 feat(v5): E10.15a - socle configurable des notifications multicanal`.
+- **PAT Supabase** : redemande a chaque session (regle du projet), utilise pour `supabase db push --linked` et `supabase functions deploy` sur le projet `ightkxebexuzfjdbpsdg`.
+- Deux clones existent sur la machine (voir §"Copie de travail de reference" plus bas dans ce fichier si present, ou `CLAUDE.md` a la racine) — verifier qu on est bien dans le bon dossier avant tout `git`.
+
+### Ce qui est LIVRE, MERGE et DEPLOYE sur `ightkxebexuzfjdbpsdg` (verifie par qa-review adversariale + execution reelle contre Postgres local a chaque story)
+
+| Story | Contenu | Notes |
+|---|---|---|
+| E10.10b-4a/4b/4c | Gabarit PDF par tenant, editeur de coordonnees, moteur de generation branche sur l envoi de devis (pdf-lib, remplace Gotenberg) | Session precedente + debut de celle-ci |
+| E10.17a/17b | Depot de fichiers par commande (BAT/justificatifs, 50 Mo max), panneau UI | idem |
+| E10.19a/19b | Gabarit + generation du PDF de bon de commande, colonnes `show_discounts`/`customer_reference` gelees a la conversion | qa-review a trouve et corrige une regression potentielle sur E10.13/E10.16 |
+| E10.20a/20b | Lien public de depot (4e mode d authentification), depot de fichier par le client final | **Faille de securite critique trouvee et fermee en qa-review** avant tout deploiement : la fonction de confirmation de depot etait appelable directement avec la cle anon publique, sans verification reelle du fichier |
+| E10.22a-bis/22a/22b/22c/22d | Purge automatique des fichiers de commande a J+30, rappels J+10/J+15 avec preuve de livraison Resend, nettoyage des orphelins, **pilotage par tenant** (desactive par defaut) | Un bug de migration aurait invalide l ETag de TOUS les fichiers deja en prod (ordre trigger/UPDATE inverse) — trouve et corrige avant deploiement. **Le mecanisme est deploye mais INERTE** : aucun `pg_cron` planifie, aucun secret Vault pose — activation deliberement differee |
+| E10.15a | Socle notifications multicanal : catalogue d evenements, modeles, moteur de rendu de balises a grammaire fermee, capability `can_manage_notifications`, apercu SANS envoi | Un bug aurait permis a un tenant de detruire en cascade un modele d un AUTRE tenant (production_step_id sans verification tenant) — corrige |
+
+Correctif independant deploye : `upsert:false` sur les billets de depot de fichier (E10.17a/E10.20b) — un second PUT sur un billet deja utilise pouvait remplacer le contenu d un fichier deja confirme, contrairement a la decision produit "on ajoute, on ne remplace jamais".
+
+### EN COURS — PAS ENCORE COMMITE, qa-review round 2 TERMINEE (Approuve), commit non fait volontairement (fin de session)
+
+**E10.15b (ecran de configuration des notifications)** — **qa-review round 2 : APPROUVE.** Round 1 avait rejete sur 3 bloquants (fonction de test non appelee en reel pour l insertion de balise, effacement silencieux du filtre d etape de production sur un PATCH si le catalogue a mal charge, controle client plus strict que le serveur sur un changement d audience) + 4 points moyens (conflit 409 sans porte de sortie, erreurs de liste avalees silencieusement, ZodError brute possible sur 2 chemins, etapes desactivees affichees en UUID brut). Le dev-story a tout corrige, verifie par relecture de code reelle (pas de navigateur disponible, comme pour tout ce sprint).
+
+**Reste ouvert a la fin de la session (verdict Approuve, PAS bloquant, mais le reviewer recommande de le traiter avant merge)** :
+- **N1** (recommande de corriger AVANT commit, ~4 lignes) : `validateNotificationTemplateForm` (notification-templates.helpers.ts ~118-137) ne couvre pas 2 bornes du schema Zod (recipients min(3)/max(320) caractere par caractere, subject max(200)) — une ZodError brute (blob JSON) peut encore remonter dans la banniere sur ces 2 cas precis, MEME CLASSE de defaut que M3 deja declare corrige. Le reviewer suggere de le traiter dans ce lot plutot qu en dette.
+- N2/N3/N5/m3 : mineurs, deja consignes comme dette, pas bloquants.
+
+**Prochaine action pour la session qui reprend** : decider si on corrige N1 avant de committer (4 lignes, dev-story ou directement), PUIS committer avec le message qui synthetise les 2 rounds de qa-review (voir le patron des commits precedents de cette session pour le format), `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>` en pied de message (nouvelle regle d attribution de cette session), pousser sur `feat/gescom-e10-4-entite-client`, PAS de deploiement Supabase necessaire (ecran pur, aucune migration/edge function touchee par ce lot), puis fast-forward `main`.
+
+Fichiers non commites sur la branche a ce jour :
+```
+M  src/app/layouts/DashboardLayout.tsx
+M  src/app/surfaces/workspaceRuntimeRoutes.tsx
+M  src/modules/notifications/index.ts
+M  src/shared/presentation/testIds.ts
+M  src/surfaces/application-registry.ts
+?? _bmad-output/implementation-artifacts/story-E10.15b.md
+?? src/modules/notifications/manifest.ts
+?? src/modules/notifications/surface-contributions.ts
+?? src/modules/notifications/ui/**
+?? tests/modules/notifications/notification-templates-ui-helpers.test.ts
+```
+
+### PAS ENCORE COMMENCE dans le decoupage E10.15
+
+Decoupage arrete par l architecte (docs/api/CONVENTIONS.md §8.23) : (a) socle — FAIT, (b) ecran — EN COURS (voir ci-dessus), (c) chaine d envoi complete sur `order.step_changed` + journal + retention, (d) reste du catalogue d evenements, (e) canal SMS.
+
+**Reserve ouverte, non bloquante avant (c)/(d)/(e)** : fournisseur SMS non tranche (Arnaud a choisi "a instruire plus tard" le 2026-09-11) — 4 candidats a etudier le moment venu (Brevo, OVHcloud SMS, smsmode/SMSFactor, Twilio/Vonage), le port de canal rend la decision reversible.
+
+### Reste dans le backlog Sprint 5 (Notion, verifie le 2026-09-11)
+
+Le tableau Notion **sous-estime** l avancement : E10.10/17/19/20 y apparaissent encore "Pas commence" alors qu elles sont livrees (lignes parentes jamais mises a jour post-decoupage en sous-stories a/b). Les deux vraies stories restantes :
+- **E10.15** — en cours, voir ci-dessus (c/d/e restantes)
+- **E10.18** — Export XLSX et CSV des commandes pour la comptabilite (P1, effort M, jamais cadree)
+
+### Decisions produit prises cette session (Arnaud), a ne pas rouvrir
+
+- Purge automatique des fichiers : tous fichiers confondus (pas seulement les depots jamais confirmes), point de depart = date de depot de CHAQUE fichier, rappels J+10/J+15, purge J+30, blocage total si rappel jamais confirme livre, aucune exemption possible, pilotage **par tenant** (pas global), **desactive par defaut**.
+- Fichier deja depose : jamais remplace, seulement supprime puis un nouveau ajoute.
+- Retention RGPD des journaux de notification : **90 jours par defaut**, reglable 7-730 jours par tenant (le cadrage initial proposait 12 mois, l architecte a recommande plus court, Arnaud a valide 90j).
+- Textes des 2 emails de rappel de purge (J+10/J+15) : **valides par Arnaud le 2026-09-11**, ne plus les marquer "non valides" dans le code.
+- Textes email "devis avec piece jointe" (premier envoi/renvoi, E10.10b-4c) : **TOUJOURS EN ATTENTE DE VALIDATION**, contrairement aux textes de purge — ne pas confondre les deux, verifier `src/adapters/resend/quote-sent-email-sender.ts` avant toute mise en prod reelle de l envoi de devis avec PDF.
+
+### Dettes de sprint tracees (non bloquantes, jamais propres a une seule story)
+
+- Plafonds numeriques (gabarits PDF, fichiers/commande, liens de depot) non tenus par contrainte en base, uniquement par la fonction applicative.
+- Grant execute des fonctions `api_*` ouvert a `authenticated` sans revalidation des metadonnees declarees contre le fichier reel (plusieurs stories).
+- Comportement navigateur sur `.zip` jamais mesure sur poste reel.
+- E10.17b : icone "fichier introuvable" affichee pour tout echec de telechargement, pas seulement une suppression reelle.
+- E10.22 : pas de purge des objets storage issus d un billet d upload jamais confirme au-dela de 24h — **ferme par E10.22c**, verifie deploye.
+- E10.15a : ambiguite de contrat entre deux codes d erreur pour le refus 403 au champ sur `commercial-settings` (`identity.role_required` vs `identity.capability_required`) — a lever par l architecte, non bloquant.
+- **Aucune verification navigateur live** sur les ecrans UI livres ce sprint (Chrome devtools MCP indisponible dans cet environnement) — toute la garantie repose sur qa-review + tests de contrat/unitaires. A faire en recette manuelle avant mise en production reelle.
+
+### Activation du mecanisme de purge (E10.22a-d) — geste separe, jamais fait
+
+Le mecanisme complet est deploye mais **inerte**. Pour l activer un jour : poser les secrets Vault `magrit_order_file_purge_url`/`magrit_order_file_purge_secret`, puis executer le bloc `cron.schedule` differe documente en pied de `supabase/migrations/20260910000500_gescom_e10_22a_purge_notices.sql`. Reserves encore ouvertes a trancher avant activation reelle : heure du balayage quotidien (05:00 UTC propose), domaine d expedition Resend verifie (sinon aucun email ne part jamais, le systeme echoue proprement mais ne fait rien).
+
+### Methode de travail etablie cette session, a reconduire
+
+Chaque story : cadrage `architecte` (contrat OpenAPI + `docs/api/CONVENTIONS.md`) -> implementation `dev-story` -> **qa-review adversariale par un agent distinct, avec execution reelle contre Postgres local (jamais une simple lecture de code), au moins 2 rounds systematiques** -> commit atomique (1 commit = 1 story) -> `supabase db push` + `supabase functions deploy` immediat -> fast-forward `main`. Cette discipline a trouve une faille de securite critique et plusieurs bugs de migration qui auraient corrompu des donnees de production si elle n avait pas ete suivie — **ne jamais la relacher**, meme sous pression de temps.
+
+**Piege recurrent a surveiller** : des sous-agents `dev-story` lances en parallele du travail interactif ont deja cree par erreur des branches locales separees au lieu de rester sur `feat/gescom-e10-4-entite-client` (recupere par `git branch -vv` + fast-forward manuel a chaque fois). Rappeler explicitement "ne cree aucune branche, verifie `git branch --show-current`" dans chaque prompt de dev-story.
+
+**Risque de collision de working tree** : Arnaud travaille parfois en parallele sur ce meme clone (ex: bascule vers `chore/chat-sonnet-5` pendant cette session). Toujours verifier `git branch --show-current` avant une action git destructive, et isoler son propre travail via `git stash push -u -- <fichiers precis>` plutot qu un `git stash` global si une collision est detectee.
 
 ---
 

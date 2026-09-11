@@ -54,3 +54,5 @@ export {
   type NotificationTemplatesListFilter,
   type NotificationTemplatesRepository,
 } from './application/notification-templates-repository';
+export { notificationsModuleManifest } from './manifest';
+export { notificationsWorkspaceContribution } from './surface-contributions';

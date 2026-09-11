@@ -935,6 +935,48 @@ export const TEST_IDS = {
     retryBtn: 'upload-link-depot-retry-btn',
     successBanner: 'upload-link-depot-success-banner',
   },
+
+  // ─── E10.15b — Ecran de parametrage des modeles de notification ───────────
+  // Liste + editeur (creation/modification), APERCU SANS ENVOI (CA6), AUCUN
+  // mecanisme d envoi ni ecran de journal ici (E10.15c). Testid repris tels
+  // que mandates par la fiche Notion (Hints DOM), verifies contre la
+  // convention `<scope>-<element>[-<modifier>]` de ce fichier avant d etre
+  // declares. `row` porte `data-template-id`/`data-channel`/`data-event`
+  // (meme convention que `pricing.row`/`data-rule-id`) ; `tagInsertBtn` porte
+  // `data-tag`.
+  notificationTemplate: {
+    page: 'notifications-config-page',
+    row: 'notification-template-row',
+    createBtn: 'notification-template-create-btn',
+    eventFilterSelect: 'notification-event-filter-select',
+    channelFilterSelect: 'notification-channel-filter-select',
+    statusFilterSelect: 'notification-status-filter-select',
+    modal: 'notification-template-modal',
+    eventSelect: 'notification-event-select',
+    stepFilterSelect: 'notification-step-filter-select',
+    channelSelect: 'notification-channel-select',
+    audienceSelect: 'notification-audience-select',
+    recipientsInput: 'notification-recipients-input',
+    nameInput: 'notification-name-input',
+    subjectInput: 'notification-subject-input',
+    bodyInput: 'notification-body-input',
+    tagList: 'notification-tag-list',
+    tagInsertBtn: 'notification-tag-insert-btn',
+    activeCheckbox: 'notification-active-checkbox',
+    previewBtn: 'notification-preview-btn',
+    previewPanel: 'notification-preview-panel',
+    smsCharCounter: 'notification-sms-char-counter',
+    saveBtn: 'notification-template-save-btn',
+    errorBanner: 'notification-template-error-banner',
+    // qa-review round 1 (M1) — porte de sortie sur conflit d ETag (409),
+    // meme patron que `documentTemplateFields.conflictDialog`/
+    // `conflictReloadBtn`.
+    conflictDialog: 'notification-template-conflict-dialog',
+    conflictReloadBtn: 'notification-template-conflict-reload-btn',
+    // qa-review round 1 (M2) — erreur visible sur l ouverture/la bascule
+    // d un modele depuis la liste (jusque-la des rejets de promesse non geres).
+    actionErrorBanner: 'notification-template-action-error-banner',
+  },
 } as const;
 
 /**

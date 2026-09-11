@@ -46,6 +46,7 @@ const routeLoaders: Readonly<Record<string, LazyPageLoader>> = Object.freeze({
   // meme charge ici en IMPORT DYNAMIQUE (`lazy()`) : aucun effet sur le
   // bundle de la boutique publique (contrat §8.18 reserve (g)).
   'document-templates.workspace.fields': () => import('@/modules/document-templates/ui').then((module) => ({ default: module.DashboardDocumentTemplateFields })),
+  'notifications.workspace.templates': () => import('@/modules/notifications/ui').then((module) => ({ default: module.DashboardNotificationTemplates })),
 });
 
 export type WorkspaceRuntimeRoute = Readonly<{
