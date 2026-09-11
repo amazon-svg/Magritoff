@@ -1,0 +1,66 @@
+schemaVersion: "1.0"
+id: "E00.00"
+title: "Titre de la spécification"
+status: draft
+revision: 1
+
+source:
+  system: notion
+  pageId: "notion-page-id"
+  url: "https://www.notion.so/..."
+  importedAt: "2026-09-10T12:00:00Z"
+  lastSyncedAt: "2026-09-10T12:00:00Z"
+
+scope:
+  epic: "E00"
+  modules:
+    - example-module
+  surfaces:
+    - workspace
+
+summary: >-
+  Décrire le besoin utilisateur, le problème résolu et le résultat métier
+  attendu, sans détailler l'implémentation technique.
+
+personas:
+  - id: example-persona
+    name: "Persona exemple"
+    goal: "Résultat que cette persona cherche à obtenir."
+
+businessRules:
+  - id: BR-01
+    description: "Règle métier stable et vérifiable."
+    status: active
+
+acceptanceCriteria:
+  - id: CA-01
+    description: "Comportement observable attendu."
+    priority: critical
+    status: active
+    verification:
+      methods:
+        - automated-test
+      references: []
+
+scenarios:
+  - id: SC-01
+    title: "Parcours nominal"
+    kind: nominal
+    persona: example-persona
+    execution: browser-agent
+    linkedCriteria:
+      - CA-01
+    preconditions:
+      - "L'utilisateur est authentifié."
+    startUrl: "/t/example"
+    testData:
+      tenant: "tenant-fixture-a"
+    steps:
+      - action: "L'utilisateur ouvre la fonctionnalité."
+        expected: "La fonctionnalité est visible et utilisable."
+    hints:
+      testIds: []
+      dom: []
+
+openQuestions: []
+exemptions: []

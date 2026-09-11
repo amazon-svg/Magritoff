@@ -1,0 +1,123 @@
+name: quality-audit-advisory
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Périmètre de l audit
+        required: true
+        type: choice
+        default: full
+        options:
+          - diff
+          - module
+          - full
+      module:
+        description: Identifiant du module pour le mode module
+        required: false
+        type: string
+      agent:
+        description: Auditeur optionnel ou liste séparée par des virgules
+        required: false
+        type: string
+      base:
+        description: Référence Git pour le mode diff
+        required: false
+        type: string
+        default: origin/main
+      run_e2e:
+        description: Exécuter Playwright contre l URL fournie
+        required: false
+        type: boolean
+        default: false
+      application_url:
+        description: URL d une application de test déjà déployée
+        required: false
+        type: string
+      run_semantic:
+        description: Activer l analyse LLM avec la configuration du dépôt
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-audit-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    name: Audit qualité informatif
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      QUALITY_RUN_E2E: ${{ inputs.run_e2e && '1' || '0' }}
+      A11Y_BASE_URL: ${{ inputs.application_url }}
+      E2E_BASE_URL: ${{ inputs.application_url }}
+      QUALITY_LLM_BASE_URL: ${{ secrets.QUALITY_LLM_BASE_URL }}
+      QUALITY_LLM_API_KEY: ${{ secrets.QUALITY_LLM_API_KEY }}
+      QUALITY_LLM_MODEL: ${{ vars.QUALITY_LLM_MODEL }}
+      QUALITY_LLM_API: ${{ vars.QUALITY_LLM_API }}
+    steps:
+      - name: Checkout du commit audité
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Installer pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Installer Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Installer les dépendances
+        run: pnpm install --frozen-lockfile
+
+      - name: Exécuter l audit informatif
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          REQUESTED_MODE: ${{ inputs.mode }}
+          REQUESTED_MODULE: ${{ inputs.module }}
+          REQUESTED_AGENT: ${{ inputs.agent }}
+          REQUESTED_BASE: ${{ inputs.base }}
+          RUN_SEMANTIC: ${{ inputs.run_semantic && '1' || '0' }}
+        run: |
+          args=(--mode "${REQUESTED_MODE:-diff}")
+
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            args=(--mode diff --base "$PR_BASE_SHA")
+          elif [[ "${REQUESTED_MODE:-full}" == "diff" ]]; then
+            args+=(--base "${REQUESTED_BASE:-origin/main}")
+          fi
+
+          if [[ "${REQUESTED_MODE:-}" == "module" ]]; then
+            args+=(--module "$REQUESTED_MODULE")
+          fi
+
+          if [[ -n "${REQUESTED_AGENT:-}" ]]; then
+            args+=(--agent "$REQUESTED_AGENT")
+          fi
+
+          if [[ "$EVENT_NAME" == "workflow_dispatch" && "$RUN_SEMANTIC" == "1" ]]; then
+            args+=(--semantic)
+          fi
+
+          pnpm quality:audit "${args[@]}"
+
+      - name: Publier les rapports du run
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-audit-${{ github.run_id }}-${{ github.run_attempt }}
+          path: quality-reports/
+          if-no-files-found: warn
+          retention-days: 30
