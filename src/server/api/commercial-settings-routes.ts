@@ -15,9 +15,13 @@ import {
   updateCommercialSettingsCommandSchema,
 } from '../../modules/commercial-settings/api/contracts.ts';
 import type { CommercialSettingsService } from '../../modules/commercial-settings/application/commercial-settings-service.ts';
-import { CommercialSettingsAccessDeniedError } from '../../modules/commercial-settings/application/commercial-settings-repository.ts';
+import {
+  CommercialSettingsAccessDeniedError,
+  CommercialSettingsFieldCapabilityDeniedError,
+} from '../../modules/commercial-settings/application/commercial-settings-repository.ts';
 import {
   assertPrecondition,
+  capabilityRequired,
   computeEntityTag,
   problem,
   roleRequired,
@@ -58,6 +62,12 @@ export function createCommercialSettingsRoutes(
           // toujours avant un eventuel 409 (`assertPrecondition`) — l ordre
           // promis par `CommercialSettingsService.assertCanManagePricing()`.
           await service.assertCanManagePricing(context.tenantId, actor);
+          // E10.15a — garde AU CHAMP (contrat §8.23 §2), EN PLUS de la garde
+          // d operation ci-dessus, meme ordre (avant toute lecture) : un
+          // acteur qui porte can_manage_pricing mais pas can_manage_notifications
+          // et touche a l un des trois champs de notification recoit 403
+          // identity.capability_required avant tout 409/428.
+          await service.assertCanManageNotificationFields(context.tenantId, actor, input);
 
           const current = await service.get(context.tenantId);
           const currentTag = await computeEntityTag(current);
@@ -88,6 +98,9 @@ async function withDomainErrors<T>(operation: () => Promise<T>): Promise<T> {
   } catch (error) {
     if (error instanceof CommercialSettingsAccessDeniedError) {
       throw roleRequired(['can_manage_pricing']);
+    }
+    if (error instanceof CommercialSettingsFieldCapabilityDeniedError) {
+      throw capabilityRequired(error.capability, error.fields);
     }
     throw error;
   }

@@ -60,6 +60,24 @@ export const SHARED_PROBLEM_CODES = Object.freeze({
    * motif identique.
    */
   uploadLinkInvalid: 'upload_link.invalid',
+  /**
+   * E10.15a — refus AU CHAMP, PAS A L OPERATION (docs/api/CONVENTIONS.md
+   * §8.23 §2 : « un droit dedie, refuse au champ pres, est le chemin »,
+   * `CommercialSettings.notification_retention_days`). L acteur porte deja le
+   * droit MINIMAL exige par `x-required-capabilities` sur l operation (donc
+   * `roleRequired`/`identity.role_required` ne s applique pas — l operation
+   * elle-meme est atteignable), mais pas le droit SUPPLEMENTAIRE exige par un
+   * ou plusieurs champs precis de la commande envoyee.
+   *
+   * CODE NEUF, DISTINCT de `identity.role_required` : ce dernier reste
+   * INCHANGE pour toute garde D OPERATION (E10.11, `ForbiddenCapability`,
+   * qui affirme explicitement ne jamais le renommer) — l introduire ici
+   * serait un changement cassant pour un gain lexical, exactement ce que
+   * cette meme description interdit. `identity.capability_required` est
+   * ADDITIF : il ne remplace aucun code deja publie, il couvre une situation
+   * qu aucun code existant ne decrivait (un refus PLUS FIN que l operation).
+   */
+  capabilityRequired: 'identity.capability_required',
 } as const);
 
 export type SharedProblemCode =
@@ -149,6 +167,20 @@ export function roleRequired(capabilities: readonly string[]): ProblemError {
     title: 'Habilitation insuffisante',
     code: SHARED_PROBLEM_CODES.roleRequired,
     detail: `Cette operation exige le droit : ${capabilities.join(', ')}.`,
+  });
+}
+
+/**
+ * E10.15a — refus AU CHAMP (voir `SHARED_PROBLEM_CODES.capabilityRequired`) :
+ * l acteur atteint l operation mais n a pas le droit supplementaire exige par
+ * les champs `fields` de la commande envoyee.
+ */
+export function capabilityRequired(capability: string, fields: readonly string[]): ProblemError {
+  return problem({
+    status: 403,
+    title: 'Habilitation insuffisante pour ce champ',
+    code: SHARED_PROBLEM_CODES.capabilityRequired,
+    detail: `Le droit ${capability} est requis pour modifier : ${fields.join(', ')}.`,
   });
 }
 

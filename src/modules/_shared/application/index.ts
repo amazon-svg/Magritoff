@@ -32,6 +32,7 @@ export type { CursorPosition, PageParams } from './pagination.ts';
 
 export {
   authenticationRequired,
+  capabilityRequired,
   internalError,
   problem,
   ProblemError,

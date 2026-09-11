@@ -68,6 +68,21 @@ export class SupabaseCommercialSettingsRepository implements CommercialSettingsR
       // ne reimplemente pas.
       patch['order_file_purge_enabled'] = command.order_file_purge_enabled;
     }
+    // E10.15a — les trois reglages de notification. La garde AU CHAMP
+    // (`can_manage_notifications`) est deja verifiee par le SERVICE avant cet
+    // appel (`assertCanManageNotificationFields`) ; le trigger
+    // `commercial_settings_guard_notification_fields` (migration
+    // `20260911010000`) la reimplemente EN BASE, defense en profondeur contre
+    // un appel PostgREST direct.
+    if ('notification_retention_days' in command) {
+      patch['notification_retention_days'] = command.notification_retention_days;
+    }
+    if ('notification_sms_enabled' in command) {
+      patch['notification_sms_enabled'] = command.notification_sms_enabled;
+    }
+    if ('notification_sms_daily_cap' in command) {
+      patch['notification_sms_daily_cap'] = command.notification_sms_daily_cap;
+    }
     const { data, error } = await this.client
       .from('commercial_settings')
       .upsert(patch, { onConflict: 'tenant_id' })
@@ -98,11 +113,18 @@ function toRecord(value: unknown): Record<string, unknown> {
 function toDto(row: Record<string, unknown>): CommercialSettingsDto {
   const rawDays = row['default_validity_days'];
   const rawEnabledAt = row['order_file_purge_enabled_at'] as string | null | undefined;
+  const rawRetentionDays = row['notification_retention_days'];
+  const rawSmsDailyCap = row['notification_sms_daily_cap'];
   return {
     tenant_id: row['tenant_id'] as string,
     default_validity_days:
       rawDays === null || rawDays === undefined ? null : Number(rawDays),
     order_file_purge_enabled: Boolean(row['order_file_purge_enabled']),
+    notification_retention_days:
+      rawRetentionDays === null || rawRetentionDays === undefined ? undefined : Number(rawRetentionDays),
+    notification_sms_enabled: Boolean(row['notification_sms_enabled']),
+    notification_sms_daily_cap:
+      rawSmsDailyCap === null || rawSmsDailyCap === undefined ? undefined : Number(rawSmsDailyCap),
     order_file_purge_effective_from: toEffectivePurgeFrom(rawEnabledAt),
     updated_at: toIsoTimestamp(row['updated_at'] as string),
   };

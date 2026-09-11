@@ -133,4 +133,80 @@ describe('module Reglages commerciaux (E10.10a) contre le contrat', () => {
     const { data } = (await cleared.json()) as { data: CommercialSettingsDto };
     expect(data.default_validity_days).toBeNull();
   });
+
+  it('getCommercialSettings — expose les trois reglages de notification (E10.15a), defauts du contrat', async () => {
+    const response = await call('/api/v1/commercial-settings', { headers: asUser });
+    const { data } = (await response.json()) as { data: CommercialSettingsDto };
+    expect(data.notification_retention_days).toBe(90);
+    expect(data.notification_sms_enabled).toBe(false);
+    expect(data.notification_sms_daily_cap).toBe(200);
+  });
+
+  it('updateCommercialSettings — E10.15a : garde AU CHAMP can_manage_notifications, DISTINCTE de can_manage_pricing (403 identity.capability_required)', async () => {
+    const initial = await call('/api/v1/commercial-settings', { headers: asUser });
+    const etag = initial.headers.get('etag')!;
+
+    // Porte can_manage_pricing (droit MINIMAL de l operation) mais PAS
+    // can_manage_notifications : un champ de PRIX reussit, un champ de
+    // NOTIFICATION est refuse par un code DISTINCT de celui d E10.11.
+    repository.setActorCapabilityForTest(TENANT, USER, 'can_manage_pricing', true);
+    repository.setActorCapabilityForTest(TENANT, USER, 'can_manage_notifications', false);
+
+    const deniedOnNotificationField = await call('/api/v1/commercial-settings', {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': etag },
+      body: JSON.stringify({ notification_retention_days: 30 }),
+    });
+    expect(deniedOnNotificationField.status).toBe(403);
+    expect(((await deniedOnNotificationField.json()) as { code: string }).code).toBe(
+      'identity.capability_required',
+    );
+
+    // Le MEME acteur reussit sur un champ de PRIX (can_manage_pricing seul suffit).
+    const allowedOnPricingField = await call('/api/v1/commercial-settings', {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': etag },
+      body: JSON.stringify({ default_validity_days: 60 }),
+    });
+    await expectContract(allowedOnPricingField, { status: 200, dataSchema: 'CommercialSettings' });
+    const { data: afterPricingWrite } = (await allowedOnPricingField.json()) as { data: CommercialSettingsDto };
+    expect(afterPricingWrite.default_validity_days).toBe(60);
+    // Aucun effet de bord sur les reglages de notification (refuses).
+    expect(afterPricingWrite.notification_retention_days).toBe(90);
+
+    // Un acteur qui porte can_manage_notifications reussit sur les trois champs.
+    repository.setActorCapabilityForTest(TENANT, USER, 'can_manage_notifications', true);
+    const secondEtag = allowedOnPricingField.headers.get('etag')!;
+    const allowedOnNotificationFields = await call('/api/v1/commercial-settings', {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': secondEtag },
+      body: JSON.stringify({
+        notification_retention_days: 30,
+        notification_sms_enabled: true,
+        notification_sms_daily_cap: 50,
+      }),
+    });
+    await expectContract(allowedOnNotificationFields, { status: 200, dataSchema: 'CommercialSettings' });
+    const { data: afterNotificationWrite } = (await allowedOnNotificationFields.json()) as {
+      data: CommercialSettingsDto;
+    };
+    expect(afterNotificationWrite.notification_retention_days).toBe(30);
+    expect(afterNotificationWrite.notification_sms_enabled).toBe(true);
+    expect(afterNotificationWrite.notification_sms_daily_cap).toBe(50);
+  });
+
+  it('updateCommercialSettings — E10.15a : la garde AU CHAMP sort AVANT le 409 de conflit de version (meme ordre que can_manage_pricing)', async () => {
+    repository.setActorCapabilityForTest(TENANT, USER, 'can_manage_pricing', true);
+    repository.setActorCapabilityForTest(TENANT, USER, 'can_manage_notifications', false);
+
+    const response = await call('/api/v1/commercial-settings', {
+      method: 'PATCH',
+      // If-Match volontairement PERIME : sans la garde AU CHAMP en premier,
+      // ce serait un 409 qui sortirait avant le 403 attendu.
+      headers: { ...jsonHeaders, 'If-Match': '"perime"' },
+      body: JSON.stringify({ notification_sms_enabled: true }),
+    });
+    expect(response.status).toBe(403);
+    expect(((await response.json()) as { code: string }).code).toBe('identity.capability_required');
+  });
 });

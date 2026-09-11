@@ -33,11 +33,29 @@ export const defaultValidityDaysSchema = z.number().int().min(1).max(3650).nulla
 export const orderFilePurgeEnabledSchema = z.boolean();
 export const orderFilePurgeEffectiveFromSchema = timestampSchema.nullable();
 
+/**
+ * E10.15a — trois reglages de notification (§8.23 §2). ABSENTS DE `required`
+ * DANS CET INCREMENT (contrat), meme methode que `order_file_purge_enabled`
+ * en son temps : ce lot les sert TOUJOURS via `SupabaseCommercialSettingsRepository`,
+ * l optionalite ne vient que du contrat.
+ *
+ * DEFAUT 90 JOURS : valeur PROPOSEE par le contrat, reserve RGPD (a) NON
+ * TRANCHEE par Arnaud a ce jour (docs/api/CONVENTIONS.md §8.23 §9). Ecrite
+ * telle quelle ici — ce lot ne tranche pas la reserve, il l implemente au
+ * defaut ecrit au contrat.
+ */
+export const notificationRetentionDaysSchema = z.number().int().min(7).max(730);
+export const notificationSmsEnabledSchema = z.boolean();
+export const notificationSmsDailyCapSchema = z.number().int().min(0).max(10000);
+
 export const commercialSettingsSchema = z
   .object({
     tenant_id: uuidSchema,
     default_validity_days: defaultValidityDaysSchema,
     order_file_purge_enabled: orderFilePurgeEnabledSchema.optional(),
+    notification_retention_days: notificationRetentionDaysSchema.optional(),
+    notification_sms_enabled: notificationSmsEnabledSchema.optional(),
+    notification_sms_daily_cap: notificationSmsDailyCapSchema.optional(),
     order_file_purge_effective_from: orderFilePurgeEffectiveFromSchema.optional(),
     updated_at: timestampSchema,
   })
@@ -51,11 +69,26 @@ export const updateCommercialSettingsCommandSchema = z
     // false->true (effet de bord ASSUME, porte cote base par le trigger
     // `commercial_settings_track_purge_activation` — jamais reimplemente ici).
     order_file_purge_enabled: orderFilePurgeEnabledSchema.optional(),
+    // E10.15a — L ECRITURE DE CES TROIS CHAMPS EXIGE EN OUTRE
+    // `can_manage_notifications`, refus AU CHAMP pres (403
+    // `identity.capability_required`), verifie par
+    // `CommercialSettingsService.assertCanManageNotificationFields()` — PAS
+    // ICI : un schema Zod ne connait pas l acteur qui appelle.
+    notification_retention_days: notificationRetentionDaysSchema.optional(),
+    notification_sms_enabled: notificationSmsEnabledSchema.optional(),
+    notification_sms_daily_cap: notificationSmsDailyCapSchema.optional(),
   })
   .strict()
   .refine((value) => Object.keys(value).length > 0, {
     message: 'La modification doit porter au moins un champ.',
   });
+
+/** Champs dont l ecriture exige `can_manage_notifications` EN PLUS du droit minimal `can_manage_pricing` de l operation (contrat §8.23 §2). */
+export const NOTIFICATION_SETTINGS_FIELDS = [
+  'notification_retention_days',
+  'notification_sms_enabled',
+  'notification_sms_daily_cap',
+] as const;
 
 export type CommercialSettingsDto = z.infer<typeof commercialSettingsSchema>;
 export type UpdateCommercialSettingsCommand = z.infer<typeof updateCommercialSettingsCommandSchema>;
@@ -83,5 +116,17 @@ export const COMMERCIAL_SETTINGS_CONTRACT_ALIGNMENT = Object.freeze({
   orderFilePurgeEffectiveFrom: true as AssertAssignable<
     CommercialSettingsDto['order_file_purge_effective_from'],
     CommercialSettingsContract['order_file_purge_effective_from']
+  >,
+  notificationRetentionDays: true as AssertAssignable<
+    CommercialSettingsDto['notification_retention_days'],
+    CommercialSettingsContract['notification_retention_days']
+  >,
+  notificationSmsEnabled: true as AssertAssignable<
+    CommercialSettingsDto['notification_sms_enabled'],
+    CommercialSettingsContract['notification_sms_enabled']
+  >,
+  notificationSmsDailyCap: true as AssertAssignable<
+    CommercialSettingsDto['notification_sms_daily_cap'],
+    CommercialSettingsContract['notification_sms_daily_cap']
   >,
 });

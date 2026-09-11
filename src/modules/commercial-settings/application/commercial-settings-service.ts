@@ -1,9 +1,17 @@
 import type { TenantId, UserId } from '../../../kernel/ids/index.ts';
-import type { CommercialSettingsDto, UpdateCommercialSettingsCommand } from '../api/contracts.ts';
+import {
+  NOTIFICATION_SETTINGS_FIELDS,
+  type CommercialSettingsDto,
+  type UpdateCommercialSettingsCommand,
+} from '../api/contracts.ts';
 import {
   CommercialSettingsAccessDeniedError,
+  CommercialSettingsFieldCapabilityDeniedError,
   type CommercialSettingsRepository,
 } from './commercial-settings-repository.ts';
+
+/** Droit supplementaire exige, AU CHAMP pres, pour ecrire les trois reglages de notification (E10.15a, contrat §8.23 §2). */
+const CAN_MANAGE_NOTIFICATIONS = 'can_manage_notifications';
 
 export type CommercialSettingsServiceDependencies = Readonly<{
   repository: CommercialSettingsRepository;
@@ -50,6 +58,29 @@ export class CommercialSettingsService {
     command: UpdateCommercialSettingsCommand,
   ): Promise<CommercialSettingsDto> {
     await this.assertCanManagePricing(tenantId, actor);
+    await this.assertCanManageNotificationFields(tenantId, actor, command);
     return this.repository.update(tenantId, command);
+  }
+
+  /**
+   * E10.15a — garde AU CHAMP (contrat §8.23 §2), distincte et EN PLUS de
+   * `assertCanManagePricing` : n examine que les trois champs de notification
+   * de `command`, jamais l operation entiere. Un acteur qui ne touche a AUCUN
+   * de ces trois champs ne declenche AUCUN appel supplementaire — meme
+   * discipline de garde PUBLIQUE, appelee explicitement par la route AVANT
+   * toute lecture de la ressource courante (`assertCanManagePricing`).
+   */
+  async assertCanManageNotificationFields(
+    tenantId: TenantId,
+    actor: UserId,
+    command: UpdateCommercialSettingsCommand,
+  ): Promise<void> {
+    const touchedFields = NOTIFICATION_SETTINGS_FIELDS.filter((field) => field in command);
+    if (touchedFields.length === 0) return;
+
+    const authorized = await this.repository.actorHasCapability(tenantId, actor, CAN_MANAGE_NOTIFICATIONS);
+    if (!authorized) {
+      throw new CommercialSettingsFieldCapabilityDeniedError(CAN_MANAGE_NOTIFICATIONS, touchedFields);
+    }
   }
 }

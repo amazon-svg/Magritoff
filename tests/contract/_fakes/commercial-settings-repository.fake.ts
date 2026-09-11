@@ -44,6 +44,10 @@ export class InMemoryCommercialSettingsRepository implements CommercialSettingsR
       tenant_id: tenantId,
       default_validity_days: null,
       order_file_purge_enabled: false,
+      // E10.15a — memes defauts que la migration `20260911010000`.
+      notification_retention_days: 90,
+      notification_sms_enabled: false,
+      notification_sms_daily_cap: 200,
       order_file_purge_effective_from: null,
       updated_at: new Date().toISOString(),
     };
@@ -77,6 +81,15 @@ export class InMemoryCommercialSettingsRepository implements CommercialSettingsR
         ? { default_validity_days: command.default_validity_days ?? null }
         : {}),
       order_file_purge_enabled: enabled,
+      ...('notification_retention_days' in command
+        ? { notification_retention_days: command.notification_retention_days }
+        : {}),
+      ...('notification_sms_enabled' in command
+        ? { notification_sms_enabled: command.notification_sms_enabled }
+        : {}),
+      ...('notification_sms_daily_cap' in command
+        ? { notification_sms_daily_cap: command.notification_sms_daily_cap }
+        : {}),
       order_file_purge_effective_from: effectivePurgeFrom(enabledAt),
       updated_at: new Date().toISOString(),
     };

@@ -10,6 +10,25 @@ export class CommercialSettingsAccessDeniedError extends Error {
 }
 
 /**
+ * E10.15a — l acteur porte le droit MINIMAL de l operation (`can_manage_pricing`)
+ * mais pas `can_manage_notifications`, requis EN PLUS pour ecrire un ou
+ * plusieurs des trois champs de notification (contrat §8.23 §2 : « refus au
+ * CHAMP pres »). DISTINCT de `CommercialSettingsAccessDeniedError` : la route
+ * traduit celle-ci en 403 `identity.capability_required`
+ * (`capabilityRequired()`), jamais en `identity.role_required`.
+ */
+export class CommercialSettingsFieldCapabilityDeniedError extends Error {
+  constructor(
+    readonly capability: string,
+    readonly fields: readonly string[],
+    message = `Le droit ${capability} est requis pour modifier : ${fields.join(', ')}.`,
+  ) {
+    super(message);
+    this.name = 'CommercialSettingsFieldCapabilityDeniedError';
+  }
+}
+
+/**
  * Port (interface) du referentiel Reglages commerciaux. L implementation
  * Supabase vit dans src/adapters/supabase/commercial-settings-repository.ts.
  */
