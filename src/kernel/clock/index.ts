@@ -21,4 +21,4 @@ export {
   endOfDayInReferenceTimeZone,
   PRODUCT_REFERENCE_TIME_ZONE,
   startOfDayInReferenceTimeZone,
-} from './timezone';
+} from './timezone.ts';
