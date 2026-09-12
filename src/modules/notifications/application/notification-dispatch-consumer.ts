@@ -1,18 +1,20 @@
 /**
- * Consommateur outbox des evenements notifiables SANS rendu differe (story
- * E10.15c pour `order.step_changed`, etendu par E10.15d-1 a `quote.sent`,
- * `quote.converted` et `customer.created` — docs/api/CONVENTIONS.md §8.23
- * §8, §11.5 : « ces trois evenements sont INDEPENDANTS de l arbitrage du
- * point 11 [...] mise en file et remise sont EXACTEMENT celles d E10.15c »).
- * `order.files_submitted` (fenetre de regroupement, balise `delivery`) reste
- * HORS PERIMETRE de ce lot — E10.15d-2.
+ * Consommateur outbox des cinq evenements notifiables (story E10.15c pour
+ * `order.step_changed`, etendu par E10.15d-1 a `quote.sent`,
+ * `quote.converted`, `customer.created`, puis par E10.15d-2 a
+ * `order.files_submitted` — docs/api/CONVENTIONS.md §8.23 §8, §11.5 : « ces
+ * trois [quatre premiers] evenements sont INDEPENDANTS de l arbitrage du
+ * point 11 [...] mise en file et remise sont EXACTEMENT celles d E10.15c » ;
+ * `order.files_submitted` EMPRUNTE le chemin differe du point 11, SEUL
+ * evenement a le faire aujourd hui).
  *
  * MET EN FILE, NE FAIT AUCUN APPEL RESEAU (§8.23 §3(b)) : resout les modeles
  * ACTIFS pour l evenement (filtre d etape compris sur `order.step_changed`
- * SEUL), rend le texte via le moteur de rendu deja livre (E10.15a), insere
- * dans `notification_logs` et rend `delivered: true`. Tout le travail
- * incertain (joindre un prestataire, reessayer, abandonner) est de l autre
- * cote de la file (`NotificationSender`).
+ * SEUL), rend le texte via le moteur de rendu deja livre (E10.15a, +
+ * `renderNotificationTagsWithDeferred` depuis E10.15d-2 sur
+ * `order.files_submitted`), insere dans `notification_logs` et rend
+ * `delivered: true`. Tout le travail incertain (joindre un prestataire,
+ * reessayer, abandonner) est de l autre cote de la file (`NotificationSender`).
  *
  * IDEMPOTENT : la mise en file passe par `NotificationLogsWriteGateway.enqueue()`,
  * garantie unique par `(event_id, template_id, destinataire)` EN BASE — un
@@ -30,8 +32,13 @@
  */
 import type { ClaimedOutboxEvent, OutboxConsumeResult, OutboxEventConsumer } from '../../_shared/application/index.ts';
 import type { TenantId } from '../../../kernel/ids/index.ts';
-import { renderNotificationTags } from './notification-tag-renderer.ts';
-import { coalescingWindowMinutesForEvent } from './notification-event-catalog.ts';
+import {
+  extractNotificationTagTokens,
+  renderNotificationTags,
+  renderNotificationTagsWithDeferred,
+  type DeferredRenderPayload,
+} from './notification-tag-renderer.ts';
+import { coalescingWindowMinutesForEvent, deferredTagsForEvent } from './notification-event-catalog.ts';
 import type { NotificationChannel, NotificationEventName } from '../api/contracts.ts';
 
 // ---------------------------------------------------------------------------
@@ -110,6 +117,20 @@ export type QuoteSentDispatchContext = CustomerNotificationContext &
     quoteValidUntil: string | null;
   }>;
 
+/**
+ * Contexte de `order.files_submitted` (E10.15d-2) : le contexte partage +
+ * `order.customer_reference`, LU A LA REMISE depuis `commercial_orders`
+ * (meme discipline que `OrderStepChangedDispatchContext.orderCustomerReference`).
+ * `files.count` (balise `delivery`, §8.23 point 11) N EST PAS ICI : elle
+ * n est JAMAIS resolue a la mise en file, uniquement a la remise
+ * (`NotificationSender`, `occurrence_count` arrete a la reclamation).
+ */
+export type OrderFilesSubmittedDispatchContext = CustomerNotificationContext &
+  Readonly<{
+    /** `commercial_orders.customer_reference` — `null` tant qu aucune source amont ne l alimente (meme dette documentee que sur `order.step_changed`). */
+    orderCustomerReference: string | null;
+  }>;
+
 /** Destinataire « customer » resolu A LA REMISE — meme doctrine que `QuoteNotificationRecipient` (commercial-quotes) : comptes boutique ACTIFS ou INVITES, rattaches via `customer_contacts` au client de l evenement. */
 export type NotificationRecipient = Readonly<{
   email: string;
@@ -145,6 +166,13 @@ export interface NotificationDispatchGateway {
     customerId: string,
   ): Promise<QuoteSentDispatchContext | null>;
 
+  /** Contexte de `order.files_submitted` (E10.15d-2). `null` si la commande/le client/le tenant est introuvable dans ce tenant — defensif. */
+  getOrderFilesSubmittedContext(
+    tenantId: TenantId,
+    orderId: string,
+    customerId: string,
+  ): Promise<OrderFilesSubmittedDispatchContext | null>;
+
   /**
    * Modeles ACTIFS de cet evenement, liste vide = cas NOMINAL (aucun modele
    * configure, §8.23 point (h)). `toStepId` ne s applique qu a
@@ -178,6 +206,17 @@ export type EnqueuedNotificationMessage = Readonly<{
   body: string;
   /** Motif d abandon, ssi `status = 'dropped'` — sinon `null`. */
   lastError: string | null;
+  /**
+   * RENDU DIFFERE (E10.15d-2, §8.23 point 11) — `null` dans TOUS les cas
+   * d E10.15c/E10.15d-1 (chemin INCHANGE, octet pour octet). Non nul
+   * UNIQUEMENT quand l entree est inseree `pending`, que
+   * `coalescingWindowMinutes > 0` ET qu au moins une balise `delivery`
+   * (`files.count`) figure dans le sujet OU le corps du modele — voir
+   * `enqueueOne`. Persiste dans `notification_logs.deferred_render` (colonne
+   * INTERNE, jamais exposee par l API), scelle a `null` par `NotificationSender`
+   * au passage vers un statut terminal.
+   */
+  deferredRender: DeferredRenderPayload | null;
 }>;
 
 export interface NotificationLogsWriteGateway {
@@ -191,9 +230,10 @@ export interface NotificationLogsWriteGateway {
    * aggregate_id, destinataire)` accueille l occurrence (`occurrence_count +
    * 1`) plutot que d en ouvrir un second. `coalescingWindowMinutes` est lu
    * depuis le catalogue d evenements (`coalescingWindowMinutesForEvent`),
-   * JAMAIS en dur : `0` pour les quatre evenements branches par ce lot
+   * JAMAIS en dur : `0` pour quatre des cinq evenements branches
    * (order.step_changed, quote.sent, quote.converted, customer.created),
-   * donc cette branche ne s execute jamais ici — voir
+   * donc cette branche ne s execute jamais pour eux ; `10` pour
+   * `order.files_submitted` (E10.15d-2), SEUL a l emprunter reellement — voir
    * `api_enqueue_notification_message` (migration).
    */
   enqueue(
@@ -300,6 +340,41 @@ function parseCustomerCreatedPayload(payload: ClaimedOutboxEvent['payload']): Cu
   return { customer_id: customerId };
 }
 
+/**
+ * Forme validee de `OrderFilesSubmittedPayload` (contrat, emise PAR FICHIER
+ * par `OrderUploadLinksService.confirmFileUpload`), PARSEE ICI (meme motif
+ * que les quatre autres — aucune dependance croisee entre modules metier).
+ * `file_id`/`upload_link_id` ne sont lus par AUCUNE balise du catalogue :
+ * captures pour completude du typage, jamais utilises au rendu.
+ */
+type OrderFilesSubmittedEventPayload = Readonly<{
+  file_id: string;
+  upload_link_id: string;
+  order_id: string;
+  order_number: string;
+  customer_id: string;
+}>;
+
+function parseOrderFilesSubmittedPayload(
+  payload: ClaimedOutboxEvent['payload'],
+): OrderFilesSubmittedEventPayload | null {
+  const fileId = payload['file_id'];
+  const uploadLinkId = payload['upload_link_id'];
+  const orderId = payload['order_id'];
+  const orderNumber = payload['order_number'];
+  const customerId = payload['customer_id'];
+  if (
+    typeof fileId !== 'string' ||
+    typeof uploadLinkId !== 'string' ||
+    typeof orderId !== 'string' ||
+    typeof orderNumber !== 'string' ||
+    typeof customerId !== 'string'
+  ) {
+    return null;
+  }
+  return { file_id: fileId, upload_link_id: uploadLinkId, order_id: orderId, order_number: orderNumber, customer_id: customerId };
+}
+
 export type NotificationDispatchConsumerDependencies = Readonly<{
   gateway: NotificationDispatchGateway;
   logs: NotificationLogsWriteGateway;
@@ -312,6 +387,7 @@ const HANDLED_EVENT_NAMES: ReadonlySet<string> = new Set([
   'quote.sent',
   'quote.converted',
   'customer.created',
+  'order.files_submitted',
 ]);
 
 export class NotificationDispatchConsumer implements OutboxEventConsumer {
@@ -319,9 +395,8 @@ export class NotificationDispatchConsumer implements OutboxEventConsumer {
 
   async consume(event: ClaimedOutboxEvent): Promise<OutboxConsumeResult> {
     if (!HANDLED_EVENT_NAMES.has(event.name)) {
-      // Defensif : ce consommateur n est cable QUE sur ces quatre evenements
-      // (perimetre E10.15c + E10.15d-1, §8.23 §8/§11.5) — `order.files_submitted`
-      // (fenetre de regroupement, rendu differe) reste HORS PERIMETRE, E10.15d-2.
+      // Defensif : ce consommateur est desormais cable sur les CINQ evenements
+      // notifiables (§8.23 §8/§11.5, perimetre E10.15c + E10.15d-1 + E10.15d-2).
       return { delivered: true };
     }
 
@@ -339,6 +414,8 @@ export class NotificationDispatchConsumer implements OutboxEventConsumer {
         return this.consumeQuoteConverted(event, baseUrl);
       case 'customer.created':
         return this.consumeCustomerCreated(event, baseUrl);
+      case 'order.files_submitted':
+        return this.consumeOrderFilesSubmitted(event, baseUrl);
       default:
         return { delivered: true };
     }
@@ -518,8 +595,76 @@ export class NotificationDispatchConsumer implements OutboxEventConsumer {
   }
 
   /**
+   * `order.files_submitted` (E10.15d-2) — SEUL evenement a emprunter le
+   * chemin de rendu DIFFERE (§8.23 point 11). Emis A CHAQUE FICHIER
+   * (`OrderUploadLinksService.confirmFileUpload`) — le regroupement
+   * (`coalescing_window_minutes: 10`, catalogue) absorbe les occurrences
+   * rapprochees SUR LE MEME (template, commande, destinataire), voir
+   * `api_enqueue_notification_message`.
+   *
+   * `files.count` VAUT `'1'` DANS `commonContext` (point 11.1, dernier
+   * paragraphe) : cette valeur n est UTILISEE QUE par le chemin NON differe
+   * (`enqueueOne`, quand `shouldDefer` est faux — entree `dropped`, ou modele
+   * n employant pas la balise) — « une entree dropped n est jamais reclamee
+   * ni regroupee : son occurrence_count vaut 1 POUR TOUJOURS, donc "1" est la
+   * valeur EXACTE, pas une approximation ». Le chemin DIFFERE (`shouldDefer`
+   * vrai) IGNORE cette valeur : `renderNotificationTagsWithDeferred` segmente
+   * `{{files.count}}` sans jamais lire `context['files.count']`.
+   */
+  private async consumeOrderFilesSubmitted(event: ClaimedOutboxEvent, baseUrl: string): Promise<OutboxConsumeResult> {
+    const payload = parseOrderFilesSubmittedPayload(event.payload);
+    if (!payload) {
+      return {
+        delivered: false,
+        reason:
+          'order.files_submitted: charge utile invalide (file_id/upload_link_id/order_id/order_number/customer_id attendus)',
+      };
+    }
+
+    const templates = await this.dependencies.gateway.findActiveTemplates(event.tenantId, 'order.files_submitted', null);
+    if (templates.length === 0) {
+      // Aucun modele actif : NOMINAL (§8.23 point (h)).
+      return { delivered: true };
+    }
+
+    const context = await this.dependencies.gateway.getOrderFilesSubmittedContext(
+      event.tenantId,
+      payload.order_id,
+      payload.customer_id,
+    );
+    if (!context) {
+      // Defensif : la commande/le client vient d etre resolu sur ce meme evenement.
+      return { delivered: true };
+    }
+
+    const commonContext: Record<string, string> = {
+      'tenant.name': context.tenantName,
+      'customer.company_name': context.customerCompanyName ?? '',
+      'order.number': payload.order_number,
+      'order.customer_reference': context.orderCustomerReference ?? '',
+      // Valeur de repli du chemin NON differe UNIQUEMENT (voir le
+      // commentaire de methode ci-dessus) — le chemin differe l ignore.
+      'files.count': '1',
+    };
+
+    for (const template of templates) {
+      const outcome = await this.dispatchTemplate(
+        event,
+        'order.files_submitted',
+        payload.customer_id,
+        context.customerDefaultContactName,
+        commonContext,
+        template,
+        baseUrl,
+      );
+      if (!outcome.delivered) return outcome;
+    }
+    return { delivered: true };
+  }
+
+  /**
    * Resout les destinataires d UN modele et met en file un message par
-   * destinataire — PARTAGE par les quatre evenements : seuls `customerId`,
+   * destinataire — PARTAGE par les cinq evenements : seuls `customerId`,
    * `customerDefaultContactName` et `commonContext` (deja construits par
    * l appelant, specifiques a l evenement) different d un evenement a
    * l autre. Meme logique EXACTE que la version E10.15c a laquelle
@@ -594,6 +739,17 @@ export class NotificationDispatchConsumer implements OutboxEventConsumer {
     return { delivered: true };
   }
 
+  /**
+   * RENDU DIFFERE (E10.15d-2, §8.23 point 11.3 §1-2) : le rendu differe ne
+   * s applique QUE si l entree est inseree `pending`, que la fenetre de
+   * regroupement de l evenement est STRICTEMENT POSITIVE, ET qu au moins une
+   * balise `delivery` figure dans le sujet OU le corps du modele (jamais
+   * juste parce que l evenement EN PROPOSE une au catalogue — un modele qui
+   * n emploie pas `{{files.count}}` n a besoin d aucun rendu differe). Dans
+   * TOUT autre cas — fenetre nulle, entree `dropped`, aucune balise differee
+   * employee — le chemin est EXACTEMENT celui d E10.15c/E10.15d-1,
+   * `deferredRender` reste `null`.
+   */
   private async enqueueOne(
     event: ClaimedOutboxEvent,
     eventName: NotificationEventName,
@@ -605,11 +761,42 @@ export class NotificationDispatchConsumer implements OutboxEventConsumer {
       context: Record<string, string>;
     }>,
   ): Promise<OutboxConsumeResult> {
-    const subject =
-      template.channel === 'email' && template.subject !== null
-        ? renderNotificationTags(template.subject, input.context)
-        : null;
-    const body = renderNotificationTags(template.body, input.context);
+    const coalescingWindowMinutes = coalescingWindowMinutesForEvent(eventName);
+    const deferredTags = deferredTagsForEvent(eventName);
+    const rawSubject = template.channel === 'email' && template.subject !== null ? template.subject : null;
+    const rawBody = template.body;
+
+    const shouldDefer =
+      input.status === 'pending' &&
+      coalescingWindowMinutes > 0 &&
+      deferredTags.size > 0 &&
+      ((rawSubject !== null && extractNotificationTagTokens(rawSubject).some((tag) => deferredTags.has(tag))) ||
+        extractNotificationTagTokens(rawBody).some((tag) => deferredTags.has(tag)));
+
+    let subject: string | null;
+    let body: string;
+    let deferredRender: EnqueuedNotificationMessage['deferredRender'] = null;
+
+    if (shouldDefer) {
+      // Point 11.3 §2 : renduDIFFERE pour le sujet ET pour le corps — le
+      // sujet est `null` sur SMS (aucun sujet), et peut aussi ne contenir
+      // AUCUNE balise differee (le texte provisoire vaut alors le texte
+      // FINAL, en un seul segment litteral — cas legitime, pas une erreur).
+      const bodyRender = renderNotificationTagsWithDeferred(rawBody, input.context, deferredTags);
+      body = bodyRender.text;
+      let subjectSegments: DeferredRenderPayload['subject'] = null;
+      if (rawSubject !== null) {
+        const subjectRender = renderNotificationTagsWithDeferred(rawSubject, input.context, deferredTags);
+        subject = subjectRender.text;
+        subjectSegments = subjectRender.segments;
+      } else {
+        subject = null;
+      }
+      deferredRender = { subject: subjectSegments, body: bodyRender.segments };
+    } else {
+      subject = rawSubject !== null ? renderNotificationTags(rawSubject, input.context) : null;
+      body = renderNotificationTags(rawBody, input.context);
+    }
 
     try {
       await this.dependencies.logs.enqueue(
@@ -622,8 +809,8 @@ export class NotificationDispatchConsumer implements OutboxEventConsumer {
           // `eventName` (parametre, `NotificationEventName`), pas `event.name`
           // (`EventNameDto`, le vocabulaire GENERAL du bus, plus large que le
           // sous-ensemble NOTIFIABLE) : `consume()` a deja aiguille sur l un
-          // des quatre evenements geres avant d atteindre ce point.
-          coalescingWindowMinutes: coalescingWindowMinutesForEvent(eventName),
+          // des cinq evenements geres avant d atteindre ce point.
+          coalescingWindowMinutes,
         },
         {
           templateId: template.id,
@@ -633,6 +820,7 @@ export class NotificationDispatchConsumer implements OutboxEventConsumer {
           subject,
           body,
           lastError: input.lastError,
+          deferredRender,
         },
       );
     } catch (error) {

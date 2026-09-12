@@ -43,18 +43,18 @@ export type OutboxDispatchApplicationDependencies = Readonly<{
 }>;
 
 /**
- * Compose le drain. Cinq `event_name` ont desormais un consommateur :
+ * Compose le drain. Six `event_name` ont desormais un consommateur :
  * `quote.sent` -> [notifications configurees, PUIS courriel client]
  * (E10.10b-3 + E10.15d-1, ORDRE OPPOSABLE, voir plus bas), `order_files.
  * purge_scheduled` -> rappel de purge (E10.22a), `order.step_changed` ->
  * mise en file des notifications configurees (E10.15c), `quote.converted`
  * et `customer.created` -> mise en file des notifications configurees
- * (E10.15d-1). Tout AUTRE `event_name` (`quote.created`/`quote.accepted`/
- * `quote.rejected`/`order.files_submitted`…) est LIVRE sans traitement par
- * le socle (`OutboxDispatcher`, "aucun consommateur enregistre" —
- * §8.13sexies point 3), PAS un oubli de cablage : `order.files_submitted`
- * reste HORS PERIMETRE de ce lot (fenetre de regroupement + rendu differe,
- * E10.15d-2, §8.23 §11.5).
+ * (E10.15d-1), `order.files_submitted` -> mise en file des notifications
+ * configurees AVEC rendu differe (E10.15d-2, §8.23 point 11 : fenetre de
+ * regroupement de 10 min, `{{files.count}}` arrete a la reclamation). Tout
+ * AUTRE `event_name` (`quote.created`/`quote.accepted`/`quote.rejected`…)
+ * est LIVRE sans traitement par le socle (`OutboxDispatcher`, "aucun
+ * consommateur enregistre" — §8.13sexies point 3).
  *
  * Chaque entree du registre est un `CompositeOutboxConsumer` (E10.15c,
  * contrat §8.23 §3(a)), MEME quand elle ne compose qu un seul consommateur :
@@ -105,15 +105,17 @@ export function createOutboxDispatchApplication(
     ...(dependencies.fetchImplementation ? { fetchImplementation: dependencies.fetchImplementation } : {}),
   });
 
-  // E10.15c + E10.15d-1 — mise en file (JAMAIS d envoi reseau) des
-  // notifications configurees sur `order.step_changed` (E10.15c), `quote.sent`,
-  // `quote.converted` et `customer.created` (E10.15d-1, §8.23 §11.5 : ces
-  // trois derniers sont INDEPENDANTS du rendu differe, meme chemin EXACT
-  // qu order.step_changed). MEME client `service_role` : la lecture du
-  // contexte (agregat) et l ecriture idempotente/regroupante dans
-  // `notification_logs` passent toutes deux par des chemins reserves a ce
-  // role. UNE SEULE INSTANCE, composee sur les QUATRE evenements ci-dessous
-  // (elle route elle-meme sur `event.name`, §8.23).
+  // E10.15c + E10.15d-1 + E10.15d-2 — mise en file (JAMAIS d envoi reseau)
+  // des notifications configurees sur `order.step_changed` (E10.15c),
+  // `quote.sent`, `quote.converted` et `customer.created` (E10.15d-1, §8.23
+  // §11.5 : ces trois derniers sont INDEPENDANTS du rendu differe, meme
+  // chemin EXACT qu order.step_changed) et `order.files_submitted`
+  // (E10.15d-2, SEUL a emprunter le rendu differe de `{{files.count}}`).
+  // MEME client `service_role` : la lecture du contexte (agregat) et
+  // l ecriture idempotente/regroupante dans `notification_logs` passent
+  // toutes deux par des chemins reserves a ce role. UNE SEULE INSTANCE,
+  // composee sur les CINQ evenements ci-dessous (elle route elle-meme sur
+  // `event.name`, §8.23).
   const notificationDispatchGateway = new SupabaseNotificationDispatchGateway(dependencies.serviceRoleClient);
   const notificationDispatchConsumer = new NotificationDispatchConsumer({
     gateway: notificationDispatchGateway,
@@ -130,6 +132,11 @@ export function createOutboxDispatchApplication(
     'order.step_changed': new CompositeOutboxConsumer([notificationDispatchConsumer]),
     'quote.converted': new CompositeOutboxConsumer([notificationDispatchConsumer]),
     'customer.created': new CompositeOutboxConsumer([notificationDispatchConsumer]),
+    // E10.15d-2 — SEUL evenement a emprunter le rendu differe (§8.23 point
+    // 11) : le consommateur reste IDEMPOTENT/SANS APPEL RESEAU, exactement
+    // comme les quatre autres, c est `NotificationSender` (drain d envoi
+    // separe) qui applique le sceau a la remise.
+    'order.files_submitted': new CompositeOutboxConsumer([notificationDispatchConsumer]),
   };
 
   const dispatcher = new OutboxDispatcher({

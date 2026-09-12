@@ -15,8 +15,8 @@ export const notificationsModuleManifest = defineModuleManifest({
     {
       // E10.15d-1 — l ecran du journal (`GET /notification-logs`, table
       // posee par E10.15c). `quote.sent`/`quote.converted`/`customer.created`
-      // sont branches par ce meme lot ; `order.files_submitted` et le rendu
-      // differe de `{{files.count}}` restent E10.15d-2.
+      // branches par ce meme lot ; `order.files_submitted` et le rendu
+      // differe de `{{files.count}}` branches par E10.15d-2.
       id: 'notifications.workspace-logs',
       description: 'Consulter le journal des notifications envoyees, tentees ou abandonnees pour le tenant.',
     },

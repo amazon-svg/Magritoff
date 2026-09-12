@@ -209,6 +209,21 @@ export function eventSupportsStepFilter(eventName: NotificationEventName): boole
 }
 
 /**
+ * Sous-ensemble de `allowedTagsForEvent(eventName)` dont `render_stage` vaut
+ * `delivery` — SOURCE UNIQUE lue par la mise en file
+ * (`NotificationDispatchConsumer`, story E10.15d-2, §8.23 point 11.3 §1 :
+ * « jamais une liste en dur : meme discipline que
+ * coalescingWindowMinutesForEvent, une seule verite »). Aujourd hui, seule
+ * `order.files_submitted` en propose une (`files.count`) — un evenement
+ * inconnu ou sans balise differee rend un ensemble VIDE, jamais une erreur.
+ */
+export function deferredTagsForEvent(eventName: NotificationEventName): ReadonlySet<string> {
+  const definition = EVENT_DEFINITIONS_BY_NAME.get(eventName);
+  if (!definition) return new Set();
+  return new Set(definition.tags.filter((id) => TAG_DEFINITIONS[id].renderStage === 'delivery'));
+}
+
+/**
  * Fenetre de regroupement DE L EVENEMENT (0-120 min), SOURCE UNIQUE lue par
  * la mise en file (`NotificationDispatchConsumer` -> `NotificationLogsWriteGateway.enqueue()`
  * -> `api_enqueue_notification_message`, colonne `notification_logs.

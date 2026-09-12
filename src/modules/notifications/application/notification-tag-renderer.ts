@@ -134,3 +134,120 @@ export function renderNotificationTags(text: string, context: Readonly<Record<st
   output += text.slice(cursor);
   return output;
 }
+
+/**
+ * RENDU DIFFERE (arbitrage architecte du 2026-09-12, §8.23 point 11) —
+ * balises `render_stage: 'delivery'` (`files.count` SEULE aujourd hui),
+ * arretees A LA REMISE plutot qu a la mise en file.
+ *
+ * PIEGE A NE PAS PRENDRE (point 11.1) : stocker le corps PARTIELLEMENT rendu
+ * (balise differee laissee en clair) puis, A LA REMISE, RE-BALAYER ce corps
+ * pour y substituer la balise violerait FRONTALEMENT la propriete du moteur
+ * (« une valeur substituee n est jamais re-balayee ») — un client dont la
+ * raison sociale contiendrait litteralement `{{files.count}}` verrait sa
+ * raison sociale transformee en nombre au second passage.
+ *
+ * CE QUI EST FAIT A LA PLACE : le balayage UNIQUE (celui-ci, appele UNE SEULE
+ * FOIS a la mise en file) produit DEUX sorties — le texte PROVISOIRE (balises
+ * `enqueue` deja substituees, balises `deferred` LAISSEES EN CLAIR) ET la
+ * liste des SEGMENTS (litteral | balise differee) qui permet, a la remise, de
+ * RECONSTITUER le texte final par simple CONCATENATION (`joinDeferredSegments`,
+ * ci-dessous) — JAMAIS un second balayage. Une occurrence de `{{files.count}}`
+ * venue d une donnee CLIENT se trouve, par construction, A L INTERIEUR d un
+ * segment LITTERAL (elle a ete recopiee telle quelle, comme tout texte
+ * litteral) et ne peut donc JAMAIS etre resolue par `joinDeferredSegments`.
+ */
+export type RenderedSegment =
+  | Readonly<{ kind: 'literal'; text: string }>
+  | Readonly<{ kind: 'tag'; id: string }>;
+
+/** Texte provisoire + segments, tel que STOCKE dans `notification_logs.deferred_render` (colonne INTERNE, jamais exposee par l API). */
+export type DeferredRender = Readonly<{
+  /** Segments litteraux + balises differees LAISSEES EN CLAIR — ce qui est ecrit dans `body`/`subject` tant que le message est `pending`. */
+  text: string;
+  segments: readonly RenderedSegment[];
+}>;
+
+/**
+ * Forme PERSISTEE de `deferred_render` (jsonb) : `subject` est `null` sur un
+ * modele `sms` (jamais de sujet) OU quand le sujet ne contenait AUCUNE balise
+ * differee (segmente quand meme au meme titre que le corps, §8.23 point
+ * 11.3 §2 : « appeler renderNotificationTagsWithDeferred pour le SUJET ET
+ * pour le CORPS » — le resultat est un unique segment litteral si aucune
+ * balise differee n y figure, ce qui est un cas legitime, pas une erreur) ;
+ * `body` est TOUJOURS present quand `deferred_render` est non nul (`body`
+ * n est jamais nul au contrat).
+ */
+export type DeferredRenderPayload = Readonly<{
+  subject: readonly RenderedSegment[] | null;
+  body: readonly RenderedSegment[];
+}>;
+
+/**
+ * Balayage UNIQUE (meme automate que `renderNotificationTags`, MEME
+ * `scanNotificationTagSpans` — aucune divergence possible entre les deux
+ * chemins) : chaque balise appartenant a `deferred` est laissee EN CLAIR dans
+ * `text` et devient un segment `{ kind: 'tag' }` ; toute autre balise (ou
+ * texte litteral) est SUBSTITUEE/RECOPIEE immediatement et accumulee dans le
+ * segment litteral COURANT.
+ */
+export function renderNotificationTagsWithDeferred(
+  text: string,
+  context: Readonly<Record<string, string>>,
+  deferred: ReadonlySet<string>,
+): DeferredRender {
+  const segments: RenderedSegment[] = [];
+  let output = '';
+  let cursor = 0;
+  let literalBuffer = '';
+
+  const flushLiteral = (): void => {
+    if (literalBuffer.length > 0) {
+      segments.push({ kind: 'literal', text: literalBuffer });
+      literalBuffer = '';
+    }
+  };
+
+  for (const span of scanNotificationTagSpans(text)) {
+    literalBuffer += text.slice(cursor, span.start);
+    output += text.slice(cursor, span.start);
+
+    if (deferred.has(span.content)) {
+      flushLiteral();
+      segments.push({ kind: 'tag', id: span.content });
+      // Laissee EN CLAIR (`{{files.count}}`, accolades comprises) — c est ce
+      // que l ecran du journal affiche tant que le message est `pending`.
+      output += text.slice(span.start, span.end);
+    } else {
+      const value = context[span.content] ?? '';
+      literalBuffer += value;
+      output += value;
+    }
+    cursor = span.end;
+  }
+  literalBuffer += text.slice(cursor);
+  output += text.slice(cursor);
+  flushLiteral();
+
+  return { text: output, segments };
+}
+
+/**
+ * REMISE : CONCATENATION PURE, AUCUN BALAYAGE (point 11.1). Chaque segment
+ * litteral est recopie tel quel ; chaque segment de balise est resolu dans
+ * `values` (chaine vide si absente — meme convention que `renderNotificationTags`).
+ * Ne relit JAMAIS `text` (le texte provisoire) : c est cette absence de
+ * second balayage qui garantit qu une occurrence de `{{files.count}}` a
+ * l interieur d un segment litteral (donnee client) ne peut jamais etre
+ * resolue.
+ */
+export function joinDeferredSegments(
+  segments: readonly RenderedSegment[],
+  values: Readonly<Record<string, string>>,
+): string {
+  let output = '';
+  for (const segment of segments) {
+    output += segment.kind === 'literal' ? segment.text : (values[segment.id] ?? '');
+  }
+  return output;
+}

@@ -6,7 +6,9 @@ import { describe, expect, it } from 'vitest';
 import {
   assertKnownNotificationTags,
   extractNotificationTagTokens,
+  joinDeferredSegments,
   renderNotificationTags,
+  renderNotificationTagsWithDeferred,
   UnknownNotificationTagError,
 } from '@/modules/notifications/application/notification-tag-renderer';
 
@@ -135,5 +137,87 @@ describe('renderNotificationTags', () => {
     const rendered = renderNotificationTags('{{ {{order.number}} }}', { 'order.number': 'CDE-2026-00042' });
     expect(rendered).not.toContain('CDE-2026-00042');
     expect(rendered).not.toMatch(/\{\{\s*CDE-2026-00042\s*\}\}/);
+  });
+});
+
+/**
+ * RENDU DIFFERE (E10.15d-2, §8.23 point 11) — `files.count` SEULE balise
+ * `delivery` du catalogue. Ces tests verrouillent la propriete NON
+ * NEGOCIABLE du point 11.1 : le texte PROVISOIRE laisse une balise differee
+ * EN CLAIR, et la remise reconstitue le texte final par CONCATENATION PURE
+ * des segments — JAMAIS un second balayage.
+ */
+describe('renderNotificationTagsWithDeferred', () => {
+  const DEFERRED = new Set(['files.count']);
+
+  it('un texte sans aucune balise ne produit qu un SEGMENT LITTERAL, texte inchange', () => {
+    const result = renderNotificationTagsWithDeferred('Texte simple, sans rien.', {}, DEFERRED);
+    expect(result.text).toBe('Texte simple, sans rien.');
+    expect(result.segments).toEqual([{ kind: 'literal', text: 'Texte simple, sans rien.' }]);
+  });
+
+  it('une balise ENQUEUE (non differee) est substituee IMMEDIATEMENT — jamais un segment `tag`', () => {
+    const result = renderNotificationTagsWithDeferred('Commande {{order.number}}.', { 'order.number': 'CDE-2026-00042' }, DEFERRED);
+    expect(result.text).toBe('Commande CDE-2026-00042.');
+    expect(result.segments).toEqual([{ kind: 'literal', text: 'Commande CDE-2026-00042.' }]);
+  });
+
+  it('une balise DIFFEREE est LAISSEE EN CLAIR dans le texte provisoire, ET devient un segment `tag`', () => {
+    const result = renderNotificationTagsWithDeferred('Vous avez déposé {{files.count}} fichier(s).', {}, DEFERRED);
+    expect(result.text).toBe('Vous avez déposé {{files.count}} fichier(s).');
+    expect(result.segments).toEqual([
+      { kind: 'literal', text: 'Vous avez déposé ' },
+      { kind: 'tag', id: 'files.count' },
+      { kind: 'literal', text: ' fichier(s).' },
+    ]);
+  });
+
+  it('melange balise ENQUEUE + balise DIFFEREE : la premiere est substituee, la seconde laissee en clair, un seul flux de segments', () => {
+    const result = renderNotificationTagsWithDeferred(
+      '{{order.number}} : {{files.count}} fichier(s).',
+      { 'order.number': 'CDE-2026-00042' },
+      DEFERRED,
+    );
+    expect(result.text).toBe('CDE-2026-00042 : {{files.count}} fichier(s).');
+    expect(result.segments).toEqual([
+      { kind: 'literal', text: 'CDE-2026-00042 : ' },
+      { kind: 'tag', id: 'files.count' },
+      { kind: 'literal', text: ' fichier(s).' },
+    ]);
+  });
+
+  it('une occurrence CLIENT contenant litteralement {{files.count}} (donnee, pas une balise reelle) devient un segment LITTERAL — jamais un segment `tag`', () => {
+    const result = renderNotificationTagsWithDeferred('Client : {{customer.company_name}}.', {
+      'customer.company_name': 'SARL {{files.count}} Frères',
+    }, DEFERRED);
+    expect(result.text).toBe('Client : SARL {{files.count}} Frères.');
+    // AUCUN segment `tag` : la substitution de `customer.company_name`
+    // (balise enqueue) a produit une VALEUR, jamais re-balayee.
+    expect(result.segments.every((segment) => segment.kind === 'literal')).toBe(true);
+  });
+});
+
+describe('joinDeferredSegments', () => {
+  it('CONCATENE les segments, resolvant chaque balise differee dans `values`', () => {
+    const segments = [
+      { kind: 'literal' as const, text: 'Vous avez déposé ' },
+      { kind: 'tag' as const, id: 'files.count' },
+      { kind: 'literal' as const, text: ' fichier(s).' },
+    ];
+    expect(joinDeferredSegments(segments, { 'files.count': '3' })).toBe('Vous avez déposé 3 fichier(s).');
+  });
+
+  it('une balise ABSENTE de `values` rend une CHAINE VIDE, jamais une exception', () => {
+    const segments = [{ kind: 'tag' as const, id: 'files.count' }];
+    expect(joinDeferredSegments(segments, {})).toBe('');
+  });
+
+  it('NE RE-BALAYE JAMAIS : un segment litteral portant litteralement {{files.count}} traverse INCHANGE, meme si la valeur est fournie', () => {
+    const segments = [{ kind: 'literal' as const, text: 'SARL {{files.count}} Frères' }];
+    expect(joinDeferredSegments(segments, { 'files.count': '99' })).toBe('SARL {{files.count}} Frères');
+  });
+
+  it('un tableau de segments VIDE rend une chaine VIDE', () => {
+    expect(joinDeferredSegments([], { 'files.count': '3' })).toBe('');
   });
 });

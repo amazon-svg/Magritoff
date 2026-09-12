@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   allowedTagsForEvent,
+  deferredTagsForEvent,
   eventSupportsStepFilter,
   exampleTagContext,
   isNotifiableEventName,
@@ -119,5 +120,22 @@ describe('exampleTagContext', () => {
       expect(typeof context[id]).toBe('string');
       expect(context[id].length).toBeGreaterThan(0);
     }
+  });
+});
+
+/** E10.15d-2 (§8.23 point 11.3 §1) : source UNIQUE lue par la mise en file, jamais une liste en dur. */
+describe('deferredTagsForEvent', () => {
+  it('order.files_submitted propose EXACTEMENT files.count comme balise differee', () => {
+    expect([...deferredTagsForEvent('order.files_submitted')]).toEqual(['files.count']);
+  });
+
+  it('les quatre autres evenements ne proposent AUCUNE balise differee', () => {
+    for (const eventName of ['quote.sent', 'quote.converted', 'order.step_changed', 'customer.created'] as const) {
+      expect(deferredTagsForEvent(eventName).size).toBe(0);
+    }
+  });
+
+  it('un evenement inconnu rend un ensemble VIDE, jamais une erreur', () => {
+    expect(deferredTagsForEvent('price_rule.changed' as never).size).toBe(0);
   });
 });

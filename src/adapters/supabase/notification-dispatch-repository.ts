@@ -20,6 +20,7 @@ import type {
   NotificationDispatchGateway,
   NotificationLogsWriteGateway,
   NotificationRecipient,
+  OrderFilesSubmittedDispatchContext,
   OrderStepChangedDispatchContext,
   QuoteSentDispatchContext,
 } from '../../modules/notifications/application/notification-dispatch-consumer.ts';
@@ -160,6 +161,39 @@ export class SupabaseNotificationDispatchGateway implements NotificationDispatch
   }
 
   /**
+   * Contexte de `order.files_submitted` (E10.15d-2) : le contexte partage +
+   * `order.customer_reference`, MEME requete que `getOrderStepChangedContext`
+   * sur ce seul champ (pas `expected_delivery_date` : cet evenement ne
+   * propose pas la balise correspondante, catalogue).
+   */
+  async getOrderFilesSubmittedContext(
+    tenantId: TenantId,
+    orderId: string,
+    customerId: string,
+  ): Promise<OrderFilesSubmittedDispatchContext | null> {
+    const [customerContext, orderResult] = await Promise.all([
+      this.resolveCustomerNotificationContext(tenantId, customerId),
+      this.client
+        .from('commercial_orders')
+        .select('customer_reference')
+        .eq('id', orderId)
+        .eq('tenant_id', tenantId)
+        .maybeSingle(),
+    ]);
+
+    if (orderResult.error) throw new Error(`Lecture de la commande impossible: ${orderResult.error.message}`);
+    const orderRow = orderResult.data as { customer_reference: string | null } | null;
+    if (!customerContext || !orderRow) return null;
+
+    return {
+      tenantName: customerContext.tenantName,
+      customerCompanyName: customerContext.customerCompanyName,
+      customerDefaultContactName: customerContext.customerDefaultContactName,
+      orderCustomerReference: orderRow.customer_reference ?? null,
+    };
+  }
+
+  /**
    * Lecture PARTAGEE tenant + client + interlocuteur principal — MEME
    * requete EXACTE que celle jusqu ici EN LIGNE dans `getOrderStepChangedContext`
    * (E10.15c), extraite par E10.15d-1 pour servir aussi `quote.converted`,
@@ -281,6 +315,10 @@ export class SupabaseNotificationDispatchGateway implements NotificationDispatch
       p_body: message.body,
       p_last_error: message.lastError,
       p_coalescing_window_minutes: event.coalescingWindowMinutes,
+      // E10.15d-2, §8.23 point 11 — `null` dans TOUS les cas d E10.15c/d-1
+      // (chemin INCHANGE) ; non nul UNIQUEMENT sur `order.files_submitted`
+      // quand le modele emploie `{{files.count}}`.
+      p_deferred_render: message.deferredRender ?? null,
     });
     if (error) throw new Error(`Mise en file de la notification impossible: ${error.message}`);
   }

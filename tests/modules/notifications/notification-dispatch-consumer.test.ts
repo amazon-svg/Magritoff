@@ -8,6 +8,7 @@ import {
   type EnqueuedNotificationMessage,
   type NotificationDispatchGateway,
   type NotificationRecipient,
+  type OrderFilesSubmittedDispatchContext,
   type OrderStepChangedDispatchContext,
   type QuoteSentDispatchContext,
 } from '@/modules/notifications/application/notification-dispatch-consumer';
@@ -71,6 +72,13 @@ const QUOTE_SENT_CONTEXT: QuoteSentDispatchContext = Object.freeze({
   quoteValidUntil: '2026-12-31',
 });
 
+const ORDER_FILES_SUBMITTED_CONTEXT: OrderFilesSubmittedDispatchContext = Object.freeze({
+  tenantName: 'Imprimerie Exemple',
+  customerCompanyName: 'Client Exemple SARL',
+  customerDefaultContactName: 'Jeanne Dupont',
+  orderCustomerReference: 'PO-2026-0118',
+});
+
 const CUSTOMER_TEMPLATE: ActiveNotificationTemplate = Object.freeze({
   id: 'template-1',
   channel: 'email',
@@ -116,11 +124,32 @@ const CUSTOMER_CREATED_TEMPLATE: ActiveNotificationTemplate = Object.freeze({
   body: 'Bienvenue chez {{tenant.name}}.',
 });
 
+/** Emploie `{{files.count}}` — SEULE balise `delivery` du catalogue : declenche le rendu differe (§8.23 point 11). */
+const ORDER_FILES_SUBMITTED_TEMPLATE: ActiveNotificationTemplate = Object.freeze({
+  id: 'template-order-files-submitted',
+  channel: 'email',
+  audience: 'customer',
+  recipients: null,
+  subject: 'Fichiers reçus — {{order.number}}',
+  body: 'Vous avez déposé {{files.count}} fichier(s) sur la commande {{order.number}}.',
+});
+
+/** N EMPLOIE PAS `{{files.count}}` — le rendu differe ne doit PAS s appliquer (point 11.1 : « uniquement si [...] le texte contient au moins une balise delivery »). */
+const ORDER_FILES_SUBMITTED_TEMPLATE_WITHOUT_DEFERRED_TAG: ActiveNotificationTemplate = Object.freeze({
+  id: 'template-order-files-submitted-no-tag',
+  channel: 'email',
+  audience: 'customer',
+  recipients: null,
+  subject: 'Fichiers reçus — {{order.number}}',
+  body: 'Un dépôt a eu lieu sur la commande {{order.number}}.',
+});
+
 class FakeGateway implements NotificationDispatchGateway {
   templatesByEvent: Partial<Record<NotificationEventName, readonly ActiveNotificationTemplate[]>> = {};
   orderStepChangedContext: OrderStepChangedDispatchContext | null = ORDER_STEP_CHANGED_CONTEXT;
   customerNotificationContext: CustomerNotificationContext | null = CUSTOMER_NOTIFICATION_CONTEXT;
   quoteSentContext: QuoteSentDispatchContext | null = QUOTE_SENT_CONTEXT;
+  orderFilesSubmittedContext: OrderFilesSubmittedDispatchContext | null = ORDER_FILES_SUBMITTED_CONTEXT;
   recipients: readonly NotificationRecipient[] = [];
   defaultShop: DefaultShop | null = { slug: 'boutique-exemple', name: 'Boutique Exemple' };
 
@@ -141,6 +170,10 @@ class FakeGateway implements NotificationDispatchGateway {
 
   async getQuoteSentDispatchContext(): Promise<QuoteSentDispatchContext | null> {
     return this.quoteSentContext;
+  }
+
+  async getOrderFilesSubmittedContext(): Promise<OrderFilesSubmittedDispatchContext | null> {
+    return this.orderFilesSubmittedContext;
   }
 
   async resolveCustomerRecipients(): Promise<readonly NotificationRecipient[]> {
@@ -170,12 +203,12 @@ function buildConsumer(gateway: FakeGateway, logs: FakeLogsWriteGateway, baseUrl
 }
 
 describe('NotificationDispatchConsumer — order.step_changed (E10.15c, inchange)', () => {
-  it('ignore un evenement hors perimetre (order.files_submitted, E10.15d-2)', async () => {
+  it('ignore un evenement totalement hors du bus notifiable', async () => {
     const gateway = new FakeGateway();
     const logs = new FakeLogsWriteGateway();
     const consumer = buildConsumer(gateway, logs);
 
-    const result = await consumer.consume(outboxEvent('order.files_submitted', 'order', 'order-1', {}));
+    const result = await consumer.consume(outboxEvent('price_rule.changed', 'price_rule', 'rule-1', {}));
 
     expect(result).toEqual({ delivered: true });
     expect(logs.enqueued).toEqual([]);
@@ -486,5 +519,148 @@ describe('NotificationDispatchConsumer — customer.created (E10.15d-1)', () => 
 
     expect(result).toEqual({ delivered: true });
     expect(logs.enqueued).toEqual([]);
+  });
+});
+
+describe('NotificationDispatchConsumer — order.files_submitted (E10.15d-2, rendu differe §8.23 point 11)', () => {
+  const PAYLOAD = {
+    file_id: 'file-1',
+    upload_link_id: 'link-1',
+    order_id: 'order-1',
+    order_number: 'CDE-2026-00042',
+    customer_id: 'customer-1',
+  };
+
+  it('echoue explicitement sur une charge utile invalide', async () => {
+    const gateway = new FakeGateway();
+    const logs = new FakeLogsWriteGateway();
+    const consumer = buildConsumer(gateway, logs);
+
+    const result = await consumer.consume(outboxEvent('order.files_submitted', 'order', 'order-1', { order_id: 'order-1' }));
+
+    expect(result.delivered).toBe(false);
+  });
+
+  it('aucun modele actif -> nominal, delivered:true, rien en file', async () => {
+    const gateway = new FakeGateway();
+    const logs = new FakeLogsWriteGateway();
+    const consumer = buildConsumer(gateway, logs);
+
+    const result = await consumer.consume(outboxEvent('order.files_submitted', 'order', 'order-1', PAYLOAD));
+
+    expect(result).toEqual({ delivered: true });
+    expect(logs.enqueued).toEqual([]);
+  });
+
+  it('commande/client introuvable dans ce tenant (defensif) -> delivered:true, rien a notifier', async () => {
+    const gateway = new FakeGateway();
+    gateway.templatesByEvent['order.files_submitted'] = [ORDER_FILES_SUBMITTED_TEMPLATE];
+    gateway.orderFilesSubmittedContext = null;
+    const logs = new FakeLogsWriteGateway();
+    const consumer = buildConsumer(gateway, logs);
+
+    const result = await consumer.consume(outboxEvent('order.files_submitted', 'order', 'order-1', PAYLOAD));
+
+    expect(result).toEqual({ delivered: true });
+    expect(logs.enqueued).toEqual([]);
+  });
+
+  it('modele employant {{files.count}} -> RENDU DIFFERE : le message en file laisse la balise EN CLAIR et porte les segments', async () => {
+    const gateway = new FakeGateway();
+    gateway.templatesByEvent['order.files_submitted'] = [ORDER_FILES_SUBMITTED_TEMPLATE];
+    gateway.recipients = [{ email: 'a@example.test', contactName: 'Alice', shopSlug: 'shop-a', shopName: 'Shop A' }];
+    const logs = new FakeLogsWriteGateway();
+    const consumer = buildConsumer(gateway, logs);
+
+    const result = await consumer.consume(outboxEvent('order.files_submitted', 'order', 'order-1', PAYLOAD));
+
+    expect(result).toEqual({ delivered: true });
+    expect(logs.enqueued).toHaveLength(1);
+    const message = logs.enqueued[0]!;
+    expect(message.status).toBe('pending');
+    // Balises `enqueue` DEJA substituees.
+    expect(message.subject).toBe('Fichiers reçus — CDE-2026-00042');
+    expect(message.body).toBe('Vous avez déposé {{files.count}} fichier(s) sur la commande CDE-2026-00042.');
+    // Balise `delivery` LAISSEE EN CLAIR — jamais resolue a la mise en file.
+    expect(message.body).toContain('{{files.count}}');
+    expect(message.deferredRender).not.toBeNull();
+    // Le sujet est TOUJOURS segmente au meme titre que le corps (point 11.3
+    // §2) — meme quand il n emploie AUCUNE balise differee : un seul segment
+    // litteral, deja le texte FINAL (cas legitime, pas une erreur).
+    expect(message.deferredRender!.subject).toEqual([{ kind: 'literal', text: 'Fichiers reçus — CDE-2026-00042' }]);
+    expect(message.deferredRender!.body.some((segment) => segment.kind === 'tag' && segment.id === 'files.count')).toBe(
+      true,
+    );
+  });
+
+  it('modele N EMPLOYANT PAS {{files.count}} -> AUCUN rendu differe, chemin E10.15c inchange', async () => {
+    const gateway = new FakeGateway();
+    gateway.templatesByEvent['order.files_submitted'] = [ORDER_FILES_SUBMITTED_TEMPLATE_WITHOUT_DEFERRED_TAG];
+    gateway.recipients = [{ email: 'a@example.test', contactName: 'Alice', shopSlug: 'shop-a', shopName: 'Shop A' }];
+    const logs = new FakeLogsWriteGateway();
+    const consumer = buildConsumer(gateway, logs);
+
+    const result = await consumer.consume(outboxEvent('order.files_submitted', 'order', 'order-1', PAYLOAD));
+
+    expect(result).toEqual({ delivered: true });
+    expect(logs.enqueued).toHaveLength(1);
+    const message = logs.enqueued[0]!;
+    expect(message.deferredRender).toBeNull();
+    expect(message.body).toBe('Un dépôt a eu lieu sur la commande CDE-2026-00042.');
+  });
+
+  it('audience customer, AUCUN destinataire -> entree DROPPED, files.count rend "1" (valeur EXACTE, point 11.1), AUCUN rendu differe', async () => {
+    const gateway = new FakeGateway();
+    gateway.templatesByEvent['order.files_submitted'] = [ORDER_FILES_SUBMITTED_TEMPLATE];
+    gateway.recipients = [];
+    const logs = new FakeLogsWriteGateway();
+    const consumer = buildConsumer(gateway, logs);
+
+    const result = await consumer.consume(outboxEvent('order.files_submitted', 'order', 'order-1', PAYLOAD));
+
+    expect(result).toEqual({ delivered: true });
+    expect(logs.enqueued).toHaveLength(1);
+    const message = logs.enqueued[0]!;
+    expect(message.status).toBe('dropped');
+    expect(message.deferredRender).toBeNull();
+    expect(message.body).toBe('Vous avez déposé 1 fichier(s) sur la commande CDE-2026-00042.');
+    expect(message.body).not.toContain('{{');
+  });
+
+  it('plusieurs destinataires -> UN message differe par destinataire, chacun avec ses PROPRES segments', async () => {
+    const gateway = new FakeGateway();
+    gateway.templatesByEvent['order.files_submitted'] = [ORDER_FILES_SUBMITTED_TEMPLATE];
+    gateway.recipients = [
+      { email: 'a@example.test', contactName: 'Alice', shopSlug: 'shop-a', shopName: 'Shop A' },
+      { email: 'b@example.test', contactName: 'Bob', shopSlug: 'shop-b', shopName: 'Shop B' },
+    ];
+    const logs = new FakeLogsWriteGateway();
+    const consumer = buildConsumer(gateway, logs);
+
+    const result = await consumer.consume(outboxEvent('order.files_submitted', 'order', 'order-1', PAYLOAD));
+
+    expect(result).toEqual({ delivered: true });
+    expect(logs.enqueued).toHaveLength(2);
+    for (const message of logs.enqueued) {
+      expect(message.deferredRender).not.toBeNull();
+      expect(message.body).toContain('{{files.count}}');
+    }
+  });
+
+  it('canal sms (sans sujet) -> deferredRender.subject reste null, seul le corps porte des segments', async () => {
+    const gateway = new FakeGateway();
+    gateway.templatesByEvent['order.files_submitted'] = [
+      { ...ORDER_FILES_SUBMITTED_TEMPLATE, channel: 'sms', subject: null, body: '{{files.count}} fichier(s) reçus.' },
+    ];
+    gateway.recipients = [{ email: 'a@example.test', contactName: 'Alice', shopSlug: 'shop-a', shopName: 'Shop A' }];
+    const logs = new FakeLogsWriteGateway();
+    const consumer = buildConsumer(gateway, logs);
+
+    await consumer.consume(outboxEvent('order.files_submitted', 'order', 'order-1', PAYLOAD));
+
+    const message = logs.enqueued[0]!;
+    expect(message.subject).toBeNull();
+    expect(message.deferredRender!.subject).toBeNull();
+    expect(message.deferredRender!.body.length).toBeGreaterThan(0);
   });
 });

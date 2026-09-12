@@ -39,6 +39,8 @@ function buildFakeServiceRoleClient(options: {
   tenantRow?: Readonly<{ name: string }> | null;
   customerRow?: Readonly<{ type: string; company_name: string | null; first_name: string | null; last_name: string | null }> | null;
   primaryContactRow?: Readonly<{ first_name: string; last_name: string }> | null;
+  /** E10.15d-2 — `commercial_orders.customer_reference`, lu par `getOrderFilesSubmittedContext`. */
+  orderRow?: Readonly<{ customer_reference: string | null }> | null;
 }) {
   const outboxUpdates: Array<{ patch: Record<string, unknown>; id: string }> = [];
   const rpcCalls: Array<{ fn: string; args: unknown }> = [];
@@ -130,6 +132,14 @@ function buildFakeServiceRoleClient(options: {
           select: () => builder,
           eq: () => builder,
           maybeSingle: async () => ({ data: options.primaryContactRow ?? null, error: null }),
+        };
+        return builder;
+      }
+      if (table === 'commercial_orders') {
+        const builder = {
+          select: () => builder,
+          eq: () => builder,
+          maybeSingle: async () => ({ data: options.orderRow ?? null, error: null }),
         };
         return builder;
       }
@@ -414,6 +424,92 @@ describe('createOutboxDispatchApplication — composition réelle', () => {
     // ORDRE reellement observe : `enqueue` (notificationDispatchConsumer)
     // AVANT `email` (quoteSentConsumer) — verrou du bloquant qa-review B1.
     expect(invocationOrder).toEqual(['enqueue', 'email']);
+  });
+
+  it('E10.15d-2 — order.files_submitted est DESORMAIS COMPOSE : met en file AVEC segments de rendu differe (p_deferred_render) quand le modele emploie {{files.count}}', async () => {
+    const client = buildFakeServiceRoleClient({
+      claimedRows: [
+        {
+          id: 'event-6',
+          tenant_id: 'tenant-1',
+          event_name: 'order.files_submitted',
+          event_version: 1,
+          aggregate_type: 'order',
+          aggregate_id: 'order-1',
+          payload: {
+            file_id: 'file-1',
+            upload_link_id: 'link-1',
+            order_id: 'order-1',
+            order_number: 'CDE-2026-00042',
+            customer_id: 'customer-1',
+          },
+          occurred_at: '2026-09-12T10:00:00.000Z',
+          delivery_attempts: 1,
+        },
+      ],
+      quoteRow: null,
+      recipientRows: [
+        {
+          email: 'client@example.com',
+          full_name: 'Jean Dupont',
+          status: 'active',
+          shops: { slug: 'atelier-test', name: 'Atelier Test', tenant_id: 'tenant-1' },
+        },
+      ],
+      activeTemplateRows: [
+        {
+          id: 'template-files-submitted',
+          channel: 'email',
+          audience: 'customer',
+          recipients: null,
+          subject: 'Fichiers reçus',
+          body: 'Vous avez déposé {{files.count}} fichier(s) sur la commande {{order.number}}.',
+        },
+      ],
+      tenantRow: { name: 'Atelier Test' },
+      customerRow: { type: 'company', company_name: 'Client Exemple SARL', first_name: null, last_name: null },
+      primaryContactRow: { first_name: 'Jean', last_name: 'Dupont' },
+      orderRow: { customer_reference: 'PO-2026-0118' },
+    });
+
+    const fetchMock = vi.fn();
+
+    const app = createOutboxDispatchApplication({
+      serviceRoleClient: client as any,
+      resendApiKey: 'secret',
+      fromEmail: 'Magrit <devis@magritapp.com>',
+      publicAppUrl: 'https://magritapp.com',
+      fetchImplementation: fetchMock as unknown as typeof fetch,
+    });
+
+    const report = await app.runOnce();
+
+    expect(report).toEqual({ claimed: 1, delivered: 1, failed: 0, errors: [] });
+    // AUCUN appel reseau : ce consommateur MET EN FILE, il n envoie jamais
+    // (§8.23 §3(b)) — verifie que `order.files_submitted` n a PAS ete livre
+    // "sans consommateur" (ce qui aurait aussi ete `delivered:1` mais sans
+    // AUCUN rpc `api_enqueue_notification_message`).
+    expect(fetchMock).not.toHaveBeenCalled();
+    const enqueueCall = client.rpcCalls.find((call) => call.fn === 'api_enqueue_notification_message');
+    expect(enqueueCall).toBeDefined();
+    expect(enqueueCall?.args).toMatchObject({
+      p_event_name: 'order.files_submitted',
+      p_channel: 'email',
+      p_status: 'pending',
+      p_recipient: 'client@example.com',
+      p_subject: 'Fichiers reçus',
+      // Texte PROVISOIRE : `{{files.count}}` LAISSE EN CLAIR (§8.23 point 11).
+      p_body: 'Vous avez déposé {{files.count}} fichier(s) sur la commande CDE-2026-00042.',
+      p_coalescing_window_minutes: 10,
+      p_deferred_render: {
+        subject: [{ kind: 'literal', text: 'Fichiers reçus' }],
+        body: [
+          { kind: 'literal', text: 'Vous avez déposé ' },
+          { kind: 'tag', id: 'files.count' },
+          { kind: 'literal', text: ' fichier(s) sur la commande CDE-2026-00042.' },
+        ],
+      },
+    });
   });
 
   it('rend un rapport vide sans effet de bord quand rien n est réclamé', async () => {
