@@ -37,6 +37,7 @@ import type { ProductionStepDto } from '@/modules/production-steps';
 import {
   formatRecipientsInput,
   insertTagAtCursor,
+  isQuoteSentDoubleEmailRisk,
   notificationTemplateApiProblemMessage,
   parseRecipientsInput,
   smsCounterState,
@@ -144,6 +145,13 @@ export function NotificationTemplateFormModal({
   useEffect(() => {
     if (audience === 'customer') setRecipientsRaw('');
   }, [audience]);
+
+  // E10.15d-1, reserve (c) du contrat §8.23 point 9 : avertissement visible
+  // (PAS bloquant, la combinaison reste legitime — une adresse explicite en
+  // plus du courriel automatique est un usage reel) au moment PRECIS ou la
+  // combinaison event_name/channel/audience cree reellement un doublon,
+  // jamais un texte statique toujours affiche.
+  const quoteSentDoubleEmailWarning = isQuoteSentDoubleEmailRisk(eventName, channel, audience);
 
   const smsCounter = smsCounterState(channel, body);
   const recipients = useMemo(() => parseRecipientsInput(recipientsRaw), [recipientsRaw]);
@@ -394,6 +402,16 @@ export function NotificationTemplateFormModal({
                   ))}
                 </select>
               </div>
+            )}
+
+            {quoteSentDoubleEmailWarning && (
+              <p
+                className="text-xs text-warn-fg bg-warn-bg border border-warn-fg/20 rounded-lg px-3 py-2"
+                data-testid={TEST_IDS.notificationTemplate.quoteSentDoubleEmailWarning}
+              >
+                Un courriel de devis avec pièce jointe est déjà envoyé automatiquement à cet instant (E10.10b-3). Ce
+                modèle s’ajoutera à ce courriel, il ne le remplacera pas — le client recevra deux courriels.
+              </p>
             )}
 
             <div className="grid grid-cols-2 gap-3">

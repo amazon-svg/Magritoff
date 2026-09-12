@@ -16,6 +16,7 @@ import { API_V1_BASE_PATH, type ApiResponseWithEtag, FetchApiClient } from '../.
 import {
   createNotificationTemplateCommandSchema,
   notificationEventDescriptorSchema,
+  notificationLogsListSchema,
   notificationPreviewSchema,
   notificationTemplateSchema,
   notificationTemplatesListSchema,
@@ -25,7 +26,9 @@ import {
   type NotificationChannel,
   type NotificationEventDescriptorDto,
   type NotificationEventName,
+  type NotificationLogDto,
   type NotificationPreviewDto,
+  type NotificationStatus,
   type NotificationTemplateDto,
   type NotificationTemplateStatusFilter,
   type PreviewNotificationTemplateCommand,
@@ -35,11 +38,28 @@ import { z } from 'zod';
 
 const EVENTS_PATH = `${API_V1_BASE_PATH}/notification-events`;
 const TEMPLATES_PATH = `${API_V1_BASE_PATH}/notification-templates`;
+const LOGS_PATH = `${API_V1_BASE_PATH}/notification-logs`;
 
 export type ListNotificationTemplatesQuery = Readonly<{
   event_name?: NotificationEventName;
   channel?: NotificationChannel;
   status?: NotificationTemplateStatusFilter;
+}>;
+
+/** E10.15d-1 — filtres du journal (`listNotificationLogs`, membre, pagination par curseur). */
+export type ListNotificationLogsQuery = Readonly<{
+  event_name?: NotificationEventName;
+  channel?: NotificationChannel;
+  status?: NotificationStatus;
+  template_id?: string;
+  aggregate_id?: string;
+  pageSize?: number;
+  pageCursor?: string;
+}>;
+
+export type ListNotificationLogsResponse = Readonly<{
+  items: readonly NotificationLogDto[];
+  nextCursor: string | null;
 }>;
 
 export class NotificationsApiClient {
@@ -118,6 +138,32 @@ export class NotificationsApiClient {
       responseSchema: successEnvelopeSchema(notificationPreviewSchema),
     });
     return envelope.data;
+  }
+
+  /**
+   * Journal des notifications (E10.15d-1, `GET /notification-logs`) —
+   * lecture ouverte a tout membre, pagination par curseur (contrat §8.23
+   * §2). Sur une entree `pending` d un evenement a fenetre de regroupement,
+   * `body`/`subject` peuvent encore contenir `{{files.count}}` EN CLAIR
+   * (rendu differe, mecanisme livre par E10.15d-2) — CE CLIENT NE SUBSTITUE
+   * RIEN : l ecran doit l afficher TEL QUEL (§8.23 §11.5).
+   */
+  async listLogs(query: ListNotificationLogsQuery = {}): Promise<ListNotificationLogsResponse> {
+    const params = new URLSearchParams();
+    if (query.event_name) params.set('event_name', query.event_name);
+    if (query.channel) params.set('channel', query.channel);
+    if (query.status) params.set('status', query.status);
+    if (query.template_id) params.set('template_id', query.template_id);
+    if (query.aggregate_id) params.set('aggregate_id', query.aggregate_id);
+    if (query.pageSize) params.set('page[size]', String(query.pageSize));
+    if (query.pageCursor) params.set('page[cursor]', query.pageCursor);
+    const suffix = params.toString();
+
+    const envelope = await this.client.request({
+      path: suffix ? `${LOGS_PATH}?${suffix}` : LOGS_PATH,
+      responseSchema: successEnvelopeSchema(notificationLogsListSchema),
+    });
+    return { items: envelope.data, nextCursor: envelope.meta.next_cursor ?? null };
   }
 }
 

@@ -5,13 +5,20 @@ export const notificationsModuleManifest = defineModuleManifest({
   name: 'Notifications multicanal',
   features: [
     {
-      // E10.15b — l ecran de parametrage, seul livrable de ce lot. Le socle
-      // (catalogue, moteur de rendu, six operations de configuration) a ete
-      // livre sans UI par E10.15a ; la chaine d envoi (E10.15c) et le reste
-      // du catalogue (E10.15d) restent hors perimetre.
+      // E10.15b — l ecran de parametrage. Le socle (catalogue, moteur de
+      // rendu, six operations de configuration) a ete livre sans UI par
+      // E10.15a.
       id: 'notifications.workspace-templates',
       description:
         'Lister, filtrer, creer et modifier les modeles de notification du tenant (courriel/sms), avec apercu sans envoi.',
+    },
+    {
+      // E10.15d-1 — l ecran du journal (`GET /notification-logs`, table
+      // posee par E10.15c). `quote.sent`/`quote.converted`/`customer.created`
+      // sont branches par ce meme lot ; `order.files_submitted` et le rendu
+      // differe de `{{files.count}}` restent E10.15d-2.
+      id: 'notifications.workspace-logs',
+      description: 'Consulter le journal des notifications envoyees, tentees ou abandonnees pour le tenant.',
     },
   ],
   // Meme construction que `can_manage_document_templates`/`can_manage_pricing`

@@ -63,6 +63,34 @@ describe('listNotificationEventCatalog', () => {
       }
     }
   });
+
+  /**
+   * E10.15d-1 (§8.23 point 11, trou de couverture signale explicitement par
+   * l architecte : « les tests de contrat ne le rattrapent pas »). Verrouille
+   * trois regles OPPOSABLES sur `render_stage`, servies telles quelles par
+   * `listNotificationEvents` — le mecanisme de rendu differe lui-meme reste
+   * HORS PERIMETRE de ce lot (E10.15d-2).
+   */
+  it('chaque balise servie porte render_stage ; files.count est la SEULE delivery ; une balise delivery n apparait que sur un evenement a fenetre (coalescing_window_minutes > 0)', () => {
+    const catalog = listNotificationEventCatalog(true);
+    for (const descriptor of catalog) {
+      for (const tag of descriptor.tags) {
+        expect(['enqueue', 'delivery']).toContain(tag.render_stage);
+        if (tag.render_stage === 'delivery') {
+          expect(tag.id).toBe('files.count');
+          expect(descriptor.coalescing_window_minutes).toBeGreaterThan(0);
+        } else {
+          expect(tag.id).not.toBe('files.count');
+        }
+      }
+    }
+    // `files.count` existe aujourd hui UNIQUEMENT sur `order.files_submitted`
+    // (catalogue) — confirme que la regle ci-dessus n est pas vide de sens
+    // (un catalogue qui ne proposerait `files.count` nulle part la
+    // satisferait trivialement).
+    const eventsWithFilesCount = catalog.filter((descriptor) => descriptor.tags.some((tag) => tag.id === 'files.count'));
+    expect(eventsWithFilesCount.map((descriptor) => descriptor.event_name)).toEqual(['order.files_submitted']);
+  });
 });
 
 describe('isNotifiableEventName', () => {

@@ -976,6 +976,29 @@ export const TEST_IDS = {
     // qa-review round 1 (M2) — erreur visible sur l ouverture/la bascule
     // d un modele depuis la liste (jusque-la des rejets de promesse non geres).
     actionErrorBanner: 'notification-template-action-error-banner',
+    // E10.15d-1 — reserve (c) du contrat §8.23 point 9 (« accepter et
+    // avertir dans l ecran, retenu par defaut ») : visible UNIQUEMENT sur la
+    // combinaison event_name=quote.sent + channel=email + audience=customer,
+    // ou le courriel de devis non configurable (E10.10b-3/4c) est DEJA
+    // envoye au meme moment.
+    quoteSentDoubleEmailWarning: 'notification-quote-sent-double-email-warning',
+  },
+  // E10.15d-1 — ecran du journal (`GET /notification-logs`, E10.15c),
+  // meme patron que `notificationTemplate` ci-dessus. `row` porte
+  // `data-log-id`/`data-event`/`data-channel`/`data-status` (meme convention
+  // que `notificationTemplate.row`/`pricing.row`).
+  notificationLog: {
+    page: 'notifications-log-page',
+    row: 'notification-log-row',
+    eventFilterSelect: 'notification-log-event-filter-select',
+    channelFilterSelect: 'notification-log-channel-filter-select',
+    statusFilterSelect: 'notification-log-status-filter-select',
+    errorBanner: 'notification-log-error-banner',
+    loadMoreBtn: 'notification-log-load-more-btn',
+    // Signale, TEL QUEL (aucun rendu cote navigateur), qu une entree
+    // `pending` peut encore contenir `{{files.count}}` non substitue
+    // (rendu differe, mecanisme livre par E10.15d-2, §8.23 §11.5).
+    deferredBodyNotice: 'notification-log-deferred-body-notice',
   },
 } as const;
 

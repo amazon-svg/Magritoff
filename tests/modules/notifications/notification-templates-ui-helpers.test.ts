@@ -13,6 +13,7 @@ import {
   channelShapeWarnings,
   formatRecipientsInput,
   insertTagAtCursor,
+  isQuoteSentDoubleEmailRisk,
   notificationTemplateApiProblemMessage,
   parseRecipientsInput,
   smsCounterState,
@@ -233,5 +234,25 @@ describe('notificationTemplateApiProblemMessage', () => {
   it('une cause qui n est pas une ApiClientError retombe sur son message, puis sur le fallback', () => {
     expect(notificationTemplateApiProblemMessage(new Error('Panne reseau.'), 'fallback')).toBe('Panne reseau.');
     expect(notificationTemplateApiProblemMessage('non-error', 'fallback')).toBe('fallback');
+  });
+});
+
+describe('isQuoteSentDoubleEmailRisk', () => {
+  it('vrai uniquement sur quote.sent + email + customer, la combinaison ou le doublon existe reellement (contrat §8.23 §9(c))', () => {
+    expect(isQuoteSentDoubleEmailRisk('quote.sent', 'email', 'customer')).toBe(true);
+  });
+
+  it('faux sur quote.sent en sms (le courriel automatique existant n est pas un SMS)', () => {
+    expect(isQuoteSentDoubleEmailRisk('quote.sent', 'sms', 'customer')).toBe(false);
+  });
+
+  it('faux sur quote.sent en audience explicite (une adresse arbitraire ne recoit pas deja le courriel automatique)', () => {
+    expect(isQuoteSentDoubleEmailRisk('quote.sent', 'email', 'explicit')).toBe(false);
+  });
+
+  it('faux sur tout autre evenement, meme email + customer', () => {
+    expect(isQuoteSentDoubleEmailRisk('quote.converted', 'email', 'customer')).toBe(false);
+    expect(isQuoteSentDoubleEmailRisk('order.step_changed', 'email', 'customer')).toBe(false);
+    expect(isQuoteSentDoubleEmailRisk('customer.created', 'email', 'customer')).toBe(false);
   });
 });

@@ -43,19 +43,32 @@ export type OutboxDispatchApplicationDependencies = Readonly<{
 }>;
 
 /**
- * Compose le drain. Trois `event_name` ont desormais un consommateur :
- * `quote.sent` -> client (E10.10b-3), `order_files.purge_scheduled` ->
- * rappel de purge (E10.22a), `order.step_changed` -> mise en file des
- * notifications configurees (E10.15c). Tout AUTRE `event_name` (`quote.
- * created`/`quote.accepted`/`quote.rejected`/`customer.created`…) est LIVRE
- * sans traitement par le socle (`OutboxDispatcher`, "aucun consommateur
- * enregistre" — §8.13sexies point 3), PAS un oubli de cablage.
+ * Compose le drain. Cinq `event_name` ont desormais un consommateur :
+ * `quote.sent` -> [notifications configurees, PUIS courriel client]
+ * (E10.10b-3 + E10.15d-1, ORDRE OPPOSABLE, voir plus bas), `order_files.
+ * purge_scheduled` -> rappel de purge (E10.22a), `order.step_changed` ->
+ * mise en file des notifications configurees (E10.15c), `quote.converted`
+ * et `customer.created` -> mise en file des notifications configurees
+ * (E10.15d-1). Tout AUTRE `event_name` (`quote.created`/`quote.accepted`/
+ * `quote.rejected`/`order.files_submitted`…) est LIVRE sans traitement par
+ * le socle (`OutboxDispatcher`, "aucun consommateur enregistre" —
+ * §8.13sexies point 3), PAS un oubli de cablage : `order.files_submitted`
+ * reste HORS PERIMETRE de ce lot (fenetre de regroupement + rendu differe,
+ * E10.15d-2, §8.23 §11.5).
  *
  * Chaque entree du registre est un `CompositeOutboxConsumer` (E10.15c,
- * contrat §8.23 §3(a)), MEME quand elle ne compose qu un seul consommateur
- * aujourd hui : c est le point d extension EXPLICITE ou E10.15d ajoutera le
- * futur consommateur de notifications sur `quote.sent`, EN PREMIER dans la
- * liste (il est idempotent, `quoteSentConsumer` ne l est pas — §8.23 §3(a)).
+ * contrat §8.23 §3(a)), MEME quand elle ne compose qu un seul consommateur :
+ * c est la COMPOSITION qui exprime l eventail, pas le registre du socle
+ * (« un consommateur par evenement », inchange).
+ *
+ * ORDRE OPPOSABLE sur `quote.sent` (§8.23 §3(a)) : `notificationDispatchConsumer`
+ * PASSE EN PREMIER. Il est IDEMPOTENT (index unique sur `(event_id,
+ * template_id, destinataire)`, EN BASE) — un rejeu de ce composite (parce que
+ * `quoteSentConsumer`, qui suit, a echoue) ne met donc JAMAIS deux fois en
+ * file les notifications configurees. `quoteSentConsumer` (le courriel non
+ * configurable, AVEC piece jointe PDF, E10.10b-3/4c) N EST PAS idempotent :
+ * le placer en dernier laisse le risque de doublon EXACTEMENT ou il etait
+ * avant ce lot, ni plus ni moins.
  */
 export function createOutboxDispatchApplication(
   dependencies: OutboxDispatchApplicationDependencies,
@@ -92,12 +105,15 @@ export function createOutboxDispatchApplication(
     ...(dependencies.fetchImplementation ? { fetchImplementation: dependencies.fetchImplementation } : {}),
   });
 
-  // E10.15c — mise en file (JAMAIS d envoi reseau) des notifications
-  // configurees sur `order.step_changed`, SEUL evenement branche par ce lot
-  // (§8.23 §8). MEME client `service_role` : la lecture du contexte
-  // (commande/client/etapes) et l ecriture idempotente/regroupante dans
+  // E10.15c + E10.15d-1 — mise en file (JAMAIS d envoi reseau) des
+  // notifications configurees sur `order.step_changed` (E10.15c), `quote.sent`,
+  // `quote.converted` et `customer.created` (E10.15d-1, §8.23 §11.5 : ces
+  // trois derniers sont INDEPENDANTS du rendu differe, meme chemin EXACT
+  // qu order.step_changed). MEME client `service_role` : la lecture du
+  // contexte (agregat) et l ecriture idempotente/regroupante dans
   // `notification_logs` passent toutes deux par des chemins reserves a ce
-  // role.
+  // role. UNE SEULE INSTANCE, composee sur les QUATRE evenements ci-dessous
+  // (elle route elle-meme sur `event.name`, §8.23).
   const notificationDispatchGateway = new SupabaseNotificationDispatchGateway(dependencies.serviceRoleClient);
   const notificationDispatchConsumer = new NotificationDispatchConsumer({
     gateway: notificationDispatchGateway,
@@ -106,9 +122,14 @@ export function createOutboxDispatchApplication(
   });
 
   const consumers: OutboxConsumerRegistry = {
-    'quote.sent': new CompositeOutboxConsumer([quoteSentConsumer]),
+    // ORDRE OPPOSABLE, voir le commentaire de `createOutboxDispatchApplication`
+    // ci-dessus : `notificationDispatchConsumer` (idempotent) EN PREMIER,
+    // `quoteSentConsumer` (non idempotent) EN SECOND.
+    'quote.sent': new CompositeOutboxConsumer([notificationDispatchConsumer, quoteSentConsumer]),
     'order_files.purge_scheduled': new CompositeOutboxConsumer([orderFilePurgeNoticeConsumer]),
     'order.step_changed': new CompositeOutboxConsumer([notificationDispatchConsumer]),
+    'quote.converted': new CompositeOutboxConsumer([notificationDispatchConsumer]),
+    'customer.created': new CompositeOutboxConsumer([notificationDispatchConsumer]),
   };
 
   const dispatcher = new OutboxDispatcher({

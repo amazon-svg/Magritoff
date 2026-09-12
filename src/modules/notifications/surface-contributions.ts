@@ -20,6 +20,18 @@ export const notificationsWorkspaceContribution = defineSurfaceContribution({
       // `document-templates`.
       requiredCapabilities: ['can_manage_notifications'],
     },
+    {
+      // E10.15d-1 — le journal. AUCUNE `requiredCapabilities` ICI (contrat
+      // §8.23 §2, `listNotificationLogs` : « membre ») : la lecture est
+      // ouverte a tout membre du tenant, a la difference de l ecran de
+      // parametrage ci-dessus.
+      id: 'notifications.workspace.logs',
+      moduleId: 'notifications',
+      featureId: 'notifications.workspace-logs',
+      surface: 'workspace',
+      path: 'notifications/logs',
+      mount: 'router',
+    },
   ],
   navigation: [
     {
@@ -32,6 +44,20 @@ export const notificationsWorkspaceContribution = defineSurfaceContribution({
       label: 'Notifications',
       iconId: 'bell',
       order: 170,
+    },
+    {
+      id: 'notifications.workspace.logs.navigation',
+      moduleId: 'notifications',
+      featureId: 'notifications.workspace-logs',
+      surface: 'workspace',
+      routeId: 'notifications.workspace.logs',
+      groupId: 'commercial',
+      label: 'Journal des notifications',
+      // `file-clock` DEJA mappe dans `WORKSPACE_ICONS` (DashboardLayout),
+      // jusqu ici inutilise par aucun module — pas de nouvelle entree a
+      // ajouter au registre d icones.
+      iconId: 'file-clock',
+      order: 171,
     },
   ],
 } as const);

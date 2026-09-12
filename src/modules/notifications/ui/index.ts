@@ -1,2 +1,2 @@
-export { DashboardNotificationTemplates, NotificationTemplateFormModal } from './workspace';
-export { useNotificationTemplatesManagement } from './hooks';
+export { DashboardNotificationTemplates, NotificationTemplateFormModal, DashboardNotificationLogs } from './workspace';
+export { useNotificationTemplatesManagement, useNotificationLogsManagement } from './hooks';

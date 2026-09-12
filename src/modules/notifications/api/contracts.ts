@@ -63,6 +63,17 @@ export const NOTIFICATION_TAG_IDS = [
 
 export const notificationTagIdSchema = z.enum(NOTIFICATION_TAG_IDS);
 
+/**
+ * Etage de substitution d une balise (arbitrage architecte du 2026-09-12,
+ * §8.23 point 11) : `enqueue` pour les douze balises REGIME NORMAL,
+ * `delivery` pour `files.count` SEULE — arretee au moment de la remise,
+ * jamais a la mise en file (mecanisme de rendu differe, HORS PERIMETRE de ce
+ * lot, E10.15d-2). Ce lot ne pose que la METADONNEE de catalogue, servie par
+ * `listNotificationEvents` — verrouillee par
+ * `tests/modules/notifications/notification-event-catalog.test.ts`.
+ */
+export const notificationTagRenderStageSchema = z.enum(['enqueue', 'delivery']);
+
 export const notificationTagSchema = z
   .object({
     id: notificationTagIdSchema,
@@ -70,6 +81,7 @@ export const notificationTagSchema = z
     label: z.string(),
     nullable: z.boolean(),
     example: z.string(),
+    render_stage: notificationTagRenderStageSchema,
   })
   .strict();
 
@@ -212,6 +224,7 @@ export type NotificationChannel = z.infer<typeof notificationChannelSchema>;
 export type NotificationEventName = z.infer<typeof notificationEventNameSchema>;
 export type NotificationAudience = z.infer<typeof notificationAudienceSchema>;
 export type NotificationTagId = z.infer<typeof notificationTagIdSchema>;
+export type NotificationTagRenderStage = z.infer<typeof notificationTagRenderStageSchema>;
 export type NotificationTagDto = z.infer<typeof notificationTagSchema>;
 export type NotificationEventDescriptorDto = z.infer<typeof notificationEventDescriptorSchema>;
 export type NotificationTemplateStatusFilter = z.infer<typeof notificationTemplateStatusFilterSchema>;

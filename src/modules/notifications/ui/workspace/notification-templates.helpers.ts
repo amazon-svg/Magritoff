@@ -15,7 +15,12 @@
  * 422 (`api.validation_failed`).
  */
 import { ApiClientError, type ApiProblem } from '@/platform/api';
-import { channelShapeIssues, type NotificationAudience, type NotificationChannel } from '@/modules/notifications/api/contracts';
+import {
+  channelShapeIssues,
+  type NotificationAudience,
+  type NotificationChannel,
+  type NotificationEventName,
+} from '@/modules/notifications/api/contracts';
 
 /** Plafond du CORPS d un modele SMS (contrat §8.23 §4, colonne `body`) — repris de `channelShapeIssues`, jamais redecide ici. */
 export const SMS_BODY_MAX_LENGTH = 480;
@@ -163,6 +168,25 @@ export function validateNotificationPreviewInput(
   if (body.length > 4000) issues.push({ field: 'body', message: 'Le corps depasse 4000 caracteres.' });
   issues.push(...channelShapeWarnings(channel, subject, body));
   return issues;
+}
+
+/**
+ * Reserve (c) du contrat §8.23 point 9, tranchee « accepter et avertir dans
+ * l ecran, retenu par defaut » — E10.15d-1. `true` UNIQUEMENT sur la
+ * combinaison exacte ou le doublon existe reellement (§8.23 §1 : le
+ * consommateur `QuoteSentNotificationConsumer`, E10.10b-3/4c, envoie DEJA un
+ * courriel avec piece jointe PDF a CE moment) : un modele `quote.sent` en
+ * SMS, ou en audience « destinataires explicites », n a AUCUN doublon (ce
+ * courriel existant ne s adresse qu au client, jamais a une adresse
+ * arbitraire) — l avertissement ne doit apparaitre QUE la ou le doublon est
+ * reel, pas systematiquement des que l evenement est selectionne.
+ */
+export function isQuoteSentDoubleEmailRisk(
+  eventName: NotificationEventName,
+  channel: NotificationChannel,
+  audience: NotificationAudience,
+): boolean {
+  return eventName === 'quote.sent' && channel === 'email' && audience === 'customer';
 }
 
 const NOTIFICATION_TEMPLATE_ERROR_MESSAGES: Readonly<Record<string, string>> = Object.freeze({

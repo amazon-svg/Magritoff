@@ -25,6 +25,7 @@ import type {
   NotificationEventName,
   NotificationTagDto,
   NotificationTagId,
+  NotificationTagRenderStage,
 } from '../api/contracts.ts';
 
 /** Les cinq evenements notifiables portent TOUS de quoi router vers un client (`customer_id` ou equivalent) — les deux audiences sont donc toujours proposees (contrat, `NotificationEventDescriptor.audiences`). */
@@ -34,50 +35,87 @@ type TagDefinition = Readonly<{
   label: string;
   nullable: boolean;
   example: string;
+  /**
+   * Etage de substitution (arbitrage architecte du 2026-09-12, §8.23 point
+   * 11) : `enqueue` pour les douze balises REGIME NORMAL — resolues et
+   * figees a la mise en file, comme aujourd hui. `delivery` pour
+   * `files.count` SEULE, arretee A LA REMISE (mecanisme de rendu differe,
+   * HORS PERIMETRE de ce lot — E10.15d-2 : ici, seule la METADONNEE de
+   * catalogue est posee, servie telle quelle par `listNotificationEvents`).
+   * Une balise `delivery` ne peut exister QUE sur un evenement declarant une
+   * fenetre (`coalescing_window_minutes > 0`) — verrouille par
+   * `notification-event-catalog.test.ts`.
+   */
+  renderStage: NotificationTagRenderStage;
 }>;
 
 /** Definition STABLE de chaque balise, independante de l evenement qui la propose. */
 const TAG_DEFINITIONS: Readonly<Record<NotificationTagId, TagDefinition>> = Object.freeze({
-  'tenant.name': { label: "Nom de l'atelier", nullable: false, example: 'Imprimerie Exemple' },
+  'tenant.name': { label: "Nom de l'atelier", nullable: false, example: 'Imprimerie Exemple', renderStage: 'enqueue' },
   'customer.company_name': {
     label: 'Raison sociale du client',
     // Un client PARTICULIER (customers.type = 'individual', E10.4) n a pas
     // de raison sociale.
     nullable: true,
     example: 'Client Exemple SARL',
+    renderStage: 'enqueue',
   },
-  'customer.contact_name': { label: "Nom de l'interlocuteur", nullable: false, example: 'Jeanne Dupont' },
-  'quote.number': { label: 'Numero du devis', nullable: false, example: 'DEV-2026-00042' },
+  'customer.contact_name': {
+    label: "Nom de l'interlocuteur",
+    nullable: false,
+    example: 'Jeanne Dupont',
+    renderStage: 'enqueue',
+  },
+  'quote.number': { label: 'Numero du devis', nullable: false, example: 'DEV-2026-00042', renderStage: 'enqueue' },
   'quote.valid_until': {
     label: 'Date de validite du devis',
     // `CommercialSettings.default_validity_days` peut valoir `null` (« aucune
     // validite par defaut ») : un devis peut donc n avoir aucune echeance.
     nullable: true,
     example: '2026-12-31',
+    renderStage: 'enqueue',
   },
-  'quote.customer_reference': { label: 'Reference client du devis', nullable: true, example: 'PO-2026-0118' },
-  'order.number': { label: 'Numero de la commande', nullable: false, example: 'CDE-2026-00042' },
-  'order.customer_reference': { label: 'Reference client de la commande', nullable: true, example: 'PO-2026-0118' },
+  'quote.customer_reference': {
+    label: 'Reference client du devis',
+    nullable: true,
+    example: 'PO-2026-0118',
+    renderStage: 'enqueue',
+  },
+  'order.number': { label: 'Numero de la commande', nullable: false, example: 'CDE-2026-00042', renderStage: 'enqueue' },
+  'order.customer_reference': {
+    label: 'Reference client de la commande',
+    nullable: true,
+    example: 'PO-2026-0118',
+    renderStage: 'enqueue',
+  },
   'order.expected_delivery_date': {
     label: 'Date de livraison prevue',
     // `expected_delivery_date` vaut `null` tant qu aucun chemin d ecriture
     // n existe (docs/api/CONVENTIONS.md §8.14bis, arbitrage (h) — non tranche).
     nullable: true,
     example: '2026-10-15',
+    renderStage: 'enqueue',
   },
-  'step.label': { label: 'Etape atteinte', nullable: false, example: 'En cours de production' },
+  'step.label': { label: 'Etape atteinte', nullable: false, example: 'En cours de production', renderStage: 'enqueue' },
   'step.previous_label': {
     label: 'Etape precedente',
     // `OrderStepChangedPayload.from_step_id` peut etre `null` si la commande
     // n en portait aucune (tenant sans etape active a la conversion).
     nullable: true,
     example: 'Fichier validé',
+    renderStage: 'enqueue',
   },
-  'files.count': { label: 'Nombre de fichiers reçus', nullable: false, example: '3' },
+  // SEULE balise `delivery` du catalogue (§8.23 point 11) : substituee A LA
+  // REMISE, avec le compteur de regroupement ARRETE A LA RECLAMATION —
+  // mecanisme non implemente par ce lot (E10.15d-2). N existe aujourd hui
+  // que sur `order.files_submitted` (coalescing_window_minutes: 10),
+  // non branche par ce lot.
+  'files.count': { label: 'Nombre de fichiers reçus', nullable: false, example: '3', renderStage: 'delivery' },
   'link.portal_quotes': {
     label: 'Lien vers les devis du portail client',
     nullable: false,
     example: 'https://boutique.exemple.fr/mon-compte/devis',
+    renderStage: 'enqueue',
   },
 });
 
@@ -207,7 +245,17 @@ export function listNotificationEventCatalog(smsEnabled: boolean): readonly Noti
     description: definition.description,
     audiences: [...ALL_AUDIENCES],
     channels: [...channels],
-    tags: definition.tags.map((id): NotificationTagDto => ({ id, syntax: `{{${id}}}`, ...TAG_DEFINITIONS[id] })),
+    tags: definition.tags.map((id): NotificationTagDto => {
+      const tag = TAG_DEFINITIONS[id];
+      return {
+        id,
+        syntax: `{{${id}}}`,
+        label: tag.label,
+        nullable: tag.nullable,
+        example: tag.example,
+        render_stage: tag.renderStage,
+      };
+    }),
     supports_step_filter: definition.supports_step_filter,
     coalescing_window_minutes: definition.coalescing_window_minutes,
   }));
