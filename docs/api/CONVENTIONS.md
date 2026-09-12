@@ -3400,7 +3400,7 @@ Le mot « journal » de la fiche et le mot « file d'envoi » de son schéma d'a
 | `template_id` | `uuid` fk → `notification_templates(id) on delete set null` | l'entrée survit au modèle |
 | `channel`, `status` | `text not null` | `check` sur les énumérations du contrat |
 | `recipient` | `text` | `null` quand `dropped` faute de destinataire |
-| `subject`, `body` | `text` / `text not null` | **texte figé à la mise en file**, jamais relu au modèle |
+| `subject`, `body` | `text` / `text not null` | **texte figé à la mise en file**, jamais relu au modèle — **UNE exception depuis le point 11 (2026-09-12)** : les balises `render_stage: delivery` (`{{files.count}}` seule) restent en clair tant que `status = 'pending'` et sont scellées à la remise |
 | `attempts` | `int not null default 0` | |
 | `occurrence_count` | `int not null default 1` | compteur de regroupement, rendu par `{{files.count}}` — compte des **faits métier** (des dépôts de fichiers), **jamais des destinataires** |
 | `coalescing_window_minutes` | `int not null default 0` | **CORRIGÉ 2026-09-12.** Fenêtre de regroupement **de l'événement, recopiée du catalogue à la mise en file** (`NotificationEventDescriptor.coalescing_window_minutes`, 0-120). `0` = cette entrée n'est **jamais** regroupable. Figée comme le texte l'est : une ligne en file reste jugée sous la règle qui l'a mise en file, un changement de catalogue ne réinterprète pas rétroactivement ce qui attend |
@@ -3436,6 +3436,8 @@ create unique index notification_logs_grouping_uidx
 **Pourquoi la fenêtre est une colonne et pas seulement un paramètre** : parce qu'un index partiel ne peut pas interroger un catalogue TypeScript. La colonne est le seul moyen d'obtenir la garantie **en base** — qui est la règle posée dès la première version de ce point (« elle est en base, pas dans le code »), et que l'index fautif prétendait donner sans la donner.
 
 **Immuabilité : trigger, pas `revoke`.** `.claude/rules/db.md` exige l'append-only sur les tables d'audit. Cette table-ci **doit** muter (une file change d'état) et **doit** pouvoir être détruite (rétention RGPD). La règle s'applique donc dans son intention, pas à la lettre : un trigger `notification_logs_reject_mutation()` **calqué sur `outbox_events_reject_mutation()`** refuse toute modification hors des colonnes de suivi (`status`, `attempts`, `next_attempt_at`, `provider_message_id`, `last_error`, `sent_at`, `occurrence_count`). `recipient`, `subject` et `body` sont **immuables après insertion** : c'est ce qui fait la valeur de preuve du journal.
+
+> **AMENDÉ LE 2026-09-12 PAR LE POINT 11 — à lire avant d'écrire la migration E10.15d.** `recipient` reste immuable **sans exception**. `subject`/`body` le restent aussi, à **une** transition près : celle qui fait quitter `pending` (le *sceau* du rendu différé de `{{files.count}}`). Le trigger gagne en contrepartie l'interdiction de **revenir** à `pending` depuis un statut terminal — donc un texte terminal reste définitif, et cette fois c'est vérifié en base. Détail exact et liste des changements de migration : **point 11.4**.
 
 **Une exception, et une seule, à ajouter à ce trigger — relevée le 2026-09-12 en même temps que l'arbitrage du regroupement.** `template_id` est déclaré `on delete set null` précisément pour que « l'entrée survive au modèle » (suppression d'une étape de production, qui emporte ses modèles en cascade). Or cette action de clé étrangère est **une UPDATE exécutée par le système**, que le trigger d'immuabilité intercepte comme n'importe quelle autre : refuser tout changement de `template_id` **fait échouer la cascade**, donc la suppression de l'étape de production elle-même. Les deux règles ne peuvent pas être vraies ensemble. **Arbitrage : le trigger tolère la transition `template_id` non nul → `null`, et elle seule** ; toute autre réécriture de `template_id` (vers un autre modèle) reste refusée, puisqu'elle réécrirait le « pourquoi » d'un message déjà parti. À **prouver par le test SQL** (supprimer une étape de production portant un modèle qui a des entrées au journal), pas à déduire de la lecture de la migration.
 
@@ -3525,7 +3527,7 @@ Même parti que E10.10b-4a/b/c, E10.19a/b, E10.20a/b et E10.22a-d : **un lot, un
 | **E10.15a — le socle configurable** | Migration `notification_templates` + 3 colonnes de réglages ; module `src/modules/notifications/` (`api/contracts.ts`, `api/client.ts`, `application/`) ; **moteur de rendu et liste blanche** ; les **six opérations de configuration** (catalogue, liste, création, fiche, modification, aperçu) ; droit `can_manage_notifications` ; tests de contrat. **Aucun envoi, aucune file, aucune UI.** | Un tenant peut écrire un modèle, le prévisualiser, et se voir refuser une balise inconnue. Tout est testable **sans réseau**. | — |
 | **E10.15b — l'écran de paramétrage** | Liste, éditeur, aperçu, sous `src/modules/notifications/ui/`. `data-testid` déclarés dans `src/shared/presentation/testIds.ts` (scope `notificationTemplate`). **Aucun changement serveur.** | L'administrateur configure pour de vrai. Gardé par `modular-ui-boundaries` et `api-first-boundaries`. | a |
 | **E10.15c — la chaîne d'envoi, sur UN seul événement** | Migration `notification_logs` + `api_claim_notification_messages` + trigger d'immuabilité + purge SQL de rétention (`pg_cron` quotidien) ; `NotificationDispatchConsumer` + `CompositeOutboxConsumer` ; Edge Function `magrit-notification-sender` + composition + `pg_cron` à la minute ; adaptateur courriel Resend ; `GET /notification-logs`. **Événement branché : `order.step_changed` SEUL.** | La chaîne complète tourne en production sur un cas réel, et l'on **voit** ce qui part et ce qui échoue. La rétention naît **avec** la table qui porte les données personnelles, pas trois lots plus tard. | a |
-| **E10.15d — le reste du catalogue et le regroupement** | `quote.sent` (avec le composite sur l'existant), `quote.converted`, `customer.created`, `order.files_submitted` **avec sa fenêtre de regroupement** ; écran du journal. | La promesse écrite dans `OrderFilesSubmittedPayload` (« E10.15 groupera à la notification ») est tenue. | c |
+| **E10.15d — le reste du catalogue et le regroupement** | `quote.sent` (avec le composite sur l'existant), `quote.converted`, `customer.created`, `order.files_submitted` **avec sa fenêtre de regroupement** ; écran du journal. **Mécanisme du compteur : point 11** (rendu différé scellé à la remise, + une migration additive). | La promesse écrite dans `OrderFilesSubmittedPayload` (« E10.15 groupera à la notification ») est tenue. | c |
 | **E10.15e — le canal SMS** | Adaptateur du prestataire retenu ; réglages `notification_sms_enabled` / `_daily_cap` et leur écran ; normalisation E.164 ; comptage de segments dans l'aperçu ; plafond quotidien. | Le second canal, une fois le prestataire choisi et payé. | c + **réserve (b) tranchée** |
 
 **Portée exacte du regroupement dans ce découpage — précisée le 2026-09-12, à la suite de l'arbitrage du point 4.** Le lot (c) pose le **mécanisme** (colonne, index, branche (b) de la mise en file) parce qu'il crée la table et sa fonction d'écriture, et qu'y revenir plus tard coûterait une seconde migration sur la même fonction. Mais **ce mécanisme est INERTE en (c)** : le seul événement branché, `order.step_changed`, déclare `coalescing_window_minutes: 0`, donc aucune de ses entrées n'entre jamais dans l'index de regroupement ni dans la branche (b). **Le regroupement n'a d'effet observable qu'en (d)**, avec `order.files_submitted` et sa fenêtre de 10 minutes — c'est-à-dire exactement là où il a été justifié, et nulle part ailleurs. Un mécanisme générique appliqué par défaut à un événement qui n'en a jamais eu besoin **était la faute** : elle est fermée en base, pas laissée à la vigilance du prochain lot.
@@ -3544,7 +3546,7 @@ Même parti que E10.10b-4a/b/c, E10.19a/b, E10.20a/b et E10.22a-d : **un lot, un
 - **(f)** **`send-order-notification`** (Edge Function pré-E10) fait déjà une notification d'atelier à la création d'une commande boutique, avec une heuristique « admin tenant » en dur. E10.15 ne la reprend pas et ne la retire pas. Dette de convergence à arbitrer : la laisser vivre, ou la remplacer par un modèle une fois E10.15d livrée.
 - **(g)** **Resend en mode test.** `SPRINT_HANDOFF.md` (§E9.5) indique que l'envoi reste limité à `amazon@ageservices.fr` tant qu'aucun domaine n'est vérifié. **La même réserve que §8.13sexies (a), et elle n'est toujours pas levée** : sans domaine d'expédition, E10.15c sera juste et inopérante chez un client réel.
 - **(h)** **La rédaction des textes de modèles n'est pas un livrable d'architecte.** Magrit ne fournit **aucun modèle par défaut** : un espace neuf ne notifie personne tant que l'atelier n'a rien écrit. C'est un choix (un texte commercial ne s'invente pas à la place de l'imprimeur), mais il a une conséquence à dire : **la fonctionnalité livrée est inerte jusqu'à ce que quelqu'un l'utilise**. Si Arnaud veut des modèles d'amorçage, c'est un lot de contenu, à valider par lui comme les textes de §8.22a l'ont été.
-- **(i) — `{{files.count}}` CONTRE L'IMMUABILITÉ DU CORPS. Ouverte le 2026-09-12, BLOQUANTE POUR E10.15d, SANS EFFET sur E10.15c.** Troisième contradiction de la même famille, trouvée en arbitrant les deux premières, et écrite ici plutôt que laissée à découvrir par le prochain lot. Le contrat dit que `{{files.count}}` rend `occurrence_count` ; ce cadrage dit que le corps est **rendu et figé à la mise en file**. Les deux ne peuvent pas tenir : à l'insertion, `occurrence_count` vaut **1** — le corps figé annoncerait donc « 1 fichier » pour un lot qui en comptera cinq. Aucune ligne de E10.15c n'est concernée (aucun événement branché ne porte cette balise), mais **E10.15d ne peut pas commencer sans trancher**. Trois issues, par ordre de préférence de l'architecte :
+- **(i) — `{{files.count}}` CONTRE L'IMMUABILITÉ DU CORPS. Ouverte le 2026-09-12, ~~BLOQUANTE POUR E10.15d~~ — TRANCHÉE LE MÊME JOUR, voir le point 11 ci-dessous, qui fait foi.** Troisième contradiction de la même famille, trouvée en arbitrant les deux premières, et écrite ici plutôt que laissée à découvrir par le prochain lot. Le contrat dit que `{{files.count}}` rend `occurrence_count` ; ce cadrage dit que le corps est **rendu et figé à la mise en file**. Les deux ne peuvent pas tenir : à l'insertion, `occurrence_count` vaut **1** — le corps figé annoncerait donc « 1 fichier » pour un lot qui en comptera cinq. Aucune ligne de E10.15c n'est concernée (aucun événement branché ne porte cette balise). Les trois issues alors ouvertes, **conservées pour mémoire** — l'arbitrage du point 11 n'en retient aucune telle quelle, et dit pourquoi :
   1. **Assouplir l'immuabilité tant que le message n'est pas parti** : `subject`/`body` réécrivables tant que `old.status = 'pending' and new.status = 'pending'`, réécrits par la branche (b) de la mise en file avec le compteur à jour. La valeur de preuve du journal commence à la **remise** — un message que personne n'a reçu ne prouve rien, donc on ne lui doit rien. Cohérent, mais touche le trigger d'immuabilité et impose de rejouer le rendu à chaque occurrence ;
   2. **Rédiger la balise au pluriel indéterminé** dans le catalogue et renoncer au compte exact dans le corps (« des fichiers ont été reçus ») — coût nul, mais `{{files.count}}` resterait au contrat sans rien rendre d'utile, ce qui est pire qu'une balise absente ;
   3. **Substituer `{{files.count}}` au moment de la remise**, dans l'envoyeur — **écarté** : le journal afficherait alors un corps différent de celui réellement envoyé, ce que `NotificationLog.body` interdit explicitement (« corps RÉELLEMENT envoyé »).
@@ -3559,6 +3561,124 @@ Même parti que E10.10b-4a/b/c, E10.19a/b, E10.20a/b et E10.22a-d : **un lot, un
 | `pnpm test:architecture` | **vert — 146 cas, 34 fichiers** |
 
 **Aucun test de contrat spécifique à E10.15 n'est écrit ici**, et c'est conforme au CA12 : un test de contrat vérifie **une route contre le contrat**, or aucune route n'existe encore. `tests/contract/notifications.contract.test.ts` est un livrable de **E10.15a**, en même temps que les routes.
+
+#### 11. `{{files.count}}` — ARBITRAGE DU 2026-09-12, **la réserve (i) est levée**. Rendu différé, scellé à la remise
+
+**Décision : une quatrième issue, qui n'est aucune des trois de la réserve (i) mais qui emprunte à deux d'entre elles.** Les balises gagnent un **étage de substitution** (`NotificationTag.render_stage`, `enqueue` | `delivery`). `{{files.count}}` est la seule `delivery` ; les douze autres restent `enqueue` et **rien ne change pour elles**. Une balise `delivery` n'est pas substituée à la mise en file : elle l'est **au moment de la remise**, avec le compteur **arrêté à la réclamation**, et le texte ainsi obtenu est **écrit dans le journal par la transition d'état même qui fait quitter `pending`**. Le journal montre donc, en statut terminal, le texte exactement remis.
+
+**Ce que cette formulation gagne sur les trois issues initiales, et c'est le cœur de l'arbitrage :**
+
+| Issue de la réserve (i) | Pourquoi elle n'est pas retenue telle quelle |
+|---|---|
+| (1) corps mutable tant que `pending` | Elle donne au trigger une règle **invérifiable** : `pending → pending` autorise aussi bien un re-rendu légitime qu'une réécriture arbitraire, et rien en base ne les distingue. Pire, elle **court contre l'envoyeur** : la réclamation ne change pas le statut (il reste `pending`), donc une occurrence survenant pendant l'appel au prestataire réécrirait le corps d'un message **déjà parti**. On aurait déplacé le mensonge, pas supprimé. Elle impose en outre de rejouer le rendu complet — donc de re-résoudre le contexte en base — à chaque fichier déposé. |
+| (2) pluriel indéterminé | Coût nul en apparence, mais **retirer `files.count` de `NotificationTagId` serait un changement cassant** (R13) : l'énumération est publiée depuis E10.15a et un tenant a déjà pu enregistrer un modèle qui l'emploie. Le laisser sans rien rendre d'utile est précisément ce que la réserve reprochait. |
+| (3) substituer à la remise, sans rien écrire | **Bonne intuition, conclusion trop courte.** Elle était écartée parce que « le journal afficherait un corps différent de celui envoyé ». C'est vrai **tant qu'on ne réécrit pas le journal**. En y écrivant le texte final **dans la même instruction que le passage au statut terminal**, l'objection tombe entièrement : `NotificationLog.body` redevient, à l'instant où quelqu'un a une raison de le lire, le corps réellement envoyé. |
+
+**La règle générale, opposable, qui remplace « le texte est figé à la mise en file » :** *le texte est figé à la mise en file, sauf les balises `delivery`, qui sont arrêtées à la remise ; **dès que le statut est terminal (`sent`, `failed`, `dropped`), le texte est définitif et aucun chemin ne peut plus le réécrire**.* La contrainte 1 du mandat (valeur de preuve intacte sur les statuts terminaux) n'est pas seulement respectée : elle est **mieux garantie qu'avant**, parce que le trigger acquiert en plus l'interdiction de **revenir** à `pending` depuis un statut terminal (voir la migration, point 11.4) — ce qu'il ne vérifiait pas.
+
+##### 11.1 Le rendu différé ne re-balaye JAMAIS un texte déjà rendu
+
+C'est le piège de cette décision, et il faut l'écrire avant le reste, parce qu'une implémentation naïve le prendrait de plein fouet.
+
+**Ce qu'il ne faut PAS faire** : stocker le corps partiellement rendu (avec `{{files.count}}` resté en clair) puis, à la remise, **re-balayer ce corps** pour y substituer la balise. Ce second balayage porterait sur un texte **contenant déjà des valeurs substituées** — et violerait donc frontalement la propriété du point 5 : « une valeur substituée n'est jamais re-balayée ». Un client dont la raison sociale contiendrait littéralement `{{files.count}}` verrait sa raison sociale remplacée par un nombre. Cosmétique ici, mais c'est exactement la promesse que le moteur de rendu a été écrit pour tenir, et elle ne se brade pas pour une balise.
+
+**Ce qu'il faut faire** : le balayage **unique** de la mise en file produit **deux sorties au lieu d'une** — le texte provisoire **et la liste des segments**. Un segment est soit un **littéral** (texte recopié, valeurs `enqueue` déjà substituées comprises), soit une **balise différée** (son identifiant). La remise ne balaye rien : elle **concatène** les segments en remplaçant chaque segment de balise par sa valeur. Une occurrence de `{{files.count}}` venue d'une donnée client se trouve, par construction, **à l'intérieur d'un segment littéral** et ne peut donc jamais être résolue. La propriété du point 5 tient de bout en bout, et elle se prouve.
+
+Signature attendue dans `src/modules/notifications/application/notification-tag-renderer.ts` (nouvelle fonction, **`renderNotificationTags` n'est pas modifiée** — elle reste le chemin de l'aperçu, de l'audience `dropped` et des douze balises `enqueue`) :
+
+```ts
+export type RenderedSegment =
+  | Readonly<{ kind: 'literal'; text: string }>
+  | Readonly<{ kind: 'tag'; id: string }>;
+
+export type DeferredRender = Readonly<{
+  /** Texte provisoire : segments litteraux + balises differees LAISSEES EN CLAIR. Ce qui est stocke dans `body`/`subject` tant que le message est `pending`. */
+  text: string;
+  segments: readonly RenderedSegment[];
+}>;
+
+export function renderNotificationTagsWithDeferred(
+  text: string,
+  context: Readonly<Record<string, string>>,
+  deferred: ReadonlySet<string>,
+): DeferredRender;
+
+/** Remise : concatenation PURE, aucun balayage. */
+export function joinDeferredSegments(
+  segments: readonly RenderedSegment[],
+  values: Readonly<Record<string, string>>,
+): string;
+```
+
+**Quand le rendu différé s'applique — et c'est volontairement étroit :** uniquement si l'entrée est insérée **`pending`** ET que **`coalescing_window_minutes > 0`** ET que le texte contient au moins une balise `delivery`. Dans **tous** les autres cas — fenêtre nulle, entrée `dropped`, aucune balise différée — la mise en file rend **tout** immédiatement par `renderNotificationTags`, `deferred_render` reste `null`, et le chemin d'envoi est **strictement celui d'E10.15c, inchangé**. Une entrée `dropped` n'est jamais réclamée ni regroupée : son `occurrence_count` vaut `1` pour toujours, donc « 1 » est la valeur **exacte**, pas une approximation.
+
+##### 11.2 Le compteur est arrêté à la réclamation — et la fenêtre se ferme là
+
+Deuxième défaut de la même famille que ceux du rectificatif, trouvé en instruisant celui-ci : la réclamation par le drain d'envoi **ne change pas le statut** (`pending` reste `pending`, seuls `attempts` et `next_attempt_at` bougent). Un fichier déposé **entre la réclamation et l'accusé du prestataire** serait donc absorbé, par la branche (b) de `api_enqueue_notification_message`, dans un message **déjà remis** : jamais annoncé, jamais retracé. Absorption silencieuse, troisième du nom.
+
+**Décision : la fenêtre se ferme à la réclamation, pas à son échéance théorique.** `attempts > 0` **sort** l'entrée de l'ensemble regroupable — à la fois dans la recherche de la branche (b) et **dans le prédicat de l'index unique partiel**, pour que ce soit une garantie de base et non une vigilance de code. Conséquences, toutes voulues :
+
+- le texte remis annonce **le compteur lu à la réclamation**, jamais un autre : ce que le sceau écrit au journal est donc exactement ce qui est parti ;
+- un fait survenu après la réclamation **ouvre un nouveau message**, avec sa propre fenêtre. C'est honnête (le client reçoit « 1 fichier » puis « 3 fichiers », ce qui est vrai) là où l'absorption était muette ;
+- un échec **rejouable** laisse l'entrée `pending` avec `attempts ≥ 1` : elle n'accueille plus d'occurrence, et un nouveau dépôt crée une entrée neuve `attempts = 0` — les deux coexistent sans heurter l'index, puisque la seconde seule y figure.
+
+##### 11.3 Le déroulé complet, côté code
+
+**À la mise en file (`NotificationDispatchConsumer`)** — pour chaque destinataire :
+
+1. lire dans le catalogue les balises `render_stage: 'delivery'` de l'événement (**jamais une liste en dur** : même discipline que `coalescingWindowMinutesForEvent`, une seule vérité) ;
+2. si l'entrée est `pending`, que la fenêtre est `> 0` et qu'au moins une balise différée figure dans le sujet **ou** le corps : appeler `renderNotificationTagsWithDeferred` pour le sujet et pour le corps, envoyer à la base le **texte provisoire** (`subject`/`body`) **et** le tableau de segments (`p_deferred_render`, un `jsonb` `{ "subject": [...] | null, "body": [...] }`) ;
+3. sinon : comportement E10.15c à l'identique, `p_deferred_render` à `null`.
+
+**À la remise (`NotificationSender`)** :
+
+4. le message réclamé porte désormais `occurrenceCount` et `deferredRender` (la réclamation renvoie déjà `setof notification_logs`, donc la colonne neuve arrive **sans changer sa signature** — seul le mappage de `src/adapters/supabase/notification-send-repository.ts` est à compléter) ;
+5. si `deferredRender` est `null` → `send()` reçoit `subject`/`body` tels quels. **Chemin E10.15c, octet pour octet** ;
+6. sinon → `joinDeferredSegments(segments, { 'files.count': String(occurrenceCount) })` produit le texte final, qui est ce que `send()` reçoit. **L'envoyeur ne balaye jamais `body`** ;
+7. **verdict terminal** (`markSent`, `markFailed`) → la même `UPDATE` qui pose `status` écrit `subject`/`body` = texte final **et** `deferred_render = null`. C'est le **sceau** ;
+8. **verdict rejouable** (`markRetry`) → **aucun sceau** : le statut reste `pending`, le texte provisoire et les segments restent en place, la tentative suivante refait (6) avec le compteur d'alors.
+
+**Rien d'autre ne bouge.** Le consommateur ne fait toujours **aucun appel réseau**, la table reste une file et un journal, le port `NotificationChannelAdapter` est **inchangé** (`RenderedNotification` reçoit du texte fini, il n'a jamais à savoir qu'il a été différé), et l'aperçu (`previewNotificationTemplate`) rend **tout** avec les `example` du catalogue — un aperçu n'envoie rien, il montre la forme finale.
+
+##### 11.4 La migration E10.15d — **additive**, elle ne réécrit pas `20260912000100`
+
+Confirmation demandée : **oui, une migration SQL supplémentaire est nécessaire**, et elle est **additive** — un fichier neuf, `2026091x0000_gescom_e10_15d_notification_deferred_render.sql`. La migration d'E10.15c, déployée en production le 2026-09-12, n'est **pas** modifiée. Ce que le dev-story doit y faire, et rien de plus :
+
+1. **`alter table public.notification_logs add column deferred_render jsonb` (nullable, `null` par défaut)** + `comment on column`. Artefact **interne de remise**, jamais exposé par l'API (`NotificationLog` est `additionalProperties: false`, il en est exclu par construction) ; `null` sur l'immense majorité des lignes.
+2. **`grant update (subject, body, deferred_render) on public.notification_logs to service_role`** — en **ajout** du grant de colonnes existant ; sans lui, le sceau échoue en 42501 et l'échec serait pris pour un problème de trigger.
+3. **`create or replace function public.notification_logs_reject_mutation()`** — trois ajouts, tout le reste identique (y compris la tolérance `template_id` non nul → `null` d'E10.15c, **à conserver mot pour mot**) :
+   - `subject` et `body` deviennent modifiables **si et seulement si** `old.status = 'pending' and new.status is distinct from 'pending'` — c'est-à-dire **exactement** à la transition de scellement, une fois par ligne et jamais plus ;
+   - `deferred_render` : seule la transition **non nul → `null`** est tolérée ; `null` → non nul et toute réécriture sont refusées ;
+   - **nouvelle interdiction, indépendante de ce qui précède mais c'est ici qu'elle a sa place** : `new.status = 'pending' and old.status is distinct from 'pending'` est **refusé**. Un statut terminal ne redevient jamais `pending`, donc le sceau ne peut pas être rouvert. C'est ce qui rend la garantie de preuve **prouvable en base** plutôt que déduite du code de l'envoyeur.
+4. **Index de regroupement — `drop index` puis `create unique index`** avec le prédicat élargi :
+
+   ```sql
+   drop index if exists public.notification_logs_grouping_uidx;
+   create unique index notification_logs_grouping_uidx
+     on public.notification_logs (template_id, aggregate_id, (coalesce(recipient, '')))
+     where status = 'pending' and coalescing_window_minutes > 0 and attempts = 0;
+   ```
+
+5. **`api_enqueue_notification_message` — `drop function` PUIS `create function`, pas `create or replace`.** Le paramètre `p_deferred_render jsonb default null` **change la signature** : un `create or replace` créerait une **seconde surcharge à 14 arguments** cohabitant avec celle à 13, et PostgREST choisirait l'une ou l'autre selon les clés envoyées — panne intermittente, très coûteuse à diagnostiquer. Donc : `drop function if exists public.api_enqueue_notification_message(uuid,uuid,text,text,uuid,uuid,text,text,text,text,text,text,integer);` puis création de la version à 14 arguments, **avec ses `revoke`/`grant` refaits** (ils sont attachés à la signature, le `drop` les emporte). Dans le corps, deux changements seulement : la recherche de la branche (b) gagne `and attempts = 0`, et l'insertion de la branche (c) écrit `deferred_render = p_deferred_render` (le filet `exception when unique_violation` relit selon la **même** clé, `attempts = 0` compris).
+6. **`api_claim_notification_messages` : aucune modification.** Elle rend `setof public.notification_logs` — la colonne neuve la traverse sans changement de signature. Ne pas la toucher.
+7. **`notify pgrst, 'reload schema';`** en fin de fichier, comme les précédentes.
+
+**Ce qui doit être prouvé par `tests/sql/`** (Docker requis, donc à jouer localement — et à ne pas remplacer par une relecture de la migration) : (a) le sceau passe sur `pending → sent` et **échoue** sur `sent → sent` ; (b) `sent → pending` est refusé ; (c) une ligne réclamée (`attempts = 1`) **n'absorbe pas** une occurrence — un second message est créé ; (d) la tolérance `template_id` non nul → `null` d'E10.15c **fonctionne toujours** (supprimer une étape de production portant un modèle journalisé) ; (e) le regroupement nominal — cinq dépôts en dix minutes, **un** message, `occurrence_count = 5`.
+
+##### 11.5 Ce que cela change au contrat, et pour le reste d'E10.15d
+
+**`openapi/magrit-core.v1.yaml` — modifié et régénéré (`pnpm gen:api`), tout est additif (R13) :**
+
+- **`NotificationTagRenderStage`** (schéma neuf, `enqueue` | `delivery`) ;
+- **`NotificationTag.render_stage`** — propriété neuve, **requise**. Champ de **réponse** d'un catalogue servi par nous seuls : aucun client existant n'en dépend, et tout serveur conforme l'émettra. `src/modules/notifications/api/contracts.ts` (`notificationTagSchema`, `.strict()`) et `notification-event-catalog.ts` sont à compléter **dans le même lot**, sinon le catalogue servira un objet non conforme au contrat ;
+- **`NotificationLog`** — description de tête (exception `delivery`, sceau, définitivité du statut terminal), `subject`, `body` (dont la consigne d'écran, ci-dessous), `occurrence_count` (arrêt à la réclamation) ;
+- **`NotificationEventDescriptor.coalescing_window_minutes`** — troisième limite : un message déjà réclamé n'accueille plus d'occurrence.
+
+**Consigne opposable à l'écran du journal (E10.15d)** : sur une entrée `pending` d'un événement à fenêtre, `body` peut encore contenir `{{files.count}}` **en clair**. L'écran l'affiche **tel quel**, en signalant que le message n'est pas parti. Il ne substitue **rien** : une substitution côté navigateur serait un second moteur de rendu, donc une seconde vérité sur le texte envoyé — ce que ce journal existe pour empêcher (et ce que l'interdit R-frontend « aucun contrôle métier côté navigateur » dit déjà autrement).
+
+**Les trois autres événements d'E10.15d sont INDÉPENDANTS de cet arbitrage.** `quote.sent`, `quote.converted` et `customer.created` déclarent `coalescing_window_minutes: 0`, aucun ne porte de balise `delivery`, donc aucun n'emprunte le chemin différé : pour eux, mise en file et remise sont **exactement** celles d'E10.15c. Leur travail reste celui déjà écrit — brancher le consommateur sur le composite déjà en place (`quote.sent` passe **en premier** dans le composite, point 3(a), l'ordre est opposable), résoudre leur contexte, et rien d'autre. **Ils peuvent être implémentés avant, après ou en parallèle du regroupement** ; seuls `order.files_submitted` et l'écran du journal dépendent du présent point 11. Si le lot doit être découpé encore, la ligne de coupe est là — et elle est propre.
+
+**Gates rejouées à cet arbitrage** : `pnpm gen:api` régénéré, `pnpm typecheck` vert, `pnpm test:contract` vert (**412 cas, 22 fichiers**). Aucun fichier de `src/` modifié hors le fichier généré.
 
 ## 9. Commandes
 

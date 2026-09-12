@@ -17820,6 +17820,45 @@ components:
         - files.count
         - link.portal_quotes
 
+    NotificationTagRenderStage:
+      title: NotificationTagRenderStage
+      description: >-
+        QUAND la valeur d une balise est substituee. Deux etages, et un seul
+        motif de les distinguer : une valeur qui peut ENCORE BOUGER entre la
+        mise en file et la remise ne peut pas etre figee a la mise en file.
+
+
+        `enqueue` — REGIME NORMAL, douze balises sur treize. La valeur est
+        resolue et substituee au moment ou le message entre dans la file ; le
+        texte du journal est alors complet et definitif des sa premiere
+        seconde. C est ce qui repond a « qu est-ce que mon client a recu ? »
+        apres deux corrections du modele.
+
+
+        `delivery` — `{{files.count}}` SEULE a ce jour. La valeur est le
+        compteur de regroupement (`NotificationLog.occurrence_count`), qui
+        augmente tant que la fenetre de l evenement n est pas echue. La
+        substituer a la mise en file ferait partir un message annoncant « 1
+        fichier » pour un lot qui en comptera cinq. Elle est donc substituee
+        AU MOMENT DE LA REMISE, avec la valeur du compteur arretee a la
+        reclamation du message, et le texte ainsi obtenu est ECRIT DANS LE
+        JOURNAL dans la meme transition d etat que celle qui fait quitter
+        `pending`. Le journal montre donc, en statut terminal, le texte
+        EXACTEMENT remis — jamais une approximation, jamais un texte different
+        de celui qui est parti.
+
+
+        CONSEQUENCE, ET ELLE EST OPPOSABLE : une balise `delivery` ne peut
+        exister que sur un evenement declarant une fenetre
+        (`NotificationEventDescriptor.coalescing_window_minutes` non nul).
+        Ailleurs, il n y a rien a differer — le compteur vaut `1` et ne
+        bougera jamais — et la balise est donc substituee comme les autres, a
+        la mise en file.
+      type: string
+      enum:
+        - enqueue
+        - delivery
+
     NotificationTag:
       title: NotificationTag
       description: >-
@@ -17827,7 +17866,7 @@ components:
         proposer et telle qu un apercu la rend.
       type: object
       additionalProperties: false
-      required: [id, syntax, label, nullable, example]
+      required: [id, syntax, label, nullable, example, render_stage]
       properties:
         id:
           $ref: '#/components/schemas/NotificationTagId'
@@ -17856,7 +17895,21 @@ components:
           description: >-
             Valeur substituee par `previewNotificationTemplate`. FICTIVE, jamais
             tiree d une donnee reelle du tenant.
+
+
+            L APERCU SUBSTITUE TOUTES LES BALISES, `render_stage` COMPRIS : il
+            ne met rien en file et n envoie rien, il montre la forme finale du
+            texte. Une balise `delivery` y rend donc son `example` (3 fichiers
+            pour `{{files.count}}`), ce qui est exactement ce qu un redacteur
+            a besoin de voir.
           type: string
+        render_stage:
+          description: >-
+            Etage de substitution de cette balise. `enqueue` pour toutes, sauf
+            `files.count` qui vaut `delivery`. Un ecran peut s en servir pour
+            signaler qu une balise sera arretee a l envoi ; il ne doit RIEN en
+            deduire d autre, et surtout pas tenter de la resoudre lui-meme.
+          $ref: '#/components/schemas/NotificationTagRenderStage'
 
     NotificationEventDescriptor:
       title: NotificationEventDescriptor
@@ -17961,6 +18014,16 @@ components:
             quitte la file. Les fusionner enverrait au client le corps FIGE du
             premier fait — un message qui MENT sur l etat courant de sa commande
             (cas reel : deux changements d etape rapproches).
+
+            (3) UN MESSAGE DEJA RECLAME PAR LE DRAIN D ENVOI N ACCUEILLE PLUS
+            AUCUNE OCCURRENCE. La fenetre se ferme a la reclamation, pas a son
+            echeance theorique : des que `attempts` depasse `0`, le message est
+            en cours de remise (ou en attente d une nouvelle tentative) et un
+            fait supplementaire ouvre un NOUVEAU message. Sans cette limite, un
+            fichier depose pendant l appel au prestataire serait compte dans un
+            message deja parti — donc jamais annonce a personne, et sans trace.
+            C est la meme faute que (1) sous un autre angle : une absorption
+            silencieuse.
           type: integer
           format: int32
           minimum: 0
@@ -18342,6 +18405,19 @@ components:
         C est ce qui permet de repondre a « qu est-ce que mon client a recu ? »
         apres deux corrections du modele. Un journal qui rendrait le modele
         COURANT mentirait sur le passe.
+
+
+        UNE SEULE EXCEPTION, ET ELLE NE CONCERNE QUE LES MESSAGES ENCORE EN
+        FILE : les balises `render_stage: delivery` (`{{files.count}}` seule a
+        ce jour) restent NON SUBSTITUEES dans `subject`/`body` tant que
+        `status = 'pending'`, et sont arretees a la remise. Le texte est alors
+        reecrit UNE FOIS, dans la transition d etat meme qui fait quitter
+        `pending`. DES QUE LE STATUT EST TERMINAL (`sent`, `failed`,
+        `dropped`), LE TEXTE EST DEFINITIF ET NE PEUT PLUS ETRE REECRIT PAR
+        AUCUN CHEMIN — c est garanti en base, par le trigger d immuabilite, et
+        c est la valeur de preuve du journal. Un message qui n est parti nulle
+        part ne prouve encore rien : c est pourquoi l assouplissement s arrete
+        exactement a la porte du premier statut terminal.
       type: object
       additionalProperties: false
       required:
@@ -18407,12 +18483,29 @@ components:
             - type: string
             - type: 'null'
         subject:
-          description: Objet rendu. `null` sur le canal `sms`.
+          description: >-
+            Objet rendu. `null` sur le canal `sms`. Meme regime de substitution
+            que `body`, y compris pour les balises `render_stage: delivery`.
           oneOf:
             - type: string
             - type: 'null'
         body:
-          description: Corps REELLEMENT envoye, balises substituees, fige a la mise en file.
+          description: >-
+            Corps REELLEMENT envoye, balises substituees, fige a la mise en
+            file — SAUF les balises `render_stage: delivery`, arretees a la
+            remise (voir la description de ce schema et
+            `NotificationTagRenderStage`).
+
+
+            CE QUE CELA CHANGE POUR UN ECRAN DE JOURNAL, ET C EST LA SEULE
+            CHOSE A RETENIR : sur une entree `pending` d un evenement a
+            fenetre, ce texte peut encore contenir `{{files.count}}` tel quel.
+            L ecran l affiche TEL QUEL, en signalant que le message n est pas
+            encore parti ; il ne substitue RIEN lui-meme. Une substitution
+            cote navigateur serait un second moteur de rendu, donc une seconde
+            verite sur le texte envoye — exactement ce que ce journal existe
+            pour empecher. Des que le statut est terminal, ce champ est le
+            texte definitif, et il n y a plus rien a signaler.
           type: string
         attempts:
           description: >-
@@ -18434,6 +18527,13 @@ components:
             visant LE MEME destinataire avec LE MEME modele sur LE MEME objet.
             Sur tout autre evenement, cette valeur est `1` en toutes
             circonstances.
+
+
+            ARRETE A LA RECLAMATION. Ce compteur cesse d augmenter des que le
+            drain d envoi reclame le message (`attempts` > `0`) : c est cette
+            valeur-la, et aucune autre, que rend `{{files.count}}` dans le
+            texte remis. Un fait survenu apres la reclamation ouvre un NOUVEAU
+            message plutot que d etre compte dans un message deja parti.
           type: integer
           format: int32
           minimum: 1

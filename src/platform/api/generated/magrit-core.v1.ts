@@ -5677,6 +5677,18 @@ export interface components {
          */
         NotificationTagId: "tenant.name" | "customer.company_name" | "customer.contact_name" | "quote.number" | "quote.valid_until" | "quote.customer_reference" | "order.number" | "order.customer_reference" | "order.expected_delivery_date" | "step.label" | "step.previous_label" | "files.count" | "link.portal_quotes";
         /**
+         * NotificationTagRenderStage
+         * @description QUAND la valeur d une balise est substituee. Deux etages, et un seul motif de les distinguer : une valeur qui peut ENCORE BOUGER entre la mise en file et la remise ne peut pas etre figee a la mise en file.
+         *
+         *     `enqueue` — REGIME NORMAL, douze balises sur treize. La valeur est resolue et substituee au moment ou le message entre dans la file ; le texte du journal est alors complet et definitif des sa premiere seconde. C est ce qui repond a « qu est-ce que mon client a recu ? » apres deux corrections du modele.
+         *
+         *     `delivery` — `{{files.count}}` SEULE a ce jour. La valeur est le compteur de regroupement (`NotificationLog.occurrence_count`), qui augmente tant que la fenetre de l evenement n est pas echue. La substituer a la mise en file ferait partir un message annoncant « 1 fichier » pour un lot qui en comptera cinq. Elle est donc substituee AU MOMENT DE LA REMISE, avec la valeur du compteur arretee a la reclamation du message, et le texte ainsi obtenu est ECRIT DANS LE JOURNAL dans la meme transition d etat que celle qui fait quitter `pending`. Le journal montre donc, en statut terminal, le texte EXACTEMENT remis — jamais une approximation, jamais un texte different de celui qui est parti.
+         *
+         *     CONSEQUENCE, ET ELLE EST OPPOSABLE : une balise `delivery` ne peut exister que sur un evenement declarant une fenetre (`NotificationEventDescriptor.coalescing_window_minutes` non nul). Ailleurs, il n y a rien a differer — le compteur vaut `1` et ne bougera jamais — et la balise est donc substituee comme les autres, a la mise en file.
+         * @enum {string}
+         */
+        NotificationTagRenderStage: "enqueue" | "delivery";
+        /**
          * NotificationTag
          * @description Une balise du catalogue, telle qu un ecran de parametrage doit la proposer et telle qu un apercu la rend.
          */
@@ -5688,8 +5700,14 @@ export interface components {
             label: string;
             /** @description `true` si la donnee peut etre absente le jour de l envoi — la balise rend alors une CHAINE VIDE, jamais un tiret, jamais le nom de la balise. L ecran gagne a le signaler : « Livraison prevue le {{order.expected_delivery_date}} » donne une phrase bancale sur une commande sans date. */
             nullable: boolean;
-            /** @description Valeur substituee par `previewNotificationTemplate`. FICTIVE, jamais tiree d une donnee reelle du tenant. */
+            /**
+             * @description Valeur substituee par `previewNotificationTemplate`. FICTIVE, jamais tiree d une donnee reelle du tenant.
+             *
+             *     L APERCU SUBSTITUE TOUTES LES BALISES, `render_stage` COMPRIS : il ne met rien en file et n envoie rien, il montre la forme finale du texte. Une balise `delivery` y rend donc son `example` (3 fichiers pour `{{files.count}}`), ce qui est exactement ce qu un redacteur a besoin de voir.
+             */
             example: string;
+            /** @description Etage de substitution de cette balise. `enqueue` pour toutes, sauf `files.count` qui vaut `delivery`. Un ecran peut s en servir pour signaler qu une balise sera arretee a l envoi ; il ne doit RIEN en deduire d autre, et surtout pas tenter de la resoudre lui-meme. */
+            render_stage: components["schemas"]["NotificationTagRenderStage"];
         };
         /**
          * NotificationEventDescriptor
@@ -5720,6 +5738,7 @@ export interface components {
              *     DEUX LIMITES DE CE MECANISME, GARANTIES EN BASE ET NON PAR LE CODE APPELANT (index unique partiel sur `notification_logs`).
              *     (1) LE REGROUPEMENT NE FRANCHIT JAMAIS LA FRONTIERE D UN DESTINATAIRE. Il regroupe des FAITS, pas des PERSONNES : le compteur repond a « combien de fichiers », jamais a « combien de gens ». Un modele vise plusieurs destinataires (audience `explicit`, jusqu a 10 adresses ; ou un client a plusieurs contacts) : chacun recoit SON message et SON entree de journal, avec SON propre compteur.
              *     (2) UNE FENETRE A `0` N EST PAS UN REGROUPEMENT DE DUREE NULLE, C EST L ABSENCE DE REGROUPEMENT. Deux faits rapproches sur le meme objet donnent alors deux messages, meme si le premier n a pas encore quitte la file. Les fusionner enverrait au client le corps FIGE du premier fait — un message qui MENT sur l etat courant de sa commande (cas reel : deux changements d etape rapproches).
+             *     (3) UN MESSAGE DEJA RECLAME PAR LE DRAIN D ENVOI N ACCUEILLE PLUS AUCUNE OCCURRENCE. La fenetre se ferme a la reclamation, pas a son echeance theorique : des que `attempts` depasse `0`, le message est en cours de remise (ou en attente d une nouvelle tentative) et un fait supplementaire ouvre un NOUVEAU message. Sans cette limite, un fichier depose pendant l appel au prestataire serait compte dans un message deja parti — donc jamais annonce a personne, et sans trace. C est la meme faute que (1) sous un autre angle : une absorption silencieuse.
              */
             coalescing_window_minutes: number;
         };
@@ -5864,6 +5883,8 @@ export interface components {
          *     CETTE TABLE EST AUSSI LA FILE D ENVOI. Une entree nait `pending` et change d etat ; l application n en reecrit jamais le TEXTE ni le DESTINATAIRE, seulement ses colonnes de suivi. Le precedent exact est `outbox_events`, append-only sauf ses colonnes de suivi, garde par trigger. Un journal separe de la file aurait duplique le corps rendu dans deux tables pour la seule elegance d un mot.
          *
          *     LE TEXTE EST FIGE A LA MISE EN FILE, pas relu au modele a l affichage. C est ce qui permet de repondre a « qu est-ce que mon client a recu ? » apres deux corrections du modele. Un journal qui rendrait le modele COURANT mentirait sur le passe.
+         *
+         *     UNE SEULE EXCEPTION, ET ELLE NE CONCERNE QUE LES MESSAGES ENCORE EN FILE : les balises `render_stage: delivery` (`{{files.count}}` seule a ce jour) restent NON SUBSTITUEES dans `subject`/`body` tant que `status = 'pending'`, et sont arretees a la remise. Le texte est alors reecrit UNE FOIS, dans la transition d etat meme qui fait quitter `pending`. DES QUE LE STATUT EST TERMINAL (`sent`, `failed`, `dropped`), LE TEXTE EST DEFINITIF ET NE PEUT PLUS ETRE REECRIT PAR AUCUN CHEMIN — c est garanti en base, par le trigger d immuabilite, et c est la valeur de preuve du journal. Un message qui n est parti nulle part ne prouve encore rien : c est pourquoi l assouplissement s arrete exactement a la porte du premier statut terminal.
          */
         NotificationLog: {
             id: components["schemas"]["Uuid"];
@@ -5884,9 +5905,13 @@ export interface components {
              *     SERVI EN CLAIR A TOUT MEMBRE DE L ESPACE, sans masquage : cette adresse est deja lisible dans la fiche du client (E10.4) par les memes personnes. La masquer ici donnerait l illusion d une protection que le produit n applique pas ailleurs, au prix de l enquete (« a-t-on ecrit a la bonne adresse ? » devient insoluble). La protection reelle de cette donnee est sa DUREE DE CONSERVATION, pas son affichage — voir `CommercialSettings.notification_retention_days`.
              */
             recipient?: string | null;
-            /** @description Objet rendu. `null` sur le canal `sms`. */
+            /** @description Objet rendu. `null` sur le canal `sms`. Meme regime de substitution que `body`, y compris pour les balises `render_stage: delivery`. */
             subject?: string | null;
-            /** @description Corps REELLEMENT envoye, balises substituees, fige a la mise en file. */
+            /**
+             * @description Corps REELLEMENT envoye, balises substituees, fige a la mise en file — SAUF les balises `render_stage: delivery`, arretees a la remise (voir la description de ce schema et `NotificationTagRenderStage`).
+             *
+             *     CE QUE CELA CHANGE POUR UN ECRAN DE JOURNAL, ET C EST LA SEULE CHOSE A RETENIR : sur une entree `pending` d un evenement a fenetre, ce texte peut encore contenir `{{files.count}}` tel quel. L ecran l affiche TEL QUEL, en signalant que le message n est pas encore parti ; il ne substitue RIEN lui-meme. Une substitution cote navigateur serait un second moteur de rendu, donc une seconde verite sur le texte envoye — exactement ce que ce journal existe pour empecher. Des que le statut est terminal, ce champ est le texte definitif, et il n y a plus rien a signaler.
+             */
             body: string;
             /**
              * Format: int32
@@ -5898,6 +5923,8 @@ export interface components {
              * @description Nombre de faits metier regroupes dans ce message. Vaut `1` hors regroupement, et c est la valeur que rend `{{files.count}}`.
              *
              *     DES FAITS, JAMAIS DES DESTINATAIRES. Ne vaut plus `1` que pour un evenement dont le catalogue declare une fenetre (`NotificationEventDescriptor.coalescing_window_minutes` non nul : `order.files_submitted` SEUL a ce jour), et seulement entre faits visant LE MEME destinataire avec LE MEME modele sur LE MEME objet. Sur tout autre evenement, cette valeur est `1` en toutes circonstances.
+             *
+             *     ARRETE A LA RECLAMATION. Ce compteur cesse d augmenter des que le drain d envoi reclame le message (`attempts` > `0`) : c est cette valeur-la, et aucune autre, que rend `{{files.count}}` dans le texte remis. Un fait survenu apres la reclamation ouvre un NOUVEAU message plutot que d etre compte dans un message deja parti.
              */
             occurrence_count: number;
             /** @description Identifiant rendu par le prestataire a l acceptation. Sert au rapprochement en cas de litige, et permettra une relecture de statut le jour ou elle sera branchee (le produit sait deja le faire pour le courriel, E10.22a-bis). */
@@ -6266,6 +6293,7 @@ export type NotificationChannel = components['schemas']['NotificationChannel'];
 export type NotificationEventName = components['schemas']['NotificationEventName'];
 export type NotificationAudience = components['schemas']['NotificationAudience'];
 export type NotificationTagId = components['schemas']['NotificationTagId'];
+export type NotificationTagRenderStage = components['schemas']['NotificationTagRenderStage'];
 export type NotificationTag = components['schemas']['NotificationTag'];
 export type NotificationEventDescriptor = components['schemas']['NotificationEventDescriptor'];
 export type NotificationTemplateStatusFilter = components['schemas']['NotificationTemplateStatusFilter'];
