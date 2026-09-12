@@ -4235,6 +4235,75 @@ paths:
             Detail et motif dans `CommercialOrderSort`.
           schema:
             $ref: '#/components/schemas/CommercialOrderSort'
+        - name: created_from
+          in: query
+          required: false
+          description: >-
+            PREMIER JOUR de la periode retenue, INCLUS (E10.18). Borne sur la
+            DATE DE CREATION de la commande, jamais sur sa date de livraison
+            prevue ni sur son dernier mouvement d atelier : c est la date qui
+            figure sur le document et celle qu une comptabilite rapproche.
+
+
+            POURQUOI CE FILTRE ARRIVE AVEC L EXPORT, ET POURQUOI IL EST POSE
+            ICI ET NON SUR L EXPORT. E10.18 exige que les filtres d un export
+            soient EXACTEMENT ceux de cette operation — « un export doit
+            toujours pouvoir etre reproduit a partir d une vue de la grille ».
+            Or cette operation n avait AUCUNE borne de periode : prise a la
+            lettre, la regle rendait tout export comptable non borne, donc
+            l integralite de l historique a chaque cloture — precisement la
+            ressaisie et le dedoublonnage que l export existe pour supprimer.
+            Ajouter la borne a l export SEUL aurait rompu la regle, et rendu
+            impossible de verifier a l ecran ce qu on s apprete a exporter. La
+            borne appartient donc a la grille ; l export la reprend.
+
+
+            LE JOUR EST ENTENDU DANS LE FUSEAU DE REFERENCE DU PRODUIT,
+            `Europe/Paris`, PAS EN UTC, et ce n est pas un detail
+            d affichage : `created_at` est un `timestamptz` stocke en UTC, donc
+            une commande passee le 1er septembre a 00h30 a Paris vaut
+            `2026-08-31T22:30:00Z`. Bornee en UTC, elle tomberait dans le mois
+            comptable precedent — un ecart de cloture, silencieux, et du genre
+            qui se decouvre en rapprochement bancaire. La conversion est faite
+            par le serveur ; l appelant envoie une date civile et rien d autre.
+
+
+            C est la PREMIERE fois que ce contrat nomme un fuseau autre qu UTC,
+            et c est une CONSTANTE DU PRODUIT, pas un reglage d espace
+            (arbitrage Arnaud du 2026-09-12, rendu en connaissance de cette
+            singularite). Aucun champ de `CommercialSettings` ne le gouverne et
+            aucun n est prevu. La question se rouvrira le jour ou un imprimeur
+            hors metropole entrera dans le produit ; le chemin resterait
+            additif et ne changerait ni la forme ni le sens de ce parametre.
+            Voir docs/api/CONVENTIONS.md §8.24, reserve (b), levee.
+
+
+            Absente -> aucune borne basse. Posterieure a `created_to` -> 422
+            `api.validation_failed`, jamais une page vide qui laisserait croire
+            a une absence de commandes.
+          schema:
+            type: string
+            format: date
+            pattern: '^\d{4}-\d{2}-\d{2}$'
+        - name: created_to
+          in: query
+          required: false
+          description: >-
+            DERNIER JOUR de la periode retenue, INCLUS (E10.18) — la journee
+            ENTIERE, jusqu a 23:59:59.999 dans le fuseau de reference. Meme
+            parti que `PriceRule.ends_on` (« dernier jour d application,
+            INCLUS ») : une borne haute exclusive obligerait tout appelant a
+            ajouter un jour pour obtenir « le mois de septembre », et la moitie
+            d entre eux oublierait de le faire.
+
+
+            Absente -> aucune borne haute. Une date FUTURE est acceptee sans
+            avertissement : borner au 31 decembre pour obtenir « l annee en
+            cours » est un usage legitime.
+          schema:
+            type: string
+            format: date
+            pattern: '^\d{4}-\d{2}-\d{2}$'
         - $ref: '#/components/parameters/PageSize'
         - $ref: '#/components/parameters/PageCursor'
       responses:
@@ -8227,6 +8296,322 @@ paths:
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
 
+# ----------------------------------------------------------------------------
+# Story E10.18 — « Export XLSX et CSV des commandes pour la comptabilite ».
+#
+# TROIS OPERATIONS, UNE RESSOURCE DE PREMIER NIVEAU, ET UN SEUL CHEMIN
+# D EXECUTION. Cadrage complet et motifs : docs/api/CONVENTIONS.md §8.24.
+#
+# ---- 1. POURQUOI `/commercial-order-exports` ET NON `/orders/exports` -------
+# L esquisse du WM (01/09/2026) ecrivait `POST /api/v1/orders/exports`. Trois
+# raisons de ne pas la suivre, dans l ordre de gravite :
+#  - `/api/v1/orders/...` est le prefixe de la facade HISTORIQUE, qui adresse
+#    une commande BOUTIQUE (`tenant_orders`). Le contrat le dit deja en toutes
+#    lettres (voir `components/parameters/CommercialOrderId`). Publier
+#    l export des commandes de GESTION sous ce prefixe ferait dire deux choses
+#    au meme mot, dans deux facades, sur la meme URL racine ;
+#  - imbriquer sous la ressource E10 — `/commercial-orders/exports` — RECOUVRE
+#    `/commercial-orders/{orderId}` : meme nombre de segments, un parametre
+#    couvre n importe quel litteral (`pathTemplatesOverlap`). Le detecteur du
+#    depot ne leve aujourd hui que sur un recouvrement ENTRE FACADES, donc
+#    rien n aurait bronche au demarrage : la route gagnante aurait dependu de
+#    l ordre d enregistrement. Une ambiguite muette vaut moins qu un nom long ;
+#  - un export N EST PAS une sous-ressource d une commande. Il en couvre des
+#    milliers, ou aucune. La ressource de premier niveau dit ce qu elle est,
+#    exactement comme `/notification-logs` et `/production-step-positions`.
+#
+# ---- 2. UN SEUL CHEMIN, TOUJOURS ASYNCHRONE --------------------------------
+# Le CA7 de la fiche demande la bascule en tache de fond AU-DELA DE 5 000
+# LIGNES. Ce contrat ne publie PAS de seuil, et n expose AUCUN chemin
+# synchrone : tout export, de trois lignes ou de cent mille, est une demande
+# puis un fichier. Cinq raisons, ecrites ici parce qu elles seront relues :
+#  (i)   deux chemins, ce sont deux generateurs a tenir identiques. Un fichier
+#        de 4 999 lignes et un de 5 001 doivent se ressembler au pixel pres
+#        pour une macro comptable ; avec deux chemins, cette promesse n est
+#        verifiable par aucun test de reference ;
+#  (ii)  le seuil porte sur un NOMBRE DE LIGNES, qu on ne connait qu apres
+#        avoir execute la requete. Le chemin « rapide » devrait donc compter
+#        d abord, puis decider : l economie de latence est deja entamee ;
+#  (iii) un chemin synchrone rendrait des octets dans le corps HTTP, donc hors
+#        de l enveloppe `{data, meta}` du CA6 — une derogation sur la facade
+#        que tout integrateur, Studio compris, devrait apprendre ;
+#  (iv)  la generation vit dans une Edge Function, dont le temps et la memoire
+#        sont plafonnes. Un chemin synchrone poserait sur cette operation un
+#        plafond invisible que le contrat ne declare pas ;
+#  (v)   un utilisateur a qui l on sert tantot un telechargement immediat,
+#        tantot un ecran d attente, ne sait jamais lequel il aura. Un seul
+#        parcours s apprend une fois.
+# Le prix de ce parti — l attente d un tour de drain sur un export de quarante
+# lignes — est traite par un SECOND DECLENCHEUR du meme chemin (reveil
+# immediat), jamais par un second chemin de code. Voir §8.24, lot (f).
+#
+# ---- 3. CE QUE LE CONTRAT NE PUBLIE PAS, ET POURQUOI -----------------------
+#  - AUCUNE ANNULATION. Un export s execute en secondes ; un `DELETE` ouvrirait
+#    une seconde machine a etats (annulation pendant reclamation, apres
+#    ecriture partielle) pour un gain nul. Un export inutile expire ;
+#  - AUCUN EVENEMENT SORTANT `order_export.*`. Rien ne le consommerait : le
+#    registre d abonnements tiers n existe pas (voir la section webhooks), et
+#    prevenir le demandeur d une tache qu il vient lui-meme de lancer, et dont
+#    il a l identifiant, serait une notification adressee a quelqu un qui
+#    regarde deja l ecran ;
+#  - AUCUN `PATCH`. Une demande d export ne se modifie pas : ses filtres sont
+#    sa definition. En changer ferait un autre export, et il coute un clic ;
+#  - AUCUN CATALOGUE DE COLONNES EN SCHEMA. La liste ordonnee des colonnes de
+#    chaque granularite est ecrite dans la description de
+#    `OrderExportGranularity` et figee cote code par un test de fichier de
+#    reference. La publier en enumeration donnerait l illusion qu un appelant
+#    peut la choisir, alors qu elle est fixe — et elle changerait de forme au
+#    premier ajout de colonne. `OrderExport.layout_version` est le vrai
+#    mecanisme d annonce d un changement de mise en page.
+# ----------------------------------------------------------------------------
+
+  /commercial-order-exports:
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
+    get:
+      operationId: listCommercialOrderExports
+      summary: >-
+        REGISTRE des exports de commandes de l espace, du plus recent au plus
+        ancien : qui a demande quoi, sur quels filtres, quand, et ce qu il en
+        est advenu.
+
+
+        TENANT-LARGE, PAS « MES EXPORTS ». Tout porteur de `can_export_orders`
+        voit les demandes de TOUS les membres de l espace, avec leur auteur.
+        C est voulu et c est la moitie de l interet de cette operation : un
+        administrateur doit pouvoir repondre a « qui a sorti le chiffre
+        d affaires ce mois-ci ». Le telechargement, lui, reste reserve au
+        demandeur (voir `OrderExport.download_url`) : voir qu un export existe
+        et pouvoir l ouvrir sont deux choses differentes.
+
+
+        C EST AUSSI LE SEUL RATTRAPAGE D UN IDENTIFIANT PERDU. Sans cette
+        operation, une demande dont le navigateur a perdu l identifiant — un
+        onglet ferme pendant la generation — serait injoignable pour toujours,
+        et son fichier resterait dans le stockage jusqu a expiration sans que
+        personne ne puisse ni le prendre ni le voir. C est la raison pour
+        laquelle elle est publiee alors que l esquisse du WM ne prevoyait que
+        deux chemins.
+
+
+        LE REGISTRE SURVIT AU FICHIER. Une entree passee `expired` reste dans
+        cette collection indefiniment : elle ne porte aucune donnee
+        personnelle de client — des identifiants de filtre, un compte de
+        lignes, un auteur membre de l espace — et elle est la seule preuve
+        durable d un acces massif a des donnees qui, elles, en sont pleines.
+        Purger cette trace serait l exact inverse de ce qu on attend d un
+        registre d extraction.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      x-required-capabilities: [can_export_orders]
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: Filtre sur l etat de la demande.
+          schema:
+            $ref: '#/components/schemas/OrderExportStatus'
+        - name: format
+          in: query
+          required: false
+          description: Filtre sur le format demande.
+          schema:
+            $ref: '#/components/schemas/OrderExportFormat'
+        - name: granularity
+          in: query
+          required: false
+          description: Filtre sur la granularite demandee.
+          schema:
+            $ref: '#/components/schemas/OrderExportGranularity'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/PageCursor'
+      responses:
+        '200':
+          description: >-
+            Page de demandes d export, de la plus recente a la plus ancienne.
+            `download_url` n est servi que sur les entrees `ready` DEMANDEES
+            PAR L APPELANT ; il vaut `null` partout ailleurs, y compris sur une
+            entree `ready` d un autre membre.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/OrderExport'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ForbiddenCapability'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+    post:
+      operationId: requestCommercialOrderExport
+      summary: >-
+        DEMANDE un export des commandes de l espace : un format, une
+        granularite, et les filtres de la grille. Rend immediatement la demande
+        en etat `pending` — elle n est pas encore executee, et RIEN dans cette
+        reponse ne porte de donnee de commande.
+
+
+        LES FILTRES SONT EXACTEMENT CEUX DE `listCommercialOrders`, ET C EST
+        UNE REGLE, PAS UNE COMMODITE (consigne WM du 01/09/2026 : « un export
+        doit toujours pouvoir etre reproduit a partir d une vue de la
+        grille »). Le contrat la tient d un seul moyen : `OrderExportFilters`
+        reprend les memes noms, les memes types et les memes refus que les
+        parametres de requete de cette operation-la. Un filtre ajoute a la
+        grille se rajoutera ici, et jamais l inverse — un filtre qui
+        n existerait qu a l export produirait un fichier que personne ne
+        pourrait verifier a l ecran avant de l envoyer a son comptable.
+        `sort`, `page[size]` et `page[cursor]` sont les seuls parametres de la
+        grille a NE PAS etre repris : un export a son ordre propre, impose et
+        documente (`OrderExportGranularity`), et il n a pas de pages.
+
+
+        LES FILTRES SONT CONSERVES SUR LA DEMANDE, puis republies a
+        l identique. C est ce qui rend un export REPRODUCTIBLE six mois plus
+        tard, et c est aussi ce qui empeche le generateur de les elargir : il
+        ne recoit pas de criteres, il lit ceux qui ont ete enregistres.
+
+
+        AUCUNE PERIODE N EST IMPOSEE, ET C EST UN CHOIX. Un export sans
+        `created_from` ni `created_to` couvre tout l historique de l espace :
+        c est l usage legitime d une reprise initiale ou d un changement de
+        cabinet comptable. Le plafond de volume
+        (`order_export.row_limit_exceeded`) est la seule borne, et il se
+        constate a l execution, pas ici.
+
+
+        `Idempotency-Key` EST HONORE, comme sur toute creation de ressource
+        metier. Un double-clic sur le bouton « Exporter » ne doit pas produire
+        deux fichiers du meme extrait, deux lignes au registre et deux fois le
+        travail de generation. Rejouer la meme cle rend la MEME demande, dans
+        l etat ou elle se trouve.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      x-required-capabilities: [can_export_orders]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestOrderExportCommand'
+      responses:
+        '201':
+          description: >-
+            Demande enregistree, etat `pending`. `download_url` vaut `null` :
+            le fichier n existe pas encore. L appelant interroge
+            `getCommercialOrderExport` jusqu a `ready` ou `failed` — toutes les
+            deux secondes est une cadence raisonnable, en espacant au-dela
+            d une minute.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/OrderExport'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ForbiddenCapability'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          description: >-
+            Corps invalide (`api.validation_failed`) : `created_from`
+            posterieure a `created_to`, etape de production inconnue de
+            l espace, client ou devis inconnu. Egalement
+            `order_export.pending_limit_reached` quand l appelant a deja TROIS
+            demandes non terminees : la file est partagee, et un membre qui
+            enchaine les clics ne doit pas faire attendre tout l espace.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /commercial-order-exports/{exportId}:
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
+    get:
+      operationId: getCommercialOrderExport
+      summary: >-
+        Etat d une demande d export et, quand le fichier est pret ET que
+        l appelant est celui qui l a demande, son URL de telechargement (CA7).
+
+
+        C EST L OPERATION D ATTENTE. Le client la rappelle jusqu a un etat
+        terminal — `ready`, `failed` ou `expired`. Aucun de ces etats ne
+        change plus, sauf `ready` qui devient `expired` a la destruction du
+        fichier. Une demande restee `running` plus de quelques minutes est une
+        anomalie d exploitation, pas une attente normale : c est pour cela que
+        cet etat est publie plutot que fondu dans `pending`.
+
+
+        LE TELECHARGEMENT EST RESERVE AU DEMANDEUR, et ce n est pas une regle
+        de confort. La donnee exportee est, ligne a ligne, deja lisible par
+        tout membre habilite ; mais un fichier plat qui la porte TOUTE est
+        autre chose — il s envoie, il se copie, il ne se rappelle pas. Lier
+        chaque fichier a un porteur nomme ne retire aucune capacite (un autre
+        membre habilite relance son propre export, et cet export-la porte SON
+        nom au registre) et garantit qu aucun fichier ne circule sans que le
+        registre dise a qui il a ete remis. Un appelant qui n est pas le
+        demandeur recoit la demande avec `download_url: null` — pas un 403 :
+        il a bien le droit de voir qu elle existe.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      x-required-capabilities: [can_export_orders]
+      parameters:
+        - $ref: '#/components/parameters/CommercialOrderExportId'
+      responses:
+        '200':
+          description: >-
+            Etat de la demande. Sur `ready` et pour le demandeur,
+            `download_url` est une URL signee de courte duree, REEMISE A CHAQUE
+            APPEL : un lien perime se rafraichit en rappelant cette operation,
+            il n y a rien d autre a faire.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/OrderExport'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ForbiddenCapability'
+        '404':
+          description: >-
+            Aucune demande d export de cet identifiant dans le tenant du jeton
+            (`order_export.not_found`). Meme reponse pour une demande
+            inexistante et pour celle d un autre espace : le contraire
+            revelerait l existence d exports chez un tiers.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
 
 # ----------------------------------------------------------------------------
 # Bus d evenements sortants (CA10)
@@ -9011,6 +9396,56 @@ components:
           super-admin de plateforme, personne d autre, verrou UM1
           (docs/api/CONVENTIONS.md §3.5). Ce contrat ne promet aucune
           delegation.
+        can_export_orders: >-
+          EXTRAIRE les commandes du tenant dans un fichier tabulaire destine a
+          un tiers (E10.18) : demander un export, consulter le registre des
+          exports, telecharger le fichier produit.
+
+
+          CE N EST PAS UN DROIT D ADMINISTRATION, et c est pourquoi il ne
+          s appelle pas `can_manage_order_exports`. Les quatre droits
+          ci-dessus gouvernent une CONFIGURATION de l espace ; celui-ci
+          gouverne une EXTRACTION. Le nommer autrement aurait laisse croire
+          qu il s accorde au meme titre et aux memes gens.
+
+
+          POURQUOI L APPARTENANCE A L ESPACE NE SUFFIT PAS, alors qu elle
+          suffit pour LIRE une commande. Un membre lit aujourd hui les
+          commandes une par une, a l ecran, dans un contexte trace et borne par
+          la pagination. Un export rend, en un fichier et en un clic,
+          L INTEGRALITE DU CHIFFRE D AFFAIRES de l atelier, l identite fiscale
+          de tous ses clients (raison sociale, SIRET, numero de TVA) et le
+          detail de ses prix de vente — hors de tout ecran, hors de toute RLS
+          des l instant ou le fichier est sur un poste, et sans plus aucun
+          moyen de le rappeler. Ce n est pas la meme lecture a plus grande
+          echelle, c est une capacite d une autre nature ; le sprint 5 ouvrant
+          par ailleurs la voie a des roles d atelier delegues, la laisser
+          decouler de la simple appartenance serait un choix qu on ne pourrait
+          plus reprendre.
+
+
+          IL GARDE AUSSI LA LECTURE, contrairement aux quatre autres. Le
+          registre des exports dit QUI A SORTI LE CHIFFRE D AFFAIRES ET QUAND,
+          et la lecture d un export par identifiant SERT LE FICHIER
+          (`download_url`). Il n y a donc ici aucun « vocabulaire commun » a
+          ouvrir a tous, comme l etait le catalogue des etapes de production :
+          les trois operations sont gardees, et le telechargement l est une
+          seconde fois par l identite du DEMANDEUR (voir `OrderExport`).
+
+
+          AUCUNE CLE DE SERVICE, et pas seulement parce que le lint l interdit
+          des qu un droit metier est declare : un module tiers qui veut les
+          commandes a `orders:read` et une collection paginee, il n a aucun
+          usage d un classeur destine a etre ouvert par un humain. Offrir
+          l export a une cle de service reviendrait a publier un siphon.
+
+
+          DETENTION, etat au sprint 5 : identique aux quatre autres droits —
+          l `admin` de l espace (par derivation d appartenance) et le
+          super-admin de plateforme, personne d autre, verrou UM1
+          (docs/api/CONVENTIONS.md §3.5). Aucune administration a faire
+          aujourd hui ; le jour ou la delegation rouvrira, le comptable de
+          l atelier recevra ce droit sans qu une ligne de ce contrat ne bouge.
 
     serviceKey:
       type: apiKey
@@ -9441,6 +9876,19 @@ components:
         Il existe donc AVANT la ligne du fichier, et pendant tout le temps du
         televersement il ne designe encore rien — `getOrderFile` rend 404 sur
         un identifiant alloue mais non confirme.
+      schema:
+        $ref: '#/components/schemas/Uuid'
+
+    CommercialOrderExportId:
+      name: exportId
+      in: path
+      required: true
+      description: >-
+        Identifiant technique d une demande d export de commandes
+        (`commercial_order_exports`, E10.18), dans le tenant du jeton. Alloue
+        par `requestCommercialOrderExport` ; il designe la DEMANDE et son
+        suivi, jamais le fichier — celui-ci n a pas d identifiant propre et ne
+        s atteint que par l URL signee de courte duree portee par la demande.
       schema:
         $ref: '#/components/schemas/Uuid'
 
@@ -18562,4 +19010,539 @@ components:
           description: Acceptation par le prestataire. `null` tant que l entree n est pas `sent`.
           oneOf:
             - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+
+    # ---- story E10.18 — export XLSX et CSV des commandes --------------------
+
+    OrderExportFormat:
+      title: OrderExportFormat
+      description: >-
+        Format du fichier produit (CA2). Deux valeurs, aucune de plus : ce
+        n est pas un catalogue extensible, c est le choix offert a un
+        gestionnaire dans une modale a deux boutons.
+
+
+        `xlsx` — classeur Office Open XML, type MIME
+        `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`.
+        C est le STANDARD RETENU (decision RP du 28/08/2026) parce qu il est le
+        seul a porter, DANS LE FICHIER, ce qui evite la ressaisie : un nombre
+        est un nombre, une date est une date, la ligne d en-tete est figee et
+        les colonnes sont lisibles a l ouverture (CA5, CA6). Un classeur ne se
+        « configure » pas a l import.
+
+
+        `csv` — VARIANTE, pour les logiciels comptables qui n avalent que du
+        texte delimite. Type MIME `text/csv`. Sa forme est imposee et non
+        negociable, parce que chacune de ses contraintes repare un symptome
+        precis du probleme que l export existe pour supprimer :
+        `;` en separateur de colonnes, `,` en SEPARATEUR DECIMAL, UTF-8 AVEC
+        BOM, fin de ligne CRLF. Detail et motif dans §8.24 point 5 de
+        docs/api/CONVENTIONS.md — en particulier le separateur decimal, que la
+        fiche ne mentionnait pas et sans lequel Excel francophone lit chaque
+        montant comme du TEXTE, ce qui oblige la comptabilite a reformater,
+        donc a ressaisir.
+      type: string
+      enum: [xlsx, csv]
+
+    OrderExportGranularity:
+      title: OrderExportGranularity
+      description: >-
+        Niveau de detail du fichier (CA3). Deux jeux de colonnes distincts,
+        tous deux figes, tous deux ordonnes comme ci-dessous. L ordre des
+        colonnes fait partie du contrat : une macro comptable compte les
+        colonnes.
+
+
+        `order` — UNE LIGNE PAR COMMANDE. Colonnes, dans l ordre :
+        Numero de commande ; Date de commande ; Type de client ; Client ;
+        SIRET ; Numero de TVA ; Interlocuteur ; Courriel interlocuteur ;
+        Total lignes HT ; Remise globale ; Taux de remise effectif ; Net HT ;
+        Taux de TVA ; Regime de TVA ; Montant TVA ; Total TTC ;
+        Statut commercial ; Etape de production ; Devis d origine ;
+        Date de livraison prevue.
+
+
+        `line` — UNE LIGNE PAR LIGNE DE COMMANDE. Colonnes, dans l ordre :
+        Numero de commande ; Date de commande ; Type de client ; Client ;
+        SIRET ; Numero de TVA ; Interlocuteur ; Courriel interlocuteur ;
+        Position ; Libelle produit ; Origine de la ligne ; Quantite ;
+        Prix client barème HT ; PU HT indicatif ; Montant HT ;
+        Taux de remise ligne ; Statut commercial ; Etape de production ;
+        Devis d origine.
+
+
+        LES HUIT PREMIERES COLONNES SONT LES MEMES DANS LES DEUX JEUX, au nom
+        et a la position pres. C est ce qui permet de rapprocher les deux
+        fichiers sur le numero de commande sans y penser.
+
+
+        AUCUN TOTAL D ENTETE N EST REPETE EN GRANULARITE `line`, et c est le
+        choix le plus important de cette description. Une colonne « Total TTC »
+        recopiee sur les quatre lignes d une meme commande se somme en quatre
+        fois le TTC des qu un comptable fait glisser une somme au bas de la
+        colonne — un faux total qui a l air juste. Qui veut les totaux prend
+        l export `order` ; les deux se rapprochent sur la premiere colonne. Le
+        corollaire assume : LA TVA N APPARAIT PAS EN GRANULARITE `line`, parce
+        qu elle n existe pas a la ligne (le taux est porte par l entete de la
+        commande, `CommercialOrder.vat_rate`) et qu on ne repartit pas une
+        donnee d entete sur des lignes pour faire joli.
+
+
+        « MONTANT HT » EST DEJA NET DE LA REMISE DE LIGNE. La colonne
+        « Taux de remise ligne » est INFORMATIVE : elle dit ce qui a ete
+        consenti, elle ne se soustrait pas une seconde fois. Le montant avant
+        geste commercial est donne a cote (« Prix client barème HT ») pour que
+        la remise soit verifiable par difference plutot que par confiance.
+
+
+        « PU HT INDICATIF » N EST PAS UNE DONNEE, C EST UN QUOTIENT ARRONDI, ET
+        IL NE SE REMULTIPLIE PAS. Aucune table de ce depot ne porte de prix
+        unitaire : le commercial pilote un prix de vente TOTAL pour la quantite
+        (`CommercialOrderLine.sale_price`). La colonne vaut
+        `Montant HT / Quantite`, arrondie a QUATRE DECIMALES (arbitrage Arnaud
+        du 2026-09-12), arrondi au plus proche, demi vers le haut.
+
+
+        POURQUOI QUATRE ET NON UNE OU DEUX : parce que dans ce metier LES PRIX
+        UNITAIRES SOUS 0,50 EUR SONT LA NORME, pas l exception — depliants,
+        flyers, cartes, en offset comme en numerique, c est-a-dire la ou se
+        fait le volume. A une decimale, un tirage de 1 000 depliants a
+        90,00 EUR s afficherait `0,1` ; a deux, `0,09`. A quatre, il affiche
+        `0,0900` : lisible et exploitable sur TOUS les tirages, du plus petit
+        au plus gros. Deux decimales auraient par ailleurs eu un defaut propre
+        — donner a un quotient l apparence exacte d un montant, dont il n a ni
+        la nature ni la fiabilite.
+
+
+        `PU x QUANTITE` NE RETOMBE PAS SUR « MONTANT HT », ET L ECART N EST PAS
+        NUL. 1000,00 pour 3 exemplaires donne 333,3333, qui remultiplie a
+        999,9999. L ecart est borne par `quantite x 0,00005` : cinq centimes
+        sur un tirage de 1 000, CINQ EUROS sur un tirage de 100 000 — il
+        CROIT avec la quantite, ce qui est contre-intuitif et merite d etre su.
+        **« Montant HT » est la SEULE valeur qui fait foi**, et « PU HT
+        indicatif » ne doit jamais etre somme ni remultiplie.
+
+
+        TROIS DISPOSITIONS DU FICHIER LUI-MEME LE RAPPELLENT, plutot qu une
+        note que personne ne lit : l intitule porte le mot « indicatif » ; la
+        colonne « Montant HT » lui est IMMEDIATEMENT ADJACENTE, a sa droite ;
+        et sa cellule porte le format `0.0000` quand TOUTES les colonnes
+        monetaires portent `0.00`.
+
+
+        CE QUE CE TROISIEME SIGNAL DIT EXACTEMENT — et ce n est pas
+        « moins precis », c est « PAS UN MONTANT ». Dans ce produit, un montant
+        a DEUX decimales : c est `numeric(12,2)` en base et `Money` au contrat.
+        Ce qui a QUATRE decimales, c est `numeric(6,4)`, c est-a-dire `Rate` —
+        la famille des TAUX ET GRANDEURS DERIVEES. Une colonne a quatre
+        decimales ne rejoint donc pas les montants du fichier, elle rejoint les
+        taux : aucune facture, aucune ecriture comptable, aucune base de TVA ne
+        se porte a quatre decimales. Le format de cellule range la colonne dans
+        la bonne famille avant meme qu on lise son intitule. Contre-risque a
+        connaitre : quatre decimales peuvent aussi se lire comme une precision
+        SUPERIEURE, donc plus autoritaire — c est ce que l intitule
+        « indicatif » et l adjacence de « Montant HT » sont la pour corriger.
+
+
+        Qui veut un total prend l export `order`, dont les colonnes se somment
+        sans piege, et ou cette colonne n existe pas.
+
+
+        « STATUT COMMERCIAL » ET « ETAPE DE PRODUCTION » SONT DEUX COLONNES, et
+        pas une. Le CA4 demande « le statut courant » au singulier ; le depot
+        porte deux axes que le contrat a toujours refuse de fondre
+        (`CommercialOrderStatus` pour l engagement, l etape pour l avancement
+        en atelier). « Statut commercial » vaut aujourd hui `validated` sur
+        TOUTES les lignes, faute d autre valeur existante — colonne constante,
+        assumee, publiee maintenant pour que le jour ou `cancelled` ou
+        `invoiced` apparaitront, la mise en page ne bouge pas. « Etape de
+        production » porte le libelle courant de l etape, ou vide.
+
+
+        « INTERLOCUTEUR » SERA VIDE LA PLUPART DU TEMPS, et il faut le savoir
+        avant de recevoir le fichier. `CommercialOrder.customer_contact_id`
+        n est renseigne que lorsque le devis d origine a ete decide DEPUIS LE
+        PORTAIL CLIENT ; partout ailleurs il vaut `null`. Ce n est pas une
+        anomalie du generateur.
+      type: string
+      enum: [order, line]
+
+    OrderExportStatus:
+      title: OrderExportStatus
+      description: >-
+        Etat d une demande d export. Meme discipline que `NotificationStatus` :
+        chaque valeur dit ce qui s est REELLEMENT passe, aucune n en recouvre
+        deux.
+
+
+        `pending` — enregistree, pas encore reclamee par le generateur.
+
+
+        `running` — RECLAMEE, en cours de generation. Publie plutot que fondu
+        dans `pending` parce qu une demande bloquee dans cet etat est une
+        anomalie d exploitation visible a l oeil nu, alors qu une file qui
+        s allonge ne se distingue pas d une file qui avance.
+
+
+        `ready` — fichier produit et depose. C est le SEUL etat ou
+        `download_url` peut etre servi.
+
+
+        `failed` — generation tentee et abandonnee. `error_code` dit pourquoi ;
+        la demande n est pas rejouee automatiquement au-dela de ses tentatives.
+
+
+        `expired` — le fichier a ete detruit par la retention. LA DEMANDE, ELLE,
+        RESTE : son passage par `ready` est acquis, `row_count` et `completed_at`
+        gardent leur valeur, seul l acces au fichier disparait. C est une
+        transition a SENS UNIQUE et elle n est jamais un echec.
+      type: string
+      enum: [pending, running, ready, failed, expired]
+
+    OrderExportFilters:
+      title: OrderExportFilters
+      description: >-
+        Perimetre de l export. CHAQUE CHAMP EST LE JUMEAU EXACT D UN PARAMETRE
+        DE REQUETE DE `listCommercialOrders` — meme nom, meme type, meme
+        interpretation, memes refus. C est la forme que prend, dans le
+        contrat, la consigne « les filtres acceptes sont exactement ceux de la
+        grille » : rien ici ne peut elargir ce qu un ecran ne sait pas montrer.
+
+
+        Absent ou vide -> AUCUN filtre sur cet axe. Un objet entierement vide
+        (`{}`) est valide et signifie « tout l historique de l espace » : c est
+        l usage d une reprise initiale ou d un changement de cabinet, et il ne
+        merite ni avertissement ni refus. Le seul garde-fou est le plafond de
+        volume, constate a l execution.
+
+
+        NE REPREND PAS `sort`, `page[size]` ni `page[cursor]`. Un export a son
+        ordre propre, impose : par date de commande croissante puis par numero,
+        et par `position` de ligne en granularite `line` — l ordre qu attend
+        une lecture comptable, pas celui d un ecran. Et il n a pas de pages.
+      type: object
+      additionalProperties: false
+      properties:
+        customer_id:
+          description: Meme filtre que `listCommercialOrders.customer_id`.
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        quote_id:
+          description: >-
+            Meme filtre que `listCommercialOrders.quote_id`. Retient zero ou
+            UNE commande ; d un interet limite a l export, repris malgre tout
+            pour que la regle « exactement les filtres de la grille » n ait
+            aucune exception a retenir.
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        status:
+          description: Meme filtre que `listCommercialOrders.status`.
+          oneOf:
+            - $ref: '#/components/schemas/CommercialOrderStatus'
+            - type: 'null'
+        current_production_step_id:
+          description: >-
+            Meme filtre que `listCommercialOrders.current_production_step_id`,
+            MEME REFUS COMPRIS : une etape inconnue de l espace rend 422
+            `production_step.not_found` a la DEMANDE, pas un fichier vide
+            decouvert une minute plus tard.
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        created_from:
+          description: >-
+            Meme filtre que `listCommercialOrders.created_from` : premier jour
+            INCLUS, entendu dans le fuseau de reference `Europe/Paris`.
+          oneOf:
+            - type: string
+              format: date
+              pattern: '^\d{4}-\d{2}-\d{2}$'
+            - type: 'null'
+        created_to:
+          description: >-
+            Meme filtre que `listCommercialOrders.created_to` : dernier jour
+            INCLUS, journee entiere, fuseau de reference `Europe/Paris`.
+          oneOf:
+            - type: string
+              format: date
+              pattern: '^\d{4}-\d{2}-\d{2}$'
+            - type: 'null'
+
+    RequestOrderExportCommand:
+      title: RequestOrderExportCommand
+      description: >-
+        Demande d export. Trois champs, dont deux obligatoires : le format et
+        la granularite sont des CHOIX, pas des defauts — servir un XLSX par
+        entetes a qui n a rien precise, c est produire un fichier que personne
+        n a demande et que la comptabilite devra redemander.
+      type: object
+      additionalProperties: false
+      required: [format, granularity]
+      properties:
+        format:
+          $ref: '#/components/schemas/OrderExportFormat'
+        granularity:
+          $ref: '#/components/schemas/OrderExportGranularity'
+        filters:
+          description: >-
+            Perimetre. Omis -> equivalent a `{}`, donc tout l historique de
+            l espace.
+          $ref: '#/components/schemas/OrderExportFilters'
+
+    OrderExport:
+      title: OrderExport
+      description: >-
+        Une demande d export et son suivi. C est une RESSOURCE DE TACHE, pas un
+        transport de donnees : aucune commande, aucun montant, aucun nom de
+        client ne transite par ce schema. Les donnees ne quittent la base que
+        dans le fichier, et le fichier ne s atteint que par `download_url`.
+
+
+        C EST AUSSI CE QUI REGLE, SANS QU IL Y AIT A LE REGLER, LA QUESTION DU
+        TYPAGE DES MONTANTS. La regle du projet — un montant se serialise en
+        CHAINE decimale (`Money`), jamais en flottant JSON — et l exigence CA5
+        — un montant est un NOMBRE TYPE dans le classeur — ne se croisent
+        nulle part, parce qu il n y a AUCUNE etape JSON entre la base et le
+        fichier. Le generateur lit des `numeric(12,2)` et ecrit des cellules.
+        Le seul point de conversion reel, et il est unique, est decrit en
+        §8.24 point 5 de docs/api/CONVENTIONS.md.
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - status
+        - format
+        - granularity
+        - filters
+        - layout_version
+        - requested_by
+        - requested_by_label
+        - requested_at
+        - started_at
+        - completed_at
+        - row_count
+        - file_name
+        - byte_size
+        - sha256
+        - content_type
+        - download_url
+        - download_url_expires_at
+        - expires_at
+        - attempts
+        - error_code
+        - error_detail
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        status:
+          $ref: '#/components/schemas/OrderExportStatus'
+        format:
+          $ref: '#/components/schemas/OrderExportFormat'
+        granularity:
+          $ref: '#/components/schemas/OrderExportGranularity'
+        filters:
+          description: >-
+            Filtres ENREGISTRES a la demande, republies a l identique. Ce sont
+            eux, et eux seuls, que le generateur applique : il ne recoit pas de
+            criteres au moment de s executer. Un export est donc reproductible
+            six mois plus tard, et la question « d ou sort ce chiffre ? » a une
+            reponse dans la ressource elle-meme.
+          $ref: '#/components/schemas/OrderExportFilters'
+        layout_version:
+          description: >-
+            Version de la MISE EN PAGE du fichier : nombre, ordre et intitules
+            des colonnes pour la granularite demandee. Vaut `1` pour la forme
+            decrite par `OrderExportGranularity`.
+
+
+            CE CHAMP EXISTE PARCE QU UN CLASSEUR CONSOMME PAR UN TIERS EST UNE
+            INTERFACE, meme s il n a pas de schema. Une macro comptable ou un
+            import parametre se cassent silencieusement quand une colonne se
+            deplace, et personne du cote Magrit ne le verra. Publier la version
+            donne au destinataire un moyen de detecter le changement au lieu de
+            le subir ; l incrementer sera la seule facon d annoncer un ajout ou
+            un deplacement de colonne, et c est additif au sens du §7.
+          type: integer
+          format: int32
+          minimum: 1
+        requested_by:
+          description: >-
+            Membre qui a demande l export, ou `null` si son compte a ete
+            supprime depuis. Meme modele d auteur qu `OrderFile` et
+            `OrderDocument` : `null` ne veut pas dire « sans auteur », mais
+            « auteur non retrouvable ».
+
+
+            C EST AUSSI LA CLE DU TELECHARGEMENT : `download_url` n est servi
+            qu a cet identifiant. Un export dont l auteur a ete supprime n est
+            donc plus telechargeable par personne — voulu, et sans perte : la
+            donnee est en base, l export se relance.
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        requested_by_label:
+          description: >-
+            Libelle FIGE du demandeur au moment de la demande. Il survit a la
+            suppression du compte, ce qui est sa raison d etre dans un registre
+            d extraction. NE JAMAIS L ANALYSER pour en deduire une identite.
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 320
+            - type: 'null'
+        requested_at:
+          $ref: '#/components/schemas/Timestamp'
+        started_at:
+          description: >-
+            Instant de la RECLAMATION par le generateur. `null` tant que la
+            demande est `pending`.
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        completed_at:
+          description: >-
+            Instant du verdict, succes ou echec. `null` avant. Ne change plus
+            au passage a `expired` : la destruction du fichier n est pas un
+            second achevement.
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        row_count:
+          description: >-
+            Nombre de lignes de DONNEES du fichier, en-tete NON comprise.
+            `null` tant que la generation n a pas abouti. Conserve apres
+            `expired` : c est ce qui permet de savoir ce que contenait un
+            fichier qui n existe plus.
+          oneOf:
+            - type: integer
+              format: int64
+              minimum: 0
+            - type: 'null'
+        file_name:
+          description: >-
+            Nom propose au telechargement, forme par le serveur et jamais par
+            l appelant :
+            `commandes-<granularite>-<debut>_<fin>-<horodatage>.<extension>`,
+            les bornes absentes rendues par `tout`. Un nom qui porte son
+            perimetre evite qu un comptable recevant trois fichiers en
+            confonde deux.
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 255
+            - type: 'null'
+        byte_size:
+          oneOf:
+            - type: integer
+              format: int64
+              minimum: 1
+            - type: 'null'
+        sha256:
+          description: >-
+            Empreinte du fichier produit. Sert la verification d integrite du
+            destinataire, pas l identification de la ressource.
+          oneOf:
+            - type: string
+              pattern: '^[0-9a-f]{64}$'
+            - type: 'null'
+        content_type:
+          description: >-
+            Type MIME reellement depose, cale sur `format`. Le depot n en
+            accepte aucun autre.
+          oneOf:
+            - type: string
+              enum:
+                - >-
+                  application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+                - text/csv
+            - type: 'null'
+        download_url:
+          description: >-
+            URL signee de courte duree. Capacite au porteur : ne pas la
+            journaliser, ne pas la republier.
+
+
+            `null` DANS TROIS CAS DISTINCTS, et il faut les distinguer pour ne
+            pas afficher « erreur » a la place de « patientez » : la demande
+            n est pas `ready` ; le fichier a expire (`expired`) ; l appelant
+            n est pas le demandeur. `status` et `requested_by` disent lequel.
+          oneOf:
+            - type: string
+              format: uri
+            - type: 'null'
+        download_url_expires_at:
+          description: >-
+            **300 secondes** apres l emission, meme valeur et meme motif que
+            `OrderDocument.download_url_expires_at` : un telechargement est un
+            CLIC, pas une session. Aucune duree neuve n est inventee pour ce
+            lot. Un lien perime se rafraichit en rappelant
+            `getCommercialOrderExport`.
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        expires_at:
+          description: >-
+            Instant de DESTRUCTION du fichier — a ne pas confondre avec
+            `download_url_expires_at`, qui ne periment qu un lien. Passe cette
+            echeance le fichier n existe plus, la demande passe `expired`, et
+            aucun rappel de lien ne le ressuscite.
+
+
+            **SEPT JOURS** apres `completed_at`, NON CONFIGURABLE PAR ESPACE, a
+            la difference du journal de notification (90 jours reglables) et
+            des fichiers de commande. Trois raisons de ne pas ouvrir ce
+            reglage : un export est un INSTANTANE JETABLE, pas une archive — la
+            verite est en base et la regeneration coute un clic ; l objet
+            depose est un fichier plat qui porte, en clair et hors de toute
+            RLS, le chiffre d affaires complet et l identite fiscale de tous
+            les clients de l espace, donc le conserver plus longtemps ajoute du
+            risque sans ajouter de capacite ; et un reglage par espace ferait
+            necessairement apparaitre des valeurs longues, choisies une fois
+            puis oubliees.
+
+
+            `null` tant que la demande n a pas abouti.
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        attempts:
+          description: >-
+            Nombre de reclamations par le generateur. Plafonne a TROIS, la ou
+            l envoi de notification en autorise cinq : un echec de generation
+            est presque toujours DETERMINISTE (donnee inattendue, volume hors
+            plafond), la ou un echec d envoi est presque toujours passager.
+            Rejouer cinq fois un echec deterministe, c est occuper la file sans
+            aucune chance de succes.
+          type: integer
+          format: int32
+          minimum: 0
+        error_code:
+          description: >-
+            Code metier stable de l echec, `null` hors `failed`. Valeurs
+            prevues : `order_export.row_limit_exceeded` (au-dela du plafond de
+            volume — le message d ecran doit dire de RESSERRER LA PERIODE, pas
+            « reessayez » : c est la seule erreur de ce lot dont l utilisateur
+            peut faire quelque chose), `order_export.generation_failed` (echec
+            technique, detail dans `error_detail`),
+            `order_export.storage_failed` (fichier produit mais non depose).
+
+
+            LE PLAFOND N EST VOLONTAIREMENT PAS CHIFFRE ICI. Il est cale, avec
+            marge, SOUS un point de rupture MESURE du moteur de generation
+            (docs/api/CONVENTIONS.md §8.24 point 4) et se revisera sur volumes
+            reels. Le figer au contrat en ferait une promesse de v1 qu on ne
+            pourrait plus resserrer si la mesure evoluait — alors qu un
+            plafond doit pouvoir descendre.
+          oneOf:
+            - $ref: '#/components/schemas/ProblemCode'
+            - type: 'null'
+        error_detail:
+          description: >-
+            Detail lisible du dernier echec. Ne porte JAMAIS de donnee de
+            commande ni de client : un message d erreur est lu par des gens qui
+            n ont pas forcement le droit `can_export_orders`.
+          oneOf:
+            - type: string
             - type: 'null'

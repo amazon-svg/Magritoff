@@ -500,7 +500,8 @@ Stories ne portant pas de champ `epic` structuré et non rattachables aux bucket
 | `E10.10` | Remises (au-delà de la ligne) — première story à faire porter un statut de devis autre que `draft` | 🟡 Backlog (mentionnée, non spécifiée en détail) |
 | `E10.11` | Droit dédié `can_manage_pricing` (remplace le contournement temporaire sur un droit existant, E10.6 CA7) | 🟡 Backlog |
 | `E10.12` | Conversion d'un devis en commande (`quote.converted`) | 🟡 Backlog (mentionnée, non spécifiée en détail) |
-| `E10.16` / `E10.18` / `E10.19` | Stories futures qui câbleront réellement `PricingEngine.price()` sur `commercial_quote_lines` (aujourd'hui seule `production_price` est renseignée, cf. CONVENTIONS.md §8.6/§8.9) | 🟡 Backlog (mentionnées, non spécifiées) |
+| `E10.16` / `E10.19` | ~~Stories futures qui câbleront réellement `PricingEngine.price()`~~ — **mention périmée, corrigée le 2026-09-12** : ces deux stories sont **livrées** (écran de détail d'une commande, PDF de bon de commande) et **aucune n'a câblé `PricingEngine`**. Le câblage réel reste à faire, mais il n'appartient à aucune story identifiée à ce jour | ✅ Livrées (E10.16, E10.19a/19b) |
+| `E10.18` | **Export XLSX et CSV des commandes pour la comptabilité** — cadrée le 2026-09-12 (CONVENTIONS.md §8.24, 6 sous-lots). **N'appelle PAS `PricingEngine`** et ne doit jamais le faire : une ligne de commande est une copie figée depuis E10.12, immuable en base (`commercial_order_lines_immutable_before_write`), sans chemin d'écriture publié sur `sale_price`. Un export lit, il ne recalcule pas | 🟡 Cadrée, implémentation non commencée |
 | `E10.21` | Interface `PricingEngine` — implémentation provisoire mono-poste (`SingleCostPricingEngine`) | ✅ Livré (provisoire — la décomposition par poste attend E10.8 dégelée) |
 | *(hors numérotation)* | **Unification des devis** (2026-09-02) — retrait pur et simple de l'ancien module `quotes` legacy au profit de `commercial_quotes` unique | ✅ Livré (chantier `dev-story` post-Lot 0, accepté §8.10) |
 
@@ -538,7 +539,9 @@ Prévus dans `epics.md` (L629+), jamais entamés (aucun commit, aucun story docu
 
 ### Sprint 5 (Epic E10) — stories futures identifiées mais non spécifiées
 
-`E10.8` (décomposition Clariprint réelle, gelée), `E10.10` (remises), `E10.11` (droit `can_manage_pricing`), `E10.12` (conversion devis→commande), `E10.16`/`E10.18`/`E10.19` (câblage réel du PricingEngine) — cf. tableau Sprint 5 ci-dessus.
+`E10.8` (décomposition Clariprint réelle, gelée), `E10.10` (remises), `E10.11` (droit `can_manage_pricing`), `E10.12` (conversion devis→commande) — cf. tableau Sprint 5 ci-dessus.
+
+⚠️ **Correction du 2026-09-12** : ce paragraphe rangeait `E10.16`/`E10.18`/`E10.19` parmi le « câblage réel du PricingEngine ». C'était **faux et dangereux** — E10.16 et E10.19 sont livrées sans avoir touché au moteur de prix, et E10.18 (export comptable) ne doit **jamais** l'appeler : un export lit des lignes de commande figées et immuables, il ne recalcule aucun prix. Le câblage réel de `PricingEngine.price()` sur `commercial_quote_lines` reste un chantier ouvert **sans story porteuse identifiée**.
 
 ### Refacto qualité pré-Sprint5 (R0-R9) — chantier jamais formellement clos
 

@@ -2231,6 +2231,87 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/commercial-order-exports": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * REGISTRE des exports de commandes de l espace, du plus recent au plus ancien : qui a demande quoi, sur quels filtres, quand, et ce qu il en est advenu.
+         *
+         *     TENANT-LARGE, PAS « MES EXPORTS ». Tout porteur de `can_export_orders` voit les demandes de TOUS les membres de l espace, avec leur auteur. C est voulu et c est la moitie de l interet de cette operation : un administrateur doit pouvoir repondre a « qui a sorti le chiffre d affaires ce mois-ci ». Le telechargement, lui, reste reserve au demandeur (voir `OrderExport.download_url`) : voir qu un export existe et pouvoir l ouvrir sont deux choses differentes.
+         *
+         *     C EST AUSSI LE SEUL RATTRAPAGE D UN IDENTIFIANT PERDU. Sans cette operation, une demande dont le navigateur a perdu l identifiant — un onglet ferme pendant la generation — serait injoignable pour toujours, et son fichier resterait dans le stockage jusqu a expiration sans que personne ne puisse ni le prendre ni le voir. C est la raison pour laquelle elle est publiee alors que l esquisse du WM ne prevoyait que deux chemins.
+         *
+         *     LE REGISTRE SURVIT AU FICHIER. Une entree passee `expired` reste dans cette collection indefiniment : elle ne porte aucune donnee personnelle de client — des identifiants de filtre, un compte de lignes, un auteur membre de l espace — et elle est la seule preuve durable d un acces massif a des donnees qui, elles, en sont pleines. Purger cette trace serait l exact inverse de ce qu on attend d un registre d extraction.
+         */
+        get: operations["listCommercialOrderExports"];
+        put?: never;
+        /**
+         * DEMANDE un export des commandes de l espace : un format, une granularite, et les filtres de la grille. Rend immediatement la demande en etat `pending` — elle n est pas encore executee, et RIEN dans cette reponse ne porte de donnee de commande.
+         *
+         *     LES FILTRES SONT EXACTEMENT CEUX DE `listCommercialOrders`, ET C EST UNE REGLE, PAS UNE COMMODITE (consigne WM du 01/09/2026 : « un export doit toujours pouvoir etre reproduit a partir d une vue de la grille »). Le contrat la tient d un seul moyen : `OrderExportFilters` reprend les memes noms, les memes types et les memes refus que les parametres de requete de cette operation-la. Un filtre ajoute a la grille se rajoutera ici, et jamais l inverse — un filtre qui n existerait qu a l export produirait un fichier que personne ne pourrait verifier a l ecran avant de l envoyer a son comptable. `sort`, `page[size]` et `page[cursor]` sont les seuls parametres de la grille a NE PAS etre repris : un export a son ordre propre, impose et documente (`OrderExportGranularity`), et il n a pas de pages.
+         *
+         *     LES FILTRES SONT CONSERVES SUR LA DEMANDE, puis republies a l identique. C est ce qui rend un export REPRODUCTIBLE six mois plus tard, et c est aussi ce qui empeche le generateur de les elargir : il ne recoit pas de criteres, il lit ceux qui ont ete enregistres.
+         *
+         *     AUCUNE PERIODE N EST IMPOSEE, ET C EST UN CHOIX. Un export sans `created_from` ni `created_to` couvre tout l historique de l espace : c est l usage legitime d une reprise initiale ou d un changement de cabinet comptable. Le plafond de volume (`order_export.row_limit_exceeded`) est la seule borne, et il se constate a l execution, pas ici.
+         *
+         *     `Idempotency-Key` EST HONORE, comme sur toute creation de ressource metier. Un double-clic sur le bouton « Exporter » ne doit pas produire deux fichiers du meme extrait, deux lignes au registre et deux fois le travail de generation. Rejouer la meme cle rend la MEME demande, dans l etat ou elle se trouve.
+         */
+        post: operations["requestCommercialOrderExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/commercial-order-exports/{exportId}": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Etat d une demande d export et, quand le fichier est pret ET que l appelant est celui qui l a demande, son URL de telechargement (CA7).
+         *
+         *     C EST L OPERATION D ATTENTE. Le client la rappelle jusqu a un etat terminal — `ready`, `failed` ou `expired`. Aucun de ces etats ne change plus, sauf `ready` qui devient `expired` a la destruction du fichier. Une demande restee `running` plus de quelques minutes est une anomalie d exploitation, pas une attente normale : c est pour cela que cet etat est publie plutot que fondu dans `pending`.
+         *
+         *     LE TELECHARGEMENT EST RESERVE AU DEMANDEUR, et ce n est pas une regle de confort. La donnee exportee est, ligne a ligne, deja lisible par tout membre habilite ; mais un fichier plat qui la porte TOUTE est autre chose — il s envoie, il se copie, il ne se rappelle pas. Lier chaque fichier a un porteur nomme ne retire aucune capacite (un autre membre habilite relance son propre export, et cet export-la porte SON nom au registre) et garantit qu aucun fichier ne circule sans que le registre dise a qui il a ete remis. Un appelant qui n est pas le demandeur recoit la demande avec `download_url: null` — pas un 403 : il a bien le droit de voir qu elle existe.
+         */
+        get: operations["getCommercialOrderExport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export interface webhooks {
     "quote.converted": {
@@ -5936,6 +6017,168 @@ export interface components {
             /** @description Acceptation par le prestataire. `null` tant que l entree n est pas `sent`. */
             sent_at?: components["schemas"]["Timestamp"] | null;
         };
+        /**
+         * OrderExportFormat
+         * @description Format du fichier produit (CA2). Deux valeurs, aucune de plus : ce n est pas un catalogue extensible, c est le choix offert a un gestionnaire dans une modale a deux boutons.
+         *
+         *     `xlsx` — classeur Office Open XML, type MIME `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`. C est le STANDARD RETENU (decision RP du 28/08/2026) parce qu il est le seul a porter, DANS LE FICHIER, ce qui evite la ressaisie : un nombre est un nombre, une date est une date, la ligne d en-tete est figee et les colonnes sont lisibles a l ouverture (CA5, CA6). Un classeur ne se « configure » pas a l import.
+         *
+         *     `csv` — VARIANTE, pour les logiciels comptables qui n avalent que du texte delimite. Type MIME `text/csv`. Sa forme est imposee et non negociable, parce que chacune de ses contraintes repare un symptome precis du probleme que l export existe pour supprimer : `;` en separateur de colonnes, `,` en SEPARATEUR DECIMAL, UTF-8 AVEC BOM, fin de ligne CRLF. Detail et motif dans §8.24 point 5 de docs/api/CONVENTIONS.md — en particulier le separateur decimal, que la fiche ne mentionnait pas et sans lequel Excel francophone lit chaque montant comme du TEXTE, ce qui oblige la comptabilite a reformater, donc a ressaisir.
+         * @enum {string}
+         */
+        OrderExportFormat: "xlsx" | "csv";
+        /**
+         * OrderExportGranularity
+         * @description Niveau de detail du fichier (CA3). Deux jeux de colonnes distincts, tous deux figes, tous deux ordonnes comme ci-dessous. L ordre des colonnes fait partie du contrat : une macro comptable compte les colonnes.
+         *
+         *     `order` — UNE LIGNE PAR COMMANDE. Colonnes, dans l ordre : Numero de commande ; Date de commande ; Type de client ; Client ; SIRET ; Numero de TVA ; Interlocuteur ; Courriel interlocuteur ; Total lignes HT ; Remise globale ; Taux de remise effectif ; Net HT ; Taux de TVA ; Regime de TVA ; Montant TVA ; Total TTC ; Statut commercial ; Etape de production ; Devis d origine ; Date de livraison prevue.
+         *
+         *     `line` — UNE LIGNE PAR LIGNE DE COMMANDE. Colonnes, dans l ordre : Numero de commande ; Date de commande ; Type de client ; Client ; SIRET ; Numero de TVA ; Interlocuteur ; Courriel interlocuteur ; Position ; Libelle produit ; Origine de la ligne ; Quantite ; Prix client barème HT ; PU HT indicatif ; Montant HT ; Taux de remise ligne ; Statut commercial ; Etape de production ; Devis d origine.
+         *
+         *     LES HUIT PREMIERES COLONNES SONT LES MEMES DANS LES DEUX JEUX, au nom et a la position pres. C est ce qui permet de rapprocher les deux fichiers sur le numero de commande sans y penser.
+         *
+         *     AUCUN TOTAL D ENTETE N EST REPETE EN GRANULARITE `line`, et c est le choix le plus important de cette description. Une colonne « Total TTC » recopiee sur les quatre lignes d une meme commande se somme en quatre fois le TTC des qu un comptable fait glisser une somme au bas de la colonne — un faux total qui a l air juste. Qui veut les totaux prend l export `order` ; les deux se rapprochent sur la premiere colonne. Le corollaire assume : LA TVA N APPARAIT PAS EN GRANULARITE `line`, parce qu elle n existe pas a la ligne (le taux est porte par l entete de la commande, `CommercialOrder.vat_rate`) et qu on ne repartit pas une donnee d entete sur des lignes pour faire joli.
+         *
+         *     « MONTANT HT » EST DEJA NET DE LA REMISE DE LIGNE. La colonne « Taux de remise ligne » est INFORMATIVE : elle dit ce qui a ete consenti, elle ne se soustrait pas une seconde fois. Le montant avant geste commercial est donne a cote (« Prix client barème HT ») pour que la remise soit verifiable par difference plutot que par confiance.
+         *
+         *     « PU HT INDICATIF » N EST PAS UNE DONNEE, C EST UN QUOTIENT ARRONDI, ET IL NE SE REMULTIPLIE PAS. Aucune table de ce depot ne porte de prix unitaire : le commercial pilote un prix de vente TOTAL pour la quantite (`CommercialOrderLine.sale_price`). La colonne vaut `Montant HT / Quantite`, arrondie a QUATRE DECIMALES (arbitrage Arnaud du 2026-09-12), arrondi au plus proche, demi vers le haut.
+         *
+         *     POURQUOI QUATRE ET NON UNE OU DEUX : parce que dans ce metier LES PRIX UNITAIRES SOUS 0,50 EUR SONT LA NORME, pas l exception — depliants, flyers, cartes, en offset comme en numerique, c est-a-dire la ou se fait le volume. A une decimale, un tirage de 1 000 depliants a 90,00 EUR s afficherait `0,1` ; a deux, `0,09`. A quatre, il affiche `0,0900` : lisible et exploitable sur TOUS les tirages, du plus petit au plus gros. Deux decimales auraient par ailleurs eu un defaut propre — donner a un quotient l apparence exacte d un montant, dont il n a ni la nature ni la fiabilite.
+         *
+         *     `PU x QUANTITE` NE RETOMBE PAS SUR « MONTANT HT », ET L ECART N EST PAS NUL. 1000,00 pour 3 exemplaires donne 333,3333, qui remultiplie a 999,9999. L ecart est borne par `quantite x 0,00005` : cinq centimes sur un tirage de 1 000, CINQ EUROS sur un tirage de 100 000 — il CROIT avec la quantite, ce qui est contre-intuitif et merite d etre su. **« Montant HT » est la SEULE valeur qui fait foi**, et « PU HT indicatif » ne doit jamais etre somme ni remultiplie.
+         *
+         *     TROIS DISPOSITIONS DU FICHIER LUI-MEME LE RAPPELLENT, plutot qu une note que personne ne lit : l intitule porte le mot « indicatif » ; la colonne « Montant HT » lui est IMMEDIATEMENT ADJACENTE, a sa droite ; et sa cellule porte le format `0.0000` quand TOUTES les colonnes monetaires portent `0.00`.
+         *
+         *     CE QUE CE TROISIEME SIGNAL DIT EXACTEMENT — et ce n est pas « moins precis », c est « PAS UN MONTANT ». Dans ce produit, un montant a DEUX decimales : c est `numeric(12,2)` en base et `Money` au contrat. Ce qui a QUATRE decimales, c est `numeric(6,4)`, c est-a-dire `Rate` — la famille des TAUX ET GRANDEURS DERIVEES. Une colonne a quatre decimales ne rejoint donc pas les montants du fichier, elle rejoint les taux : aucune facture, aucune ecriture comptable, aucune base de TVA ne se porte a quatre decimales. Le format de cellule range la colonne dans la bonne famille avant meme qu on lise son intitule. Contre-risque a connaitre : quatre decimales peuvent aussi se lire comme une precision SUPERIEURE, donc plus autoritaire — c est ce que l intitule « indicatif » et l adjacence de « Montant HT » sont la pour corriger.
+         *
+         *     Qui veut un total prend l export `order`, dont les colonnes se somment sans piege, et ou cette colonne n existe pas.
+         *
+         *     « STATUT COMMERCIAL » ET « ETAPE DE PRODUCTION » SONT DEUX COLONNES, et pas une. Le CA4 demande « le statut courant » au singulier ; le depot porte deux axes que le contrat a toujours refuse de fondre (`CommercialOrderStatus` pour l engagement, l etape pour l avancement en atelier). « Statut commercial » vaut aujourd hui `validated` sur TOUTES les lignes, faute d autre valeur existante — colonne constante, assumee, publiee maintenant pour que le jour ou `cancelled` ou `invoiced` apparaitront, la mise en page ne bouge pas. « Etape de production » porte le libelle courant de l etape, ou vide.
+         *
+         *     « INTERLOCUTEUR » SERA VIDE LA PLUPART DU TEMPS, et il faut le savoir avant de recevoir le fichier. `CommercialOrder.customer_contact_id` n est renseigne que lorsque le devis d origine a ete decide DEPUIS LE PORTAIL CLIENT ; partout ailleurs il vaut `null`. Ce n est pas une anomalie du generateur.
+         * @enum {string}
+         */
+        OrderExportGranularity: "order" | "line";
+        /**
+         * OrderExportStatus
+         * @description Etat d une demande d export. Meme discipline que `NotificationStatus` : chaque valeur dit ce qui s est REELLEMENT passe, aucune n en recouvre deux.
+         *
+         *     `pending` — enregistree, pas encore reclamee par le generateur.
+         *
+         *     `running` — RECLAMEE, en cours de generation. Publie plutot que fondu dans `pending` parce qu une demande bloquee dans cet etat est une anomalie d exploitation visible a l oeil nu, alors qu une file qui s allonge ne se distingue pas d une file qui avance.
+         *
+         *     `ready` — fichier produit et depose. C est le SEUL etat ou `download_url` peut etre servi.
+         *
+         *     `failed` — generation tentee et abandonnee. `error_code` dit pourquoi ; la demande n est pas rejouee automatiquement au-dela de ses tentatives.
+         *
+         *     `expired` — le fichier a ete detruit par la retention. LA DEMANDE, ELLE, RESTE : son passage par `ready` est acquis, `row_count` et `completed_at` gardent leur valeur, seul l acces au fichier disparait. C est une transition a SENS UNIQUE et elle n est jamais un echec.
+         * @enum {string}
+         */
+        OrderExportStatus: "pending" | "running" | "ready" | "failed" | "expired";
+        /**
+         * OrderExportFilters
+         * @description Perimetre de l export. CHAQUE CHAMP EST LE JUMEAU EXACT D UN PARAMETRE DE REQUETE DE `listCommercialOrders` — meme nom, meme type, meme interpretation, memes refus. C est la forme que prend, dans le contrat, la consigne « les filtres acceptes sont exactement ceux de la grille » : rien ici ne peut elargir ce qu un ecran ne sait pas montrer.
+         *
+         *     Absent ou vide -> AUCUN filtre sur cet axe. Un objet entierement vide (`{}`) est valide et signifie « tout l historique de l espace » : c est l usage d une reprise initiale ou d un changement de cabinet, et il ne merite ni avertissement ni refus. Le seul garde-fou est le plafond de volume, constate a l execution.
+         *
+         *     NE REPREND PAS `sort`, `page[size]` ni `page[cursor]`. Un export a son ordre propre, impose : par date de commande croissante puis par numero, et par `position` de ligne en granularite `line` — l ordre qu attend une lecture comptable, pas celui d un ecran. Et il n a pas de pages.
+         */
+        OrderExportFilters: {
+            /** @description Meme filtre que `listCommercialOrders.customer_id`. */
+            customer_id?: components["schemas"]["Uuid"] | null;
+            /** @description Meme filtre que `listCommercialOrders.quote_id`. Retient zero ou UNE commande ; d un interet limite a l export, repris malgre tout pour que la regle « exactement les filtres de la grille » n ait aucune exception a retenir. */
+            quote_id?: components["schemas"]["Uuid"] | null;
+            /** @description Meme filtre que `listCommercialOrders.status`. */
+            status?: components["schemas"]["CommercialOrderStatus"] | null;
+            /** @description Meme filtre que `listCommercialOrders.current_production_step_id`, MEME REFUS COMPRIS : une etape inconnue de l espace rend 422 `production_step.not_found` a la DEMANDE, pas un fichier vide decouvert une minute plus tard. */
+            current_production_step_id?: components["schemas"]["Uuid"] | null;
+            /** @description Meme filtre que `listCommercialOrders.created_from` : premier jour INCLUS, entendu dans le fuseau de reference `Europe/Paris`. */
+            created_from?: string | null;
+            /** @description Meme filtre que `listCommercialOrders.created_to` : dernier jour INCLUS, journee entiere, fuseau de reference `Europe/Paris`. */
+            created_to?: string | null;
+        };
+        /**
+         * RequestOrderExportCommand
+         * @description Demande d export. Trois champs, dont deux obligatoires : le format et la granularite sont des CHOIX, pas des defauts — servir un XLSX par entetes a qui n a rien precise, c est produire un fichier que personne n a demande et que la comptabilite devra redemander.
+         */
+        RequestOrderExportCommand: {
+            format: components["schemas"]["OrderExportFormat"];
+            granularity: components["schemas"]["OrderExportGranularity"];
+            /** @description Perimetre. Omis -> equivalent a `{}`, donc tout l historique de l espace. */
+            filters?: components["schemas"]["OrderExportFilters"];
+        };
+        /**
+         * OrderExport
+         * @description Une demande d export et son suivi. C est une RESSOURCE DE TACHE, pas un transport de donnees : aucune commande, aucun montant, aucun nom de client ne transite par ce schema. Les donnees ne quittent la base que dans le fichier, et le fichier ne s atteint que par `download_url`.
+         *
+         *     C EST AUSSI CE QUI REGLE, SANS QU IL Y AIT A LE REGLER, LA QUESTION DU TYPAGE DES MONTANTS. La regle du projet — un montant se serialise en CHAINE decimale (`Money`), jamais en flottant JSON — et l exigence CA5 — un montant est un NOMBRE TYPE dans le classeur — ne se croisent nulle part, parce qu il n y a AUCUNE etape JSON entre la base et le fichier. Le generateur lit des `numeric(12,2)` et ecrit des cellules. Le seul point de conversion reel, et il est unique, est decrit en §8.24 point 5 de docs/api/CONVENTIONS.md.
+         */
+        OrderExport: {
+            id: components["schemas"]["Uuid"];
+            status: components["schemas"]["OrderExportStatus"];
+            format: components["schemas"]["OrderExportFormat"];
+            granularity: components["schemas"]["OrderExportGranularity"];
+            /** @description Filtres ENREGISTRES a la demande, republies a l identique. Ce sont eux, et eux seuls, que le generateur applique : il ne recoit pas de criteres au moment de s executer. Un export est donc reproductible six mois plus tard, et la question « d ou sort ce chiffre ? » a une reponse dans la ressource elle-meme. */
+            filters: components["schemas"]["OrderExportFilters"];
+            /**
+             * Format: int32
+             * @description Version de la MISE EN PAGE du fichier : nombre, ordre et intitules des colonnes pour la granularite demandee. Vaut `1` pour la forme decrite par `OrderExportGranularity`.
+             *
+             *     CE CHAMP EXISTE PARCE QU UN CLASSEUR CONSOMME PAR UN TIERS EST UNE INTERFACE, meme s il n a pas de schema. Une macro comptable ou un import parametre se cassent silencieusement quand une colonne se deplace, et personne du cote Magrit ne le verra. Publier la version donne au destinataire un moyen de detecter le changement au lieu de le subir ; l incrementer sera la seule facon d annoncer un ajout ou un deplacement de colonne, et c est additif au sens du §7.
+             */
+            layout_version: number;
+            /**
+             * @description Membre qui a demande l export, ou `null` si son compte a ete supprime depuis. Meme modele d auteur qu `OrderFile` et `OrderDocument` : `null` ne veut pas dire « sans auteur », mais « auteur non retrouvable ».
+             *
+             *     C EST AUSSI LA CLE DU TELECHARGEMENT : `download_url` n est servi qu a cet identifiant. Un export dont l auteur a ete supprime n est donc plus telechargeable par personne — voulu, et sans perte : la donnee est en base, l export se relance.
+             */
+            requested_by: components["schemas"]["Uuid"] | null;
+            /** @description Libelle FIGE du demandeur au moment de la demande. Il survit a la suppression du compte, ce qui est sa raison d etre dans un registre d extraction. NE JAMAIS L ANALYSER pour en deduire une identite. */
+            requested_by_label: string | null;
+            requested_at: components["schemas"]["Timestamp"];
+            /** @description Instant de la RECLAMATION par le generateur. `null` tant que la demande est `pending`. */
+            started_at: components["schemas"]["Timestamp"] | null;
+            /** @description Instant du verdict, succes ou echec. `null` avant. Ne change plus au passage a `expired` : la destruction du fichier n est pas un second achevement. */
+            completed_at: components["schemas"]["Timestamp"] | null;
+            /** @description Nombre de lignes de DONNEES du fichier, en-tete NON comprise. `null` tant que la generation n a pas abouti. Conserve apres `expired` : c est ce qui permet de savoir ce que contenait un fichier qui n existe plus. */
+            row_count: number | null;
+            /** @description Nom propose au telechargement, forme par le serveur et jamais par l appelant : `commandes-<granularite>-<debut>_<fin>-<horodatage>.<extension>`, les bornes absentes rendues par `tout`. Un nom qui porte son perimetre evite qu un comptable recevant trois fichiers en confonde deux. */
+            file_name: string | null;
+            byte_size: number | null;
+            /** @description Empreinte du fichier produit. Sert la verification d integrite du destinataire, pas l identification de la ressource. */
+            sha256: string | null;
+            /** @description Type MIME reellement depose, cale sur `format`. Le depot n en accepte aucun autre. */
+            content_type: ("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" | "text/csv") | null;
+            /**
+             * @description URL signee de courte duree. Capacite au porteur : ne pas la journaliser, ne pas la republier.
+             *
+             *     `null` DANS TROIS CAS DISTINCTS, et il faut les distinguer pour ne pas afficher « erreur » a la place de « patientez » : la demande n est pas `ready` ; le fichier a expire (`expired`) ; l appelant n est pas le demandeur. `status` et `requested_by` disent lequel.
+             */
+            download_url: string | null;
+            /** @description **300 secondes** apres l emission, meme valeur et meme motif que `OrderDocument.download_url_expires_at` : un telechargement est un CLIC, pas une session. Aucune duree neuve n est inventee pour ce lot. Un lien perime se rafraichit en rappelant `getCommercialOrderExport`. */
+            download_url_expires_at: components["schemas"]["Timestamp"] | null;
+            /**
+             * @description Instant de DESTRUCTION du fichier — a ne pas confondre avec `download_url_expires_at`, qui ne periment qu un lien. Passe cette echeance le fichier n existe plus, la demande passe `expired`, et aucun rappel de lien ne le ressuscite.
+             *
+             *     **SEPT JOURS** apres `completed_at`, NON CONFIGURABLE PAR ESPACE, a la difference du journal de notification (90 jours reglables) et des fichiers de commande. Trois raisons de ne pas ouvrir ce reglage : un export est un INSTANTANE JETABLE, pas une archive — la verite est en base et la regeneration coute un clic ; l objet depose est un fichier plat qui porte, en clair et hors de toute RLS, le chiffre d affaires complet et l identite fiscale de tous les clients de l espace, donc le conserver plus longtemps ajoute du risque sans ajouter de capacite ; et un reglage par espace ferait necessairement apparaitre des valeurs longues, choisies une fois puis oubliees.
+             *
+             *     `null` tant que la demande n a pas abouti.
+             */
+            expires_at: components["schemas"]["Timestamp"] | null;
+            /**
+             * Format: int32
+             * @description Nombre de reclamations par le generateur. Plafonne a TROIS, la ou l envoi de notification en autorise cinq : un echec de generation est presque toujours DETERMINISTE (donnee inattendue, volume hors plafond), la ou un echec d envoi est presque toujours passager. Rejouer cinq fois un echec deterministe, c est occuper la file sans aucune chance de succes.
+             */
+            attempts: number;
+            /**
+             * @description Code metier stable de l echec, `null` hors `failed`. Valeurs prevues : `order_export.row_limit_exceeded` (au-dela du plafond de volume — le message d ecran doit dire de RESSERRER LA PERIODE, pas « reessayez » : c est la seule erreur de ce lot dont l utilisateur peut faire quelque chose), `order_export.generation_failed` (echec technique, detail dans `error_detail`), `order_export.storage_failed` (fichier produit mais non depose).
+             *
+             *     LE PLAFOND N EST VOLONTAIREMENT PAS CHIFFRE ICI. Il est cale, avec marge, SOUS un point de rupture MESURE du moteur de generation (docs/api/CONVENTIONS.md §8.24 point 4) et se revisera sur volumes reels. Le figer au contrat en ferait une promesse de v1 qu on ne pourrait plus resserrer si la mesure evoluait — alors qu un plafond doit pouvoir descendre.
+             */
+            error_code: components["schemas"]["ProblemCode"] | null;
+            /** @description Detail lisible du dernier echec. Ne porte JAMAIS de donnee de commande ni de client : un message d erreur est lu par des gens qui n ont pas forcement le droit `can_export_orders`. */
+            error_detail: string | null;
+        };
     };
     responses: {
         /** @description Requete malformee. */
@@ -6102,6 +6345,8 @@ export interface components {
          *     ALLOUE PAR LE SERVEUR A L EMISSION DU BILLET DE DEPOT (`issueOrderFileUploadUrl`), jamais choisi par l appelant : c est lui qui forme le chemin de stockage `<tenant_id>/<order_id>/<file_id>`. Il existe donc AVANT la ligne du fichier, et pendant tout le temps du televersement il ne designe encore rien — `getOrderFile` rend 404 sur un identifiant alloue mais non confirme.
          */
         OrderFileId: components["schemas"]["Uuid"];
+        /** @description Identifiant technique d une demande d export de commandes (`commercial_order_exports`, E10.18), dans le tenant du jeton. Alloue par `requestCommercialOrderExport` ; il designe la DEMANDE et son suivi, jamais le fichier — celui-ci n a pas d identifiant propre et ne s atteint que par l URL signee de courte duree portee par la demande. */
+        CommercialOrderExportId: components["schemas"]["Uuid"];
         /**
          * @description Identifiant technique du lien public de depot (`commercial_order_upload_links`, E10.20), dans le tenant du jeton et SUR LA COMMANDE DU CHEMIN. Les deux conditions sont verifiees.
          *
@@ -6304,6 +6549,12 @@ export type PreviewNotificationTemplateCommand = components['schemas']['PreviewN
 export type NotificationPreview = components['schemas']['NotificationPreview'];
 export type NotificationStatus = components['schemas']['NotificationStatus'];
 export type NotificationLog = components['schemas']['NotificationLog'];
+export type OrderExportFormat = components['schemas']['OrderExportFormat'];
+export type OrderExportGranularity = components['schemas']['OrderExportGranularity'];
+export type OrderExportStatus = components['schemas']['OrderExportStatus'];
+export type OrderExportFilters = components['schemas']['OrderExportFilters'];
+export type RequestOrderExportCommand = components['schemas']['RequestOrderExportCommand'];
+export type OrderExport = components['schemas']['OrderExport'];
 export type ResponseBadRequest = components['responses']['BadRequest'];
 export type ResponseUnauthorized = components['responses']['Unauthorized'];
 export type ResponseForbidden = components['responses']['Forbidden'];
@@ -6328,6 +6579,7 @@ export type ParameterQuoteId = components['parameters']['QuoteId'];
 export type ParameterStorefrontQuoteId = components['parameters']['StorefrontQuoteId'];
 export type ParameterCommercialOrderId = components['parameters']['CommercialOrderId'];
 export type ParameterOrderFileId = components['parameters']['OrderFileId'];
+export type ParameterCommercialOrderExportId = components['parameters']['CommercialOrderExportId'];
 export type ParameterOrderUploadLinkId = components['parameters']['OrderUploadLinkId'];
 export type ParameterProductionStepId = components['parameters']['ProductionStepId'];
 export type ParameterDocumentPdfTemplateId = components['parameters']['DocumentPdfTemplateId'];
@@ -9008,6 +9260,24 @@ export interface operations {
                  *     `production_step` trie sur la POSITION de l etape courante, pas sur son libelle, et range toujours les commandes sans etape en dernier. Detail et motif dans `CommercialOrderSort`.
                  */
                 sort?: components["schemas"]["CommercialOrderSort"];
+                /**
+                 * @description PREMIER JOUR de la periode retenue, INCLUS (E10.18). Borne sur la DATE DE CREATION de la commande, jamais sur sa date de livraison prevue ni sur son dernier mouvement d atelier : c est la date qui figure sur le document et celle qu une comptabilite rapproche.
+                 *
+                 *     POURQUOI CE FILTRE ARRIVE AVEC L EXPORT, ET POURQUOI IL EST POSE ICI ET NON SUR L EXPORT. E10.18 exige que les filtres d un export soient EXACTEMENT ceux de cette operation — « un export doit toujours pouvoir etre reproduit a partir d une vue de la grille ». Or cette operation n avait AUCUNE borne de periode : prise a la lettre, la regle rendait tout export comptable non borne, donc l integralite de l historique a chaque cloture — precisement la ressaisie et le dedoublonnage que l export existe pour supprimer. Ajouter la borne a l export SEUL aurait rompu la regle, et rendu impossible de verifier a l ecran ce qu on s apprete a exporter. La borne appartient donc a la grille ; l export la reprend.
+                 *
+                 *     LE JOUR EST ENTENDU DANS LE FUSEAU DE REFERENCE DU PRODUIT, `Europe/Paris`, PAS EN UTC, et ce n est pas un detail d affichage : `created_at` est un `timestamptz` stocke en UTC, donc une commande passee le 1er septembre a 00h30 a Paris vaut `2026-08-31T22:30:00Z`. Bornee en UTC, elle tomberait dans le mois comptable precedent — un ecart de cloture, silencieux, et du genre qui se decouvre en rapprochement bancaire. La conversion est faite par le serveur ; l appelant envoie une date civile et rien d autre.
+                 *
+                 *     C est la PREMIERE fois que ce contrat nomme un fuseau autre qu UTC, et c est une CONSTANTE DU PRODUIT, pas un reglage d espace (arbitrage Arnaud du 2026-09-12, rendu en connaissance de cette singularite). Aucun champ de `CommercialSettings` ne le gouverne et aucun n est prevu. La question se rouvrira le jour ou un imprimeur hors metropole entrera dans le produit ; le chemin resterait additif et ne changerait ni la forme ni le sens de ce parametre. Voir docs/api/CONVENTIONS.md §8.24, reserve (b), levee.
+                 *
+                 *     Absente -> aucune borne basse. Posterieure a `created_to` -> 422 `api.validation_failed`, jamais une page vide qui laisserait croire a une absence de commandes.
+                 */
+                created_from?: string;
+                /**
+                 * @description DERNIER JOUR de la periode retenue, INCLUS (E10.18) — la journee ENTIERE, jusqu a 23:59:59.999 dans le fuseau de reference. Meme parti que `PriceRule.ends_on` (« dernier jour d application, INCLUS ») : une borne haute exclusive obligerait tout appelant a ajouter un jour pour obtenir « le mois de septembre », et la moitie d entre eux oublierait de le faire.
+                 *
+                 *     Absente -> aucune borne haute. Une date FUTURE est acceptee sans avertissement : borner au 31 decembre pour obtenir « l annee en cours » est un usage legitime.
+                 */
+                created_to?: string;
                 /** @description Nombre d elements par page. Defaut 50, maximum 200. */
                 "page[size]"?: components["parameters"]["PageSize"];
                 /** @description Curseur opaque renvoye par `meta.next_cursor` de la page precedente. Absent sur la premiere page. Ne jamais construire un curseur cote client : sa structure interne n est pas contractuelle. */
@@ -11516,6 +11786,160 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    listCommercialOrderExports: {
+        parameters: {
+            query?: {
+                /** @description Filtre sur l etat de la demande. */
+                status?: components["schemas"]["OrderExportStatus"];
+                /** @description Filtre sur le format demande. */
+                format?: components["schemas"]["OrderExportFormat"];
+                /** @description Filtre sur la granularite demandee. */
+                granularity?: components["schemas"]["OrderExportGranularity"];
+                /** @description Nombre d elements par page. Defaut 50, maximum 200. */
+                "page[size]"?: components["parameters"]["PageSize"];
+                /** @description Curseur opaque renvoye par `meta.next_cursor` de la page precedente. Absent sur la premiere page. Ne jamais construire un curseur cote client : sa structure interne n est pas contractuelle. */
+                "page[cursor]"?: components["parameters"]["PageCursor"];
+            };
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Page de demandes d export, de la plus recente a la plus ancienne. `download_url` n est servi que sur les entrees `ready` DEMANDEES PAR L APPELANT ; il vaut `null` partout ailleurs, y compris sur une entree `ready` d un autre membre. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["OrderExport"][];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["ForbiddenCapability"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    requestCommercialOrderExport: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+                /**
+                 * @description Cle d idempotence fournie par l appelant sur tout POST creant une ressource metier (CA8). Rejouer la meme cle avec la meme requete renvoie la reponse initiale, accompagnee de l en-tete `Idempotency-Replayed: true` ; la rejouer avec une requete differente renvoie 409 `api.idempotency_key_reused`.
+                 *
+                 *     L identite d une requete couvre la methode, le chemin, LA QUERY et le corps : deux POST au meme chemin avec des query differentes ne sont pas la meme requete.
+                 *
+                 *     Sur un rejeu, seul `meta.request_id` est recale sur la requete courante ; `data` est rendu inchange.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestOrderExportCommand"];
+            };
+        };
+        responses: {
+            /** @description Demande enregistree, etat `pending`. `download_url` vaut `null` : le fichier n existe pas encore. L appelant interroge `getCommercialOrderExport` jusqu a `ready` ou `failed` — toutes les deux secondes est une cadence raisonnable, en espacant au-dela d une minute. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["OrderExport"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["ForbiddenCapability"];
+            409: components["responses"]["Conflict"];
+            /** @description Corps invalide (`api.validation_failed`) : `created_from` posterieure a `created_to`, etape de production inconnue de l espace, client ou devis inconnu. Egalement `order_export.pending_limit_reached` quand l appelant a deja TROIS demandes non terminees : la file est partagee, et un membre qui enchaine les clics ne doit pas faire attendre tout l espace. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getCommercialOrderExport: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                /** @description Identifiant technique d une demande d export de commandes (`commercial_order_exports`, E10.18), dans le tenant du jeton. Alloue par `requestCommercialOrderExport` ; il designe la DEMANDE et son suivi, jamais le fichier — celui-ci n a pas d identifiant propre et ne s atteint que par l URL signee de courte duree portee par la demande. */
+                exportId: components["parameters"]["CommercialOrderExportId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Etat de la demande. Sur `ready` et pour le demandeur, `download_url` est une URL signee de courte duree, REEMISE A CHAQUE APPEL : un lien perime se rafraichit en rappelant cette operation, il n y a rien d autre a faire. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["OrderExport"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["ForbiddenCapability"];
+            /** @description Aucune demande d export de cet identifiant dans le tenant du jeton (`order_export.not_found`). Meme reponse pour une demande inexistante et pour celle d un autre espace : le contraire revelerait l existence d exports chez un tiers. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
         };
     };
     onQuoteConverted: {
