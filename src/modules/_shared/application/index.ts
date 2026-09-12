@@ -99,3 +99,5 @@ export type {
   OutboxDispatcherDependencies,
   OutboxEventConsumer,
 } from './outbox-dispatcher.ts';
+
+export { CompositeOutboxConsumer } from './composite-outbox-consumer.ts';

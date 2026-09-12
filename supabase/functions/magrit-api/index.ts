@@ -87,6 +87,8 @@ import { OrderUploadLinksService } from '../../../src/modules/order-upload-links
 import { SupabaseOrderUploadLinksRepository } from '../../../src/adapters/supabase/order-upload-links-repository.ts';
 import { NotificationTemplatesService } from '../../../src/modules/notifications/application/notification-templates-service.ts';
 import { SupabaseNotificationTemplatesRepository } from '../../../src/adapters/supabase/notification-templates-repository.ts';
+import { NotificationLogsService } from '../../../src/modules/notifications/application/notification-logs-service.ts';
+import { SupabaseNotificationLogsRepository } from '../../../src/adapters/supabase/notification-logs-repository.ts';
 import { SupabaseApiPrincipalVerifier } from '../../../src/adapters/supabase/api-principal-verifier.ts';
 import { InMemoryIdempotencyStore, OutboxPublisher } from '../../../src/modules/_shared/application/index.ts';
 import { TENANT_SELECTION_HEADER } from '../../../src/modules/_shared/api/index.ts';
@@ -515,6 +517,14 @@ export async function handleRequest(request: Request): Promise<Response> {
     repository: new SupabaseNotificationTemplatesRepository(client),
   });
 
+  // E10.15c — lecture SEULE du journal des notifications (`client`, JWT de
+  // l appelant, RLS active). La mise en file et l envoi reel vivent hors de
+  // cette facade `/api/v1` (consommateur outbox + Edge Function
+  // `magrit-notification-sender`, aucun tenant, §8.23 §3(c)).
+  const notificationLogsService = new NotificationLogsService({
+    repository: new SupabaseNotificationLogsRepository(client),
+  });
+
   const handler = createMagritApiApplication({
     gescomServices: {
       customers: customersService,
@@ -532,6 +542,7 @@ export async function handleRequest(request: Request): Promise<Response> {
       orderFiles: orderFilesService,
       orderUploadLinks: orderUploadLinksService,
       notificationTemplates: notificationTemplatesService,
+      notificationLogs: notificationLogsService,
     },
     principalVerifier: new SupabaseApiPrincipalVerifier(client, {
       requestedTenantId: request.headers.get(TENANT_SELECTION_HEADER),

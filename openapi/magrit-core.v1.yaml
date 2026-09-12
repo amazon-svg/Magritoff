@@ -17938,11 +17938,29 @@ components:
 
             MECANISME, opposable : le PREMIER evenement d une fenetre cree le
             message en file avec une echeance a `now() + fenetre` ; les suivants,
-            pour le MEME modele et le MEME objet, n en creent aucun — ils
-            incrementent le compteur que rend `{{files.count}}`. L echeance n est
-            JAMAIS repoussee par un evenement supplementaire : un client qui
-            depose pendant une heure declenche un message toutes les fenetres,
-            jamais un message indefiniment differe.
+            pour le MEME modele, le MEME objet ET LE MEME DESTINATAIRE, n en
+            creent aucun — ils incrementent le compteur que rend
+            `{{files.count}}`. L echeance n est JAMAIS repoussee par un evenement
+            supplementaire : un client qui depose pendant une heure declenche un
+            message toutes les fenetres, jamais un message indefiniment differe.
+
+
+            DEUX LIMITES DE CE MECANISME, GARANTIES EN BASE ET NON PAR LE CODE
+            APPELANT (index unique partiel sur `notification_logs`).
+
+            (1) LE REGROUPEMENT NE FRANCHIT JAMAIS LA FRONTIERE D UN
+            DESTINATAIRE. Il regroupe des FAITS, pas des PERSONNES : le compteur
+            repond a « combien de fichiers », jamais a « combien de gens ». Un
+            modele vise plusieurs destinataires (audience `explicit`, jusqu a 10
+            adresses ; ou un client a plusieurs contacts) : chacun recoit SON
+            message et SON entree de journal, avec SON propre compteur.
+
+            (2) UNE FENETRE A `0` N EST PAS UN REGROUPEMENT DE DUREE NULLE,
+            C EST L ABSENCE DE REGROUPEMENT. Deux faits rapproches sur le meme
+            objet donnent alors deux messages, meme si le premier n a pas encore
+            quitte la file. Les fusionner enverrait au client le corps FIGE du
+            premier fait — un message qui MENT sur l etat courant de sa commande
+            (cas reel : deux changements d etape rapproches).
           type: integer
           format: int32
           minimum: 0
@@ -18304,6 +18322,14 @@ components:
         UN canal.
 
 
+        SANS AUCUNE EXCEPTION, Y COMPRIS SOUS REGROUPEMENT. Deux destinataires
+        d un meme fait sont TOUJOURS deux entrees ; le regroupement
+        (`occurrence_count`) rassemble des FAITS adresses a UNE personne, jamais
+        des personnes. Une lecture qui fusionnerait deux destinataires en une
+        entree ferait disparaitre un envoi du journal ET de la file : le
+        destinataire absorbe ne serait ni prevenu, ni trace, ni visible.
+
+
         CETTE TABLE EST AUSSI LA FILE D ENVOI. Une entree nait `pending` et
         change d etat ; l application n en reecrit jamais le TEXTE ni le
         DESTINATAIRE, seulement ses colonnes de suivi. Le precedent exact est
@@ -18399,6 +18425,15 @@ components:
           description: >-
             Nombre de faits metier regroupes dans ce message. Vaut `1` hors
             regroupement, et c est la valeur que rend `{{files.count}}`.
+
+
+            DES FAITS, JAMAIS DES DESTINATAIRES. Ne vaut plus `1` que pour un
+            evenement dont le catalogue declare une fenetre
+            (`NotificationEventDescriptor.coalescing_window_minutes` non nul :
+            `order.files_submitted` SEUL a ce jour), et seulement entre faits
+            visant LE MEME destinataire avec LE MEME modele sur LE MEME objet.
+            Sur tout autre evenement, cette valeur est `1` en toutes
+            circonstances.
           type: integer
           format: int32
           minimum: 1

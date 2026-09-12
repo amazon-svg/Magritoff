@@ -170,6 +170,19 @@ export function eventSupportsStepFilter(eventName: NotificationEventName): boole
   return EVENT_DEFINITIONS_BY_NAME.get(eventName)?.supports_step_filter ?? false;
 }
 
+/**
+ * Fenetre de regroupement DE L EVENEMENT (0-120 min), SOURCE UNIQUE lue par
+ * la mise en file (`NotificationDispatchConsumer` -> `NotificationLogsWriteGateway.enqueue()`
+ * -> `api_enqueue_notification_message`, colonne `notification_logs.
+ * coalescing_window_minutes`). CORRIGE 2026-09-12 (§8.23 point 4,
+ * RECTIFICATIF D ARBITRAGE) : cette valeur ne doit JAMAIS etre reecrite en
+ * dur ailleurs — un evenement inconnu du catalogue vaut `0` (jamais
+ * regroupable), meme discipline defensive que `eventSupportsStepFilter`.
+ */
+export function coalescingWindowMinutesForEvent(eventName: NotificationEventName): number {
+  return EVENT_DEFINITIONS_BY_NAME.get(eventName)?.coalescing_window_minutes ?? 0;
+}
+
 /** Jeu d exemple FICTIF (jamais une donnee reelle) pour `previewNotificationTemplate`, cle par identifiant de balise. */
 export function exampleTagContext(): Readonly<Record<NotificationTagId, string>> {
   const entries = (Object.keys(TAG_DEFINITIONS) as NotificationTagId[]).map(

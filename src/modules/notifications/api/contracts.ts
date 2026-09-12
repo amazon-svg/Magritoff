@@ -11,12 +11,10 @@
  * `NotificationPreview`). Le YAML fait foi ; docs/api/CONVENTIONS.md §8.23 en
  * donne le detail arbitre.
  *
- * `NotificationLog`/`listNotificationLogs` NE SONT PAS ICI : le contrat les
- * decrit deja (§8.23 §2), mais le decoupage en cinq sous-stories (§8.23 §8)
- * les assigne EXPLICITEMENT a E10.15c (« Migration notification_logs [...],
- * GET /notification-logs »), pas a E10.15a (« les SIX operations de
- * configuration »). Les ecrire ici anticiperait une table qui n existe pas
- * encore dans ce lot.
+ * `NotificationLog`/`listNotificationLogs` (story E10.15c) SONT ICI : le
+ * decoupage en cinq sous-stories (§8.23 §8) les assigne a ce lot (« Migration
+ * notification_logs [...], GET /notification-logs »), qui pose enfin la
+ * table dont E10.15a avait deja ecrit le contrat.
  */
 import { z } from 'zod';
 import { timestampSchema, uuidSchema } from '../../_shared/api/index.ts';
@@ -172,6 +170,44 @@ export const notificationPreviewSchema = z
   })
   .strict();
 
+/**
+ * Etat d acheminement d un message (story E10.15c, contrat §8.23 §4).
+ * `pending` en file/en attente de reprise ; `sent` accepte par le
+ * prestataire ; `failed` tente et abandonne (tentatives epuisees ou
+ * fraicheur depassee) ; `dropped` jamais tente, motif connu d avance
+ * (`notification.no_recipient`, etc.).
+ */
+export const notificationStatusSchema = z.enum(['pending', 'sent', 'failed', 'dropped']);
+
+/**
+ * Une entree du journal des notifications (story E10.15c, contrat §8.23 §4) :
+ * UN message, UN destinataire, UN canal. Cette table est AUSSI la file
+ * d envoi — le texte est FIGE A LA MISE EN FILE, jamais relu au modele.
+ */
+export const notificationLogSchema = z
+  .object({
+    id: uuidSchema,
+    event_id: uuidSchema,
+    event_name: notificationEventNameSchema,
+    template_id: uuidSchema.nullable(),
+    channel: notificationChannelSchema,
+    status: notificationStatusSchema,
+    aggregate_type: z.string(),
+    aggregate_id: uuidSchema,
+    recipient: z.string().nullable(),
+    subject: z.string().nullable(),
+    body: z.string(),
+    attempts: z.number().int().min(0),
+    occurrence_count: z.number().int().min(1),
+    provider_message_id: z.string().nullable(),
+    last_error: z.string().nullable(),
+    created_at: timestampSchema,
+    sent_at: timestampSchema.nullable(),
+  })
+  .strict();
+
+export const notificationLogsListSchema = z.array(notificationLogSchema);
+
 export type NotificationChannel = z.infer<typeof notificationChannelSchema>;
 export type NotificationEventName = z.infer<typeof notificationEventNameSchema>;
 export type NotificationAudience = z.infer<typeof notificationAudienceSchema>;
@@ -179,6 +215,8 @@ export type NotificationTagId = z.infer<typeof notificationTagIdSchema>;
 export type NotificationTagDto = z.infer<typeof notificationTagSchema>;
 export type NotificationEventDescriptorDto = z.infer<typeof notificationEventDescriptorSchema>;
 export type NotificationTemplateStatusFilter = z.infer<typeof notificationTemplateStatusFilterSchema>;
+export type NotificationStatus = z.infer<typeof notificationStatusSchema>;
+export type NotificationLogDto = z.infer<typeof notificationLogSchema>;
 export type NotificationTemplateDto = z.infer<typeof notificationTemplateSchema>;
 export type CreateNotificationTemplateCommand = z.infer<typeof createNotificationTemplateCommandSchema>;
 export type UpdateNotificationTemplateCommand = z.infer<typeof updateNotificationTemplateCommandSchema>;
@@ -241,7 +279,9 @@ import type {
   NotificationChannel as NotificationChannelContract,
   NotificationEventDescriptor as NotificationEventDescriptorContract,
   NotificationEventName as NotificationEventNameContract,
+  NotificationLog as NotificationLogContract,
   NotificationPreview as NotificationPreviewContract,
+  NotificationStatus as NotificationStatusContract,
   NotificationTemplate as NotificationTemplateContract,
   NotificationTemplateStatusFilter as NotificationTemplateStatusFilterContract,
   PreviewNotificationTemplateCommand as PreviewNotificationTemplateCommandContract,
@@ -254,6 +294,8 @@ export const NOTIFICATIONS_CONTRACT_ALIGNMENT = Object.freeze({
   channel: true as AssertAssignable<NotificationChannel, NotificationChannelContract>,
   eventName: true as AssertAssignable<NotificationEventName, NotificationEventNameContract>,
   statusFilter: true as AssertAssignable<NotificationTemplateStatusFilter, NotificationTemplateStatusFilterContract>,
+  logStatus: true as AssertAssignable<NotificationStatus, NotificationStatusContract>,
+  log: true as AssertAssignable<NotificationLogDto, NotificationLogContract>,
   eventDescriptor: true as AssertAssignable<NotificationEventDescriptorDto, NotificationEventDescriptorContract>,
   template: true as AssertAssignable<NotificationTemplateDto, NotificationTemplateContract>,
   createCommand: true as AssertAssignable<

@@ -11,6 +11,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
+  CompositeOutboxConsumer,
   DEFAULT_OUTBOX_DISPATCH_SETTINGS,
   OutboxDispatcher,
   type ClaimedOutboxEvent,
@@ -21,8 +22,10 @@ import {
 import { SupabaseOutboxDispatchRepository } from '../../adapters/supabase/outbox-dispatch-repository.ts';
 import { SupabaseQuoteNotificationGateway } from '../../adapters/supabase/commercial-quotes-repository.ts';
 import { SupabaseQuoteDocumentAttachmentGateway } from '../../adapters/supabase/quote-document-attachment-gateway.ts';
+import { SupabaseNotificationDispatchGateway } from '../../adapters/supabase/notification-dispatch-repository.ts';
 import { ResendQuoteSentEmailSender } from '../../adapters/resend/quote-sent-email-sender.ts';
 import { QuoteSentNotificationConsumer } from '../../modules/commercial-quotes/application/quote-sent-notification-consumer.ts';
+import { NotificationDispatchConsumer } from '../../modules/notifications/application/notification-dispatch-consumer.ts';
 import { createOrderFilePurgeNoticeConsumer } from './order-file-purge-composition.ts';
 
 export type OutboxDispatchApplicationDependencies = Readonly<{
@@ -40,12 +43,19 @@ export type OutboxDispatchApplicationDependencies = Readonly<{
 }>;
 
 /**
- * Compose le drain avec son SEUL consommateur enregistre a ce jour :
- * `quote.sent` -> client (E10.10b-3). Tout autre `event_name` (`quote.
+ * Compose le drain. Trois `event_name` ont desormais un consommateur :
+ * `quote.sent` -> client (E10.10b-3), `order_files.purge_scheduled` ->
+ * rappel de purge (E10.22a), `order.step_changed` -> mise en file des
+ * notifications configurees (E10.15c). Tout AUTRE `event_name` (`quote.
  * created`/`quote.accepted`/`quote.rejected`/`customer.created`…) est LIVRE
  * sans traitement par le socle (`OutboxDispatcher`, "aucun consommateur
- * enregistre" — §8.13sexies point 3), PAS un oubli de cablage : ajouter un
- * consommateur de plus est le SEUL changement a faire ici pour l ouvrir.
+ * enregistre" — §8.13sexies point 3), PAS un oubli de cablage.
+ *
+ * Chaque entree du registre est un `CompositeOutboxConsumer` (E10.15c,
+ * contrat §8.23 §3(a)), MEME quand elle ne compose qu un seul consommateur
+ * aujourd hui : c est le point d extension EXPLICITE ou E10.15d ajoutera le
+ * futur consommateur de notifications sur `quote.sent`, EN PREMIER dans la
+ * liste (il est idempotent, `quoteSentConsumer` ne l est pas — §8.23 §3(a)).
  */
 export function createOutboxDispatchApplication(
   dependencies: OutboxDispatchApplicationDependencies,
@@ -82,9 +92,23 @@ export function createOutboxDispatchApplication(
     ...(dependencies.fetchImplementation ? { fetchImplementation: dependencies.fetchImplementation } : {}),
   });
 
+  // E10.15c — mise en file (JAMAIS d envoi reseau) des notifications
+  // configurees sur `order.step_changed`, SEUL evenement branche par ce lot
+  // (§8.23 §8). MEME client `service_role` : la lecture du contexte
+  // (commande/client/etapes) et l ecriture idempotente/regroupante dans
+  // `notification_logs` passent toutes deux par des chemins reserves a ce
+  // role.
+  const notificationDispatchGateway = new SupabaseNotificationDispatchGateway(dependencies.serviceRoleClient);
+  const notificationDispatchConsumer = new NotificationDispatchConsumer({
+    gateway: notificationDispatchGateway,
+    logs: notificationDispatchGateway,
+    baseUrl: dependencies.publicAppUrl,
+  });
+
   const consumers: OutboxConsumerRegistry = {
-    'quote.sent': quoteSentConsumer,
-    'order_files.purge_scheduled': orderFilePurgeNoticeConsumer,
+    'quote.sent': new CompositeOutboxConsumer([quoteSentConsumer]),
+    'order_files.purge_scheduled': new CompositeOutboxConsumer([orderFilePurgeNoticeConsumer]),
+    'order.step_changed': new CompositeOutboxConsumer([notificationDispatchConsumer]),
   };
 
   const dispatcher = new OutboxDispatcher({

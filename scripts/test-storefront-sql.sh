@@ -69,6 +69,7 @@ SQL_CASES=(
   tests/sql/gescom-e10-22c-qa-round1-confirm-expiry-guard.sql
   tests/sql/gescom-e10-22d-purge-activation.sql
   tests/sql/gescom-e10-15a-notification-templates.sql
+  tests/sql/gescom-e10-15c-notification-dispatch.sql
 )
 
 for sql_case in "${SQL_CASES[@]}"; do

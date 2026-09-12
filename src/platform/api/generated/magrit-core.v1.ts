@@ -5715,7 +5715,11 @@ export interface components {
              *
              *     NON NUL POUR `order.files_submitted` SEUL, et ce n est pas une optimisation, c est une PROMESSE DEJA ECRITE AU CONTRAT : `OrderFilesSubmittedPayload` dit « une emission par fichier, pas par j ai termine […] le regroupement est un probleme de consommateur — E10.15 groupera a la notification ». C est ici que cette phrase est tenue.
              *
-             *     MECANISME, opposable : le PREMIER evenement d une fenetre cree le message en file avec une echeance a `now() + fenetre` ; les suivants, pour le MEME modele et le MEME objet, n en creent aucun — ils incrementent le compteur que rend `{{files.count}}`. L echeance n est JAMAIS repoussee par un evenement supplementaire : un client qui depose pendant une heure declenche un message toutes les fenetres, jamais un message indefiniment differe.
+             *     MECANISME, opposable : le PREMIER evenement d une fenetre cree le message en file avec une echeance a `now() + fenetre` ; les suivants, pour le MEME modele, le MEME objet ET LE MEME DESTINATAIRE, n en creent aucun — ils incrementent le compteur que rend `{{files.count}}`. L echeance n est JAMAIS repoussee par un evenement supplementaire : un client qui depose pendant une heure declenche un message toutes les fenetres, jamais un message indefiniment differe.
+             *
+             *     DEUX LIMITES DE CE MECANISME, GARANTIES EN BASE ET NON PAR LE CODE APPELANT (index unique partiel sur `notification_logs`).
+             *     (1) LE REGROUPEMENT NE FRANCHIT JAMAIS LA FRONTIERE D UN DESTINATAIRE. Il regroupe des FAITS, pas des PERSONNES : le compteur repond a « combien de fichiers », jamais a « combien de gens ». Un modele vise plusieurs destinataires (audience `explicit`, jusqu a 10 adresses ; ou un client a plusieurs contacts) : chacun recoit SON message et SON entree de journal, avec SON propre compteur.
+             *     (2) UNE FENETRE A `0` N EST PAS UN REGROUPEMENT DE DUREE NULLE, C EST L ABSENCE DE REGROUPEMENT. Deux faits rapproches sur le meme objet donnent alors deux messages, meme si le premier n a pas encore quitte la file. Les fusionner enverrait au client le corps FIGE du premier fait — un message qui MENT sur l etat courant de sa commande (cas reel : deux changements d etape rapproches).
              */
             coalescing_window_minutes: number;
         };
@@ -5855,6 +5859,8 @@ export interface components {
          * NotificationLog
          * @description Une entree du journal des notifications : UN message, UN destinataire, UN canal.
          *
+         *     SANS AUCUNE EXCEPTION, Y COMPRIS SOUS REGROUPEMENT. Deux destinataires d un meme fait sont TOUJOURS deux entrees ; le regroupement (`occurrence_count`) rassemble des FAITS adresses a UNE personne, jamais des personnes. Une lecture qui fusionnerait deux destinataires en une entree ferait disparaitre un envoi du journal ET de la file : le destinataire absorbe ne serait ni prevenu, ni trace, ni visible.
+         *
          *     CETTE TABLE EST AUSSI LA FILE D ENVOI. Une entree nait `pending` et change d etat ; l application n en reecrit jamais le TEXTE ni le DESTINATAIRE, seulement ses colonnes de suivi. Le precedent exact est `outbox_events`, append-only sauf ses colonnes de suivi, garde par trigger. Un journal separe de la file aurait duplique le corps rendu dans deux tables pour la seule elegance d un mot.
          *
          *     LE TEXTE EST FIGE A LA MISE EN FILE, pas relu au modele a l affichage. C est ce qui permet de repondre a « qu est-ce que mon client a recu ? » apres deux corrections du modele. Un journal qui rendrait le modele COURANT mentirait sur le passe.
@@ -5890,6 +5896,8 @@ export interface components {
             /**
              * Format: int32
              * @description Nombre de faits metier regroupes dans ce message. Vaut `1` hors regroupement, et c est la valeur que rend `{{files.count}}`.
+             *
+             *     DES FAITS, JAMAIS DES DESTINATAIRES. Ne vaut plus `1` que pour un evenement dont le catalogue declare une fenetre (`NotificationEventDescriptor.coalescing_window_minutes` non nul : `order.files_submitted` SEUL a ce jour), et seulement entre faits visant LE MEME destinataire avec LE MEME modele sur LE MEME objet. Sur tout autre evenement, cette valeur est `1` en toutes circonstances.
              */
             occurrence_count: number;
             /** @description Identifiant rendu par le prestataire a l acceptation. Sert au rapprochement en cas de litige, et permettra une relecture de statut le jour ou elle sera branchee (le produit sait deja le faire pour le courriel, E10.22a-bis). */

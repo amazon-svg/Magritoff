@@ -44,6 +44,7 @@ import type { QuoteDocumentsService } from '../../modules/quote-documents/applic
 import type { OrderFilesService } from '../../modules/order-files/application/order-files-service.ts';
 import type { OrderUploadLinksService } from '../../modules/order-upload-links/application/order-upload-links-service.ts';
 import type { NotificationTemplatesService } from '../../modules/notifications/application/notification-templates-service.ts';
+import type { NotificationLogsService } from '../../modules/notifications/application/notification-logs-service.ts';
 import { createCustomersRoutes } from './customers-routes.ts';
 import { createCustomerShopAccessRoutes } from './customer-shop-access-routes.ts';
 import { createProjectsRoutes } from './projects-routes.ts';
@@ -59,6 +60,7 @@ import { createQuoteDocumentsRoutes } from './quote-documents-routes.ts';
 import { createOrderFilesRoutes } from './order-files-routes.ts';
 import { createOrderUploadLinksRoutes } from './order-upload-links-routes.ts';
 import { createNotificationTemplatesRoutes } from './notification-templates-routes.ts';
+import { createNotificationLogsRoutes } from './notification-logs-routes.ts';
 import type { GescomRoute } from './gescom-middleware.ts';
 
 /**
@@ -98,6 +100,8 @@ export type GescomServices = Readonly<{
   orderUploadLinks: OrderUploadLinksService;
   /** E10.15a — socle configurable des notifications multicanal (catalogue, modeles, apercu). Aucun envoi. */
   notificationTemplates: NotificationTemplatesService;
+  /** E10.15c — journal des notifications (aussi la file d envoi, lecture seule ici). */
+  notificationLogs: NotificationLogsService;
 }>;
 
 /**
@@ -123,6 +127,7 @@ export function gescomRoutes(services: GescomServices): readonly GescomRoute[] {
     ...createOrderFilesRoutes(services.orderFiles),
     ...createOrderUploadLinksRoutes(services.orderUploadLinks),
     ...createNotificationTemplatesRoutes(services.notificationTemplates),
+    ...createNotificationLogsRoutes(services.notificationLogs),
   ];
 }
 
@@ -151,6 +156,7 @@ export const GESCOM_ROUTES: readonly GescomRoute[] = Object.freeze(
     orderFiles: createNullService('OrderFilesService'),
     orderUploadLinks: createNullService('OrderUploadLinksService'),
     notificationTemplates: createNullService('NotificationTemplatesService'),
+    notificationLogs: createNullService('NotificationLogsService'),
   }),
 );
 
