@@ -6092,7 +6092,11 @@ export interface components {
             status?: components["schemas"]["CommercialOrderStatus"] | null;
             /** @description Meme filtre que `listCommercialOrders.current_production_step_id`, MEME REFUS COMPRIS : une etape inconnue de l espace rend 422 `production_step.not_found` a la DEMANDE, pas un fichier vide decouvert une minute plus tard. */
             current_production_step_id?: components["schemas"]["Uuid"] | null;
-            /** @description Meme filtre que `listCommercialOrders.created_from` : premier jour INCLUS, entendu dans le fuseau de reference `Europe/Paris`. */
+            /**
+             * @description Meme filtre que `listCommercialOrders.created_from` : premier jour INCLUS, entendu dans le fuseau de reference `Europe/Paris`.
+             *
+             *     MEME VALIDATION CALENDAIRE, et elle compte DAVANTAGE ici : une date inexistante (`2026-06-31`) est refusee en 422 `api.validation_failed`, jamais normalisee. Sur la grille, une borne decalee d un jour se voit a l ecran ; sur un export, elle part dans un fichier remis a un comptable, ou personne ne peut plus la rattraper.
+             */
             created_from?: string | null;
             /** @description Meme filtre que `listCommercialOrders.created_to` : dernier jour INCLUS, journee entiere, fuseau de reference `Europe/Paris`. */
             created_to?: string | null;
@@ -9270,6 +9274,8 @@ export interface operations {
                  *     C est la PREMIERE fois que ce contrat nomme un fuseau autre qu UTC, et c est une CONSTANTE DU PRODUIT, pas un reglage d espace (arbitrage Arnaud du 2026-09-12, rendu en connaissance de cette singularite). Aucun champ de `CommercialSettings` ne le gouverne et aucun n est prevu. La question se rouvrira le jour ou un imprimeur hors metropole entrera dans le produit ; le chemin resterait additif et ne changerait ni la forme ni le sens de ce parametre. Voir docs/api/CONVENTIONS.md §8.24, reserve (b), levee.
                  *
                  *     Absente -> aucune borne basse. Posterieure a `created_to` -> 422 `api.validation_failed`, jamais une page vide qui laisserait croire a une absence de commandes.
+                 *
+                 *     LE `pattern` BORNE LA FORME, PAS LE CALENDRIER, et il ne faut pas lui faire dire plus qu il ne dit : `2026-06-31` et `2026-02-30` le satisfont alors qu ils n existent pas. Postgres comme JavaScript ne les refusent pas non plus — ils les DECALENT EN SILENCE d un jour. Le serveur verifie donc la validite CALENDAIRE en plus de la forme et refuse une date inexistante en 422 `api.validation_failed` ; il ne la normalise JAMAIS. Une borne de cloture decalee d un jour ferait basculer une journee de commandes d un mois comptable a l autre sans le moindre signal (trou reel, trouve et ferme en E10.18a — docs/api/CONVENTIONS.md §8.24 point 5, regle 7).
                  */
                 created_from?: string;
                 /**

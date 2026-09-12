@@ -4281,6 +4281,19 @@ paths:
             Absente -> aucune borne basse. Posterieure a `created_to` -> 422
             `api.validation_failed`, jamais une page vide qui laisserait croire
             a une absence de commandes.
+
+
+            LE `pattern` BORNE LA FORME, PAS LE CALENDRIER, et il ne faut pas
+            lui faire dire plus qu il ne dit : `2026-06-31` et `2026-02-30` le
+            satisfont alors qu ils n existent pas. Postgres comme JavaScript
+            ne les refusent pas non plus — ils les DECALENT EN SILENCE d un
+            jour. Le serveur verifie donc la validite CALENDAIRE en plus de la
+            forme et refuse une date inexistante en 422
+            `api.validation_failed` ; il ne la normalise JAMAIS. Une borne de
+            cloture decalee d un jour ferait basculer une journee de commandes
+            d un mois comptable a l autre sans le moindre signal (trou reel,
+            trouve et ferme en E10.18a — docs/api/CONVENTIONS.md §8.24 point 5,
+            regle 7).
           schema:
             type: string
             format: date
@@ -19255,6 +19268,14 @@ components:
           description: >-
             Meme filtre que `listCommercialOrders.created_from` : premier jour
             INCLUS, entendu dans le fuseau de reference `Europe/Paris`.
+
+
+            MEME VALIDATION CALENDAIRE, et elle compte DAVANTAGE ici : une date
+            inexistante (`2026-06-31`) est refusee en 422
+            `api.validation_failed`, jamais normalisee. Sur la grille, une
+            borne decalee d un jour se voit a l ecran ; sur un export, elle
+            part dans un fichier remis a un comptable, ou personne ne peut plus
+            la rattraper.
           oneOf:
             - type: string
               format: date
