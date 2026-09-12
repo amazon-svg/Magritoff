@@ -1,5 +1,11 @@
 export type { ActorContext, SystemActorContext, UserActorContext } from './actor';
-export { fixedClock, systemClock } from './clock';
+export {
+  endOfDayInReferenceTimeZone,
+  fixedClock,
+  PRODUCT_REFERENCE_TIME_ZONE,
+  startOfDayInReferenceTimeZone,
+  systemClock,
+} from './clock';
 export type { Clock } from './clock';
 export { appError } from './errors';
 export type { AppError } from './errors';

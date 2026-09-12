@@ -39,6 +39,16 @@ export type ListCommercialOrdersQuery = Readonly<{
   customerId?: string;
   quoteId?: string;
   status?: CommercialOrderStatus;
+  /**
+   * E10.18a — `YYYY-MM-DD`, jour civil ENTENDU dans le fuseau de reference
+   * du produit (`Europe/Paris`) : la conversion en instant UTC est faite
+   * PAR LE SERVEUR (jamais ici) — meme discipline que le reste de ce client,
+   * qui ne recalcule jamais une regle metier. Premier jour de la periode,
+   * INCLUS.
+   */
+  createdFrom?: string;
+  /** Dernier jour de la periode, INCLUS (journee entiere). */
+  createdTo?: string;
   pageSize?: number;
   pageCursor?: string;
 }>;
@@ -75,6 +85,8 @@ export class CommercialOrdersApiClient {
     if (query.customerId) params.set('customer_id', query.customerId);
     if (query.quoteId) params.set('quote_id', query.quoteId);
     if (query.status) params.set('status', query.status);
+    if (query.createdFrom) params.set('created_from', query.createdFrom);
+    if (query.createdTo) params.set('created_to', query.createdTo);
     if (query.pageSize) params.set('page[size]', String(query.pageSize));
     if (query.pageCursor) params.set('page[cursor]', query.pageCursor);
     const suffix = params.toString();

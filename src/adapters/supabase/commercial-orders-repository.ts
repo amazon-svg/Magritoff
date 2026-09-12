@@ -62,6 +62,10 @@ export class SupabaseCommercialOrdersRepository implements CommercialOrdersRepos
     if (params.quoteId) query = query.eq('quote_id', params.quoteId);
     if (params.status) query = query.eq('status', params.status);
     if (params.currentProductionStepId) query = query.eq('current_production_step_id', params.currentProductionStepId);
+    // E10.18a — bornes INCLUSIVES des deux cotes, deja resolues en UTC par la
+    // route (fuseau de reference `Europe/Paris`, `src/kernel/clock`).
+    if (params.createdAtFrom) query = query.gte('created_at', params.createdAtFrom);
+    if (params.createdAtTo) query = query.lte('created_at', params.createdAtTo);
     if (params.cursor) {
       const op = ascending ? 'gt' : 'lt';
       query = query.or(
@@ -117,6 +121,13 @@ export class SupabaseCommercialOrdersRepository implements CommercialOrdersRepos
       p_cursor_step_id: cursorStepId,
       p_cursor_created_at: cursorCreatedAt,
       p_cursor_id: cursorId,
+      // E10.18a — meme borne que le tri par defaut, portee jusqu ici par la
+      // fonction SQL (migration 20260912000300) : la RPC existe UNIQUEMENT
+      // parce que PostgREST ne sait pas ordonner sur une colonne jointe en
+      // LEFT JOIN, elle ne doit pas pour autant ignorer un filtre que
+      // l appelant a le droit de combiner avec ce tri.
+      p_created_from: params.createdAtFrom,
+      p_created_to: params.createdAtTo,
     });
     if (error) throw new Error(error.message);
     return { rows: ((data ?? []) as Record<string, any>[]).map(toCommercialOrderDto) };

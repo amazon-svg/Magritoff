@@ -154,13 +154,31 @@ export class InMemoryCommercialOrdersRepository implements CommercialOrdersRepos
     this.orders.set(orderId, { ...current, current_production_step_id: stepId });
   }
 
+  /**
+   * TEST UNIQUEMENT (E10.18a) — impose `created_at` sur une commande deja
+   * creee, en ISO UTC. `convertQuote()` pose systematiquement `created_at`
+   * a l instant de l appel (`new Date().toISOString()`) : un scenario qui
+   * exerce les BORNES de `created_from`/`created_to` (les deux bords d un
+   * mois, §8.24 point 8) doit pouvoir controler cette valeur exactement,
+   * comme l adaptateur Supabase reel la lit telle quelle depuis la colonne.
+   */
+  setCreatedAtForTest(orderId: string, createdAtIso: string): void {
+    const current = this.orders.get(orderId);
+    if (!current) return;
+    this.orders.set(orderId, { ...current, created_at: createdAtIso });
+  }
+
   async list(tenantId: TenantId, params: ListCommercialOrdersParams): Promise<ListCommercialOrdersResult> {
     let rows = [...this.orders.values()]
       .filter((o) => o.tenant_id === tenantId)
       .filter((o) => !params.customerId || o.customer_id === params.customerId)
       .filter((o) => !params.quoteId || o.quote_id === params.quoteId)
       .filter((o) => !params.status || o.status === params.status)
-      .filter((o) => !params.currentProductionStepId || o.current_production_step_id === params.currentProductionStepId);
+      .filter((o) => !params.currentProductionStepId || o.current_production_step_id === params.currentProductionStepId)
+      // E10.18a — bornes INCLUSIVES des deux cotes, deja resolues en UTC par
+      // la route (comparaison de chaines ISO 8601, correcte lexicographiquement).
+      .filter((o) => !params.createdAtFrom || o.created_at >= params.createdAtFrom)
+      .filter((o) => !params.createdAtTo || o.created_at <= params.createdAtTo);
 
     if (params.sort === 'production_step' || params.sort === '-production_step') {
       const descending = params.sort === '-production_step';

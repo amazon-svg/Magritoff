@@ -16,3 +16,9 @@ export function fixedClock(instant: Date | string): Clock {
     now: () => new Date(timestamp),
   });
 }
+
+export {
+  endOfDayInReferenceTimeZone,
+  PRODUCT_REFERENCE_TIME_ZONE,
+  startOfDayInReferenceTimeZone,
+} from './timezone';

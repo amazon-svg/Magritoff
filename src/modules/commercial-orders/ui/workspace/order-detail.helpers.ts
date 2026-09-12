@@ -6,6 +6,7 @@
  * une remise ou un prix.
  */
 import type { CustomerContactDto, CustomerDetailDto } from '@/modules/customers';
+import { PRODUCT_REFERENCE_TIME_ZONE } from '../../../../kernel/clock/index.ts';
 
 /** Nom affichable du client (CA1) — meme regle que `CustomerDetailPage` : societe -> raison sociale, particulier -> prenom+nom. */
 export function customerDisplayName(customer: Pick<CustomerDetailDto, 'type' | 'company_name' | 'first_name' | 'last_name'>): string {
@@ -18,7 +19,20 @@ export function contactDisplayName(contact: Pick<CustomerContactDto, 'first_name
   return [contact.first_name, contact.last_name].filter(Boolean).join(' ') || contact.email;
 }
 
-/** Formatage FR d un `Timestamp` (CA1 : dates de creation/derniere transition). `null` -> tiret, jamais une exception. */
+/**
+ * Formatage FR d un `Timestamp` (CA1 : dates de creation/derniere transition).
+ * `null` -> tiret, jamais une exception.
+ *
+ * `timeZone: PRODUCT_REFERENCE_TIME_ZONE` explicite (qa-review E10.18a
+ * round 1, M2) — SANS lui, `toLocaleString` retombe sur le fuseau du
+ * NAVIGATEUR, alors que la grille voisine du meme module
+ * (`orders-list.helpers.ts`, `formatOrderCreatedAt`) affiche deja dans le
+ * fuseau de reference (`docs/api/CONVENTIONS.md` §8.24 point 5 regle 8 :
+ * « les bornes ET LES DATES AFFICHEES sont entendues dans Europe/Paris »).
+ * Sans cet ajout, un utilisateur a Londres pouvait voir `01/09/2026` dans la
+ * grille (filtre "septembre") puis `31/08/2026` sur la fiche de la MEME
+ * commande.
+ */
 export function formatOrderDate(iso: string | null): string {
   if (!iso) return '—';
   return new Date(iso).toLocaleString('fr-FR', {
@@ -27,6 +41,7 @@ export function formatOrderDate(iso: string | null): string {
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: PRODUCT_REFERENCE_TIME_ZONE,
   });
 }
 

@@ -11,9 +11,10 @@
  * accessible par URL directe `/t/:slug/dashboard/commercial-orders/:orderId`
  * (ecart documente par rapport au chemin `orders/:id` esquisse par le
  * contrat — `orders` est deja pris par le module `orders`, commandes
- * BOUTIQUE, un domaine different ; voir `surface-contributions.ts`) — aucune
- * grille de commandes n existe, ce n est pas le perimetre de ce lot
- * (reserve (f)). CA7 : LECTURE SEULE — aucun champ editable sur un montant
+ * BOUTIQUE, un domaine different ; voir `surface-contributions.ts`). A
+ * l epoque d E10.16, aucune grille de commandes n existait (reserve (f)) —
+ * E10.18a en ajoute une (`OrdersListPage.tsx`, meme module), dont chaque
+ * ligne lie ici. CA7 : LECTURE SEULE — aucun champ editable sur un montant
  * de ligne, aucune mutation de prix nulle part sur cette page.
  *
  * HORS PERIMETRE, EXPLICITEMENT (confirme par le cadrage architecte) :

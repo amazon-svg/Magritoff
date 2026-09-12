@@ -24,6 +24,12 @@ import {
   orderStepChangeSchema,
   orderStepChangesListSchema,
 } from '../../modules/commercial-orders/api/contracts.ts';
+// `dateOnlySchema` : meme regle YYYY-MM-DD que `expected_delivery_date`
+// (E10.16), definie une seule fois dans commercial-quotes, reprise ici sans
+// duplication (meme import direct que fait deja commercial-orders/api/
+// contracts.ts pour ce meme schema).
+import { dateOnlySchema } from '../../modules/commercial-quotes/api/contracts.ts';
+import { endOfDayInReferenceTimeZone, startOfDayInReferenceTimeZone } from '../../kernel/clock/index.ts';
 import type { CommercialOrderSort } from '../../modules/commercial-orders/api/contracts.ts';
 import type { CommercialOrdersService } from '../../modules/commercial-orders/application/commercial-orders-service.ts';
 import {
@@ -152,6 +158,16 @@ export function createCommercialOrdersRoutes(
           }
         }
 
+        // E10.18a — bornes de periode, "la periode a la grille d abord"
+        // (docs/api/CONVENTIONS.md §8.24 point 2) : AUCUNE borne au contrat
+        // avant ce lot, ajoutees ICI pour que l export (E10.18c+) puisse les
+        // reprendre a l identique. `created_from`/`created_to` : jour civil
+        // `YYYY-MM-DD` (contrat, `format: date`), ENTENDU dans le fuseau de
+        // reference du produit (`Europe/Paris`, `src/kernel/clock`), jamais
+        // UTC — la conversion est faite ICI, une seule fois, avant que le
+        // service/l adaptateur ne voient quoi que ce soit.
+        const { createdAtFrom, createdAtTo } = parseCreatedAtRange(context.url.searchParams);
+
         const sort = parseSort(context.url.searchParams.get('sort'));
         const cursor = context.page.cursor ? decodeOrderCursor(context.page.cursor, sort) : null;
 
@@ -160,6 +176,8 @@ export function createCommercialOrdersRoutes(
           quoteId: quoteIdParam,
           status: status.success ? status.data : null,
           currentProductionStepId: stepIdParam,
+          createdAtFrom,
+          createdAtTo,
           sort,
           size: context.page.size,
           cursor,
@@ -306,6 +324,108 @@ export function createCommercialOrdersRoutes(
       },
     }),
   ];
+}
+
+/**
+ * E10.18a — `created_from`/`created_to` de `listCommercialOrders`. Rend des
+ * instants UTC DEJA RESOLUS (ou `null`), jamais les chaines `YYYY-MM-DD`
+ * brutes : le service et l adaptateur ne connaissent pas le fuseau de
+ * reference (`src/kernel/clock`), seule cette route le fait.
+ *
+ * Trois causes d echec distinctes (qa-review E10.18a round 1, B1 ; corrige
+ * en 422 le 2026-09-12 suite a l amendement architecte du contrat) :
+ *   - forme illisible (`YYYY-MM-DD` attendu, verifie par `dateOnlySchema`,
+ *     regex de FORME seulement) -> 400 `api.validation_failed`, meme parti
+ *     que les autres parametres de requete de cette operation (`customer_id`,
+ *     `quote_id`, `current_production_step_id`) ;
+ *   - forme correcte mais jour INEXISTANT dans le calendrier (`2026-06-31`,
+ *     `2026-02-30`, `2026-00-10`, `2026-99-99`...) -> **422**
+ *     `api.validation_failed`, PAS 400 : le `pattern` du contrat borne la
+ *     forme, jamais le calendrier (`openapi/magrit-core.v1.yaml` ~ligne 4284).
+ *     Une regex de forme ne suffit pas : sans controle CALENDRIER,
+ *     `startOfDayInReferenceTimeZone`/`endOfDayInReferenceTimeZone`
+ *     (`src/kernel/clock/timezone.ts`) acceptaient ces dates et `Date.UTC`
+ *     les reportait EN SILENCE sur le mois/l annee suivants
+ *     (`created_to=2026-06-31` rendait le 1er juillet 23:59:59.999) — 200 OK
+ *     et une periode fausse d un jour, sans erreur. Le controle vit
+ *     desormais dans `civilDateToUtc()` (source unique, couvre aussi le
+ *     futur export E10.18c) : il leve un `TypeError`, capture ici et traduit
+ *     en 422, MEME code/statut que la borne inversee ci-dessous (meme
+ *     famille de defaut : une date qui trompe silencieusement une cloture) ;
+ *   - `created_from` POSTERIEUR a `created_to` -> 422
+ *     `api.validation_failed` (contrat, EXPLICITEMENT ce code et ce statut :
+ *     "jamais une page vide qui laisserait croire a une absence de
+ *     commandes").
+ */
+function parseCreatedAtRange(
+  searchParams: URLSearchParams,
+): Readonly<{ createdAtFrom: string | null; createdAtTo: string | null }> {
+  const createdFromParam = searchParams.get('created_from');
+  const createdToParam = searchParams.get('created_to');
+
+  if (createdFromParam !== null && !dateOnlySchema.safeParse(createdFromParam).success) {
+    throw problem({
+      status: 400,
+      title: 'Parametre invalide',
+      code: SHARED_PROBLEM_CODES.validationFailed,
+      detail: 'created_from doit etre une date YYYY-MM-DD.',
+      errors: [{ field: 'created_from', message: 'Date invalide.' }],
+    });
+  }
+  if (createdToParam !== null && !dateOnlySchema.safeParse(createdToParam).success) {
+    throw problem({
+      status: 400,
+      title: 'Parametre invalide',
+      code: SHARED_PROBLEM_CODES.validationFailed,
+      detail: 'created_to doit etre une date YYYY-MM-DD.',
+      errors: [{ field: 'created_to', message: 'Date invalide.' }],
+    });
+  }
+  // Comparaison LEXICOGRAPHIQUE valide : les deux chaines sont deja
+  // verifiees `YYYY-MM-DD` (meme longueur, meme format) a ce point.
+  if (createdFromParam !== null && createdToParam !== null && createdFromParam > createdToParam) {
+    throw validationFailed([
+      { field: 'created_from', message: 'created_from doit etre anterieure ou egale a created_to.' },
+    ]);
+  }
+
+  return {
+    createdAtFrom: createdFromParam
+      ? resolveCalendarBoundOrThrow('created_from', createdFromParam, startOfDayInReferenceTimeZone)
+      : null,
+    createdAtTo: createdToParam
+      ? resolveCalendarBoundOrThrow('created_to', createdToParam, endOfDayInReferenceTimeZone)
+      : null,
+  };
+}
+
+/**
+ * Forme valide (regex `dateOnlySchema`) ne veut pas dire CALENDRIER valide :
+ * `civilDateToUtc` (`src/kernel/clock/timezone.ts`) leve un `TypeError` pour
+ * un jour inexistant (`2026-06-31`, `2026-02-30`, `2026-00-10`,
+ * `2026-99-99`...), capture ici et traduit en **422** `api.validation_failed`
+ * sur le CHAMP fautif -- JAMAIS un 400, et jamais un report silencieux sur le
+ * mois/l annee suivants. Le `pattern` du contrat borne la FORME, pas le
+ * calendrier ; le contrat est explicite sur ce point (amendement architecte
+ * du 2026-09-12, `openapi/magrit-core.v1.yaml` ~ligne 4284 et ~ligne 19270) :
+ * meme code/statut que la borne inversee (`created_from` posterieure a
+ * `created_to`), pour la meme raison -- « jamais une page vide qui
+ * laisserait croire a une absence de commandes », ici « jamais une borne
+ * decalee en silence ».
+ */
+function resolveCalendarBoundOrThrow(
+  field: 'created_from' | 'created_to',
+  dateOnly: string,
+  resolve: (dateOnly: string) => Date,
+): string {
+  try {
+    return resolve(dateOnly).toISOString();
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw validationFailed([{ field, message: 'Date inexistante dans le calendrier.' }]);
+    }
+    throw error;
+  }
 }
 
 /** Defaut `-created_at` : ordre servi avant E10.13, ajouter `sort` ne change donc le comportement d aucun appelant existant. */

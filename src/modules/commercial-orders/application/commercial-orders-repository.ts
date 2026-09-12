@@ -87,6 +87,18 @@ export type ListCommercialOrdersParams = Readonly<{
   status: CommercialOrderStatus | null;
   /** E10.13 CA6 — egalite stricte sur l etape de production COURANTE. */
   currentProductionStepId: string | null;
+  /**
+   * E10.18a — bornes de periode sur `created_at`, DEJA RESOLUES en instants
+   * UTC par la ROUTE (`startOfDayInReferenceTimeZone`/
+   * `endOfDayInReferenceTimeZone`, `src/kernel/clock`) avant d atteindre ce
+   * port : ni le service ni l adaptateur ne connaissent le fuseau de
+   * reference, ils ne comparent que des `timestamptz`. `createdAtFrom`
+   * INCLUS, `createdAtTo` INCLUS (contrat : "premier/dernier jour de la
+   * periode, INCLUS" — `createdAtTo` porte deja 23:59:59.999 du dernier
+   * jour, jamais minuit du lendemain).
+   */
+  createdAtFrom: string | null;
+  createdAtTo: string | null;
   sort: CommercialOrderSort;
   size: number;
   cursor: Readonly<{ sort: string; id: string }> | null;

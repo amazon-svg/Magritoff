@@ -45,6 +45,7 @@ import type { OrderStepChangeDto } from '@/modules/commercial-orders/api/contrac
 // test.ts) : un composant d un module ne lit un autre module que par son
 // entree publique.
 import { ProductionStepsApiClient, type ProductionStepDto } from '@/modules/production-steps';
+import { PRODUCT_REFERENCE_TIME_ZONE } from '@/kernel';
 import { currentStepPosition, stepVisualState } from './order-status.helpers';
 
 const inputCls =
@@ -178,12 +179,18 @@ export function OrderStatusDialog({ orderId, onClose, onChanged }: OrderStatusDi
                     >
                       <div className="font-medium text-ink">{fromLabel ? `${fromLabel} → ${toLabel}` : toLabel}</div>
                       <div className="text-xs text-ink-muted mt-0.5">
+                        {/* timeZone explicite (qa-review E10.18a round 1, M2) : sans lui,
+                            `toLocaleString` retombe sur le fuseau du NAVIGATEUR, alors que la
+                            grille voisine du meme module (`orders-list.helpers.ts`) affiche deja
+                            dans le fuseau de reference (`docs/api/CONVENTIONS.md` §8.24 point 5
+                            regle 8). */}
                         {new Date(entry.occurred_at).toLocaleString('fr-FR', {
                           day: '2-digit',
                           month: '2-digit',
                           year: 'numeric',
                           hour: '2-digit',
                           minute: '2-digit',
+                          timeZone: PRODUCT_REFERENCE_TIME_ZONE,
                         })}
                         {' · '}
                         {entry.actor_label ?? 'Auteur inconnu'}

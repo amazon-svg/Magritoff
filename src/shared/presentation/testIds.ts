@@ -722,18 +722,37 @@ export const TEST_IDS = {
   },
 
   // ─── E10.16 — Ecran de detail d une commande ───────────────────────────────
-  // Fiche accessible par URL directe uniquement (aucune grille de commandes
-  // dans ce lot, decision #7/reserve (f) du contrat, docs/api/CONVENTIONS.md
-  // §8.17). CA1/CA2/CA4/CA6/CA7 ; CA3 (gamme de fabrication Clariprint), CA5
-  // (fichiers, E10.17) et CA8 (PDF, E10.19) HORS PERIMETRE — aucun testid
-  // n est pose pour eux (pas de lien mort). `order-line-row` porte
-  // `data-line-id`. Le bouton Statut reutilise `TEST_IDS.orderStatus.btn`
+  // Fiche accessible par URL directe (E10.16 ne posait aucune grille pour y
+  // acceder, decision #7/reserve (f) du contrat, docs/api/CONVENTIONS.md
+  // §8.17) ET DESORMAIS depuis la grille ci-dessous (E10.18a, `listRow` ->
+  // lien vers `detailPage`). CA1/CA2/CA4/CA6/CA7 ; CA3 (gamme de fabrication
+  // Clariprint), CA5 (fichiers, E10.17) et CA8 (PDF, E10.19) HORS PERIMETRE —
+  // aucun testid n est pose pour eux (pas de lien mort). `order-line-row`
+  // porte `data-line-id`. Le bouton Statut reutilise `TEST_IDS.orderStatus.btn`
   // (E10.14, cable ici pour la premiere fois).
   commercialOrder: {
     detailPage: 'order-detail-page',
     customerBlock: 'order-customer-block',
     linesTable: 'order-lines-table',
     lineRow: 'order-line-row',
+
+    // ─── E10.18a — Grille des commandes ("la periode, a la grille d abord",
+    // docs/api/CONVENTIONS.md §8.24 point 8) ──────────────────────────────
+    // Ecran MINIMAL : liste + filtre de periode uniquement (created_from/
+    // created_to, EXACTEMENT les bornes du contrat `listCommercialOrders`,
+    // §8.24 point 2). Accessible par URL directe UNIQUEMENT — AUCUNE entree
+    // de navigation ajoutee ici (meme prudence qu E10.16 : le module `orders`
+    // porte deja une entree de sidebar "Commandes" pour les commandes
+    // BOUTIQUE, un domaine different ; choisir comment distinguer les deux
+    // dans la sidebar est une decision produit qui n appartient pas a ce
+    // lot). `listRow` porte `data-order-id`, meme convention que
+    // `pricing.row`/`data-rule-id`.
+    listPage: 'order-list-page',
+    listRow: 'order-list-row',
+    listCreatedFromInput: 'order-list-created-from-input',
+    listCreatedToInput: 'order-list-created-to-input',
+    listErrorBanner: 'order-list-error-banner',
+    listLoadMoreBtn: 'order-list-load-more-btn',
   },
 
   // ─── E10.10b-4a — Gabarits PDF de documents (import et stockage) ───────────

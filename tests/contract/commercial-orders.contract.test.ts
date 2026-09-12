@@ -330,6 +330,8 @@ describe('Commandes de gestion commerciale (E10.12)', () => {
       quoteId: quote.id,
       status: null,
       currentProductionStepId: null,
+      createdAtFrom: null,
+      createdAtTo: null,
       sort: '-created_at',
       size: 10,
       cursor: null,
@@ -396,6 +398,8 @@ describe('Commandes de gestion commerciale (E10.12)', () => {
       quoteId: quote.id,
       status: null,
       currentProductionStepId: null,
+      createdAtFrom: null,
+      createdAtTo: null,
       sort: '-created_at',
       size: 10,
       cursor: null,
@@ -455,6 +459,121 @@ describe('Commandes de gestion commerciale (E10.12)', () => {
     const pagedBody = (await paged.json()) as { data: CommercialOrderDto[]; meta: { next_cursor: string | null } };
     expect(pagedBody.data).toHaveLength(1);
     expect(pagedBody.meta.next_cursor).toBeTruthy();
+  });
+
+  it('listCommercialOrders — created_from/created_to : bornes INCLUSIVES aux deux bords d un mois, fuseau Europe/Paris (E10.18a)', async () => {
+    // Une commande passee a 2026-08-31T22:30:00Z (1er septembre 00h30 a
+    // Paris, CEST) : l exemple ecrit noir sur blanc au contrat
+    // (docs/api/CONVENTIONS.md §8.24 point 5 regle 8). Elle DOIT entrer dans
+    // une demande de septembre et sortir d une demande d aout — filtree en
+    // UTC naif, elle tomberait a tort dans le mois comptable precedent.
+    const quoteLowEdge = await createSentQuote();
+    const convertLowEdge = await convert(quoteLowEdge.id);
+    const { data: orderLowEdge } = (await convertLowEdge.json()) as { data: CommercialOrderDetailDto };
+    ordersRepository.setCreatedAtForTest(orderLowEdge.id, '2026-08-31T22:30:00.000Z');
+
+    // Symetrique a l autre bord : 2026-09-30T22:30:00Z vaut 1er octobre
+    // 00h30 a Paris (CEST encore actif fin septembre) — DOIT sortir d une
+    // demande de septembre et entrer dans une demande d octobre.
+    const quoteHighEdge = await createSentQuote();
+    const convertHighEdge = await convert(quoteHighEdge.id);
+    const { data: orderHighEdge } = (await convertHighEdge.json()) as { data: CommercialOrderDetailDto };
+    ordersRepository.setCreatedAtForTest(orderHighEdge.id, '2026-09-30T22:30:00.000Z');
+
+    const idsOf = (rows: readonly CommercialOrderDto[]): string[] => rows.map((r) => r.id);
+
+    const septemberRange = await call('/api/v1/commercial-orders?created_from=2026-09-01&created_to=2026-09-30', {
+      headers: asStudio,
+    });
+    await expectContract(septemberRange, { status: 200 });
+    const { data: septemberRows } = (await septemberRange.json()) as { data: CommercialOrderDto[] };
+    // BORD BAS : entre dans septembre.
+    expect(idsOf(septemberRows)).toContain(orderLowEdge.id);
+    // BORD HAUT (symetrique) : sort de septembre.
+    expect(idsOf(septemberRows)).not.toContain(orderHighEdge.id);
+
+    const augustRange = await call('/api/v1/commercial-orders?created_from=2026-08-01&created_to=2026-08-31', {
+      headers: asStudio,
+    });
+    const { data: augustRows } = (await augustRange.json()) as { data: CommercialOrderDto[] };
+    // BORD BAS : sort d aout, malgre un instant UTC encore le 31 aout.
+    expect(idsOf(augustRows)).not.toContain(orderLowEdge.id);
+
+    const octoberRange = await call('/api/v1/commercial-orders?created_from=2026-10-01&created_to=2026-10-31', {
+      headers: asStudio,
+    });
+    const { data: octoberRows } = (await octoberRange.json()) as { data: CommercialOrderDto[] };
+    // BORD HAUT : entre dans octobre, malgre un instant UTC encore le 30 septembre.
+    expect(idsOf(octoberRows)).toContain(orderHighEdge.id);
+
+    // Combine avec sort=production_step (E10.13) : le filtre de periode doit
+    // s appliquer sur CE chemin aussi (fonction SQL dediee,
+    // list_commercial_orders_by_production_step), pas seulement sur le tri
+    // par defaut (§8.24 point 8, "aucun lot n a de valeur s il ignore un
+    // filtre deja publie sur le meme endpoint").
+    const septemberByStep = await call(
+      '/api/v1/commercial-orders?created_from=2026-09-01&created_to=2026-09-30&sort=production_step',
+      { headers: asStudio },
+    );
+    await expectContract(septemberByStep, { status: 200 });
+    const { data: septemberByStepRows } = (await septemberByStep.json()) as { data: CommercialOrderDto[] };
+    expect(idsOf(septemberByStepRows)).toContain(orderLowEdge.id);
+    expect(idsOf(septemberByStepRows)).not.toContain(orderHighEdge.id);
+
+    // Absente des deux cotes -> aucune borne (comportement inchange).
+    const unbounded = await call('/api/v1/commercial-orders', { headers: asStudio });
+    const { data: unboundedRows } = (await unbounded.json()) as { data: CommercialOrderDto[] };
+    expect(idsOf(unboundedRows)).toContain(orderLowEdge.id);
+    expect(idsOf(unboundedRows)).toContain(orderHighEdge.id);
+  });
+
+  it('listCommercialOrders — created_from mal forme : 400 ; created_from posterieure a created_to : 422 api.validation_failed', async () => {
+    const malformed = await call('/api/v1/commercial-orders?created_from=2026-9-1', { headers: asStudio });
+    expect(malformed.status).toBe(400);
+    const malformedBody = (await malformed.json()) as { code: string };
+    expect(malformedBody.code).toBe('api.validation_failed');
+
+    const malformedTo = await call('/api/v1/commercial-orders?created_to=01-09-2026', { headers: asStudio });
+    expect(malformedTo.status).toBe(400);
+
+    const inverted = await call(
+      '/api/v1/commercial-orders?created_from=2026-09-30&created_to=2026-09-01',
+      { headers: asStudio },
+    );
+    expect(inverted.status).toBe(422);
+    const invertedBody = (await inverted.json()) as { code: string; errors?: Array<{ field: string }> };
+    expect(invertedBody.code).toBe('api.validation_failed');
+    expect(invertedBody.errors?.[0]?.field).toBe('created_from');
+
+    // Bornes EGALES (un seul jour) : acceptees, jamais un 422 (INCLUS des deux cotes).
+    const sameDay = await call(
+      '/api/v1/commercial-orders?created_from=2026-09-01&created_to=2026-09-01',
+      { headers: asStudio },
+    );
+    expect(sameDay.status).toBe(200);
+  });
+
+  // qa-review E10.18a round 1, B1 : une date de FORME valide (`YYYY-MM-DD`)
+  // mais de CALENDRIER impossible (31 juin n existe pas) doit etre rejetee,
+  // jamais reportee en silence sur le mois suivant par `Date.UTC`. **422**,
+  // pas 400 : le `pattern` du contrat borne la forme, pas le calendrier
+  // (amendement architecte, `openapi/magrit-core.v1.yaml` ~ligne 4284) — meme
+  // code/statut que la borne inversee (meme famille de defaut : une date qui
+  // pourrait tromper silencieusement une cloture comptable).
+  it('listCommercialOrders — created_to=2026-06-31 (jour inexistant, juin n a que 30 jours) : 422 api.validation_failed, jamais 200 avec une borne decalee', async () => {
+    const response = await call('/api/v1/commercial-orders?created_to=2026-06-31', { headers: asStudio });
+    expect(response.status).toBe(422);
+    const body = (await response.json()) as { code: string; errors?: Array<{ field: string }> };
+    expect(body.code).toBe('api.validation_failed');
+    expect(body.errors?.[0]?.field).toBe('created_to');
+  });
+
+  it('listCommercialOrders — created_from=2026-02-30 (jour inexistant) : 422 api.validation_failed', async () => {
+    const response = await call('/api/v1/commercial-orders?created_from=2026-02-30', { headers: asStudio });
+    expect(response.status).toBe(422);
+    const body = (await response.json()) as { code: string; errors?: Array<{ field: string }> };
+    expect(body.code).toBe('api.validation_failed');
+    expect(body.errors?.[0]?.field).toBe('created_from');
   });
 
   it('getCommercialOrder — fiche complete avec lignes ; 404 si introuvable', async () => {
