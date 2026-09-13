@@ -6029,11 +6029,46 @@ export interface components {
         OrderExportFormat: "xlsx" | "csv";
         /**
          * OrderExportGranularity
-         * @description Niveau de detail du fichier (CA3). Deux jeux de colonnes distincts, tous deux figes, tous deux ordonnes comme ci-dessous. L ordre des colonnes fait partie du contrat : une macro comptable compte les colonnes.
+         * @description Niveau de detail du fichier (CA3). Deux jeux de colonnes distincts, tous deux figes, tous deux ordonnes comme ci-dessous.
          *
-         *     `order` — UNE LIGNE PAR COMMANDE. Colonnes, dans l ordre : Numero de commande ; Date de commande ; Type de client ; Client ; SIRET ; Numero de TVA ; Interlocuteur ; Courriel interlocuteur ; Total lignes HT ; Remise globale ; Taux de remise effectif ; Net HT ; Taux de TVA ; Regime de TVA ; Montant TVA ; Total TTC ; Statut commercial ; Etape de production ; Devis d origine ; Date de livraison prevue.
+         *     CETTE DESCRIPTION EST LA SOURCE D ORDRE, ET ELLE EST LA SEULE. Une macro comptable compte les colonnes : l ordre EST le contrat, au meme titre que les intitules. Tout catalogue recopie ailleurs — en-tete de migration, commentaire de vue, document de story — est une COPIE DE CONFORT, jamais une seconde source : en cas d ecart, c est ici qu on lit la verite et c est la copie qui se corrige. La regle est ecrite parce qu elle a ete enfreinte : au lot E10.18c, le fichier reellement produit rendait trois colonnes a d autres positions que celles annoncees ici, et AUCUNE DES DEUX SOURCES NE SE SAVAIT FAUSSE.
          *
-         *     `line` — UNE LIGNE PAR LIGNE DE COMMANDE. Colonnes, dans l ordre : Numero de commande ; Date de commande ; Type de client ; Client ; SIRET ; Numero de TVA ; Interlocuteur ; Courriel interlocuteur ; Position ; Libelle produit ; Origine de la ligne ; Quantite ; Montant HT barème (avant remise) ; PU HT indicatif ; Montant HT ; Taux de remise ligne ; Statut commercial ; Etape de production ; Devis d origine.
+         *     L ORDRE CI-DESSOUS EST L ORDRE DEFINITIF, arrete le 2026-09-13 — c est-a-dire au dernier moment ou il etait encore gratuit de l arreter. AUCUN EXPORT N A ENCORE ETE REMIS a qui que ce soit : deplacer, renommer ou retirer une colonne ne casse donc, aujourd hui, la lecture de personne. **A partir du PREMIER fichier remis, tout deplacement exige `layout_version: 2` et un preavis au destinataire.**
+         *
+         *     BLOC PARTAGE — ONZE COLONNES, IDENTIQUES ET DANS LE MEME ORDRE DANS LES DEUX GRANULARITES :
+         *     1. Numero de commande ; 2. Devis d origine ; 3. Date de commande ; 4. Type de client ; 5. Client ; 6. SIRET ; 7. Numero de TVA ; 8. Interlocuteur ; 9. Courriel interlocuteur ; 10. Statut commercial ; 11. Etape de production.
+         *
+         *     CE SONT TOUTES DES COLONNES D IDENTIFICATION, JAMAIS DES TOTAUX, et c est ce qui autorise a les repeter sur chaque ligne d une meme commande sans rien contredire de l arbitrage « aucun total repete a la ligne » ci-dessous. Le bloc est passe de HUIT a ONZE colonnes : le numero de devis et les deux colonnes d etat y ont ete ramenes parce qu ils identifient la commande, pas parce qu il restait de la place — et l invariant « les premieres colonnes des deux jeux sont identiques », qui permet de rapprocher les deux fichiers sans y penser, en sort renforce d autant.
+         *
+         *     `order` — UNE LIGNE PAR COMMANDE. Le bloc partage, PUIS :
+         *     12. Total lignes HT ; 13. Remise globale ; 14. Taux de remise effectif ; 15. Net HT ; 16. Taux de TVA ; 17. Regime de TVA ; 18. Montant TVA ; 19. Total TTC.
+         *
+         *     `line` — UNE LIGNE PAR LIGNE DE COMMANDE. Le bloc partage, PUIS :
+         *     12. Position ; 13. Designation ; 14. Quantite ; 15. Montant HT barème (avant remise) ; 16. Taux de remise ligne ; 17. PU HT indicatif ; 18. Montant HT.
+         *
+         *     L ORDRE DES CINQ DERNIERES COLONNES DE `line` SE LIT COMME UNE PHRASE, et il est arrete pour cela : montant au barème, remise consentie, prix unitaire qui en resulte, montant facture. Il tient en outre la disposition (ii) de l arbitrage du PU — « Montant HT » est IMMEDIATEMENT A DROITE de « PU HT indicatif », la grandeur qui fait foi restant toujours dans le champ de vision de celle qui n en est qu une indication. La verification de la remise par difference (`Montant HT barème` − `Montant HT`) traverse deux colonnes plutot qu une, mais le « Taux de remise ligne » qui les separe EST le meme fait exprime en taux : il explique l ecart au lieu de le masquer.
+         *
+         *     « Designation » et non « Libelle produit » : c est le mot des pieces commerciales francaises (devis, facture), donc celui que le destinataire attend.
+         *
+         *     DEUX COLONNES ONT ETE RETIREES DE CE CATALOGUE LE 2026-09-13, AVANT QU AUCUN FICHIER N AIT JAMAIS ETE PRODUIT AVEC ELLES — ce n est donc pas une rupture de v1 (§7) : aucun serveur ne les a emises, aucun destinataire n en depend, et `layout_version` vaut toujours `1`.
+         *     - **« Date de livraison prevue »** (`CommercialOrder.
+         *       expected_delivery_date`). Retiree parce qu AUCUN chemin d ecriture ne
+         *       la renseigne — le contrat le dit lui-meme sur `CommercialOrderDetail`.
+         *       Elle aurait ete VIDE SUR 100 % DES LIGNES, pour toujours. A
+         *       distinguer d « Interlocuteur », vide le plus souvent mais qui SE
+         *       REMPLIT des qu un devis est decide depuis le portail client : celle-la
+         *       est rare, celle-ci etait morte. Livrer une colonne qu aucun code ne
+         *       peut remplir annonce a un service comptable que Magrit suit les dates
+         *       de livraison, ce qui est faux. Elle reviendra en
+         *       `layout_version: 2`, EN MEME TEMPS que le chemin d ecriture, jamais
+         *       avant.
+         *
+         *     - **« Origine de la ligne »** (`CommercialOrderLine.origin`,
+         *       `project_item` / `free`). Retiree definitivement : c est un marqueur
+         *       de PROVENANCE INTERNE, sans usage comptable, et un code technique de
+         *       plus a traduire. Une piece fiscale ne dit pas par quel ecran sa ligne
+         *       a ete saisie.
+         *
          *
          *     LES HUIT PREMIERES COLONNES SONT LES MEMES DANS LES DEUX JEUX, au nom et a la position pres. C est ce qui permet de rapprocher les deux fichiers sur le numero de commande sans y penser.
          *
@@ -6057,7 +6092,27 @@ export interface components {
          *
          *     « MONTANT HT BARÈME (AVANT REMISE) » EST UN TOTAL, PAS UN PRIX UNITAIRE, et son intitule le dit parce que sa POSITION ne le dit pas : il se trouve entre « Quantite » et « PU HT indicatif », c est-a-dire entoure de grandeurs unitaires. Il vaut `CommercialOrderLine.customer_price`, le montant de la ligne AVANT geste commercial, a deux decimales. Il est exporte pour que la remise soit verifiable PAR DIFFERENCE avec « Montant HT » plutot que sur parole. Un intitule plus court (« Prix client bareme HT ») a ete ecarte en E10.18b : il laissait croire a un prix unitaire, et l erreur n aurait produit aucune anomalie visible — seulement des remises recalculees a faux.
          *
-         *     AUCUN CODE TECHNIQUE N ARRIVE DANS LE FICHIER. Deux colonnes portent en base des valeurs d enumeration destinees aux machines, et elles sont TRADUITES a l ecriture de la cellule : « Type de client » (`company` -> « Societe », `individual` -> « Particulier ») et « Regime de TVA » (les CINQ valeurs de `TaxRegime`, `metropole_fr`, `dom_tom`, `franchise_tva`, `export_eu`, `export_world`, rendues en clair). Ce fichier est lu par un comptable, pas parse par un programme : livrer `metropole_fr` sous un en-tete « Regime de TVA » serait exactement la ressaisie que l export existe pour supprimer. La traduction appartient au GENERATEUR DE CELLULE et a lui seul — une vue qui presenterait serait une seconde verite sur le vocabulaire du produit, et elle divergerait de `TaxRegime` au premier ajout.
+         *     AUCUN CODE TECHNIQUE N ARRIVE DANS LE FICHIER. Ce fichier est lu par un comptable, pas parse par un programme : livrer `metropole_fr` sous un en-tete « Regime de TVA » serait exactement la ressaisie que l export existe pour supprimer.
+         *
+         *     LE CRITERE, ET IL EST VERIFIABLE — c est lui qui fait regle, pas la liste qui suit : **une colonne se traduit si et seulement si sa valeur en base provient d une ENUMERATION FERMEE DE CE CONTRAT.** On n a donc rien a memoriser ni a tenir a jour : on regarde le schema dont la colonne tire sa valeur, et s il porte un `enum`, elle se traduit. Une liste, elle, se perime en silence — et une liste qui se DIT exhaustive et ne l est pas est pire que pas de liste, parce qu elle fait autorite. C est arrive sur ce lot meme : une premiere redaction ne nommait que deux des trois colonnes concernees, et le fichier livre par E10.18c portait `validated` en clair.
+         *
+         *     ETAT AU 2026-09-13, DERIVE DU CRITERE CI-DESSUS — trois colonnes, et aucune autre :
+         *     - « Type de client » (`CustomerType`) : `company` -> « Societe »,
+         *       `individual` -> « Particulier » ;
+         *
+         *     - « Statut commercial » (`CommercialOrderStatus`) : `validated` ->
+         *       « Validee ». Une seule valeur aujourd hui, donc une colonne
+         *       constante — ce qui ne la dispense de rien : elle est lue ;
+         *
+         *     - « Regime de TVA » (`TaxRegime`) : les CINQ valeurs — `metropole_fr`,
+         *       `dom_tom`, `franchise_tva`, `export_eu`, `export_world` — plus le cas
+         *       NUL, qui est une valeur metier ordinaire (surcharge non posee) et se
+         *       rend par une cellule VIDE, jamais par un tiret.
+         *
+         *
+         *     UNE COLONNE QUI RESSEMBLE A UN CODE ET N EN EST PAS, a ne surtout pas traduire : « Etape de production ». C est un LIBELLE saisi par l imprimeur dans son propre referentiel (E10.13), pas une enumeration du contrat. Un atelier qui nomme une etape « draft » ou « pending » doit la voir ecrite telle quelle dans son export. Le critere ci-dessus la range correctement — aucun schema de ce contrat n enumere ses valeurs — et c est precisement ce qu une liste memorisee aurait rate.
+         *
+         *     LA TRADUCTION APPARTIENT AU GENERATEUR DE CELLULE, ET A LUI SEUL. Une vue qui presenterait serait une seconde verite sur le vocabulaire du produit, et elle divergerait de `TaxRegime` au premier regime ajoute.
          *
          *     « INTERLOCUTEUR » SERA VIDE LA PLUPART DU TEMPS, et il faut le savoir avant de recevoir le fichier. `CommercialOrder.customer_contact_id` n est renseigne que lorsque le devis d origine a ete decide DEPUIS LE PORTAIL CLIENT ; partout ailleurs il vaut `null`. Ce n est pas une anomalie du generateur.
          * @enum {string}
