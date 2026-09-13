@@ -1,8 +1,12 @@
 /**
- * Drain de generation (story E10.18c). Le PLAFOND DE 50 000 LIGNES est le
- * seul filet contre un depassement memoire qu aucun try/catch ne rattrape
- * (contrat §8.24 point 4) : verifie ICI qu il est constate AVANT tout appel
- * au renderer, jamais apres.
+ * Drain de generation (story E10.18c, plafond corrige a 5 000 en E10.18d,
+ * §8.24 point 4, douzieme entree du bandeau). Le PLAFOND `ORDER_EXPORT_ROW_LIMIT`
+ * est le seul filet PREVENTIF contre une mise a mort par le superviseur
+ * (CPU, pas memoire — corrige, voir `order-export-generation-service.ts`)
+ * qu aucun `try/catch` ne rattrape : verifie ICI qu il est constate AVANT
+ * tout appel au renderer, jamais apres. Ce test est ECRIT CONTRE LA
+ * CONSTANTE (`ORDER_EXPORT_ROW_LIMIT`), jamais contre un nombre litteral :
+ * il vaut pour la valeur courante SANS MODIFICATION si elle est revisee.
  */
 import { describe, expect, it, vi } from 'vitest';
 import {
@@ -12,11 +16,12 @@ import {
 } from '@/modules/order-exports/application/order-export-generation-service';
 import type { OrderExportRawRow } from '@/modules/order-exports/application/order-export-columns';
 import type { OrderExportRenderer, OrderExportRenderResult } from '@/modules/order-exports/application/order-export-renderer';
-import type {
-  ClaimedOrderExport,
-  MarkOrderExportReadyParams,
-  OrderExportRowsPage,
-  OrderExportRunRepository,
+import {
+  DEFAULT_ORDER_EXPORT_RUN_SETTINGS,
+  type ClaimedOrderExport,
+  type MarkOrderExportReadyParams,
+  type OrderExportRowsPage,
+  type OrderExportRunRepository,
 } from '@/modules/order-exports/application/order-export-run-repository';
 import type { OrderExportStorage, UploadOrderExportFileParams } from '@/modules/order-exports/application/order-export-storage';
 import type { TenantId } from '@/kernel';
@@ -86,7 +91,17 @@ function rowsOfSize(n: number): readonly OrderExportRawRow[] {
   return Array.from({ length: n }, (_, i) => ({ order_number: `CDE-${i}` }));
 }
 
-describe('OrderExportGenerationService — plafond de 50 000 lignes', () => {
+describe('Valeurs corrigees en E10.18d (§8.24 point 4, douzieme entree du bandeau)', () => {
+  it('ORDER_EXPORT_ROW_LIMIT vaut 5 000 (pas 50 000, corrige sur une mesure du chemin reel)', () => {
+    expect(ORDER_EXPORT_ROW_LIMIT).toBe(5_000);
+  });
+
+  it('DEFAULT_ORDER_EXPORT_RUN_SETTINGS.limit vaut 1 (un export par invocation, pas 5 — le budget CPU se cumule sur le lot)', () => {
+    expect(DEFAULT_ORDER_EXPORT_RUN_SETTINGS.limit).toBe(1);
+  });
+});
+
+describe('OrderExportGenerationService — plafond ORDER_EXPORT_ROW_LIMIT', () => {
   it('refuse AVANT tout appel au renderer des que le plafond est depasse', async () => {
     const repository = new FakeRunRepository();
     repository.claimedExports = [claimed()];
@@ -108,10 +123,14 @@ describe('OrderExportGenerationService — plafond de 50 000 lignes', () => {
     expect(renderer.render).not.toHaveBeenCalled();
     expect(repository.failed).toHaveLength(1);
     expect(repository.failed[0]?.code).toBe('order_export.row_limit_exceeded');
+    // Contrat §8.24 point 4 : « le message d'ecran doit dire "resserrez la
+    // periode", jamais "reessayez" — c'est la seule erreur de ce lot dont
+    // l'utilisateur peut reellement faire quelque chose ».
+    expect(repository.failed[0]?.detail).toMatch(/resserrez la p[eé]riode/i);
     expect(storage.uploaded).toHaveLength(0);
   });
 
-  it('accepte exactement le plafond (50 000 lignes)', async () => {
+  it('accepte exactement le plafond (ORDER_EXPORT_ROW_LIMIT lignes)', async () => {
     const repository = new FakeRunRepository();
     repository.claimedExports = [claimed()];
     const fullPages = ORDER_EXPORT_ROW_LIMIT / 1000;

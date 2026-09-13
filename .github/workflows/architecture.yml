@@ -52,3 +52,20 @@ jobs:
       # reellement produits par le code contre ce contrat.
       - name: Run API contract tests
         run: pnpm test:contract
+
+      # Sprint 5 — E10.18d, treizieme entree du bandeau §8.24, point (ii) :
+      # « un test de non-regression EN CI » etait une intention, pas une
+      # propriete — ce workflow ne lancait AUCUN test de `tests/modules/`,
+      # donc ni le fichier de reference XLSX ni le test de volume n y avaient
+      # JAMAIS tourne. Etape BLOQUANTE, CIBLEE (n importe pas les 3 echecs
+      # preexistants de `tests/storage/`, sans rapport). Ni Docker ni
+      # Supabase local ne sont requis : ces tests dynamiques importent le
+      # renderer directement (voir `xlsx-renderer.volume.test.ts`,
+      # `xlsx-renderer.reference.test.ts`). Le runner GitHub Actions est en
+      # `TZ=UTC` par defaut — c est exactement la condition que le test de
+      # date force en interne (`process.env.TZ = 'America/Los_Angeles'`)
+      # doit tenir SANS configuration supplementaire ici (verifie par
+      # execution reelle en local sous `TZ=UTC`, voir le rapport de fin de
+      # story).
+      - name: Run XLSX/CSV order export tests (order-exports module)
+        run: pnpm exec vitest run tests/modules/order-exports

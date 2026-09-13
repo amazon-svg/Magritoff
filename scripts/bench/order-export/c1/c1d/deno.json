@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "write-excel-file/node": "npm:write-excel-file@4.1.1/node",
+    "fflate": "npm:fflate@0.8.2"
+  }
+}

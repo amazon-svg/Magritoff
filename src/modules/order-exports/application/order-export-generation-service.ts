@@ -8,11 +8,19 @@
  * `pg_cron` a la minute (§8.24 §3(b), "strictement le patron de
  * magrit-notification-sender").
  *
- * ── Plafond de 50 000 lignes, VERIFIE AVANT tout appel au renderer ─────────
- * (contrat §8.24 point 4) : « constate a l execution, le seul endroit ou le
- * compte est connu ». Un depassement MEMOIRE tue le PROCESSUS entier (aucun
- * `try/catch` ne le rattrape) — ce plafond est donc le SEUL filet, et il agit
- * AVANT que le renderer ne recoive une seule ligne, jamais apres.
+ * ── Plafond de lignes (`ORDER_EXPORT_ROW_LIMIT`), VERIFIE AVANT tout appel
+ * ── au renderer ─────────────────────────────────────────────────────────
+ * Valeur et motif complet : contrat §8.24 point 4 (douzieme entree du
+ * bandeau, mesure du 2026-09-13 dans l Edge Runtime reel — c est le CPU qui
+ * tue l export, PAS la memoire, contrairement a ce qu affirmait a tort une
+ * version anterieure de ce commentaire). « Constate a l execution, le seul
+ * endroit ou le compte est connu ». Un depassement CPU (mise a mort par le
+ * superviseur) tue le PROCESSUS entier (aucun `try/catch` ne le rattrape,
+ * `markFailed` n est jamais appele) — ce plafond est donc le SEUL filet
+ * PREVENTIF, et il agit AVANT que le renderer ne recoive une seule ligne,
+ * jamais apres. Le FILET DE REPRISE (migration `20260913010000`,
+ * `api_claim_order_exports`) traite le cas ou ce plafond serait quand meme
+ * franchi par une charge imprevue.
  */
 import type { OrderExportRawRow } from './order-export-columns.ts';
 import type { OrderExportRenderer } from './order-export-renderer.ts';
@@ -24,8 +32,26 @@ import {
 } from './order-export-run-repository.ts';
 import type { OrderExportStorage } from './order-export-storage.ts';
 
-/** Plafond DUR, IDENTIQUE quel que soit le format (contrat point 4 : "un seul nombre a connaitre, un seul message a ecrire"). MESURE (banc supabase/edge-runtime:v1.69.12), avec marge sous le point de rupture reel (200 000). */
-export const ORDER_EXPORT_ROW_LIMIT = 50_000;
+/**
+ * Plafond DUR, IDENTIQUE quel que soit le format (contrat point 4 : "un seul
+ * nombre a connaitre, un seul message a ecrire"). **`5_000`, pas `50_000`**
+ * — valeur CORRIGEE le 2026-09-13 (douzieme entree du bandeau §8.24) sur une
+ * mesure du CHEMIN REEL (Edge Function servie en *user worker*, limites
+ * exactes de la CLI Supabase : 256 Mo, CPU 1000/2000 ms), apres qu une
+ * premiere mesure (50 000, prise hors de la limite CPU du superviseur) s est
+ * revelee fausse : a 50 000 lignes, meme la bibliotheque XLSX SEULE est tuee
+ * par le CPU. **Valable SOUS TROIS CONDITIONS, sans lesquelles 5 000 est
+ * fausse aussi** (contrat point 4) : (1) le formateur de date civile est mis
+ * en cache (`src/kernel/clock/timezone.ts`, `CIVIL_DATE_FORMATTER`) — SANS
+ * lui, le plafond serait 2 000 ; (2) un seul export par invocation
+ * (`DEFAULT_ORDER_EXPORT_RUN_SETTINGS.limit`, `order-export-run-repository.ts`)
+ * — le budget CPU se cumule sur le LOT que `runOnce()` traite ; (3) un filet
+ * de reprise des exports tues (migration `20260913010000`). Cette valeur
+ * n est validee que localement (Apple Silicon, arm64) : l activation du
+ * runner en production reste subordonnee a une mesure sur le projet
+ * heberge (contrat point 4, "validation sur la plateforme").
+ */
+export const ORDER_EXPORT_ROW_LIMIT = 5_000;
 
 /** 7 jours, NON CONFIGURABLE PAR ESPACE (contrat point 3(e)). */
 const RETENTION_DAYS = 7;
@@ -42,7 +68,7 @@ export type OrderExportGenerationReport = Readonly<{
 export type OrderExportGenerationServiceDependencies = Readonly<{
   repository: OrderExportRunRepository;
   storage: OrderExportStorage;
-  /** Un renderer par format ARME. `xlsx` n a AUCUN renderer avant E10.18d : une demande xlsx reclamee echoue proprement, jamais en boucle. */
+  /** Un renderer par format ARME. Un format demande SANS renderer enregistre (aucun aujourd hui, `csv` et `xlsx` sont tous deux livres depuis E10.18d) echoue proprement (`order_export.format_not_implemented`), jamais en boucle. */
   renderers: Partial<Record<'csv' | 'xlsx', OrderExportRenderer>>;
   settings?: OrderExportRunSettings;
   now?: () => Date;

@@ -47,13 +47,27 @@
  * d un schema DB qui aurait avance sans que ce catalogue n ait ete revu).
  *
  * ── Familles de cellules, et pourquoi les taux ont QUATRE decimales ────────
- * `money` = `numeric(12,2)` (`Money`) ; `rate` = `numeric(6,4)` (`Rate`,
- * grandeur DERIVEE ou taux — le format `0.0000` est le signal "ce n est pas
- * un montant", contrat point 4 arbitrage colonne 1). Chaque colonne
- * numerique arrive de `api_read_order_export_rows` DEJA en CHAINE decimale
- * (le SQL caste explicitement chaque `numeric` en `::text` avant de
- * construire le jsonb, precisement pour que ce catalogue n ait JAMAIS a
- * deviner un nombre de decimales a partir d un flottant deja arrondi).
+ * `money` = `numeric(12,2)` (`Money`). `rate` = une grandeur a QUATRE
+ * DECIMALES — taux (`Rate`, contrat) OU quotient derive comme « PU HT
+ * indicatif » — le format `0.0000` est le signal "ce n est pas un montant",
+ * contrat point 4 arbitrage colonne 1, etendu a TOUS les `rate` (point 5
+ * regle 4, onzieme correction du bandeau §8.24, 2026-09-13).
+ *
+ * CORRECTION (onzieme entree du bandeau §8.24, 2026-09-13) — `rate` NE VEUT
+ * PAS DIRE litteralement le type DB `Rate` : c est faux pour « PU HT
+ * indicatif » (`unit_price_indicative`), dont la partie entiere N EST PAS
+ * BORNEE (`round(sale_price / quantity, 4)`, migration `20260913000000`) —
+ * un exemplaire a 12 000,00 € rend `12000.0000`, qui NE PASSE PAS le motif
+ * de `Rate` (`^-?[0-9]{1,2}\.[0-9]{4}$`). Ce qui definit la famille de
+ * cellule `rate`, c est une ECHELLE DE QUATRE DECIMALES, pas le type `Rate`
+ * — aucun renderer (CSV ni XLSX) ne doit valider une cellule `rate` contre
+ * ce motif.
+ *
+ * Chaque colonne numerique arrive de `api_read_order_export_rows` DEJA en
+ * CHAINE decimale (le SQL caste explicitement chaque `numeric` en `::text`
+ * avant de construire le jsonb, precisement pour que ce catalogue n ait
+ * JAMAIS a deviner un nombre de decimales a partir d un flottant deja
+ * arrondi).
  */
 import { formatCivilDateInReferenceTimeZone } from '../../../kernel/clock/index.ts';
 import type { CommercialOrderStatus, CustomerType, TaxRegime } from '../../../platform/api/generated/magrit-core.v1.ts';

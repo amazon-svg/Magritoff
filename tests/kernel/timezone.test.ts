@@ -5,7 +5,7 @@
  * d un mois, jamais un mois calendaire naif : c est le seul endroit ou ce
  * lot peut vraiment se tromper.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { endOfDayInReferenceTimeZone, PRODUCT_REFERENCE_TIME_ZONE, startOfDayInReferenceTimeZone } from '@/kernel';
 
 describe('fuseau de reference du produit (Europe/Paris)', () => {
@@ -83,5 +83,65 @@ describe('fuseau de reference du produit (Europe/Paris)', () => {
   it('accepte le 29 fevrier d une annee bissextile reelle (2028)', () => {
     expect(startOfDayInReferenceTimeZone('2028-02-29').toISOString()).toBe('2028-02-28T23:00:00.000Z');
     expect(endOfDayInReferenceTimeZone('2028-02-29').toISOString()).toBe('2028-02-29T22:59:59.999Z');
+  });
+});
+
+describe('formatCivilDateInReferenceTimeZone — formateur MIS EN CACHE (E10.18d correctif CPU, §8.24 point 4 condition 1)', () => {
+  it(
+    'construit `Intl.DateTimeFormat("en-CA", ...)` UNE SEULE FOIS, quel que soit le nombre d appels ' +
+      '(MESURE : 1 757 ms pour 50 000 lignes si reconstruit a chaque appel, contre 70 ms en cache — ' +
+      'sans ce correctif, le plafond d export serait 2 000 lignes au lieu de 5 000, §8.24 point 4)',
+    async () => {
+      // Espion pose AVANT le chargement du module : `CIVIL_DATE_FORMATTER`
+      // est une constante de PORTEE MODULE, construite au premier import —
+      // `vi.resetModules()` force une evaluation fraiche du module pour que
+      // cette toute premiere construction soit elle-meme comptee.
+      // `mockImplementation` DELEGUE au vrai constructeur (`new` explicite,
+      // objet retourne) : un simple `vi.spyOn(...)` sans implementation ne
+      // construit RIEN de reel quand il est appele via `new` (verifie par
+      // execution reelle : `formatCivilDateInReferenceTimeZone` levait
+      // `TypeError: ... .format is not a function` sans cette ligne).
+      const RealDateTimeFormat = globalThis.Intl.DateTimeFormat;
+      // Fonction ORDINAIRE, PAS une flèche : `vi.fn()` invoque l implementation
+      // via `new` quand l appelant fait `new Intl.DateTimeFormat(...)`, et une
+      // fonction flèche n a pas de `[[Construct]]` (`TypeError: ... is not a
+      // constructor`, constate par execution reelle sans ce changement).
+      const constructorSpy = vi.spyOn(globalThis.Intl, 'DateTimeFormat').mockImplementation(
+        function delegateToRealDateTimeFormat(this: unknown, ...args: ConstructorParameters<typeof Intl.DateTimeFormat>) {
+          return new RealDateTimeFormat(...args);
+        } as unknown as typeof Intl.DateTimeFormat,
+      );
+      vi.resetModules();
+      const { formatCivilDateInReferenceTimeZone } = await import('@/kernel/clock/timezone');
+
+      const isEnCaCall = (call: unknown[]): boolean => call[0] === 'en-CA';
+      const enCaCallsAfterImport = constructorSpy.mock.calls.filter(isEnCaCall).length;
+
+      // 25 appels, sur des instants distincts, PAS un seul — c est le nombre
+      // d appels qui revelerait une reconstruction a chaque appel.
+      for (let index = 0; index < 25; index += 1) {
+        formatCivilDateInReferenceTimeZone(`2026-0${(index % 9) + 1}-15T08:00:00+00:00`);
+      }
+
+      const enCaCallsAfterLoop = constructorSpy.mock.calls.filter(isEnCaCall).length;
+
+      // EXACTEMENT une construction au chargement du module, ZERO de plus
+      // apres 25 appels : la preuve que le formateur est reutilise.
+      expect(enCaCallsAfterImport).toBe(1);
+      expect(enCaCallsAfterLoop).toBe(enCaCallsAfterImport);
+
+      constructorSpy.mockRestore();
+      vi.resetModules();
+    },
+  );
+
+  it('rend une date civile YYYY-MM-DD correcte APRES la mise en cache (aucun changement de comportement)', async () => {
+    vi.resetModules();
+    const { formatCivilDateInReferenceTimeZone } = await import('@/kernel/clock/timezone');
+    // Meme cas que le test CSV/XLSX partage : 2026-09-01T22:30:00Z (ete,
+    // CEST +02:00) -> 2026-09-02 heure de Paris, le jour CIVIL change.
+    expect(formatCivilDateInReferenceTimeZone('2026-09-01T22:30:00+00:00')).toBe('2026-09-02');
+    expect(formatCivilDateInReferenceTimeZone('2026-03-15T08:00:00+00:00')).toBe('2026-03-15');
+    vi.resetModules();
   });
 });

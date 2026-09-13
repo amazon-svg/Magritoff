@@ -1,0 +1,5 @@
+FROM public.ecr.aws/supabase/edge-runtime:v1.69.12
+COPY c1a /c1a
+COPY c1b /c1b
+COPY c1c /c1c
+COPY c1d /c1d

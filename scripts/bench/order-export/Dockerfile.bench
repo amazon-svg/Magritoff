@@ -1,0 +1,8 @@
+FROM public.ecr.aws/supabase/edge-runtime:v1.69.12
+COPY harness/main /harness/main
+COPY harness/events /harness/events
+COPY proj /proj
+COPY proj-nolimit /proj-nolimit
+COPY proj-noop /proj-noop
+COPY proj-cachedtz /proj-cachedtz
+COPY lib-only /lib-only

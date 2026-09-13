@@ -15,6 +15,7 @@ import {
 } from '../../adapters/supabase/order-exports-repository.ts';
 import { SupabaseOrderExportStorage } from '../../adapters/supabase/order-exports-storage.ts';
 import { csvOrderExportRenderer } from '../../modules/order-exports/application/renderers/csv-renderer.ts';
+import { xlsxOrderExportRenderer } from '../../modules/order-exports/application/renderers/xlsx-renderer.ts';
 import {
   OrderExportGenerationService,
   type OrderExportGenerationReport,
@@ -32,10 +33,12 @@ export type OrderExportRunApplicationDependencies = Readonly<{
 }>;
 
 /**
- * Compose le drain de generation avec le SEUL renderer livre a ce jour :
- * `csv`. `xlsx` n a AUCUN renderer enregistre avant E10.18d : une demande
- * xlsx reclamee echoue proprement (`order_export.format_not_implemented`),
- * jamais en boucle de reprise (voir `OrderExportGenerationService.processOne`).
+ * Compose le drain de generation avec les DEUX renderers livres (story
+ * E10.18d) : `csv` (E10.18c) et `xlsx` (E10.18d, `write-excel-file` 4.1.1
+ * entree `/node`). Avant E10.18d, `xlsx` n avait AUCUN renderer enregistre :
+ * une demande xlsx reclamee echouait proprement
+ * (`order_export.format_not_implemented`), jamais en boucle de reprise (voir
+ * `OrderExportGenerationService.processOne`) — ce n est plus le cas.
  */
 export function createOrderExportRunApplication(
   dependencies: OrderExportRunApplicationDependencies,
@@ -46,7 +49,7 @@ export function createOrderExportRunApplication(
   const service = new OrderExportGenerationService({
     repository,
     storage,
-    renderers: { csv: csvOrderExportRenderer },
+    renderers: { csv: csvOrderExportRenderer, xlsx: xlsxOrderExportRenderer },
     settings: dependencies.settings ?? DEFAULT_ORDER_EXPORT_RUN_SETTINGS,
     ...(dependencies.onUnhandledError === undefined ? {} : { onUnhandledError: dependencies.onUnhandledError }),
   });

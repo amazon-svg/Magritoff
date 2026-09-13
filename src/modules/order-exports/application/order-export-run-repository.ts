@@ -25,10 +25,17 @@ export type OrderExportRunSettings = Readonly<{
 }>;
 
 export const DEFAULT_ORDER_EXPORT_RUN_SETTINGS: OrderExportRunSettings = Object.freeze({
-  // Plus PETIT que le drain de notification (25) : une generation est
-  // memoire/CPU-intensive (contrat §8.24 point 4/7), un lot borne PROTEGE
-  // les autres exports en file d un isolat qui deraperait sur un seul.
-  limit: 5,
+  // `1`, PAS `5` — CORRIGE le 2026-09-13 (§8.24 point 4, douzieme entree du
+  // bandeau, condition 2 du plafond de 5 000 lignes). MESURE, pas suppose :
+  // le budget CPU d une invocation (256 Mo, 2 s de CPU) se CUMULE sur le LOT
+  // que `runOnce()` traite dans une seule requete, pas par export. Un XLSX
+  // de 10 000 lignes passe SEUL ; reclame par lot de cinq dans le MEME tour,
+  // les CINQ sont tues par le superviseur (meme constat pour un CSV de
+  // 50 000). Un plafond par export (`ORDER_EXPORT_ROW_LIMIT`) ne vaut donc
+  // que si le lot reclame vaut 1. Consequence assumee : le debit tombe a UN
+  // export par tour de `pg_cron` (soit un par minute), ce qui suffit pour
+  // une file d exports comptables asynchrones par construction.
+  limit: 1,
   maxAttempts: 3,
   maxAgeSeconds: 15 * 60,
 });

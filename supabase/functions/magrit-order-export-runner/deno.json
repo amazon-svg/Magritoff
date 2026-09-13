@@ -1,6 +1,8 @@
 {
   "imports": {
     "@supabase/supabase-js": "npm:@supabase/supabase-js@2.103.3",
-    "zod": "npm:zod@4.4.3"
+    "zod": "npm:zod@4.4.3",
+    "write-excel-file/node": "npm:write-excel-file@4.1.1/node",
+    "fflate": "npm:fflate@0.8.3"
   }
 }

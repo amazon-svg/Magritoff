@@ -31,6 +31,35 @@
 /** IANA. Seule constante a connaitre pour tout code qui doit entendre une date civile "comme un imprimeur en France metropolitaine la lirait". */
 export const PRODUCT_REFERENCE_TIME_ZONE = 'Europe/Paris' as const;
 
+/**
+ * Formateur civil MIS EN CACHE (E10.18d, correctif CPU §8.24 point 4,
+ * condition 1) — construit UNE SEULE FOIS, en portee de module, jamais a
+ * chaque appel de `formatCivilDateInReferenceTimeZone`.
+ *
+ * MESURE, pas suppose (banc de l architecte, treizieme entree du bandeau
+ * (iii) puis douzieme entree) : reconstruire ce formateur A CHAQUE LIGNE
+ * exportee (CSV comme XLSX, une ligne = un appel) coutait **1 757 ms pour
+ * 50 000 lignes**, contre **70 ms** avec un formateur reutilise — c etait
+ * le PREMIER poste de CPU du renderer, avant meme la bibliotheque XLSX.
+ * **Sans ce correctif, le plafond d export (`ORDER_EXPORT_ROW_LIMIT`,
+ * `order-export-generation-service.ts`) serait 2 000 lignes au lieu de
+ * 5 000** (§8.24 point 4).
+ *
+ * AUCUN CHANGEMENT DE COMPORTEMENT : `Intl.DateTimeFormat.prototype.format()`
+ * est une fonction PURE vis-a-vis de son instance — elle ne porte aucun etat
+ * mutable qui deriverait d un appel a l autre — reutiliser la MEME instance
+ * pour tous les appels rend donc un resultat IDENTIQUE, appel apres appel, a
+ * celui d une instance neuve par appel. Teste explicitement :
+ * `tests/kernel/timezone.test.ts` (espion sur `Intl.DateTimeFormat`, compte
+ * UNE SEULE construction quel que soit le nombre d appels).
+ */
+const CIVIL_DATE_FORMATTER = new Intl.DateTimeFormat('en-CA', {
+  timeZone: PRODUCT_REFERENCE_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
 const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 type CivilTime = Readonly<{ hour: number; minute: number; second: number; millisecond: number }>;
@@ -161,13 +190,9 @@ export function formatCivilDateInReferenceTimeZone(instant: Date | string): stri
   if (Number.isNaN(date.getTime())) {
     throw new TypeError(`Instant invalide : "${String(instant)}".`);
   }
-  const formatter = new Intl.DateTimeFormat('en-CA', {
-    timeZone: PRODUCT_REFERENCE_TIME_ZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  });
   // Le calendrier `en-CA` rend deja `YYYY-MM-DD` — format retenu ICI pour
   // cette seule raison de commodite de sortie, aucune signification locale.
-  return formatter.format(date);
+  // Formateur EN CACHE (voir `CIVIL_DATE_FORMATTER` ci-dessus) : construit
+  // une seule fois en portee de module, jamais ici.
+  return CIVIL_DATE_FORMATTER.format(date);
 }
