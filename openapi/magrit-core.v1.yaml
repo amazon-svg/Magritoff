@@ -19079,7 +19079,7 @@ components:
         Numero de commande ; Date de commande ; Type de client ; Client ;
         SIRET ; Numero de TVA ; Interlocuteur ; Courriel interlocuteur ;
         Position ; Libelle produit ; Origine de la ligne ; Quantite ;
-        Prix client barème HT ; PU HT indicatif ; Montant HT ;
+        Montant HT barème (avant remise) ; PU HT indicatif ; Montant HT ;
         Taux de remise ligne ; Statut commercial ; Etape de production ;
         Devis d origine.
 
@@ -19104,7 +19104,8 @@ components:
         « MONTANT HT » EST DEJA NET DE LA REMISE DE LIGNE. La colonne
         « Taux de remise ligne » est INFORMATIVE : elle dit ce qui a ete
         consenti, elle ne se soustrait pas une seconde fois. Le montant avant
-        geste commercial est donne a cote (« Prix client barème HT ») pour que
+        geste commercial est donne a cote (« Montant HT barème (avant
+        remise) ») pour que
         la remise soit verifiable par difference plutot que par confiance.
 
 
@@ -19170,6 +19171,33 @@ components:
         assumee, publiee maintenant pour que le jour ou `cancelled` ou
         `invoiced` apparaitront, la mise en page ne bouge pas. « Etape de
         production » porte le libelle courant de l etape, ou vide.
+
+
+        « MONTANT HT BARÈME (AVANT REMISE) » EST UN TOTAL, PAS UN PRIX
+        UNITAIRE, et son intitule le dit parce que sa POSITION ne le dit pas :
+        il se trouve entre « Quantite » et « PU HT indicatif », c est-a-dire
+        entoure de grandeurs unitaires. Il vaut
+        `CommercialOrderLine.customer_price`, le montant de la ligne AVANT
+        geste commercial, a deux decimales. Il est exporte pour que la remise
+        soit verifiable PAR DIFFERENCE avec « Montant HT » plutot que sur
+        parole. Un intitule plus court (« Prix client bareme HT ») a ete ecarte
+        en E10.18b : il laissait croire a un prix unitaire, et l erreur
+        n aurait produit aucune anomalie visible — seulement des remises
+        recalculees a faux.
+
+
+        AUCUN CODE TECHNIQUE N ARRIVE DANS LE FICHIER. Deux colonnes portent en
+        base des valeurs d enumeration destinees aux machines, et elles sont
+        TRADUITES a l ecriture de la cellule : « Type de client »
+        (`company` -> « Societe », `individual` -> « Particulier ») et
+        « Regime de TVA » (les CINQ valeurs de `TaxRegime`, `metropole_fr`,
+        `dom_tom`, `franchise_tva`, `export_eu`, `export_world`, rendues en
+        clair). Ce fichier est lu par un comptable, pas parse par un
+        programme : livrer `metropole_fr` sous un en-tete « Regime de TVA »
+        serait exactement la ressaisie que l export existe pour supprimer. La
+        traduction appartient au GENERATEUR DE CELLULE et a lui seul — une vue
+        qui presenterait serait une seconde verite sur le vocabulaire du
+        produit, et elle divergerait de `TaxRegime` au premier ajout.
 
 
         « INTERLOCUTEUR » SERA VIDE LA PLUPART DU TEMPS, et il faut le savoir
