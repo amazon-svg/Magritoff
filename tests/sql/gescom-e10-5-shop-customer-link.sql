@@ -35,6 +35,8 @@ create temporary table e10_5_shop_access_context (
   free_auth_user_id uuid not null
 );
 
+grant select on e10_5_shop_access_context to authenticated;
+
 do $$
 declare
   v_actor uuid;
@@ -45,32 +47,16 @@ declare
   v_customer_a uuid;
   v_contact_a uuid;
 begin
-  select u.id into v_actor
-    from auth.users u
-   where not exists (
-     select 1
-       from public.tenant_members tm
-       join public.tenants t on t.id = tm.tenant_id
-      where tm.user_id = u.id
-        and t.is_system_tenant = true
-        and tm.role in ('owner', 'admin')
-   )
-   order by u.created_at
-   limit 1;
+  -- Fixture propre a la transaction (pas de dependance a un auth.users
+  -- preexistant en base locale) : un utilisateur fraichement cree n est
+  -- membre d aucun tenant, donc trivialement pas admin du tenant systeme.
+  v_actor := gen_random_uuid();
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, aud, role)
+    values (v_actor, 'e10-5-shop-customer-link-owner@example.test', 'x', now(), now(), now(), 'authenticated', 'authenticated');
 
-  if v_actor is null then
-    raise exception 'Un utilisateur Auth non super-admin est requis pour le scenario E10.5';
-  end if;
-
-  select u.id into v_free_user
-    from auth.users u
-   where u.id <> v_actor
-   order by u.created_at
-   limit 1;
-
-  if v_free_user is null then
-    raise exception 'Un second utilisateur Auth (sans lien) est requis pour le scenario E10.5';
-  end if;
+  v_free_user := gen_random_uuid();
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, aud, role)
+    values (v_free_user, 'e10-5-shop-customer-link-free-user@example.test', 'x', now(), now(), now(), 'authenticated', 'authenticated');
 
   insert into public.tenants (slug, name)
     values ('e10-5-shop-access-a', 'E10.5 Shop Access Tenant A')
@@ -79,11 +65,11 @@ begin
   insert into public.tenant_members (tenant_id, user_id, role, access_scope, allowed_shop_ids)
   values (v_tenant_a, v_actor, 'admin', 'magrit_full', '{}');
 
-  insert into public.shops (tenant_id, name, slug)
-    values (v_tenant_a, 'Boutique A1', 'e10-5-boutique-a1')
+  insert into public.shops (owner_user_id, tenant_id, name, slug)
+    values (v_actor, v_tenant_a, 'Boutique A1', 'e10-5-boutique-a1')
     returning id into v_shop_a1;
-  insert into public.shops (tenant_id, name, slug)
-    values (v_tenant_a, 'Boutique A2', 'e10-5-boutique-a2')
+  insert into public.shops (owner_user_id, tenant_id, name, slug)
+    values (v_actor, v_tenant_a, 'Boutique A2', 'e10-5-boutique-a2')
     returning id into v_shop_a2;
 
   insert into public.customers (tenant_id, type, company_name, siret)
@@ -139,16 +125,17 @@ $$;
 do $$
 declare
   v_contact_a uuid;
+  v_actor uuid;
   v_other_tenant uuid;
   v_other_shop uuid;
   v_rejected boolean := false;
 begin
-  select contact_a into v_contact_a from e10_5_shop_access_context;
+  select contact_a, actor_id into v_contact_a, v_actor from e10_5_shop_access_context;
 
   insert into public.tenants (slug, name) values ('e10-5-shop-access-b', 'E10.5 Shop Access Tenant B')
     returning id into v_other_tenant;
-  insert into public.shops (tenant_id, name, slug)
-    values (v_other_tenant, 'Boutique B', 'e10-5-boutique-b')
+  insert into public.shops (owner_user_id, tenant_id, name, slug)
+    values (v_actor, v_other_tenant, 'Boutique B', 'e10-5-boutique-b')
     returning id into v_other_shop;
 
   begin
@@ -184,8 +171,8 @@ begin
   -- 4a. `v_actor` est deja membre interne (tenant_members) : il ne peut pas
   -- devenir un compte shop_customer_accounts (auth_subject_id renseigne).
   begin
-    insert into public.shop_customer_accounts (shop_id, email, full_name, status, auth_subject_id)
-    values (v_shop_a1, 'membre-interne@example.test', 'Membre interne', 'active', v_actor);
+    insert into public.shop_customer_accounts (shop_id, email, full_name, status, auth_subject_id, activated_at)
+    values (v_shop_a1, 'membre-interne@example.test', 'Membre interne', 'active', v_actor, now());
   exception
     when others then
       if sqlerrm like 'identity_exclusivity_violation%' then
@@ -199,8 +186,8 @@ begin
   end if;
 
   -- 4b. `v_free_user` devient d abord un compte client boutique...
-  insert into public.shop_customer_accounts (shop_id, email, full_name, status, auth_subject_id)
-  values (v_shop_a1, 'client-boutique@example.test', 'Client boutique', 'active', v_free_user);
+  insert into public.shop_customer_accounts (shop_id, email, full_name, status, auth_subject_id, activated_at)
+  values (v_shop_a1, 'client-boutique@example.test', 'Client boutique', 'active', v_free_user, now());
 
   -- ... et ne peut alors pas etre ajoute comme membre interne du tenant.
   v_rejected := false;

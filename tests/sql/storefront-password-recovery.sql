@@ -5,8 +5,9 @@ declare
   v_token text; v_session_token text := encode(extensions.gen_random_bytes(32), 'hex'); v_count integer; v_ok boolean;
   v_old_digest text := encode(extensions.digest(convert_to('ancien-secret', 'UTF8'), 'sha256'), 'hex');
 begin
-  select id into v_actor from auth.users where email is not null order by created_at limit 1;
-  if v_actor is null then raise exception 'Utilisateur Auth requis pour UM9.2'; end if;
+  v_actor := gen_random_uuid();
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, aud, role)
+    values (v_actor, 'um9-2-password-recovery-owner@example.test', 'x', now(), now(), now(), 'authenticated', 'authenticated');
   insert into public.tenants (slug, name) values ('um9-password-recovery', 'UM9 Recovery') returning id into v_tenant;
   insert into public.shops (owner_user_id, tenant_id, slug, name, active) values (v_actor, v_tenant, 'um9-recovery-shop', 'UM9 Shop', true) returning id into v_shop;
   insert into public.shops (owner_user_id, tenant_id, slug, name, active) values (v_actor, v_tenant, 'um9-recovery-other', 'UM9 Other', true) returning id into v_other_shop;

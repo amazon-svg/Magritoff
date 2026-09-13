@@ -151,40 +151,21 @@ declare
   v_quote_status_forced uuid;
   v_line_1 uuid;
 begin
-  select u.id into v_actor_admin_a
-    from auth.users u
-   where not exists (
-     select 1 from public.tenant_members tm join public.tenants t on t.id = tm.tenant_id
-      where tm.user_id = u.id and t.is_system_tenant = true and tm.role in ('owner', 'admin')
-   )
-   order by u.created_at limit 1;
-  if v_actor_admin_a is null then
-    raise exception 'Un utilisateur Auth non super-admin est requis (admin tenant A)';
-  end if;
+  -- Fixtures propres a la transaction (pas de dependance a un auth.users
+  -- preexistant en base locale) : trois utilisateurs fraichement crees ne
+  -- sont membres d aucun tenant, donc trivialement pas admin du tenant
+  -- systeme.
+  v_actor_admin_a := gen_random_uuid();
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, aud, role)
+    values (v_actor_admin_a, 'e10-10a-quote-send-duplicate-admin-a@example.test', 'x', now(), now(), now(), 'authenticated', 'authenticated');
 
-  select u.id into v_actor_member_a
-    from auth.users u
-   where u.id <> v_actor_admin_a
-     and not exists (
-       select 1 from public.tenant_members tm join public.tenants t on t.id = tm.tenant_id
-        where tm.user_id = u.id and t.is_system_tenant = true and tm.role in ('owner', 'admin')
-     )
-   order by u.created_at limit 1;
-  if v_actor_member_a is null then
-    raise exception 'Un second utilisateur Auth non super-admin est requis (membre tenant A)';
-  end if;
+  v_actor_member_a := gen_random_uuid();
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, aud, role)
+    values (v_actor_member_a, 'e10-10a-quote-send-duplicate-member-a@example.test', 'x', now(), now(), now(), 'authenticated', 'authenticated');
 
-  select u.id into v_actor_admin_b
-    from auth.users u
-   where u.id not in (v_actor_admin_a, v_actor_member_a)
-     and not exists (
-       select 1 from public.tenant_members tm join public.tenants t on t.id = tm.tenant_id
-        where tm.user_id = u.id and t.is_system_tenant = true and tm.role in ('owner', 'admin')
-     )
-   order by u.created_at limit 1;
-  if v_actor_admin_b is null then
-    raise exception 'Un troisieme utilisateur Auth non super-admin est requis (admin tenant B)';
-  end if;
+  v_actor_admin_b := gen_random_uuid();
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, aud, role)
+    values (v_actor_admin_b, 'e10-10a-quote-send-duplicate-admin-b@example.test', 'x', now(), now(), now(), 'authenticated', 'authenticated');
 
   insert into public.tenants (slug, name) values ('e10-10a-send-a', 'E10.10a Tenant A') returning id into v_tenant_a;
   insert into public.tenants (slug, name) values ('e10-10a-send-b', 'E10.10a Tenant B') returning id into v_tenant_b;

@@ -1,16 +1,28 @@
 begin;
 
 do $$
-declare v_account uuid; v_actor uuid; v_token text; v_issued record; v_count integer;
+declare
+  v_account uuid; v_actor uuid; v_tenant uuid; v_shop uuid;
+  v_token text; v_issued record; v_count integer;
 begin
-  select id into v_actor from auth.users limit 1;
-  select id into v_account from public.shop_customer_accounts
-  where status in ('delegated_only', 'invited') limit 1;
-  if v_account is null then
-    insert into public.shop_customer_accounts (shop_id, email, full_name, status)
-    select id, 'activation-um2@example.test', 'Activation UM2', 'invited'
-    from public.shops limit 1 returning id into v_account;
-  end if;
+  -- Fixture propre a la transaction (pas de dependance a un auth.users ou
+  -- une boutique preexistante en base locale) : cree son propre acteur, son
+  -- propre tenant et sa propre boutique, meme patron que les fichiers E10
+  -- (ex. tests/sql/gescom-e10-13-production-steps.sql).
+  v_actor := gen_random_uuid();
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, aud, role)
+    values (v_actor, 'um2-credential-activation-owner@example.test', 'x', now(), now(), now(), 'authenticated', 'authenticated');
+
+  insert into public.tenants (slug, name)
+  values ('um2-credential-activation', 'UM2 Credential Activation') returning id into v_tenant;
+  insert into public.shops (owner_user_id, tenant_id, slug, name)
+  values (v_actor, v_tenant, 'um2-credential-activation-shop', 'UM2 Credential Activation Shop')
+  returning id into v_shop;
+
+  insert into public.shop_customer_accounts (shop_id, email, full_name, status)
+  values (v_shop, 'activation-um2@example.test', 'Activation UM2', 'invited')
+  returning id into v_account;
+
   v_token := encode(extensions.gen_random_bytes(32), 'hex');
   insert into private.shop_customer_activation_tokens (
     shop_customer_account_id, token_hash, issued_by_magrit_user_id, expires_at

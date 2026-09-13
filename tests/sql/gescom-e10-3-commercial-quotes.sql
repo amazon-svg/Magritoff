@@ -112,6 +112,7 @@ grant select on e10_3_quotes_context to authenticated;
 do $$
 declare
   v_actor uuid;
+  v_tenant_a_spare_admin uuid;
   v_tenant_a uuid;
   v_tenant_b uuid;
   v_customer_a uuid;
@@ -140,22 +141,12 @@ declare
   v_current_seq integer;
   i integer;
 begin
-  select u.id into v_actor
-    from auth.users u
-   where not exists (
-     select 1
-       from public.tenant_members tm
-       join public.tenants t on t.id = tm.tenant_id
-      where tm.user_id = u.id
-        and t.is_system_tenant = true
-        and tm.role in ('owner', 'admin')
-   )
-   order by u.created_at
-   limit 1;
-
-  if v_actor is null then
-    raise exception 'Un utilisateur Auth non super-admin est requis pour le scenario E10.3';
-  end if;
+  -- Fixture propre a la transaction (pas de dependance a un auth.users
+  -- preexistant en base locale) : un utilisateur fraichement cree n est
+  -- membre d aucun tenant, donc trivialement pas admin du tenant systeme.
+  v_actor := gen_random_uuid();
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, aud, role)
+    values (v_actor, 'e10-3-commercial-quotes-owner@example.test', 'x', now(), now(), now(), 'authenticated', 'authenticated');
 
   insert into public.tenants (slug, name) values ('e10-3-quotes-a', 'E10.3 Quotes Tenant A')
     returning id into v_tenant_a;
@@ -170,6 +161,19 @@ begin
   values (v_tenant_a, v_actor, 'admin', 'magrit_full', '{}');
   insert into public.tenant_members (tenant_id, user_id, role, access_scope, allowed_shop_ids)
   values (v_tenant_b, v_actor, 'admin', 'magrit_full', '{}');
+
+  -- Second admin de "reserve" sur le tenant A : le trigger
+  -- protect_last_tenant_admin (migration 20260824000200, UM1 — "le dernier
+  -- moyen d administrer ne peut pas disparaitre") refuse desormais la
+  -- suppression du DERNIER admin d un tenant. La Phase 2 plus bas retire
+  -- v_actor du tenant A pour exercer la RLS d isolation (scenarios 4-6) ;
+  -- sans un second admin, ce retrait serait lui-meme bloque par le
+  -- trigger. Ce membre de reserve n intervient dans aucune assertion.
+  v_tenant_a_spare_admin := gen_random_uuid();
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, aud, role)
+    values (v_tenant_a_spare_admin, 'e10-3-commercial-quotes-tenant-a-spare-admin@example.test', 'x', now(), now(), now(), 'authenticated', 'authenticated');
+  insert into public.tenant_members (tenant_id, user_id, role, access_scope, allowed_shop_ids)
+  values (v_tenant_a, v_tenant_a_spare_admin, 'admin', 'magrit_full', '{}');
 
   insert into public.customers (tenant_id, type, company_name, siret)
   values (v_tenant_a, 'company', 'Tenant A Impression', '73282932000074')

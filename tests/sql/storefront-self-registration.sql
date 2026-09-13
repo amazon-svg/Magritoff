@@ -16,8 +16,9 @@ declare
   v_tenant uuid;
   v_open_shop uuid;
 begin
-  select id into v_actor from auth.users where email is not null order by created_at limit 1;
-  if v_actor is null then raise exception 'Utilisateur Auth requis pour le scénario UM9.1'; end if;
+  v_actor := gen_random_uuid();
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, aud, role)
+    values (v_actor, 'um9-1-self-registration-owner@example.test', 'x', now(), now(), now(), 'authenticated', 'authenticated');
 
   insert into public.tenants (slug, name)
   values ('um9-self-registration', 'UM9 Self Registration') returning id into v_tenant;

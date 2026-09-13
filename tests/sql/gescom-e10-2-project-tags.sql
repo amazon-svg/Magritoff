@@ -63,22 +63,12 @@ declare
   v_tag_b uuid;
   v_rejected boolean := false;
 begin
-  select u.id into v_actor
-    from auth.users u
-   where not exists (
-     select 1
-       from public.tenant_members tm
-       join public.tenants t on t.id = tm.tenant_id
-      where tm.user_id = u.id
-        and t.is_system_tenant = true
-        and tm.role in ('owner', 'admin')
-   )
-   order by u.created_at
-   limit 1;
-
-  if v_actor is null then
-    raise exception 'Un utilisateur Auth non super-admin est requis pour le scenario E10.2';
-  end if;
+  -- Fixture propre a la transaction (pas de dependance a un auth.users
+  -- preexistant en base locale) : un utilisateur fraichement cree n est
+  -- membre d aucun tenant, donc trivialement pas admin du tenant systeme.
+  v_actor := gen_random_uuid();
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, aud, role)
+    values (v_actor, 'e10-2-project-tags-owner@example.test', 'x', now(), now(), now(), 'authenticated', 'authenticated');
 
   insert into public.tenants (slug, name) values ('e10-2-tags-a', 'E10.2 Tags Tenant A')
     returning id into v_tenant_a;

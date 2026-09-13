@@ -47,22 +47,12 @@ declare
   v_suggested_kind text;
   v_suggested_gamme text;
 begin
-  select u.id into v_actor
-    from auth.users u
-   where not exists (
-     select 1
-       from public.tenant_members tm
-       join public.tenants t on t.id = tm.tenant_id
-      where tm.user_id = u.id
-        and t.is_system_tenant = true
-        and tm.role in ('owner', 'admin')
-   )
-   order by u.created_at
-   limit 1;
-
-  if v_actor is null then
-    raise exception 'Un utilisateur Auth non super-admin est requis pour ce scenario';
-  end if;
+  -- Fixture propre a la transaction (pas de dependance a un auth.users
+  -- preexistant en base locale) : un utilisateur fraichement cree n est
+  -- membre d aucun tenant, donc trivialement pas admin du tenant systeme.
+  v_actor := gen_random_uuid();
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, aud, role)
+    values (v_actor, 'gescom-devis-pim-triggers-owner@example.test', 'x', now(), now(), now(), 'authenticated', 'authenticated');
 
   insert into public.tenants (slug, name)
     values ('devis-unif-pim-triggers', 'Devis unification - PIM triggers')
@@ -84,11 +74,19 @@ begin
   -- commande sur TOUS les tenants avant le correctif qa-review B1 : s il
   -- leve `ERROR 42703: column "source_quote_id" ...`, ce bloc entier
   -- s interrompt et le test echoue (ON_ERROR_STOP=1 dans le runner).
+  -- product_id : NULL, pas un UUID au hasard. `tenant_order_items.product_id`
+  -- reference `product_library` (FK) et a ete rendu nullable par
+  -- `20260518000200_tenant_order_items_product_id_nullable.sql` precisement
+  -- pour les items sans produit catalogue reel, identifies par leur seul
+  -- snapshot `product_label`/`clariprint_options` — exactement le cas ici.
+  -- Un `gen_random_uuid()` viole la FK des qu aucune ligne `product_library`
+  -- ne porte cet id par hasard (artefact de fixture, sans lien avec le
+  -- trigger PIM verifie par ce fichier).
   insert into public.tenant_order_items (
     order_id, product_id, product_label, clariprint_options,
     quantity, unit_price_ht, line_total_ht
   ) values (
-    v_order, gen_random_uuid(), 'Flyer A5 test PIM',
+    v_order, null, 'Flyer A5 test PIM',
     '{"kind": "flyer", "gamme_slug": "flyers"}'::jsonb,
     100, 0.50, 50.00
   );

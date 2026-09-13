@@ -86,8 +86,9 @@ declare
   v_quote_a2_sent uuid;
   v_quote_b_sent uuid;
 begin
-  select id into v_actor from auth.users where email is not null order by created_at limit 1;
-  if v_actor is null then raise exception 'Utilisateur Auth requis pour le scenario E10.10b-2'; end if;
+  v_actor := gen_random_uuid();
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, aud, role)
+    values (v_actor, 'e10-10b-2-storefront-quote-decision-owner@example.test', 'x', now(), now(), now(), 'authenticated', 'authenticated');
 
   insert into public.tenants (slug, name) values ('e10-10b-2-tenant-a', 'E10.10b-2 Tenant A') returning id into v_tenant_a;
   insert into public.tenants (slug, name) values ('e10-10b-2-tenant-b', 'E10.10b-2 Tenant B') returning id into v_tenant_b;

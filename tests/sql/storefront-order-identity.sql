@@ -12,8 +12,9 @@ declare
   v_result jsonb;
   v_order record;
 begin
-  select id into v_actor from auth.users where email is not null order by created_at limit 1;
-  if v_actor is null then raise exception 'Utilisateur Auth requis pour le scénario UM6.1'; end if;
+  v_actor := gen_random_uuid();
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, aud, role)
+    values (v_actor, 'um6-1-order-identity-owner@example.test', 'x', now(), now(), now(), 'authenticated', 'authenticated');
 
   insert into public.tenants (slug, name)
   values ('um6-storefront-order', 'UM6 Storefront Order') returning id into v_tenant;

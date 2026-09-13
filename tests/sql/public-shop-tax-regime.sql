@@ -11,8 +11,9 @@ declare
   v_actor uuid;
   v_tenant uuid;
 begin
-  select id into v_actor from auth.users where email is not null order by created_at limit 1;
-  if v_actor is null then raise exception 'Utilisateur Auth requis pour le scénario UM10.2'; end if;
+  v_actor := gen_random_uuid();
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, aud, role)
+    values (v_actor, 'um10-2-shop-tax-regime-owner@example.test', 'x', now(), now(), now(), 'authenticated', 'authenticated');
 
   insert into public.tenants (slug, name, tax_regime)
   values ('um10-storefront-tax', 'UM10 Storefront Tax', 'dom_tom')

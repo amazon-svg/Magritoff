@@ -15,8 +15,9 @@ declare
   v_report_count integer;
   v_result jsonb;
 begin
-  select id into v_legacy_user from auth.users where email is not null order by created_at limit 1;
-  if v_legacy_user is null then raise exception 'Utilisateur Auth requis pour le scénario UM7.1'; end if;
+  v_legacy_user := gen_random_uuid();
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, aud, role)
+    values (v_legacy_user, 'um7-1-legacy-migration-owner@example.test', 'x', now(), now(), now(), 'authenticated', 'authenticated');
 
   insert into public.tenants (slug, name)
   values ('um7-legacy-migration', 'UM7 Legacy Migration') returning id into v_tenant;

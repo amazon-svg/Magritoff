@@ -89,40 +89,17 @@ begin
   -- Deux acteurs DISTINCTS, ni l un ni l autre super-admin du tenant systeme
   -- (sinon `is_super_admin()` court-circuiterait la RLS et ne prouverait
   -- rien de la derivation d appartenance testee au scenario 2).
-  select u.id into v_actor_member
-    from auth.users u
-   where not exists (
-     select 1
-       from public.tenant_members tm
-       join public.tenants t on t.id = tm.tenant_id
-      where tm.user_id = u.id
-        and t.is_system_tenant = true
-        and tm.role in ('owner', 'admin')
-   )
-   order by u.created_at
-   limit 1;
+  -- Fixtures propres a la transaction (pas de dependance a un auth.users
+  -- preexistant en base locale) : deux utilisateurs fraichement crees ne
+  -- sont membres d aucun tenant, donc trivialement pas admin du tenant
+  -- systeme.
+  v_actor_member := gen_random_uuid();
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, aud, role)
+    values (v_actor_member, 'e10-11-can-manage-pricing-member@example.test', 'x', now(), now(), now(), 'authenticated', 'authenticated');
 
-  if v_actor_member is null then
-    raise exception 'Un utilisateur Auth non super-admin est requis pour le scenario E10.11 (membre)';
-  end if;
-
-  select u.id into v_actor_admin
-    from auth.users u
-   where u.id <> v_actor_member
-     and not exists (
-       select 1
-         from public.tenant_members tm
-         join public.tenants t on t.id = tm.tenant_id
-        where tm.user_id = u.id
-          and t.is_system_tenant = true
-          and tm.role in ('owner', 'admin')
-     )
-   order by u.created_at
-   limit 1;
-
-  if v_actor_admin is null then
-    raise exception 'Un second utilisateur Auth non super-admin est requis pour le scenario E10.11 (admin)';
-  end if;
+  v_actor_admin := gen_random_uuid();
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, aud, role)
+    values (v_actor_admin, 'e10-11-can-manage-pricing-admin@example.test', 'x', now(), now(), now(), 'authenticated', 'authenticated');
 
   insert into public.tenants (slug, name) values ('e10-11-pricing-cap', 'E10.11 Pricing Capability Tenant')
     returning id into v_tenant_a;

@@ -64,22 +64,12 @@ declare
   v_toggle_rule_b uuid;
   v_rejected boolean := false;
 begin
-  select u.id into v_actor
-    from auth.users u
-   where not exists (
-     select 1
-       from public.tenant_members tm
-       join public.tenants t on t.id = tm.tenant_id
-      where tm.user_id = u.id
-        and t.is_system_tenant = true
-        and tm.role in ('owner', 'admin')
-   )
-   order by u.created_at
-   limit 1;
-
-  if v_actor is null then
-    raise exception 'Un utilisateur Auth non super-admin est requis pour le scenario E10.6';
-  end if;
+  -- Fixture propre a la transaction (pas de dependance a un auth.users
+  -- preexistant en base locale) : un utilisateur fraichement cree n est
+  -- membre d aucun tenant, donc trivialement pas admin du tenant systeme.
+  v_actor := gen_random_uuid();
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, aud, role)
+    values (v_actor, 'e10-6-price-rules-owner@example.test', 'x', now(), now(), now(), 'authenticated', 'authenticated');
 
   insert into public.tenants (slug, name) values ('e10-6-price-rules-a', 'E10.6 Price Rules Tenant A')
     returning id into v_tenant_a;
@@ -212,12 +202,24 @@ end;
 $$;
 
 -- ── 6. Journal d audit (CA6), joue en tant que postgres ─────────────────────
+-- Correction qa-review (chore gate SQL) : `occurred_at` est pose par `now()`,
+-- constant pour toute la duree de la TRANSACTION en PostgreSQL (contrairement
+-- a `clock_timestamp()`) — plusieurs ecritures d audit dans la meme
+-- transaction partagent donc EXACTEMENT le meme horodatage, et `order by
+-- occurred_at desc limit 1` n a alors aucune garantie d ordre entre elles.
+-- C est un artefact de CE TEST (aucun chemin applicatif n ecrit deux fois la
+-- meme regle dans une seule transaction : l adaptateur fait un insert OU un
+-- update par appel, jamais les deux). Corrige ici par des comptages PAR
+-- ACTION avant/apres chaque ecriture, qui ne dependent d aucun ordre.
 do $$
 declare
   v_rule_a uuid;
   v_toggle_rule_b uuid;
   v_created_count integer;
-  v_last_action text;
+  v_total_before integer;
+  v_total_after integer;
+  v_action_before integer;
+  v_action_after integer;
 begin
   select id into v_rule_a from public.price_rules where name = 'Client + gamme OK';
   select toggle_rule_b into v_toggle_rule_b from e10_6_price_rules_context;
@@ -232,45 +234,56 @@ begin
   end if;
 
   -- Bascule is_active SEULE -> 'deactivated'.
+  select count(*) into v_total_before from public.price_rules_audit where price_rule_id = v_toggle_rule_b;
+  select count(*) into v_action_before from public.price_rules_audit where price_rule_id = v_toggle_rule_b and action = 'deactivated';
   update public.price_rules set is_active = false where id = v_toggle_rule_b;
-  select action into v_last_action
-    from public.price_rules_audit
-   where price_rule_id = v_toggle_rule_b
-   order by occurred_at desc
-   limit 1;
-  if v_last_action <> 'deactivated' then
+  select count(*) into v_total_after from public.price_rules_audit where price_rule_id = v_toggle_rule_b;
+  select count(*) into v_action_after from public.price_rules_audit where price_rule_id = v_toggle_rule_b and action = 'deactivated';
+  if v_total_after <> v_total_before + 1 then
     raise exception
-      'La desactivation seule a ete journalisee comme "%", "deactivated" attendu', v_last_action;
+      'La desactivation a produit % ligne(s) d audit, 1 attendue', v_total_after - v_total_before;
+  end if;
+  if v_action_after <> v_action_before + 1 then
+    raise exception
+      'La desactivation seule n a pas ete journalisee comme "deactivated" (% avant, % apres)',
+      v_action_before, v_action_after;
   end if;
 
   -- Reactivation seule -> 'activated'.
+  select count(*) into v_total_before from public.price_rules_audit where price_rule_id = v_toggle_rule_b;
+  select count(*) into v_action_before from public.price_rules_audit where price_rule_id = v_toggle_rule_b and action = 'activated';
   update public.price_rules set is_active = true where id = v_toggle_rule_b;
-  select action into v_last_action
-    from public.price_rules_audit
-   where price_rule_id = v_toggle_rule_b
-   order by occurred_at desc
-   limit 1;
-  if v_last_action <> 'activated' then
+  select count(*) into v_total_after from public.price_rules_audit where price_rule_id = v_toggle_rule_b;
+  select count(*) into v_action_after from public.price_rules_audit where price_rule_id = v_toggle_rule_b and action = 'activated';
+  if v_total_after <> v_total_before + 1 then
     raise exception
-      'La reactivation seule a ete journalisee comme "%", "activated" attendu', v_last_action;
+      'La reactivation a produit % ligne(s) d audit, 1 attendue', v_total_after - v_total_before;
+  end if;
+  if v_action_after <> v_action_before + 1 then
+    raise exception
+      'La reactivation seule n a pas ete journalisee comme "activated" (% avant, % apres)',
+      v_action_before, v_action_after;
   end if;
 
   -- Modification d un AUTRE champ (name) -> 'updated', jamais 'activated'/'deactivated'.
+  select count(*) into v_total_before from public.price_rules_audit where price_rule_id = v_toggle_rule_b;
+  select count(*) into v_action_before from public.price_rules_audit where price_rule_id = v_toggle_rule_b and action = 'updated';
   update public.price_rules set name = 'Regle a basculer (renommee)' where id = v_toggle_rule_b;
-  select action into v_last_action
-    from public.price_rules_audit
-   where price_rule_id = v_toggle_rule_b
-   order by occurred_at desc
-   limit 1;
-  if v_last_action <> 'updated' then
+  select count(*) into v_total_after from public.price_rules_audit where price_rule_id = v_toggle_rule_b;
+  select count(*) into v_action_after from public.price_rules_audit where price_rule_id = v_toggle_rule_b and action = 'updated';
+  if v_total_after <> v_total_before + 1 then
     raise exception
-      'Le renommage a ete journalise comme "%", "updated" attendu', v_last_action;
+      'Le renommage a produit % ligne(s) d audit, 1 attendue', v_total_after - v_total_before;
+  end if;
+  if v_action_after <> v_action_before + 1 then
+    raise exception
+      'Le renommage n a pas ete journalise comme "updated" (% avant, % apres)',
+      v_action_before, v_action_after;
   end if;
 
   -- UPDATE no-op (aucune colonne changee) -> aucune ligne d audit supplementaire.
   select count(*) into v_created_count from public.price_rules_audit where price_rule_id = v_toggle_rule_b;
   update public.price_rules set name = name where id = v_toggle_rule_b;
-  perform 1 from public.price_rules_audit where price_rule_id = v_toggle_rule_b;
   if (select count(*) from public.price_rules_audit where price_rule_id = v_toggle_rule_b) <> v_created_count then
     raise exception 'Un UPDATE no-op a produit une ligne d audit supplementaire';
   end if;
