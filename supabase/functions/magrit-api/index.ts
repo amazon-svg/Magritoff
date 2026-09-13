@@ -89,6 +89,8 @@ import { NotificationTemplatesService } from '../../../src/modules/notifications
 import { SupabaseNotificationTemplatesRepository } from '../../../src/adapters/supabase/notification-templates-repository.ts';
 import { NotificationLogsService } from '../../../src/modules/notifications/application/notification-logs-service.ts';
 import { SupabaseNotificationLogsRepository } from '../../../src/adapters/supabase/notification-logs-repository.ts';
+import { OrderExportsService } from '../../../src/modules/order-exports/application/order-exports-service.ts';
+import { SupabaseOrderExportsRepository } from '../../../src/adapters/supabase/order-exports-repository.ts';
 import { SupabaseApiPrincipalVerifier } from '../../../src/adapters/supabase/api-principal-verifier.ts';
 import { InMemoryIdempotencyStore, OutboxPublisher } from '../../../src/modules/_shared/application/index.ts';
 import { TENANT_SELECTION_HEADER } from '../../../src/modules/_shared/api/index.ts';
@@ -525,6 +527,16 @@ export async function handleRequest(request: Request): Promise<Response> {
     repository: new SupabaseNotificationLogsRepository(client),
   });
 
+  // E10.18c — export comptable des commandes. `client` (JWT de l acteur) EST
+  // EXIGE : `api_request_order_export` resout `auth.uid()`, meme raisonnement
+  // que `SupabaseOrderDocumentsRepository`. `documentTemplatesStorageClient`
+  // (`service_role`) REUTILISE tel quel pour signer l URL de telechargement
+  // du bucket prive `order_exports` (aucune specificite de bucket sur ce
+  // client, le reconstruire serait une ressource de plus sans aucun gain).
+  const orderExportsService = new OrderExportsService({
+    repository: new SupabaseOrderExportsRepository(client, documentTemplatesStorageClient),
+  });
+
   const handler = createMagritApiApplication({
     gescomServices: {
       customers: customersService,
@@ -543,6 +555,7 @@ export async function handleRequest(request: Request): Promise<Response> {
       orderUploadLinks: orderUploadLinksService,
       notificationTemplates: notificationTemplatesService,
       notificationLogs: notificationLogsService,
+      orderExports: orderExportsService,
     },
     principalVerifier: new SupabaseApiPrincipalVerifier(client, {
       requestedTenantId: request.headers.get(TENANT_SELECTION_HEADER),

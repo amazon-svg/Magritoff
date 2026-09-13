@@ -101,3 +101,5 @@ export type {
 } from './outbox-dispatcher.ts';
 
 export { CompositeOutboxConsumer } from './composite-outbox-consumer.ts';
+
+export { resolveCalendarBoundOrThrow } from './calendar-bounds.ts';

@@ -55,6 +55,7 @@ import {
   computeEntityTag,
   decodeCursor,
   problem,
+  resolveCalendarBoundOrThrow,
   SHARED_PROBLEM_CODES,
   validationFailed,
 } from '../../modules/_shared/application/index.ts';
@@ -399,34 +400,12 @@ function parseCreatedAtRange(
   };
 }
 
-/**
- * Forme valide (regex `dateOnlySchema`) ne veut pas dire CALENDRIER valide :
- * `civilDateToUtc` (`src/kernel/clock/timezone.ts`) leve un `TypeError` pour
- * un jour inexistant (`2026-06-31`, `2026-02-30`, `2026-00-10`,
- * `2026-99-99`...), capture ici et traduit en **422** `api.validation_failed`
- * sur le CHAMP fautif -- JAMAIS un 400, et jamais un report silencieux sur le
- * mois/l annee suivants. Le `pattern` du contrat borne la FORME, pas le
- * calendrier ; le contrat est explicite sur ce point (amendement architecte
- * du 2026-09-12, `openapi/magrit-core.v1.yaml` ~ligne 4284 et ~ligne 19270) :
- * meme code/statut que la borne inversee (`created_from` posterieure a
- * `created_to`), pour la meme raison -- « jamais une page vide qui
- * laisserait croire a une absence de commandes », ici « jamais une borne
- * decalee en silence ».
- */
-function resolveCalendarBoundOrThrow(
-  field: 'created_from' | 'created_to',
-  dateOnly: string,
-  resolve: (dateOnly: string) => Date,
-): string {
-  try {
-    return resolve(dateOnly).toISOString();
-  } catch (error) {
-    if (error instanceof TypeError) {
-      throw validationFailed([{ field, message: 'Date inexistante dans le calendrier.' }]);
-    }
-    throw error;
-  }
-}
+// `resolveCalendarBoundOrThrow` (validation calendaire, 422 sur jour
+// inexistant) vit desormais dans `src/modules/_shared/application/
+// calendar-bounds.ts` (EXTRAIT ici en E10.18c pour que
+// `requestCommercialOrderExport` en herite SANS EN RECOPIER LA LOGIQUE,
+// docs/api/CONVENTIONS.md §8.24 point 5 regle 7) — importee en tete de ce
+// fichier, comportement INCHANGE.
 
 /** Defaut `-created_at` : ordre servi avant E10.13, ajouter `sort` ne change donc le comportement d aucun appelant existant. */
 function parseSort(raw: string | null): CommercialOrderSort {

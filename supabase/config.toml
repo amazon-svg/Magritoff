@@ -419,6 +419,19 @@ verify_jwt = false
 [functions.magrit-notification-sender]
 verify_jwt = false
 
+# E10.18c — drain de GENERATION reel des exports comptables de commandes
+# (`commercial_order_exports`), declenche par un QUATRIEME pg_cron + pg_net
+# DEDIE (migration 20260913000000, planification differee), SA PROPRE
+# cadence A LA MINUTE (contrat §8.24 §3(b) : un export peut occuper l isolat
+# plusieurs secondes, meme raisonnement que magrit-notification-sender pour
+# ne pas partager le tour avec l envoi de courriels). Authentification
+# ENTIEREMENT portee par le secret partage
+# `MAGRIT_ORDER_EXPORT_RUN_SECRET` (en-tete
+# `X-Magrit-Order-Export-Run-Secret`, compare en temps constant), aucun JWT
+# presente par pg_net.
+[functions.magrit-order-export-runner]
+verify_jwt = false
+
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 

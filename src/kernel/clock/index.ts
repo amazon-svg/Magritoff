@@ -19,6 +19,7 @@ export function fixedClock(instant: Date | string): Clock {
 
 export {
   endOfDayInReferenceTimeZone,
+  formatCivilDateInReferenceTimeZone,
   PRODUCT_REFERENCE_TIME_ZONE,
   startOfDayInReferenceTimeZone,
 } from './timezone.ts';

@@ -139,3 +139,35 @@ export function startOfDayInReferenceTimeZone(dateOnly: string): Date {
 export function endOfDayInReferenceTimeZone(dateOnly: string): Date {
   return civilDateToUtc(dateOnly, END_OF_DAY, PRODUCT_REFERENCE_TIME_ZONE);
 }
+
+/**
+ * SENS INVERSE des deux fonctions ci-dessus (E10.18c, docs/api/CONVENTIONS.md
+ * §8.24 point 5 regle 5) : un instant UTC (`created_at`, `timestamptz` BRUT —
+ * les vues d export, `private.commercial_order_export_headers`/`_lines`, le
+ * rendent SANS AUCUNE conversion de fuseau, expres, "la resolution
+ * Europe/Paris... est un souci du GENERATEUR, pas de la vue") -> la date
+ * CIVILE `YYYY-MM-DD` qu un imprimeur en France metropolitaine lirait sur ce
+ * meme instant. Necessaire pour la colonne "Date de commande" du fichier
+ * (CSV : chaine telle quelle ; XLSX, E10.18d : date native construite avec
+ * `Date.UTC` a partir de CES memes composantes civiles).
+ *
+ * Aucune ambiguite DST : contrairement a `civilDateToUtc` (qui doit choisir
+ * UNE heure locale precise, minuit ou 23:59:59.999), lire la date civile
+ * d un instant deja fixe n a jamais qu UNE reponse — `Intl.DateTimeFormat`
+ * suffit, aucun aller-retour de controle n est necessaire.
+ */
+export function formatCivilDateInReferenceTimeZone(instant: Date | string): string {
+  const date = instant instanceof Date ? instant : new Date(instant);
+  if (Number.isNaN(date.getTime())) {
+    throw new TypeError(`Instant invalide : "${String(instant)}".`);
+  }
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: PRODUCT_REFERENCE_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  // Le calendrier `en-CA` rend deja `YYYY-MM-DD` — format retenu ICI pour
+  // cette seule raison de commodite de sortie, aucune signification locale.
+  return formatter.format(date);
+}

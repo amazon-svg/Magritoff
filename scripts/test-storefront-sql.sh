@@ -73,6 +73,7 @@ SQL_CASES=(
   tests/sql/gescom-e10-15d-2-notification-deferred-render.sql
   tests/sql/gescom-e10-18a-order-period-filter.sql
   tests/sql/gescom-e10-18b-order-export-views.sql
+  tests/sql/gescom-e10-18c-order-exports.sql
 )
 
 for sql_case in "${SQL_CASES[@]}"; do
