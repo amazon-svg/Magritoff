@@ -16,6 +16,10 @@ Le mode `full` sert à créer puis réévaluer une baseline globale. Le mode `di
 sert au retour rapide sur une branche ou une pull request. Aucun de ces modes
 n'est bloquant par défaut.
 
+Tant qu'aucun fichier `*.spec.yaml` autre que le modèle n'est importé dans
+`quality/specs`, la conformité fonctionnelle reste explicitement
+`INCONCLUSIVE`, même si le schéma et les tests techniques passent.
+
 ## Auditeurs
 
 | Identifiant | Responsabilité |
@@ -51,6 +55,16 @@ pnpm quality:audit --mode full --agent api
 pnpm quality:audit --mode full --plan
 pnpm quality:audit --mode diff --semantic
 ```
+
+Les parcours navigateur sont séparés en deux niveaux :
+
+- `pnpm test:e2e:quality` exécute les scénarios reproductibles sans compte de
+  recette historique ;
+- `pnpm test:e2e:staging` exécute la suite complète contre une recette préparée.
+
+La suite complète exige les variables Supabase et les comptes
+`E2E_QA_EMAIL`, `E2E_QA_PASSWORD` et `E2E_ADMIN_PASSWORD`. Leur absence est une
+preuve manquante (`INCONCLUSIVE`), pas un succès ni un défaut du produit.
 
 Le mode `--plan` valide la configuration et affiche les contrôles prévus sans
 les exécuter.
@@ -88,6 +102,10 @@ authentification. Une instance locale telle qu'Ollama exige un runner
 auto-hébergé ayant accès à cette instance : un runner GitHub hébergé ne peut pas
 joindre le `localhost` de votre poste.
 
+Les contrôles navigateur se déclenchent manuellement avec `run_e2e`. La suite
+complète exige en plus `run_staging_e2e` et les secrets GitHub préfixés par
+`QUALITY_SUPABASE_` et `QUALITY_E2E_` déclarés dans le workflow.
+
 Les requêtes OpenAI utilisent `store: false` et une sortie structurée par le
 schéma `quality/schemas/agent-assessment.schema.json`. Un endpoint compatible
 Chat Completions, notamment local, reçoit le même schéma dans
@@ -105,16 +123,28 @@ summary.md
 agents/<agent>.json
 agents/<agent>.md
 evidence/<agent>/<check>.log
+evidence/semantic/<agent>-requests.jsonl
+evidence/checks/<check>-artifacts/
 ```
 
 `quality-reports/` est ignoré par Git. Sur GitHub, le dossier complet est
-publié comme artefact temporaire. Les fichiers Markdown et JSON pourront être
+publié comme artefact conservé 90 jours et `summary.md` est recopié dans la
+synthèse du run GitHub. Les fichiers Markdown et JSON pourront être
 recopiés ensuite sur une branche orpheline `audit-reports` pour l'historique
 durable ; les traces et captures volumineuses restent des artefacts.
+
+Les fichiers `.env.quality`, `.env.quality.local` et les configurations locales
+Hoppscotch ne doivent jamais être ajoutés à Git. `pnpm quality:secrets` vérifie
+ce garde-fou à partir de la liste des fichiers réellement suivis.
 
 Le rapport enregistre le SHA, la branche, le mode, les commandes, leurs codes
 de sortie, les limitations et les chemins des preuves. Le schéma canonique est
 `quality/schemas/agent-report.schema.json`.
+
+Lors d'une analyse LLM, la console affiche chaque lot, sa durée, son verdict et
+sa consommation lorsque le fournisseur la communique. Le journal JSONL associé
+conserve ces métadonnées, l'identifiant de réponse et les erreurs, sans clé API.
+La réponse brute structurée de chaque lot reste disponible dans le même dossier.
 
 ## Politique non bloquante
 

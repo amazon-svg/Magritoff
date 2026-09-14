@@ -32,6 +32,11 @@ on:
         required: false
         type: boolean
         default: false
+      run_staging_e2e:
+        description: Exécuter la suite Playwright complète avec les fixtures de recette
+        required: false
+        type: boolean
+        default: false
       application_url:
         description: URL d une application de test déjà déployée
         required: false
@@ -56,12 +61,19 @@ jobs:
     timeout-minutes: 60
     env:
       QUALITY_RUN_E2E: ${{ inputs.run_e2e && '1' || '0' }}
+      QUALITY_RUN_STAGING_E2E: ${{ inputs.run_staging_e2e && '1' || '0' }}
       A11Y_BASE_URL: ${{ inputs.application_url }}
       E2E_BASE_URL: ${{ inputs.application_url }}
       QUALITY_LLM_BASE_URL: ${{ secrets.QUALITY_LLM_BASE_URL }}
       QUALITY_LLM_API_KEY: ${{ secrets.QUALITY_LLM_API_KEY }}
       QUALITY_LLM_MODEL: ${{ vars.QUALITY_LLM_MODEL }}
       QUALITY_LLM_API: ${{ vars.QUALITY_LLM_API }}
+      SUPABASE_URL: ${{ secrets.QUALITY_SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.QUALITY_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.QUALITY_SUPABASE_SERVICE_ROLE_KEY }}
+      E2E_QA_EMAIL: ${{ secrets.QUALITY_E2E_QA_EMAIL }}
+      E2E_QA_PASSWORD: ${{ secrets.QUALITY_E2E_QA_PASSWORD }}
+      E2E_ADMIN_PASSWORD: ${{ secrets.QUALITY_E2E_ADMIN_PASSWORD }}
     steps:
       - name: Checkout du commit audité
         uses: actions/checkout@v4
@@ -120,4 +132,16 @@ jobs:
           name: quality-audit-${{ github.run_id }}-${{ github.run_attempt }}
           path: quality-reports/
           if-no-files-found: warn
-          retention-days: 30
+          retention-days: 90
+
+      - name: Publier la synthèse dans le run GitHub
+        if: always()
+        shell: bash
+        run: |
+          summary_file="$(find quality-reports -name summary.md -type f -print | sort | tail -n 1)"
+          if [[ -n "$summary_file" ]]; then
+            cat "$summary_file" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## Audit qualité" >> "$GITHUB_STEP_SUMMARY"
+            echo "Aucune synthèse générée." >> "$GITHUB_STEP_SUMMARY"
+          fi

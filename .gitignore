@@ -13,3 +13,6 @@ test-results/
 playwright-report/
 coverage/
 quality-reports/
+.env.quality
+.env.hopstudio.test
+.env.hopstudio.test.local*

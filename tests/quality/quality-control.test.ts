@@ -49,6 +49,7 @@ describe('architecture de contrôle qualité', () => {
         }
       }
     }
+    expect(policy.agents.functional.checks.full).toContain('specs-presence');
   });
 
   it('compile strictement les schémas de spécification et de rapport', () => {
@@ -128,10 +129,14 @@ describe('architecture de contrôle qualité', () => {
     expect(upload?.['if']).toBe('always()');
     const workflowSource = readFileSync(resolve('.github/workflows/quality-audit.yml'), 'utf8');
     expect(workflowSource).toContain('run_semantic:');
+    expect(workflowSource).toContain('run_staging_e2e:');
     expect(workflowSource).toContain(
       'QUALITY_LLM_BASE_URL: ${{ secrets.QUALITY_LLM_BASE_URL }}',
     );
     expect(workflowSource).toContain('EVENT_NAME" == "workflow_dispatch"');
+    expect(workflowSource).toContain('GITHUB_STEP_SUMMARY');
+    expect(workflowSource).toContain('QUALITY_E2E_QA_PASSWORD');
+    expect(upload?.['with']).toMatchObject({ 'retention-days': 90 });
   });
 
   it('envoie une requête Responses structurée sans stockage fournisseur', async () => {
@@ -236,7 +241,18 @@ describe('architecture de contrôle qualité', () => {
     expect(example).toContain('QUALITY_LLM_API_KEY=YOUR_API_KEY');
     expect(runner).toContain("process.env.QUALITY_ENV_FILE || '.env.quality.local'");
     expect(runner).toContain('override: false');
+    expect(runner).toContain('-requests.jsonl');
+    expect(runner).toContain('providerResponseId');
+    expect(runner).toContain('QUALITY_CHECK_ARTIFACTS_DIR');
     expect(gitignore).toContain('.env.*.local');
+    expect(gitignore).toContain('.env.quality');
+    expect(gitignore).toContain('.env.hopstudio.test');
+    expect(() =>
+      execFileSync(process.execPath, [resolve(root, 'scripts/check-repository-secrets.mjs')], {
+        cwd: root,
+        encoding: 'utf8',
+      }),
+    ).not.toThrow();
   });
 
   it('encadre les audits UX réels et empêche un PASS fondé sur le code seul', () => {

@@ -228,6 +228,20 @@ async function preflightCheck(check) {
       return `contrôle désactivé ; définir ${check.enabledByEnvironment}=1 pour l'exécuter`;
     }
   }
+  if (check.requiresEnvironment) {
+    const missing = check.requiresEnvironment.filter((name) => !process.env[name]);
+    if (missing.length > 0) {
+      return `variables d'environnement absentes : ${missing.join(', ')}`;
+    }
+  }
+  if (check.requiresSpecFiles) {
+    const importedSpecs = splitLines(git(['ls-files', 'quality/specs']))
+      .filter((path) => path.endsWith('.spec.yaml'))
+      .filter((path) => basename(path) !== '_template.spec.yaml');
+    if (importedSpecs.length === 0) {
+      return 'aucune spécification fonctionnelle importée dans quality/specs';
+    }
+  }
   if (check.requiresUrl) {
     const url = process.env[check.requiresUrl.environment] || check.requiresUrl.default;
     if (!(await urlIsReachable(url))) {
@@ -511,6 +525,19 @@ function deterministicEvidenceSummary(checks) {
     .join('\n');
 }
 
+function semanticUsage(configuration, response) {
+  const usage = response?.usage ?? {};
+  const inputTokens =
+    configuration.api === 'responses' ? usage.input_tokens : usage.prompt_tokens;
+  const outputTokens =
+    configuration.api === 'responses' ? usage.output_tokens : usage.completion_tokens;
+  return {
+    inputTokens: Number.isInteger(inputTokens) ? inputTokens : 0,
+    outputTokens: Number.isInteger(outputTokens) ? outputTokens : 0,
+    totalTokens: Number.isInteger(usage.total_tokens) ? usage.total_tokens : 0,
+  };
+}
+
 async function executeSemanticAgent(agentId, agent, checks, context, policy, runDirectory) {
   const configuration = semanticConfiguration();
   if (configuration.error) {
@@ -534,6 +561,7 @@ async function executeSemanticAgent(agentId, agent, checks, context, policy, run
   const sourceBatches = buildSemanticBatches(agentId, context, policy);
   const semanticDirectory = resolve(runDirectory, 'evidence/semantic');
   mkdirSync(semanticDirectory, { recursive: true });
+  const requestLog = resolve(semanticDirectory, `${safeSegment(agentId)}-requests.jsonl`);
 
   if (sourceBatches.batches.length === 0) {
     return {
@@ -555,10 +583,16 @@ async function executeSemanticAgent(agentId, agent, checks, context, policy, run
   const instructions = `${profile}\n\nRègles d'exécution :\n- Tu es en lecture seule.\n- Analyse uniquement les fichiers et preuves fournis.\n- Chaque constat doit citer une preuve du lot sous la forme chemin:ligne ou un contrôle nommé.\n- N'invente ni fichier, ni test, ni exigence.\n- Une zone non démontrée est une limitation, pas un succès.\n- Retourne uniquement l'objet JSON conforme au schéma imposé.`;
   const assessments = [];
   const semanticLimitations = [];
+  const totals = { inputTokens: 0, outputTokens: 0, totalTokens: 0, durationMs: 0 };
 
   for (let index = 0; index < sourceBatches.batches.length; index += 1) {
     const batch = sourceBatches.batches[index];
     const input = `AUDIT MAGRIT\nAgent: ${agentId}\nMode: ${context.mode}${context.module ? `:${context.module}` : ''}\nCommit: ${context.commit.sha}\nLot: ${index + 1}/${sourceBatches.batches.length}\n\nPREUVES DETERMINISTES\n${deterministicEvidenceSummary(checks)}\n\nFICHIERS DU LOT\n${batch.map((part) => part.document).join('\n\n')}`;
+    const requestStartedAt = new Date().toISOString();
+    const requestStarted = Date.now();
+    console.log(
+      `  ↳ ${agentId} lot ${index + 1}/${sourceBatches.batches.length} — ${batch.length} partie(s), ${input.length} caractères`,
+    );
     try {
       const result = await requestSemanticAssessment(
         configuration,
@@ -570,13 +604,53 @@ async function executeSemanticAgent(agentId, agent, checks, context, policy, run
         resolve(semanticDirectory, `${safeSegment(agentId)}-batch-${index + 1}.json`),
         `${JSON.stringify(result.providerResponse, null, 2)}\n`,
       );
+      const durationMs = Date.now() - requestStarted;
+      const usage = semanticUsage(configuration, result.providerResponse);
+      totals.durationMs += durationMs;
+      totals.inputTokens += usage.inputTokens;
+      totals.outputTokens += usage.outputTokens;
+      totals.totalTokens += usage.totalTokens;
       if (!validateAssessment(result.assessment)) {
         throw new Error(
           `sortie non conforme : ${assessmentAjv.errorsText(validateAssessment.errors, { separator: '; ' })}`,
         );
       }
       assessments.push(result.assessment);
+      appendFileSync(
+        requestLog,
+        `${JSON.stringify({
+          batch: index + 1,
+          batches: sourceBatches.batches.length,
+          status: 'completed',
+          startedAt: requestStartedAt,
+          durationMs,
+          inputCharacters: input.length,
+          sourceParts: batch.length,
+          providerResponseId: result.providerResponse.id ?? null,
+          usage,
+          verdict: result.assessment.verdict,
+        })}\n`,
+      );
+      console.log(
+        `    terminé en ${durationMs} ms — verdict ${result.assessment.verdict}, tokens ${usage.totalTokens || 'indisponibles'}`,
+      );
     } catch (error) {
+      const durationMs = Date.now() - requestStarted;
+      totals.durationMs += durationMs;
+      appendFileSync(
+        requestLog,
+        `${JSON.stringify({
+          batch: index + 1,
+          batches: sourceBatches.batches.length,
+          status: 'failed',
+          startedAt: requestStartedAt,
+          durationMs,
+          inputCharacters: input.length,
+          sourceParts: batch.length,
+          error: error.message,
+        })}\n`,
+      );
+      console.error(`    échec après ${durationMs} ms — ${error.message}`);
       semanticLimitations.push(`Lot ${index + 1} non analysé : ${error.message}`);
       break;
     }
@@ -625,6 +699,11 @@ async function executeSemanticAgent(agentId, agent, checks, context, policy, run
       model: configuration.model,
       batches: assessments.length,
       filesAnalyzed: sourceBatches.analyzedFiles.length,
+      inputTokens: totals.inputTokens,
+      outputTokens: totals.outputTokens,
+      totalTokens: totals.totalTokens,
+      durationMs: totals.durationMs,
+      requestLog: relative(runDirectory, requestLog),
     },
   };
 }
@@ -679,7 +758,15 @@ async function executeCheck(checkId, check, runDirectory, plan) {
 
   const startedAt = new Date().toISOString();
   const started = Date.now();
-  const result = runProcess(check.command);
+  const artifactsDirectory = resolve(
+    runDirectory,
+    'evidence/checks',
+    `${safeSegment(checkId)}-artifacts`,
+  );
+  mkdirSync(artifactsDirectory, { recursive: true });
+  const result = runProcess(check.command, {
+    env: { ...process.env, QUALITY_CHECK_ARTIFACTS_DIR: artifactsDirectory },
+  });
   const finishedAt = new Date().toISOString();
   const evidencePath = resolve(runDirectory, 'evidence/checks', `${safeSegment(checkId)}.log`);
   writeEvidence(evidencePath, checkId, check, result, startedAt, finishedAt);
@@ -747,7 +834,12 @@ function buildLimitations(agentId, checks, context, policy, semanticResult) {
   for (const source of context.missingSources.filter((path) => relevantSources.includes(path))) {
     limitations.push(`Source canonique absente : ${source}`);
   }
-  if (agentId === 'functional' && context.trackedFiles.every((path) => !path.startsWith('quality/specs/'))) {
+  if (
+    agentId === 'functional' &&
+    context.trackedFiles
+      .filter((path) => path.startsWith('quality/specs/') && path.endsWith('.spec.yaml'))
+      .every((path) => basename(path) === '_template.spec.yaml')
+  ) {
     limitations.push('Aucune spécification fonctionnelle importée ne figure dans le périmètre audité.');
   }
   return limitations;

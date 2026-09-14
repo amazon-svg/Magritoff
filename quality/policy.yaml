@@ -17,10 +17,23 @@ context:
     - docs/UX_GUIDELINES.md
 
 checks:
+  repository-secrets:
+    title: Vérifier l'absence de fichiers locaux ou secrets versionnés
+    command: [pnpm, quality:secrets]
+    severity: critical
+  build:
+    title: Construire l'application de production
+    command: [pnpm, build]
+    severity: critical
   specs-format:
     title: Valider le format des spécifications fonctionnelles
     command: [pnpm, specs:validate]
     severity: major
+  specs-presence:
+    title: Vérifier la présence de spécifications fonctionnelles importées
+    command: [pnpm, specs:validate]
+    severity: major
+    requiresSpecFiles: true
   typecheck:
     title: Vérifier le typage du socle modulaire
     command: [pnpm, typecheck]
@@ -53,19 +66,37 @@ checks:
       environment: A11Y_BASE_URL
       default: http://localhost:5177
   browser-e2e:
-    title: Exécuter les parcours Playwright
-    command: [pnpm, exec, playwright, test]
+    title: Exécuter les parcours Playwright reproductibles
+    command: [pnpm, test:e2e:quality]
     severity: critical
     enabledByEnvironment: QUALITY_RUN_E2E
+    requiresUrl:
+      environment: E2E_BASE_URL
+      default: http://localhost:5177
+  browser-e2e-staging:
+    title: Exécuter tous les parcours Playwright sur la recette préparée
+    command: [pnpm, test:e2e:staging]
+    severity: critical
+    enabledByEnvironment: QUALITY_RUN_STAGING_E2E
+    requiresEnvironment:
+      - SUPABASE_URL
+      - SUPABASE_ANON_KEY
+      - SUPABASE_SERVICE_ROLE_KEY
+      - E2E_QA_EMAIL
+      - E2E_QA_PASSWORD
+      - E2E_ADMIN_PASSWORD
+    requiresUrl:
+      environment: E2E_BASE_URL
+      default: http://localhost:5177
 
 agents:
   architecture:
     title: Architecture
     profile: quality/agents/architecture.md
     checks:
-      diff: [typecheck, architecture-tests, generated-api-types]
-      module: [typecheck, architecture-tests, generated-api-types]
-      full: [typecheck, architecture-tests, generated-api-types]
+      diff: [repository-secrets, typecheck, build, architecture-tests, generated-api-types]
+      module: [repository-secrets, typecheck, build, architecture-tests, generated-api-types]
+      full: [repository-secrets, typecheck, build, architecture-tests, generated-api-types]
   api:
     title: API
     profile: quality/agents/api.md
@@ -77,20 +108,20 @@ agents:
     title: Conformité fonctionnelle
     profile: quality/agents/functional.md
     checks:
-      diff: [specs-format]
-      module: [specs-format, complete-tests]
-      full: [specs-format, complete-tests]
+      diff: [specs-format, specs-presence]
+      module: [specs-format, specs-presence, complete-tests]
+      full: [specs-format, specs-presence, complete-tests]
   ux:
     title: Expérience utilisateur
     profile: quality/agents/ux.md
     checks:
       diff: [accessibility, browser-e2e]
-      module: [accessibility, browser-e2e]
-      full: [accessibility, browser-e2e]
+      module: [accessibility, browser-e2e, browser-e2e-staging]
+      full: [accessibility, browser-e2e, browser-e2e-staging]
   test-quality:
     title: Qualité des tests
     profile: quality/agents/test-quality.md
     checks:
-      diff: [specs-format, contract-tests]
-      module: [specs-format, complete-tests, coverage]
-      full: [specs-format, complete-tests, coverage]
+      diff: [repository-secrets, specs-format, specs-presence, contract-tests]
+      module: [repository-secrets, specs-format, specs-presence, complete-tests, coverage]
+      full: [repository-secrets, specs-format, specs-presence, complete-tests, coverage]
