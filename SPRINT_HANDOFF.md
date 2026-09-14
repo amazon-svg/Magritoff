@@ -2,7 +2,31 @@
 
 > Document de reprise pour démarrer une nouvelle session de Claude code sur le projet sans recharger tout l'historique. À tenir à jour à chaque fin de sprint.
 >
-> **Dernière mise à jour : 2026-09-13 — Sprint 5 Gestion commerciale (Epic E10), sur `feat/gescom-e10-4-entite-client` : E10.18d livré et déployé, purge de fichiers ACTIVÉE, gate SQL de nouveau verte.**
+> **Dernière mise à jour : 2026-09-14 — E10.18d livré et architecture de contrôle qualité agentique prête à intégrer.**
+
+## ▶️ CONTRÔLE QUALITÉ AGENTIQUE — PR #8
+
+La branche `codex/feat/controle-qualite-agentique` introduit cinq auditeurs
+consultatifs : architecture, API, conformité fonctionnelle, UX réelle et
+qualité des tests. Ils auditent un diff, un module ou tout le dépôt et
+produisent des rapports Markdown/JSON accompagnés des preuves brutes.
+
+Preuves obtenues avant le rebase final :
+
+- build, typage, frontières architecturales et contrats OpenAPI verts ;
+- 2 125 tests Vitest passés, couverture mesurée ;
+- scan WCAG sur 11 routes et 10 parcours Playwright reproductibles passés ;
+- fichiers LLM locaux protégés par `.gitignore` et contrôle Git dédié ;
+- appels LLM tracés lot par lot sans journaliser la clé API ;
+- rapports visibles dans la synthèse GitHub et conservés 90 jours en artefact.
+
+Le verdict global reste volontairement `INCONCLUSIVE` tant que les
+spécifications Notion ne sont pas importées sous `quality/specs/*.spec.yaml`,
+que l'analyse sémantique n'est pas demandée ou que la recette staging complète
+n'est pas configurée. Ces absences ne sont jamais présentées comme des succès.
+
+Références : `quality/README.md`, `quality/policy.yaml`,
+`docs/UX_GUIDELINES.md` et `.github/workflows/quality-audit.yml`.
 
 ---
 

@@ -54,6 +54,9 @@ ROUTES=(
 # 'orders' en URL directe — un test Playwright + click sur la nav portail
 # serait nécessaire (tracé pour S-ORDER-ROLES-3-UI test E2E ultérieur).
 
+if [[ "${1:-}" == "--" ]]; then
+  shift
+fi
 OUTPUT="${1:-a11y-report.json}"
 EXIT_CODE=0
 

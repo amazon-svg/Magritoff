@@ -29,13 +29,20 @@
     "gen:api": "./scripts/gen-api-types.sh",
     "gen:api:check": "./scripts/gen-api-types.sh --check",
     "test": "vitest run --maxWorkers=2",
+    "specs:validate": "node ./scripts/validate-functional-specs.mjs",
+    "quality:audit": "node ./scripts/run-quality-audit.mjs",
+    "quality:audit:diff": "pnpm quality:audit --mode diff",
+    "quality:audit:full": "pnpm quality:audit --mode full",
+    "quality:secrets": "node ./scripts/check-repository-secrets.mjs",
     "test:architecture": "vitest run tests/architecture",
     "test:contract": "vitest run tests/contract",
     "test:storefront:sql": "./scripts/test-storefront-sql.sh",
     "test:coverage": "vitest run --coverage",
+    "test:e2e:quality": "playwright test tests/e2e/a11y-dynamic.spec.ts tests/e2e/atelier-no-cart-button.spec.ts",
+    "test:e2e:staging": "playwright test",
     "db:types": "./scripts/gen-db-types.sh",
     "build:analyze": "ANALYZE=1 vite build && echo '✅ Bundle visualizer : dist/stats.html'",
-    "a11y:scan": "./scripts/a11y-scan.sh"
+    "a11y:scan": "node ./scripts/a11y-scan.mjs"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
@@ -106,10 +113,9 @@
     "@tailwindcss/vite": "4.1.12",
     "@types/react": "19.2.14",
     "@vitejs/plugin-react": "4.7.0",
-    "@vitest/coverage-v8": "^4.1.6",
+    "@vitest/coverage-v8": "4.1.6",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
-    "chromedriver": "^147.0.4",
     "dotenv": "^17.4.2",
     "openapi-typescript": "^7.13.0",
     "rollup-plugin-visualizer": "^7.0.1",
@@ -117,7 +123,7 @@
     "tailwindcss": "4.1.12",
     "typescript": "5.9.3",
     "vite": "6.3.5",
-    "vitest": "^4.1.5",
+    "vitest": "4.1.6",
     "yaml": "^2.9.0"
   },
   "peerDependencies": {
