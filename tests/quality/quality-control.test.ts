@@ -247,7 +247,12 @@ describe('architecture de contrôle qualité', () => {
     expect(guidelines).toContain('Matrice minimale de recette');
     expect(guidelines).toContain('Un audit statique seul peut produire `FAIL`');
     expect(guidelines).toContain('Les constats partageant la même cause racine sont');
+    expect(guidelines).toContain('Volumétrie, listes et référentiels');
+    expect(guidelines).toContain('susceptible de dépasser 100 lignes');
+    expect(guidelines).toContain('`<select>` préchargeant toutes les valeurs est interdit');
+    expect(guidelines).toContain('tri/filtre local présenté comme global');
     expect(profile).toContain('ne jamais conclure qu\'un comportement est absent');
+    expect(profile).toContain('absence de `<select>` préchargeant un référentiel volumineux');
     expect(profile).toContain('regrouper les occurrences ayant la même cause racine');
   });
 });

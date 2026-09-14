@@ -15,6 +15,10 @@ recette UX.
 - erreurs console, requêtes réseau échouées et attentes infinies ;
 - cohérence des composants, tokens, hiérarchie, microcopy et feedback ;
 - absence de cul-de-sac et conservation du contexte utilisateur ;
+- collections API bornées, pagination cohérente avec tri et filtres, et
+  conservation de la position utile ;
+- absence de `<select>` préchargeant un référentiel volumineux ou non borné ;
+- combobox distantes accessibles, bornées et robustes aux réponses obsolètes ;
 - captures, traces Playwright et résultats axe attachés comme preuves.
 
 ## Discipline de verdict
@@ -27,6 +31,8 @@ recette UX.
   pas présent dans un lot partiel ;
 - ne pas utiliser une dette ou une maquette historique comme preuve de l'état
   courant sans confirmation dans le code ou l'application ;
+- ne pas signaler une liste ou un `<select>` sans établir sa source, sa limite
+  effective et sa volumétrie possible ;
 - regrouper les occurrences ayant la même cause racine ;
 - pour chaque constat, citer une règle et une preuve actuelle vérifiable.
 

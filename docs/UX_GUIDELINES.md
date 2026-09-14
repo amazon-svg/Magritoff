@@ -32,6 +32,9 @@ développeur ou un agent. Elle produit une question ouverte et un verdict UX
 - [UX Design Specification — boutique v2](../_bmad-output/planning-artifacts/ux-design-specification.md) ;
 - [UX Design Spec — extension e-commerce](../_bmad-output/planning-artifacts/ux-design-ecom-boutique-2026-07-07.md) ;
 - [WCAG 2.2 — recommandation W3C](https://www.w3.org/TR/WCAG22/) ;
+- [WAI-ARIA APG — pattern Combobox](https://www.w3.org/WAI/ARIA/apg/patterns/combobox/) ;
+- [Home Office — choisir dans une longue liste](https://design.homeoffice.gov.uk/design-system/patterns/help-users-to/long-lists) ;
+- [MUI Data Grid — pagination](https://mui.com/x/react-data-grid/pagination/) ;
 - wireframes validés sous `.design-handoff/wireframes/`.
 
 Les fichiers HTML et captures du handoff sont des références visuelles. Ils ne
@@ -253,7 +256,101 @@ inspection humaine ou assistée restent requises pour les parcours critiques.
 - les textes temporaires, lorem ipsum et codes bruts sont interdits en surface
   utilisateur livrée.
 
-## 12. Preuves exigées pour une recette UX
+## 12. Volumétrie, listes et référentiels
+
+Les seuils ci-dessous sont des garde-fous Magrit, pas des constantes
+universelles. Une spécification peut les ajuster à partir de la tâche, de la
+fréquence d'usage, de la familiarité des utilisateurs et de mesures réelles.
+Elle ne peut jamais rendre une collection non bornée par défaut.
+
+### 12.1 Collections et tableaux
+
+Toute collection provenant d'une API ou de la base est bornée côté serveur et
+côté interface. Une limite technique cachée qui tronque les résultats sans
+l'annoncer est interdite.
+
+- une collection non bornée ou susceptible de dépasser 100 lignes utilise une
+  pagination ou un chargement progressif côté serveur ;
+- la taille initiale recommandée est de 25 lignes, avec 25 et 50 comme choix
+  usuels ; 100 n'est proposé que si le rendu et l'usage restent maîtrisés ;
+- tri, recherche, filtres et pagination portent sur la même collection. Avec
+  une pagination serveur, ils sont exécutés côté serveur afin de ne pas trier
+  ou filtrer uniquement la page visible ;
+- la pagination par curseur est privilégiée lorsque les données changent
+  fréquemment. Changer le tri ou un filtre invalide les curseurs et résultats
+  mis en cache devenus incompatibles ;
+- l'interface distingue total exact, total estimé et total inconnu ;
+- page, taille, tri et filtres sont conservés dans l'URL lorsqu'un retour, un
+  rafraîchissement ou un partage du résultat est attendu ;
+- une sélection traversant plusieurs pages annonce clairement sa portée et ce
+  qu'un changement de filtre conserve ou efface ;
+- chargement, vide, erreur, reprise et fin de collection sont explicites.
+
+Le scroll infini est réservé aux parcours de découverte continue pour lesquels
+la position exacte importe peu. Une liste métier destinée à retrouver,
+comparer, sélectionner ou reprendre un élément utilise une pagination ou un
+bouton « Afficher plus ». La virtualisation optimise le rendu d'une collection
+déjà maîtrisée ; elle ne remplace ni le bornage serveur, ni la recherche, ni la
+pagination.
+
+### 12.2 Choix dans un référentiel
+
+Un `<select>` natif convient à une liste courte, stable, familière et à choix
+unique. Les garde-fous suivants s'appliquent aux données venant de la base :
+
+- jusqu'à 20 options courtes et stables, le `<select>` natif est normalement
+  acceptable ;
+- entre 21 et 100 options, le choix dépend de la connaissance du référentiel,
+  de la fréquence d'usage, des regroupements possibles et du risque d'erreur ;
+- au-delà de 100 options, ou si la collection peut croître sans borne, un
+  `<select>` préchargeant toutes les valeurs est interdit ;
+- si l'utilisateur connaît le nom, code ou identifiant recherché, utiliser une
+  combobox avec recherche distante ;
+- s'il ne connaît pas les options, proposer catégories, filtres progressifs ou
+  questions guidées plutôt qu'un champ de recherche vide sans repère ;
+- le multi-choix volumineux utilise une recherche et une zone séparée listant
+  les éléments déjà sélectionnés.
+
+Une combobox distante :
+
+- ne précharge pas toute la table ;
+- utilise une temporisation adaptée, généralement 200 à 300 ms, et annule ou
+  ignore les réponses devenues obsolètes ;
+- borne le nombre de suggestions, généralement entre 10 et 20, et invite à
+  affiner lorsque d'autres résultats existent ;
+- traite chargement, aucun résultat, erreur, reprise et fin des résultats ;
+- annonce le nombre ou l'évolution des résultats de manière compatible avec
+  le pattern accessible réellement retenu ;
+- fonctionne avec clavier, tactile et lecteur d'écran conformément au pattern
+  Combobox WAI-ARIA ;
+- enregistre un identifiant stable, jamais le libellé affiché ;
+- distingue les homonymes avec une information secondaire utile ;
+- n'accepte pas une valeur libre lorsque le contrat exige une entité du
+  référentiel.
+
+Une valeur déjà enregistrée reste compréhensible si l'entité devient inactive,
+archivée ou inaccessible : elle est affichée avec son état plutôt que remplacée
+silencieusement. Lorsqu'un choix parent change, les choix dépendants sont
+revalidés, conservés s'ils restent valides ou effacés avec une explication.
+
+### 12.3 Preuves de robustesse
+
+Les composants concernés sont testés au minimum avec :
+
+- 0, 1, 25, 100 et 1 000 éléments, selon le niveau où le bornage intervient ;
+- libellés longs, homonymes, accents et différences de casse ;
+- latence, erreur réseau, reprise et réponses arrivant dans le désordre ;
+- valeur sélectionnée devenue inactive ou absente du premier lot ;
+- changement d'un filtre ou référentiel parent ;
+- navigation uniquement au clavier et viewport mobile.
+
+L'audit signale comme défaut démontré une requête non bornée, un tableau métier
+non paginé au-delà du garde-fou, un `<select>` chargeant un référentiel non
+borné, ou un tri/filtre local présenté comme global sur une page serveur. En
+revanche, la seule présence d'un `<select>` ou d'une liste ne suffit pas : la
+volumétrie et la source doivent être établies par une preuve actuelle.
+
+## 13. Preuves exigées pour une recette UX
 
 Une recette UX complète s'effectue contre une application démarrée et une base
 de test représentative. Elle fournit :
@@ -272,7 +369,7 @@ de test représentative. Elle fournit :
 Une lecture de code, un build réussi ou une capture unique ne suffit pas à
 déclarer l'UX conforme.
 
-### 12.1 Matrice minimale de recette
+### 13.1 Matrice minimale de recette
 
 Avant l'exécution, la recette établit une matrice contenant au minimum :
 
@@ -291,7 +388,7 @@ ne déclare pas couvert ce qui n'a pas été visité. Chromium est exécuté à 
 recette automatisée. Les parcours publics critiques sont également vérifiés
 avec WebKit avant une release, sauf dérogation documentée.
 
-### 12.2 Niveaux de preuve
+### 13.2 Niveaux de preuve
 
 - **Statique** : code, styles, tokens, structure HTML probable et tests. Peut
   démontrer une violation précise, mais jamais suffire à déclarer l'UX réelle
@@ -305,9 +402,9 @@ Une exigence est rattachée à la preuve la plus proche de son comportement. Un
 test axe vert ne prouve ni la compréhension, ni l'ordre de lecture utile, ni la
 réussite du parcours.
 
-## 13. Verdicts et constats d'audit
+## 14. Verdicts et constats d'audit
 
-### 13.1 Verdict
+### 14.1 Verdict
 
 - `PASS` : tous les parcours critiques du périmètre ont été exécutés avec les
   données et viewports requis, sans constat critique ou majeur ouvert.
@@ -322,7 +419,7 @@ Un audit statique seul peut produire `FAIL` avec une preuve directe, mais pas
 `PASS` pour l'UX réelle. Un contrôle navigateur ignoré ne peut jamais être
 compté comme réussi.
 
-### 13.2 Sévérité
+### 14.2 Sévérité
 
 - `critical` : blocage, perte de données, action irréversible involontaire,
   fuite inter-tenant, impossibilité d'utiliser un parcours critique ou barrière
@@ -340,7 +437,7 @@ existe au commit audité. Les constats partageant la même cause racine sont
 regroupés ; une occurrence supplémentaire devient une localisation, pas un
 nouveau constat.
 
-### 13.3 Contrôle et assistance par IA
+### 14.3 Contrôle et assistance par IA
 
 Une suggestion de Magrit reste identifiable comme une assistance, révocable et
 modifiable. Elle ne déclenche jamais silencieusement une commande, un paiement,
@@ -353,7 +450,7 @@ inférence et absence de preuve ; il ne transforme pas une limitation en défaut
 Ses conclusions sont relues à partir des chemins, lignes, captures et traces
 cités avant création d'une action corrective.
 
-## 14. Dérogations
+## 15. Dérogations
 
 Toute dérogation indique :
 
