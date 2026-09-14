@@ -5,6 +5,11 @@
 > les spécifications UX et les règles d'architecture. Il ne remplace pas une
 > spécification fonctionnelle ou un wireframe validé pour une story.
 
+Les formulations « doit », « interdit » et « obligatoire » sont normatives.
+« Préférer » exprime une recommandation qui peut être écartée avec une raison
+documentée. Une mesure ou un comportement propre à un parcours appartient à sa
+spécification fonctionnelle : le présent guide ne doit pas l'inventer.
+
 ## 1. Hiérarchie des sources
 
 En cas de contradiction, appliquer l'ordre suivant :
@@ -26,6 +31,7 @@ développeur ou un agent. Elle produit une question ouverte et un verdict UX
 - [Tokens Magrit v2](../src/styles/tokens.css) ;
 - [UX Design Specification — boutique v2](../_bmad-output/planning-artifacts/ux-design-specification.md) ;
 - [UX Design Spec — extension e-commerce](../_bmad-output/planning-artifacts/ux-design-ecom-boutique-2026-07-07.md) ;
+- [WCAG 2.2 — recommandation W3C](https://www.w3.org/TR/WCAG22/) ;
 - wireframes validés sous `.design-handoff/wireframes/`.
 
 Les fichiers HTML et captures du handoff sont des références visuelles. Ils ne
@@ -125,6 +131,12 @@ Tout composant dépendant de données traite explicitement :
 6. `stale` ou conflit lorsque la donnée affichée n'est plus modifiable en
    sécurité.
 
+Selon le parcours, il traite aussi `forbidden`, `offline`, résultat partiel et
+expiration de session. Un refus d'action n'est pas présenté comme une ressource
+vide, sauf si le contrat de sécurité impose volontairement de rendre ressource
+absente et ressource interdite indistinguables. Une panne réseau n'est pas
+présentée comme une erreur de saisie.
+
 Le chargement ne doit pas effacer inutilement tout l'écran. Préférer un
 skeleton ou indicateur local qui conserve le contexte. Une action asynchrone
 désactive les doubles soumissions tout en indiquant sa progression.
@@ -133,6 +145,11 @@ Les seuils de performance propres à un parcours restent définis dans sa
 spécification. À défaut, tout délai perceptible reçoit immédiatement un retour
 visuel et aucune attente n'est laissée sans borne ni message.
 
+Les réponses asynchrones arrivées dans le désordre ne doivent pas remplacer un
+état plus récent. Une recherche, un recalcul de prix ou un changement de filtre
+annule ou ignore les requêtes devenues obsolètes. Un skeleton réserve l'espace
+utile afin de limiter les déplacements de contenu.
+
 ## 7. Formulaires et actions
 
 - chaque champ possède un label visible ou un nom accessible explicite ;
@@ -140,6 +157,10 @@ visuel et aucune attente n'est laissée sans borne ni message.
 - validation au plus près du champ, sans attendre la fin d'un long parcours ;
 - une erreur conserve les données déjà saisies et place le focus utilement ;
 - les champs obligatoires et formats attendus sont annoncés avant soumission ;
+- les erreurs globales renvoient vers les champs concernés et le premier champ
+  invalide reçoit le focus lorsque cela aide réellement la correction ;
+- le collage, les gestionnaires de mots de passe et l'autocomplétion ne sont
+  pas désactivés sans nécessité démontrée ;
 - une action irréversible ou sensible demande confirmation et décrit son
   impact ;
 - le mode d'enregistrement, explicite ou automatique, est celui de la
@@ -161,6 +182,11 @@ est possible.
 - aucune donnée ou navigation workspace ne fuit vers le storefront, et
   inversement.
 
+Un dialog, drawer, menu ou popover restitue le focus à son déclencheur lors de
+sa fermeture. Le bouton Retour conserve le sens du parcours ; une vue métier
+importante doit être adressable par URL lorsque la spécification exige partage,
+rafraîchissement ou reprise.
+
 ## 9. Responsive
 
 Les parcours sont fonctionnels au minimum aux largeurs de référence :
@@ -181,13 +207,25 @@ Sur écran étroit :
 - les éléments sticky ne masquent ni contenu, ni clavier, ni message d'erreur ;
 - les cibles tactiles mesurent au moins 44 × 44 px.
 
+La cible projet de 44 × 44 px est une exigence ergonomique Magrit. Pour la
+conformité WCAG 2.2 AA, aucune cible ne descend sous le minimum applicable de
+24 × 24 CSS px sans satisfaire une exception normative d'espacement ou
+d'équivalence.
+
+À 400 % de zoom ou sur une largeur équivalente à 320 CSS px, le contenu reste
+lisible et opérable sans défilement dans deux directions, sauf contenu dont la
+présentation bidimensionnelle est essentielle, par exemple certains tableaux
+ou canevas.
+
 ## 10. Accessibilité
 
-Objectif transversal : WCAG 2.1 niveau AA.
+Objectif transversal : WCAG 2.2 niveau AA.
 
 - HTML sémantique avant ajout d'ARIA ;
 - navigation complète avec Tab, Shift+Tab, Entrée et Échap ;
 - focus toujours visible et ordre de focus logique ;
+- le focus n'est pas entièrement masqué par un header, footer ou composant
+  sticky ;
 - focus trap et restitution du focus pour dialogs et drawers ;
 - contraste texte/fond AA, y compris avec le thème tenant et le dark mode ;
 - texte alternatif descriptif pour les images porteuses d'information ;
@@ -195,7 +233,11 @@ Objectif transversal : WCAG 2.1 niveau AA.
 - landmarks et titres permettent de comprendre la structure ;
 - aucune information portée uniquement par couleur, position ou animation ;
 - `prefers-reduced-motion` respecté ;
-- zoom et agrandissement du texte ne rendent pas le parcours inutilisable.
+- zoom et agrandissement du texte ne rendent pas le parcours inutilisable ;
+- toute interaction fondée sur un glisser-déposer possède une alternative sans
+  glissement ;
+- l'authentification reste compatible avec les gestionnaires de mots de passe
+  et n'impose pas un test cognitif sans alternative accessible.
 
 Axe-core détecte une partie des défauts seulement. Une recette clavier et une
 inspection humaine ou assistée restent requises pour les parcours critiques.
@@ -230,7 +272,88 @@ de test représentative. Elle fournit :
 Une lecture de code, un build réussi ou une capture unique ne suffit pas à
 déclarer l'UX conforme.
 
-## 13. Dérogations
+### 12.1 Matrice minimale de recette
+
+Avant l'exécution, la recette établit une matrice contenant au minimum :
+
+| Dimension | Valeurs attendues |
+|---|---|
+| Persona | personas autorisés et non autorisés concernés |
+| Parcours | nominal, vide, erreur, reprise et conflit applicables |
+| Viewport | 375 px, 768 px et 1280 px |
+| Entrée | souris, tactile et clavier selon le parcours |
+| Données | jeu identifié, tenant et état initial reproductibles |
+| Preuve | assertion, capture, trace, axe, console et réseau selon le cas |
+
+Un audit ciblé peut réduire cette matrice si son périmètre est explicite. Un
+audit intégral commence par inventorier les routes et parcours critiques ; il
+ne déclare pas couvert ce qui n'a pas été visité. Chromium est exécuté à chaque
+recette automatisée. Les parcours publics critiques sont également vérifiés
+avec WebKit avant une release, sauf dérogation documentée.
+
+### 12.2 Niveaux de preuve
+
+- **Statique** : code, styles, tokens, structure HTML probable et tests. Peut
+  démontrer une violation précise, mais jamais suffire à déclarer l'UX réelle
+  conforme.
+- **Automatisé en navigateur** : parcours Playwright, captures, console,
+  réseau et axe sur un état réellement rendu.
+- **Humain assisté** : compréhension, hiérarchie, microcopy, clavier complet,
+  lecteur d'écran et pertinence du parcours.
+
+Une exigence est rattachée à la preuve la plus proche de son comportement. Un
+test axe vert ne prouve ni la compréhension, ni l'ordre de lecture utile, ni la
+réussite du parcours.
+
+## 13. Verdicts et constats d'audit
+
+### 13.1 Verdict
+
+- `PASS` : tous les parcours critiques du périmètre ont été exécutés avec les
+  données et viewports requis, sans constat critique ou majeur ouvert.
+- `WARN` : le parcours reste utilisable et conforme à son objectif, avec
+  uniquement des écarts mineurs ou une dérogation acceptée et bornée.
+- `FAIL` : une exigence vérifiable est violée, un parcours critique échoue ou
+  un utilisateur autorisé ne peut pas atteindre son objectif.
+- `INCONCLUSIVE` : une source, route, session, donnée, viewport ou preuve
+  nécessaire manque. Ce verdict ne signifie ni succès, ni échec.
+
+Un audit statique seul peut produire `FAIL` avec une preuve directe, mais pas
+`PASS` pour l'UX réelle. Un contrôle navigateur ignoré ne peut jamais être
+compté comme réussi.
+
+### 13.2 Sévérité
+
+- `critical` : blocage, perte de données, action irréversible involontaire,
+  fuite inter-tenant, impossibilité d'utiliser un parcours critique ou barrière
+  d'accessibilité totale ;
+- `major` : objectif fortement dégradé, erreur sans reprise, information métier
+  trompeuse ou non-conformité AA démontrée ;
+- `minor` : friction locale avec contournement évident, incohérence visuelle ou
+  rédactionnelle sans ambiguïté métier ;
+- `info` : observation ou amélioration sans non-conformité démontrée.
+
+Chaque constat cite une exigence et une preuve actuelle : route et état observé,
+capture/trace, ou fichier et lignes. Une ancienne spécification, une dette
+historique ou l'absence d'un fichier dans un lot LLM ne prouve pas que le défaut
+existe au commit audité. Les constats partageant la même cause racine sont
+regroupés ; une occurrence supplémentaire devient une localisation, pas un
+nouveau constat.
+
+### 13.3 Contrôle et assistance par IA
+
+Une suggestion de Magrit reste identifiable comme une assistance, révocable et
+modifiable. Elle ne déclenche jamais silencieusement une commande, un paiement,
+une suppression, une publication ou un changement de permission. Les faits
+métier déterminants — prix, délai, quantité, destinataire et impact — sont
+confirmés depuis une source applicative avant l'action.
+
+L'auditeur LLM travaille en lecture seule. Il distingue constat observé,
+inférence et absence de preuve ; il ne transforme pas une limitation en défaut.
+Ses conclusions sont relues à partir des chemins, lignes, captures et traces
+cités avant création d'une action corrective.
+
+## 14. Dérogations
 
 Toute dérogation indique :
 

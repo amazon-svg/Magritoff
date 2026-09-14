@@ -238,4 +238,16 @@ describe('architecture de contrôle qualité', () => {
     expect(runner).toContain('override: false');
     expect(gitignore).toContain('.env.*.local');
   });
+
+  it('encadre les audits UX réels et empêche un PASS fondé sur le code seul', () => {
+    const guidelines = readFileSync(resolve(root, 'docs/UX_GUIDELINES.md'), 'utf8');
+    const profile = readFileSync(resolve(root, 'quality/agents/ux.md'), 'utf8');
+
+    expect(guidelines).toContain('WCAG 2.2 niveau AA');
+    expect(guidelines).toContain('Matrice minimale de recette');
+    expect(guidelines).toContain('Un audit statique seul peut produire `FAIL`');
+    expect(guidelines).toContain('Les constats partageant la même cause racine sont');
+    expect(profile).toContain('ne jamais conclure qu\'un comportement est absent');
+    expect(profile).toContain('regrouper les occurrences ayant la même cause racine');
+  });
 });
