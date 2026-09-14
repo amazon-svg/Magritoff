@@ -20,8 +20,10 @@ export const commercialOrdersModuleManifest = defineModuleManifest({
       id: 'commercial-orders.workspace-list',
       description:
         'Grille des commandes de gestion commerciale, filtrable par periode de creation ' +
-        '(created_from/created_to, fuseau Europe/Paris, E10.18a) — "la periode, a la grille ' +
-        'd abord" avant l export comptable (E10.18b+).',
+        '(created_from/created_to, fuseau Europe/Paris, E10.18a), par client et par etape de ' +
+        'production courante, et triable (date de creation ou etape de production, ' +
+        'E10.18e-1) — decouvrable depuis la sidebar ("Commandes atelier") — avant l export ' +
+        'comptable (E10.18e-2+).',
     },
   ],
   capabilities: [

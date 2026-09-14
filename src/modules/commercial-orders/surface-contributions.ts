@@ -19,12 +19,16 @@ import { defineSurfaceContribution } from '../../surfaces/registry';
  * heritage de l ancien module `quotes` legacy que `commercial-orders` n a
  * jamais eu a porter).
  *
- * AUCUNE ENTREE DE NAVIGATION pour la grille : le module `orders` porte deja
- * une entree de sidebar "Commandes" (commandes BOUTIQUE) — choisir comment
- * nommer/distinguer les deux dans la sidebar est une decision produit
- * (IA du menu), pas un effet de bord de ce lot etroit sur `listCommercialOrders`.
- * A trancher par une story dediee (E10.18e la pose deja implicitement :
- * "bouton sur la grille", donc une grille DECOUVRABLE).
+ * ENTREE DE NAVIGATION "Commandes atelier" ajoutee en E10.18e-1
+ * (docs/api/CONVENTIONS.md §8.24, decision 4 d Arnaud du 2026-09-14, levee
+ * de la reserve posee par E10.18a) : la grille etait accessible par URL
+ * directe UNIQUEMENT jusque-la — le module `orders` porte une entree de
+ * sidebar "Commandes" DISTINCTE (commandes BOUTIQUE), non renommee.
+ * `iconId: 'factory'` (jamais `'shopping-bag'`, deja pris par `orders` —
+ * memes deux entrees, icones DIFFERENTES pour eviter la confusion), pris
+ * dans le catalogue deja enregistre de `DashboardLayout.tsx`
+ * (`WORKSPACE_ICONS`), deja porte par "Parcs machines" (meme precedent de
+ * partage qu 'file-text' entre Devis et Gabarits PDF).
  */
 export const commercialOrdersWorkspaceContribution = defineSurfaceContribution({
   moduleId: 'commercial-orders',
@@ -49,5 +53,17 @@ export const commercialOrdersWorkspaceContribution = defineSurfaceContribution({
       requiredCapabilities: ['commercial-orders.read'],
     },
   ],
-  navigation: [],
+  navigation: [
+    {
+      id: 'commercial-orders.workspace.navigation',
+      moduleId: 'commercial-orders',
+      featureId: 'commercial-orders.workspace-list',
+      surface: 'workspace',
+      routeId: 'commercial-orders.workspace.list',
+      groupId: 'commercial',
+      label: 'Commandes atelier',
+      iconId: 'factory',
+      order: 135,
+    },
+  ],
 } as const);

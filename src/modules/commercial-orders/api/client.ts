@@ -18,6 +18,7 @@ import {
   type ChangeOrderProductionStepCommand,
   type CommercialOrderDetailDto,
   type CommercialOrderDto,
+  type CommercialOrderSort,
   type CommercialOrderStatus,
   type OrderStepChangeDto,
 } from './contracts.ts';
@@ -49,6 +50,16 @@ export type ListCommercialOrdersQuery = Readonly<{
   createdFrom?: string;
   /** Dernier jour de la periode, INCLUS (journee entiere). */
   createdTo?: string;
+  /**
+   * E10.18e-1 — deja publie au contrat depuis E10.13 (`listCommercialOrders`),
+   * jamais transmis par ce client avant ce lot (cf. docs/api/CONVENTIONS.md
+   * §8.24 point 8, decision 2 : "le client du module ne transmet encore ni
+   * current_production_step_id ni sort"). Filtre la grille sur l etape de
+   * production COURANTE (`CommercialOrder.current_production_step_id`).
+   */
+  currentProductionStepId?: string;
+  /** E10.18e-1 — idem, publie depuis E10.13 (`CommercialOrderSort`). Defaut serveur : `-created_at`. */
+  sort?: CommercialOrderSort;
   pageSize?: number;
   pageCursor?: string;
 }>;
@@ -87,6 +98,8 @@ export class CommercialOrdersApiClient {
     if (query.status) params.set('status', query.status);
     if (query.createdFrom) params.set('created_from', query.createdFrom);
     if (query.createdTo) params.set('created_to', query.createdTo);
+    if (query.currentProductionStepId) params.set('current_production_step_id', query.currentProductionStepId);
+    if (query.sort) params.set('sort', query.sort);
     if (query.pageSize) params.set('page[size]', String(query.pageSize));
     if (query.pageCursor) params.set('page[cursor]', query.pageCursor);
     const suffix = params.toString();

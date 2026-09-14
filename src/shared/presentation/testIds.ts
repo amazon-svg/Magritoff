@@ -737,21 +737,34 @@ export const TEST_IDS = {
     lineRow: 'order-line-row',
 
     // ─── E10.18a — Grille des commandes ("la periode, a la grille d abord",
-    // docs/api/CONVENTIONS.md §8.24 point 8) ──────────────────────────────
-    // Ecran MINIMAL : liste + filtre de periode uniquement (created_from/
-    // created_to, EXACTEMENT les bornes du contrat `listCommercialOrders`,
-    // §8.24 point 2). Accessible par URL directe UNIQUEMENT — AUCUNE entree
-    // de navigation ajoutee ici (meme prudence qu E10.16 : le module `orders`
-    // porte deja une entree de sidebar "Commandes" pour les commandes
-    // BOUTIQUE, un domaine different ; choisir comment distinguer les deux
-    // dans la sidebar est une decision produit qui n appartient pas a ce
-    // lot). `listRow` porte `data-order-id`, meme convention que
-    // `pricing.row`/`data-rule-id`.
+    // docs/api/CONVENTIONS.md §8.24 point 8) — REFONDUE en E10.18e-1
+    // (grille et menu, meme §8.24, levee de la condition posee sur la
+    // grille d origine) ─────────────────────────────────────────────────
+    // Colonnes N°/Client/Creee le/Etape de production/Net HT/Total TTC,
+    // filtres periode + client + etape, tri (defaut/etape). DECOUVRABLE
+    // DEPUIS LA SIDEBAR depuis E10.18e-1 ("Commandes atelier",
+    // `surface-contributions.ts`) — n etait accessible que par URL directe
+    // avant ce lot. `listRow` porte `data-order-id`, meme convention que
+    // `pricing.row`/`data-rule-id`. `listCustomerFilter` porte le
+    // `CustomerFilterSelect` (composant local, `ui/components/`) — ses
+    // options portent explicitement `listCustomerFilterOption`
+    // (`data-customer-id`), DECLARE ici plutot que derive de
+    // `listCustomerFilter` (qa-review E10.18e-1 round 1, m4 : un testid
+    // derive au format `${listCustomerFilter}-option` n etait pas declare
+    // dans ce fichier). `listStepsLoadErrorBanner` signale un echec de
+    // chargement du catalogue d etapes, DISTINCT de `listErrorBanner`
+    // (erreur de chargement des commandes) — ne jamais les confondre avec
+    // le tiret « — » d une commande sans etape (qa-review round 1, m3).
     listPage: 'order-list-page',
     listRow: 'order-list-row',
     listCreatedFromInput: 'order-list-created-from-input',
     listCreatedToInput: 'order-list-created-to-input',
+    listCustomerFilter: 'order-list-customer-filter',
+    listCustomerFilterOption: 'order-list-customer-filter-option',
+    listStepFilter: 'order-list-step-filter',
+    listSortSelect: 'order-list-sort-select',
     listErrorBanner: 'order-list-error-banner',
+    listStepsLoadErrorBanner: 'order-list-steps-load-error-banner',
     listLoadMoreBtn: 'order-list-load-more-btn',
   },
 

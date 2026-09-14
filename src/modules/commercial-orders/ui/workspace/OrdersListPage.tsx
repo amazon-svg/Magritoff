@@ -1,91 +1,191 @@
 /**
  * DashboardCommercialOrders — grille des commandes de gestion commerciale
- * (E10.18a, "la periode, a la grille d abord").
+ * (E10.18a, "la periode, a la grille d abord" ; REFONDUE en E10.18e-1,
+ * docs/api/CONVENTIONS.md §8.24, levee de la condition posee sur la grille
+ * d origine — revue tenue avec Arnaud le 2026-09-14 ; DURCIE en qa-review
+ * round 1, round 2 puis round 3, 2026-09-14).
  *
- * PERIMETRE VOLONTAIREMENT ETROIT : cette grille existe pour porter le
- * filtre `created_from`/`created_to` de `listCommercialOrders` (E10.18a),
- * pas pour livrer un tableau de bord complet. Elle reprend le patron deja
- * en place pour la grille voisine des devis (`DashboardQuotes`,
- * `commercial-quotes/ui/workspace/QuotesPage.tsx`) : chargement paginable
- * par curseur, "Charger plus", pas de pagination numerotee.
+ * Colonnes, DANS L ORDRE ARRETE par Arnaud : N°, Client, Creee le, Etape de
+ * production, Net HT (`totals.net_total`), Total TTC
+ * (`totals.total_incl_tax`) — voir `ORDERS_LIST_COLUMNS`
+ * (`orders-list.helpers.ts`), descripteurs UNIQUES consommes ici pour les
+ * en-tetes ET les cellules (la colonne N° porte sa propre proprie `linkTo`,
+ * round 2 — plus d index magique `i === 0` dans ce fichier). Montants
+ * rendus TELS QUE LE SERVEUR LES SERT, AUCUNE conversion en `number` ni
+ * calcul ici (E10.8 gelee, PricingEngine E10.21 non appele).
  *
- * Colonnes : N°, Client, Cree le (fuseau `Europe/Paris`, meme constante que
- * le serveur — `orders-list.helpers.ts`), Total TTC (deja calcule et fige
- * par le serveur, `CommercialOrder.totals.total_incl_tax` — AUCUN calcul ici,
- * E10.8 gelee). Lien vers `OrderDetailPage` (E10.16), deja livree.
+ * ── COQUILLE GENERIQUE (condition (b1) de l architecte, §8.24 e-1 point 10,
+ * durcie en qa-review round 2 PUIS round 3) ──────────────────────────────
+ * Ce depot n a AUCUN outil de rendu React. Ce composant ne porte AUCUNE
+ * decision : l etat et ses transitions vivent dans `ordersListReducer`
+ * (`orders-list.helpers.ts`) ; le SEUL appel reseau de chargement passe par
+ * `loadOrdersListPage()`/`loadMoreOrders()`/`loadOrdersListStepsAction()`,
+ * qui rendent une action a `dispatch()` — jamais un `setState` isole. Les
+ * FILTRES — periode, ETAPE, TRI **ET CLIENT** (round 3 : le filtre client
+ * n est plus une exception a part, voir plus bas) — sont des DESCRIPTEURS
+ * (`ORDERS_LIST_FILTERS`) parcourus par UNE SEULE boucle generique,
+ * dispatchee par `handleOrdersListFilterChange()`. Chaque descripteur porte
+ * son propre libelle (`label`) et son propre alignement (`align`) — round 3,
+ * en reponse a la qa-review (X08 : le libelle "Du"/"Au" vivait dans une
+ * table indexee par `id` DANS CE FICHIER ; l alignement du tri vivait dans
+ * une comparaison `filter.id === 'sort'` DANS CE FICHIER — les deux etaient
+ * donc, comme les anciens `onChange`, des points ecrits pour un filtre
+ * PRECIS plutot que portes par le descripteur lui-meme).
  *
- * ACCESSIBLE PAR URL DIRECTE UNIQUEMENT — meme prudence qu E10.16 (aucune
- * entree de navigation). Le module `orders` porte deja une entree de
- * sidebar "Commandes" pour les commandes BOUTIQUE (`tenant_orders`), un
- * domaine SANS RAPPORT (voir l en-tete de
- * `commercial-orders/surface-contributions.ts`) : choisir comment nommer et
- * distinguer les deux dans la sidebar est une decision produit qui
- * n appartient pas a ce lot etroit — a trancher par une story dediee
- * (probablement E10.18e, qui pose deja "le bouton sur la grille").
+ * ── Le filtre CLIENT, round 3 ─────────────────────────────────────────────
+ * `CustomerFilterSelect` reste un widget a part (recherche serveur, pas un
+ * `<input>`/`<select>` natif) — mais son DESCRIPTEUR (`kind:
+ * 'customer-search'`) vit dans `ORDERS_LIST_FILTERS`, au meme titre que les
+ * autres, et son `onSelect`/`onClear` appellent la MEME fonction generique
+ * que tous les autres filtres (`handleOrdersListFilterChange`), avec une
+ * valeur `{ customerId, label } | null` plutot qu une chaine. Le point qui
+ * reste NON PROUVE par un test — parce qu il n existe aucun outil de rendu
+ * React dans ce depot — est desormais EXACTEMENT le meme, structurellement,
+ * pour TOUS les filtres : est-ce que la boucle appelle bien
+ * `handleOrdersListFilterChange` au bon `onChange`/`onSelect`/`onClear`, et
+ * le clic sur une option du menu du selecteur (evenement `cmdk`). Ce n est
+ * plus une exception du filtre client : c est la meme limite que la boucle
+ * de colonnes.
  *
- * TITRE "Commandes atelier" (qa-review E10.18a round 1, arbitrage Arnaud
- * 2026-09-12), PAS "Commandes" tout court : le module `orders` (commandes
- * BOUTIQUE, domaine etanche, voir ci-dessus) porte deja une entree de
- * sidebar "Commandes". Le jour ou cet ecran gagnera une entree de
- * navigation, deux libelles identiques designeraient deux domaines sans
- * rapport — source de confusion pour l imprimeur qui les verrait cote a
- * cote. "Commandes atelier" est le terme choisi par Arnaud parce qu il
- * parle le langage de l imprimeur (par opposition aux commandes passees par
- * un client final sur la boutique en ligne).
+ * Ce que ce fichier fait ENCORE seul et qui reste NON PROUVE par un test —
+ * verifie par la recette navigateur du coordinateur, jamais affirme comme
+ * teste : la boucle de rendu des colonnes ET des filtres (est-ce qu elle
+ * lit bien les descripteurs plutot que de les recopier), la liaison
+ * generique du selecteur client (le clic sur une option), `maxLength` du
+ * champ de recherche, les dependances des effets, le bandeau d erreur des
+ * etapes, la destruction du controleur de recherche au demontage.
  *
- * AUCUN CONTROLE METIER ICI : le filtre de periode n est qu une mise en
- * forme de requete (`buildPeriodQuery`) — la validation du format, l ordre
- * des bornes et la conversion de fuseau sont FAITS PAR LE SERVEUR
+ * ── Course entre requetes (B1 round 1 ; V1/V2 round 2) ───────────────────
+ * `state.generation` est incremente a CHAQUE changement de filtre/tri.
+ * `loadOrdersListPage()` capture la generation ET le curseur utilise AVANT
+ * l appel reseau ; le reducteur rejette toute reponse dont la generation ne
+ * correspond plus a l etat courant, et, pour une reponse "Charger plus",
+ * exige en plus que l etat soit encore `loading-more` et que le curseur de
+ * la reponse corresponde au curseur courant (round 2).
+ *
+ * ── "Charger plus", round 3 (moyen X24) ──────────────────────────────────
+ * `loadMoreOrders(dispatch, api, state)` est le SEUL point d entree du clic
+ * — avant ce correctif, la page dispatchait `loadMoreRequested` PUIS
+ * appelait le reseau elle-meme, deux etapes ecrites a la main dont l oubli
+ * de la premiere aurait rendu le bouton silencieusement inoperant. La
+ * VISIBILITE du bouton est decidee par `canLoadMore(state)` (round 3,
+ * mineur X25), distincte de la decision de RELANCER une requete
+ * (`planLoadMore`, interne a `loadMoreOrders`).
+ *
+ * ── Etapes de production dans le reducteur (round 2, condition (b1)) ─────
+ * UN SEUL appel a `loadOrdersListStepsAction()`, dispatchee sur
+ * `stepsLoaded`/`stepsFailed`. Un echec est signale par un bandeau DISTINCT
+ * du tiret "sans etape" — jamais confondu avec "aucune commande n a
+ * d etape".
+ *
+ * DECOUVRABLE DEPUIS LA SIDEBAR ("Commandes atelier", `surface-
+ * contributions.ts`) depuis E10.18e-1.
+ *
+ * AUCUN CONTROLE METIER ICI : les filtres ne sont qu une mise en forme de
+ * requete (`buildOrdersListQuery`) — la validation du format, l ordre des
+ * bornes de periode et la conversion de fuseau sont FAITS PAR LE SERVEUR
  * (`src/server/api/commercial-orders-routes.ts`, `src/kernel/clock`). Une
  * reponse 400/422 est affichee telle quelle, jamais devinee cote client.
+ *
+ * ── D5, heritee et REELLEMENT NON AGGRAVEE (round 3) ─────────────────────
+ * La resolution des clients d une page (`GET /customers/{id}`, patron deja
+ * present dans `QuotesPage.tsx`) part de `missingCustomerIds()`
+ * (`orders-list.helpers.ts`, pure et testee), qui exclut les clients DEJA
+ * CONNUS et ceux DEJA EN VOL (`inFlightCustomerIds`, un `ref`). Round 2
+ * affirmait "D5 non aggravee" en ne relancant plus la resolution pour une
+ * page REJETEE — vrai, mais round 2 continuait d ANNULER (donc de jeter) le
+ * lot de la page precedente des que `state.orders` changeait a nouveau
+ * (ex. "Charger plus" resout avant les fiches clients de la page 1), ce qui
+ * relancait ces memes appels en double. Round 3 corrige la aussi : l effet
+ * ne porte plus de fonction de nettoyage qui annule un lot en vol — un
+ * client reste valide quel que soit ce qui a change entre-temps ; seul un
+ * DEMONTAGE reel du composant (`isMountedRef`) empeche une mise a jour
+ * tardive.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useReducer, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { PackageSearch } from 'lucide-react';
 import { useTenantPath } from '@/modules/tenants/ui/hooks';
 import { useWorkspaceApi } from '@/platform/runtime/workspace-ui-runtime';
 import { CustomersApiClient, type CustomerDto } from '@/modules/customers';
+import { ProductionStepsApiClient } from '@/modules/production-steps';
 import { TEST_IDS } from '@/shared/presentation/testIds';
 import { CommercialOrdersApiClient } from '../../api/client';
-import type { CommercialOrderDto } from '../../api/contracts';
-import { customerDisplayName } from './order-detail.helpers';
-import { buildPeriodQuery, formatOrderCreatedAt } from './orders-list.helpers';
+import { CustomerFilterSelect } from '../components/CustomerFilterSelect';
+import { buildCustomerSearch } from '../components/customer-filter-select.helpers';
+import {
+  buildCellContext,
+  canLoadMore,
+  handleOrdersListFilterChange,
+  hasActiveOrdersListFilters,
+  INITIAL_ORDERS_LIST_STATE,
+  loadMoreOrders,
+  loadOrdersListPage,
+  loadOrdersListStepsAction,
+  missingCustomerIds,
+  ORDERS_LIST_COLUMNS,
+  ORDERS_LIST_FILTERS,
+  ordersListReducer,
+  type OrdersListFilterOptionsContext,
+} from './orders-list.helpers';
 
 const T = TEST_IDS.commercialOrder;
-
-const PAGE_SIZE = 50;
 
 export function DashboardCommercialOrders() {
   const tp = useTenantPath();
   const ordersApi = useWorkspaceApi(CommercialOrdersApiClient);
   const customersApi = useWorkspaceApi(CustomersApiClient);
+  const productionStepsApi = useWorkspaceApi(ProductionStepsApiClient);
 
-  const [orders, setOrders] = useState<CommercialOrderDto[]>([]);
+  const [state, dispatch] = useReducer(ordersListReducer, INITIAL_ORDERS_LIST_STATE);
   const [customersById, setCustomersById] = useState<Readonly<Record<string, CustomerDto>>>({});
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [createdFrom, setCreatedFrom] = useState('');
-  const [createdTo, setCreatedTo] = useState('');
+  const inFlightCustomerIds = useRef<Set<string>>(new Set());
+  const isMountedRef = useRef(true);
 
-  const period = useMemo(() => buildPeriodQuery(createdFrom, createdTo), [createdFrom, createdTo]);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
-  const loadCustomers = useCallback(
-    async (rows: readonly CommercialOrderDto[]) => {
-      const missingIds = Array.from(new Set(rows.map((o) => o.customer_id))).filter(
-        (id) => !(id in customersById),
-      );
-      if (missingIds.length === 0) return;
-      const fetched = await Promise.all(
-        missingIds.map(async (id) => {
-          try {
-            return [id, await customersApi.getDetail(id)] as const;
-          } catch {
-            return null;
-          }
-        }),
-      );
+  // Un seul appel, une seule fois : `loadOrdersListStepsAction()` (§8.24
+  // point (iii)) — cette collection n est jamais paginee (plafond de 50
+  // etapes par tenant). Le catalogue et un echec eventuel vivent dans le
+  // reducteur (round 2, condition (b1)).
+  useEffect(() => {
+    let cancelled = false;
+    void loadOrdersListStepsAction(productionStepsApi).then((action) => {
+      if (!cancelled) dispatch(action);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [productionStepsApi]);
+
+  // Resolution des clients — DEPUIS `state.orders` et `missingCustomerIds()`
+  // (round 3, mineur) : AUCUNE fonction de nettoyage n annule un lot en vol
+  // — un client reste valide quel que soit le changement de `state.orders`
+  // survenu entre-temps. `inFlightCustomerIds` (un `ref`, partage entre
+  // executions successives de cet effet) empeche deux executions qui se
+  // chevauchent de redemander le meme client.
+  useEffect(() => {
+    const known = new Set(Object.keys(customersById));
+    const missing = missingCustomerIds(state.orders, known, inFlightCustomerIds.current);
+    if (missing.length === 0) return;
+    for (const id of missing) inFlightCustomerIds.current.add(id);
+    void Promise.all(
+      missing.map(async (id) => {
+        try {
+          return [id, await customersApi.getDetail(id)] as const;
+        } catch {
+          return null;
+        } finally {
+          inFlightCustomerIds.current.delete(id);
+        }
+      }),
+    ).then((fetched) => {
+      if (!isMountedRef.current) return;
       setCustomersById((current) => {
         const next = { ...current };
         for (const entry of fetched) {
@@ -93,48 +193,38 @@ export function DashboardCommercialOrders() {
         }
         return next;
       });
-    },
-    [customersApi, customersById],
-  );
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const page = await ordersApi.list({ ...period, pageSize: PAGE_SIZE });
-      setOrders(page.items as CommercialOrderDto[]);
-      setNextCursor(page.nextCursor);
-      await loadCustomers(page.items);
-    } catch (cause) {
-      setOrders([]);
-      setNextCursor(null);
-      setError(cause instanceof Error ? cause.message : 'Chargement des commandes impossible.');
-    } finally {
-      setLoading(false);
-    }
-    // loadCustomers volontairement absent des deps, meme motif que QuotesPage :
-    // sa propre dependance (customersById) changerait a chaque appel.
+    });
+    // customersById volontairement absent des deps : sa propre mise a jour
+    // ne doit pas redeclencher cet effet (meme motif qu avant ce lot).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ordersApi, period]);
+  }, [state.orders, customersApi]);
 
+  // Chargement de PREMIERE page — declenche a chaque nouvelle GENERATION
+  // (periode, client, etape OU tri changes, cf. `ordersListReducer`).
+  // `loadOrdersListPage()` est le SEUL point d appel reseau de ce cycle ; sa
+  // reponse est simplement dispatchee, jamais interpretee ici (B1/M08).
   useEffect(() => {
-    void load();
-  }, [load]);
+    let cancelled = false;
+    void loadOrdersListPage(ordersApi, state, 'initial').then((action) => {
+      if (!cancelled) dispatch(action);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // Seule `state.generation` pilote ce cycle : elle change EXACTEMENT
+    // quand `state.filters` change (meme transition de reducteur), donc
+    // `state` lu ici est toujours celui de la generation en cours.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ordersApi, state.generation]);
 
-  const loadMore = async () => {
-    if (!nextCursor || loadingMore) return;
-    setLoadingMore(true);
-    try {
-      const page = await ordersApi.list({ ...period, pageSize: PAGE_SIZE, pageCursor: nextCursor });
-      setOrders((current) => [...current, ...(page.items as CommercialOrderDto[])]);
-      setNextCursor(page.nextCursor);
-      await loadCustomers(page.items);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Chargement des commandes impossible.');
-    } finally {
-      setLoadingMore(false);
-    }
+  const loadMore = () => {
+    void loadMoreOrders(dispatch, ordersApi, state);
   };
+
+  const searchCustomers = buildCustomerSearch(customersApi);
+  const customersByIdMap = new Map(Object.entries(customersById));
+  const cellContext = buildCellContext(state.stepCatalog.byId, customersByIdMap);
+  const filterOptionsContext: OrdersListFilterOptionsContext = { stepCatalog: state.stepCatalog };
 
   return (
     <div data-testid={T.listPage} className="max-w-[1400px]" style={{ fontFamily: 'var(--font-ui)' }}>
@@ -146,108 +236,148 @@ export function DashboardCommercialOrders() {
           Commandes atelier
         </h1>
         <p className="mt-2 mb-0 text-ink-muted" style={{ fontSize: '13.5px' }}>
-          {orders.length} commande{orders.length > 1 ? 's' : ''} de gestion commerciale.
+          {state.orders.length} commande{state.orders.length > 1 ? 's' : ''} de gestion commerciale.
         </p>
       </div>
 
+      {state.stepsLoadError && (
+        <p data-testid={T.listStepsLoadErrorBanner} className="text-sm text-err-fg mb-3">
+          Chargement des étapes de production impossible — les libellés d'étape peuvent être incomplets.
+        </p>
+      )}
+
       <div className="flex items-center gap-3 mb-3 flex-wrap">
-        <label className="flex items-center gap-1.5 text-ink-muted" style={{ fontSize: '12.5px' }}>
-          Du
-          <input
-            type="date"
-            data-testid={T.listCreatedFromInput}
-            value={createdFrom}
-            onChange={(e) => setCreatedFrom(e.target.value)}
-            className="px-2 py-1 rounded-md border border-line bg-paper text-ink"
-            style={{ fontSize: '12.5px' }}
-          />
-        </label>
-        <label className="flex items-center gap-1.5 text-ink-muted" style={{ fontSize: '12.5px' }}>
-          Au
-          <input
-            type="date"
-            data-testid={T.listCreatedToInput}
-            value={createdTo}
-            onChange={(e) => setCreatedTo(e.target.value)}
-            className="px-2 py-1 rounded-md border border-line bg-paper text-ink"
-            style={{ fontSize: '12.5px' }}
-          />
-        </label>
+        {ORDERS_LIST_FILTERS.map((filter) => {
+          const value = filter.read(state);
+          const alignClassName = filter.align === 'end' ? 'ml-auto' : '';
+
+          if (filter.kind === 'date') {
+            return (
+              <label key={filter.id} className={`flex items-center gap-1.5 text-ink-muted ${alignClassName}`} style={{ fontSize: '12.5px' }}>
+                {filter.label}
+                <input
+                  type="date"
+                  data-testid={filter.testId}
+                  value={value}
+                  onChange={(e) => handleOrdersListFilterChange(dispatch, ORDERS_LIST_FILTERS, filter.id, e.target.value)}
+                  className="px-2 py-1 rounded-md border border-line bg-paper text-ink"
+                  style={{ fontSize: '12.5px' }}
+                />
+              </label>
+            );
+          }
+
+          if (filter.kind === 'customer-search') {
+            return (
+              <CustomerFilterSelect
+                key={filter.id}
+                testId={filter.testId}
+                optionTestId={T.listCustomerFilterOption}
+                value={value}
+                selectedLabel={state.selectedCustomerLabel}
+                search={searchCustomers}
+                onSelect={(customerId, label) =>
+                  handleOrdersListFilterChange(dispatch, ORDERS_LIST_FILTERS, filter.id, { customerId, label })
+                }
+                onClear={() => handleOrdersListFilterChange(dispatch, ORDERS_LIST_FILTERS, filter.id, null)}
+              />
+            );
+          }
+
+          const options = filter.options ? filter.options(filterOptionsContext) : [];
+          return (
+            <select
+              key={filter.id}
+              data-testid={filter.testId}
+              value={value}
+              onChange={(e) => handleOrdersListFilterChange(dispatch, ORDERS_LIST_FILTERS, filter.id, e.target.value)}
+              className={`px-2 py-1 rounded-md border border-line bg-paper text-ink ${alignClassName}`}
+              style={{ fontSize: '12.5px' }}
+            >
+              {options.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          );
+        })}
       </div>
 
-      {error && (
+      {state.error && (
         <p data-testid={T.listErrorBanner} className="text-sm text-err-fg mb-3">
-          {error}
+          {state.error}
         </p>
       )}
 
       <div className="border border-line rounded-md overflow-hidden bg-paper">
-        {loading ? (
+        {state.status === 'loading' ? (
           <div className="py-12 text-center text-ink-muted" style={{ fontSize: '13px' }}>Chargement…</div>
-        ) : orders.length === 0 ? (
+        ) : state.orders.length === 0 ? (
           <div className="py-16 text-center text-ink-mute-2">
             <PackageSearch className="w-10 h-10 mx-auto mb-3 opacity-40" strokeWidth={1.5} />
             <p style={{ fontSize: '13.5px', fontWeight: 400 }}>
-              {createdFrom || createdTo ? 'Aucune commande sur cette periode.' : "Aucune commande pour l'instant."}
+              {hasActiveOrdersListFilters(state.filters) ? 'Aucune commande pour ces filtres.' : "Aucune commande pour l'instant."}
             </p>
           </div>
         ) : (
           <table className="w-full" style={{ borderCollapse: 'collapse' }}>
             <thead>
               <tr className="border-b border-line bg-bg">
-                {['N°', 'Client', 'Créée le', 'Total TTC'].map((h, i) => (
+                {ORDERS_LIST_COLUMNS.map((col, i) => (
                   <th
                     key={i}
                     className="text-left px-4 py-2 font-mono uppercase text-ink-muted"
                     style={{ fontSize: '10.5px', fontWeight: 500, letterSpacing: '0.06em' }}
                   >
-                    {h}
+                    {col.header}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {orders.map((o) => {
-                const customer = customersById[o.customer_id];
-                return (
-                  <tr
-                    key={o.id}
-                    data-testid={T.listRow}
-                    data-order-id={o.id}
-                    className="border-b border-line hover:bg-bg transition-colors"
-                  >
-                    <td className="px-4 py-2 font-mono text-ink" style={{ fontSize: '12.5px', fontWeight: 500 }}>
-                      <Link to={tp(`/dashboard/commercial-orders/${o.id}`)} className="hover:underline">
-                        {o.number}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-2 text-ink-2" style={{ fontSize: '13px' }}>
-                      {customer ? customerDisplayName(customer) : <span className="text-ink-mute-2">—</span>}
-                    </td>
-                    <td className="px-4 py-2 text-ink-muted" style={{ fontSize: '12px' }}>
-                      {formatOrderCreatedAt(o.created_at)}
-                    </td>
-                    <td className="px-4 py-2 text-ink" style={{ fontSize: '12.5px' }}>
-                      {o.totals.total_incl_tax} €
-                    </td>
-                  </tr>
-                );
-              })}
+              {state.orders.map((o) => (
+                <tr
+                  key={o.id}
+                  data-testid={T.listRow}
+                  data-order-id={o.id}
+                  className="border-b border-line hover:bg-bg transition-colors"
+                >
+                  {ORDERS_LIST_COLUMNS.map((col, i) => {
+                    const content = col.cell(o, cellContext);
+                    return (
+                      <td key={i} className="px-4 py-2 text-ink-2" style={{ fontSize: '12.5px' }}>
+                        {col.linkTo ? (
+                          <Link
+                            to={tp(`/dashboard/${col.linkTo(o)}`)}
+                            className="hover:underline font-mono text-ink"
+                            style={{ fontWeight: 500 }}
+                          >
+                            {content}
+                          </Link>
+                        ) : (
+                          content
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
             </tbody>
           </table>
         )}
       </div>
 
-      {!loading && nextCursor && (
+      {canLoadMore(state) && (
         <div className="mt-3 flex justify-center">
           <button
             data-testid={T.listLoadMoreBtn}
             onClick={loadMore}
-            disabled={loadingMore}
+            disabled={state.status === 'loading-more'}
             className="px-4 py-1.5 rounded-md border border-line bg-paper text-ink-2 hover:bg-bg disabled:opacity-50"
             style={{ fontSize: '12.5px', fontWeight: 500 }}
           >
-            {loadingMore ? 'Chargement…' : 'Charger plus'}
+            {state.status === 'loading-more' ? 'Chargement…' : 'Charger plus'}
           </button>
         </div>
       )}
