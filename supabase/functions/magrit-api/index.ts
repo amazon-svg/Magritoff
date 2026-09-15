@@ -32,7 +32,10 @@ import { AssistantService } from '../../../src/modules/diagnostics/application/a
 import { ConfiguredAiCompletionGateway } from '../../../src/adapters/ai/configured-ai-completion-gateway.ts';
 import { SupabaseAssistantAccessGateway } from '../../../src/adapters/supabase/assistant-access-gateway.ts';
 import { ClariprintService } from '../../../src/modules/clariprint/application/clariprint-service.ts';
+import { ClariprintQuoteBudgetUnavailableError, type ClariprintQuoteBudget } from '../../../src/modules/clariprint/application/clariprint-quote-budget.ts';
 import { HttpClariprintQuoteGateway } from '../../../src/adapters/clariprint/http-clariprint-quote-gateway.ts';
+import { SupabaseClariprintQuoteBudgetRepository } from '../../../src/adapters/supabase/clariprint-quote-budget-repository.ts';
+import { SupabaseClariprintQuoteMembershipGateway } from '../../../src/adapters/supabase/clariprint-quote-membership-gateway.ts';
 import { isMockupBinaryRequest, proxyMockupBinary } from '../../../src/adapters/supabase/mockup-binary-proxy.ts';
 import { isAssistantChatRequest, proxyAssistantChat } from '../../../src/server/api/assistant-stream-proxy.ts';
 import { ShopCustomersService } from '../../../src/modules/shop-customers/application/shop-customers-service.ts';
@@ -224,11 +227,6 @@ export async function handleRequest(request: Request): Promise<Response> {
   const libraryProductsService = new LibraryProductsService(new SupabaseLibraryProductsRepository(client));
   const commercialService = new CommercialService(new SupabaseCommercialRepository(client));
   const assistantService = new AssistantService(new ConfiguredAiCompletionGateway(aiConfiguration), new SupabaseAssistantAccessGateway(client));
-  const clariprintService = new ClariprintService(new HttpClariprintQuoteGateway(
-    Deno.env.get('CLARIPRINT_HOST') ?? 'https://lrdp.clariprint.com',
-    Deno.env.get('CLARIPRINT_LOGIN') ?? null,
-    Deno.env.get('CLARIPRINT_PASSWORD') ?? null,
-  ));
   // ── Facade Gestion commerciale (E10) ──────────────────────────────────────
   // Montee A COTE de la facade historique, sur le meme prefixe /api/v1.
   // `createMagritApiApplication` aiguille par chemin et refuse de demarrer si
@@ -237,14 +235,37 @@ export async function handleRequest(request: Request): Promise<Response> {
   // L outbox ecrit sous `service_role` : la table est fermee aux roles client
   // par construction. Sans cette cle, les evenements sont perdus plutot que de
   // faire echouer une operation metier deja commise — le cas est journalise.
+  // BCP-0b (docs/api/CONVENTIONS.md §8.25 point 2.3bis (8)) reutilise CE MEME
+  // client service_role pour la consommation du budget de debit Clariprint —
+  // d ou l extraction de la variable nommee, plutot que deux `createClient`
+  // distincts.
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  const outboxRepository: OutboxRepository = serviceRoleKey
-    ? new SupabaseOutboxRepository(
-        createClient(supabaseUrl, serviceRoleKey, {
-          auth: { persistSession: false, autoRefreshToken: false },
-        }),
-      )
+  const serviceRoleClient = serviceRoleKey
+    ? createClient(supabaseUrl, serviceRoleKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      })
+    : null;
+  const outboxRepository: OutboxRepository = serviceRoleClient
+    ? new SupabaseOutboxRepository(serviceRoleClient)
     : unavailableOutbox('SUPABASE_SERVICE_ROLE_KEY absente');
+
+  // BCP-0b — limiteur de debit sur POST /api/v1/clariprint/quote (§8.25 point
+  // 2.3bis). `SupabaseClariprintQuoteMembershipGateway` porte le JWT de
+  // l appelant (`client`, PAS service_role) : c est lui qui permet a
+  // `current_user_tenant_ids()` de resoudre `auth.uid()` sur le bon
+  // utilisateur. Le budget, lui, exige service_role (seul grant EXECUTE).
+  const clariprintMembershipGateway = new SupabaseClariprintQuoteMembershipGateway(client);
+  const clariprintQuoteBudget: ClariprintQuoteBudget = serviceRoleClient
+    ? new SupabaseClariprintQuoteBudgetRepository(serviceRoleClient)
+    : unavailableClariprintQuoteBudget('SUPABASE_SERVICE_ROLE_KEY absente');
+  const clariprintService = new ClariprintService(
+    new HttpClariprintQuoteGateway(
+      Deno.env.get('CLARIPRINT_HOST') ?? 'https://lrdp.clariprint.com',
+      Deno.env.get('CLARIPRINT_LOGIN') ?? null,
+      Deno.env.get('CLARIPRINT_PASSWORD') ?? null,
+    ),
+    clariprintQuoteBudget,
+  );
 
   const customersRepository = new SupabaseCustomersRepository(client);
   const customersService = new CustomersService({
@@ -603,6 +624,11 @@ export async function handleRequest(request: Request): Promise<Response> {
       diagnostics: diagnosticsService,
       assistant: assistantService,
       clariprint: clariprintService,
+      clariprintIsMember: (userId: string) => clariprintMembershipGateway.isMember(userId),
+      clariprintIpHmacSecret: Deno.env.get('MAGRIT_RATE_LIMIT_IP_HMAC_SECRET') ?? null,
+      clariprintOnRateLimitEvent: (event) => {
+        console.error(`[magrit-api] rate_limit.${event}`);
+      },
       quoteTemplates: quoteTemplatesService,
       libraries: librariesService,
       libraryProducts: libraryProductsService,
@@ -660,6 +686,22 @@ function unavailableOutbox(reason: string): OutboxRepository {
         `[magrit-api] outbox indisponible (${reason}) : evenements perdus`,
         events.map((event) => event.name),
       );
+    },
+  };
+}
+
+/**
+ * BCP-0b (docs/api/CONVENTIONS.md §8.25 point 2.3bis (3)) — sans cle
+ * service_role, le budget de debit ne peut pas etre consulte : ECHEC FERME,
+ * jamais un passage en silence. `ClariprintService.quote` n appelle
+ * Clariprint qu apres un `consume()` qui a RENDU une decision ; ici il leve
+ * systematiquement, donc Clariprint n est jamais appele.
+ */
+function unavailableClariprintQuoteBudget(reason: string): ClariprintQuoteBudget {
+  return {
+    async consume() {
+      console.error(`[magrit-api] limiteur clariprint indisponible (${reason})`);
+      throw new ClariprintQuoteBudgetUnavailableError(reason);
     },
   };
 }
