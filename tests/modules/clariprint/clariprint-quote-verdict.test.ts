@@ -6,6 +6,8 @@ import {
   expurgeSentConfig,
   logLevelForOutcome,
   MAX_FAULTY_PROCESS_ENTRIES,
+  MAX_SENT_CONFIG_LOG_LENGTH,
+  RAW_RESPONSE_VALUE_MAX_LENGTH,
   truncateUpstreamError,
   UPSTREAM_ERROR_MAX_LENGTH,
 } from '@/modules/clariprint/application/clariprint-quote-verdict';
@@ -72,6 +74,39 @@ describe('expurgeAllFaultyProcess', () => {
     expect(expurgeAllFaultyProcess(null)).toEqual([]);
     expect(expurgeAllFaultyProcess('texte')).toEqual([]);
   });
+
+  // qa-review round 1 (MOYEN) : la version precedente serialisait en JSON
+  // toute valeur non-chaine (objet, tableau), laissant fuir `external_id`,
+  // `printer`, `CSV`, `PDF`. Ce test echoue sur ce code-la : il pose des
+  // temoins DANS des valeurs non-chaine (objet ET tableau), et exige leur
+  // absence totale, y compris comme entree conservee.
+  it('ECARTE ENTIEREMENT une valeur non-chaine (objet ou tableau), ne la serialise JAMAIS', () => {
+    const result = expurgeAllFaultyProcess({
+      gamme_objet: { external_id: 'W_EXTID_TEMOIN', printer: 'W_PRINTER_TEMOIN', csv: 'W_CSV_TEMOIN', pdf: 'W_PDF_TEMOIN' },
+      gamme_tableau: ['W_ARRAY_TEMOIN_1', 'W_ARRAY_TEMOIN_2'],
+      gamme_texte: 'raison textuelle valide',
+    });
+    // Seule l entree dont la VALEUR est deja une chaine est conservee.
+    expect(result).toEqual([{ printer: 'imprimeur_1', detail: 'raison textuelle valide' }]);
+    const serialized = JSON.stringify(result);
+    for (const witness of ['W_EXTID_TEMOIN', 'W_PRINTER_TEMOIN', 'W_CSV_TEMOIN', 'W_PDF_TEMOIN', 'W_ARRAY_TEMOIN_1', 'W_ARRAY_TEMOIN_2']) {
+      expect(serialized).not.toContain(witness);
+    }
+  });
+
+  // Arbitrage architecte (qa-review de d8a0a57b, point (3)) : le TEXTE
+  // conserve subit lui-meme la substitution des noms connus, passes via la
+  // table `ordinalMap`.
+  it('substitue les noms connus a l interieur du texte conserve, via la table fournie', () => {
+    const ordinalMap = new Map([
+      ['ImprimerieDupont', 'imprimeur_1'],
+      ['gamme_offset', 'imprimeur_2'],
+    ]);
+    const result = expurgeAllFaultyProcess({ gamme_offset: 'aucun papier chez ImprimerieDupont' }, ordinalMap);
+    expect(result).toEqual([{ printer: 'imprimeur_2', detail: 'aucun papier chez imprimeur_1' }]);
+    const serialized = JSON.stringify(result);
+    expect(serialized).not.toContain('ImprimerieDupont');
+  });
 });
 
 describe('expurgeSentConfig', () => {
@@ -92,17 +127,34 @@ describe('expurgeSentConfig', () => {
     const result = expurgeSentConfig({ kind: 'leaflet', width: '14.8', height: '21', front_colors: ['4-color'] });
     expect(result).toEqual({ kind: 'leaflet', width: '14.8', height: '21', front_colors: ['4-color'] });
   });
+
+  // qa-review round 1 (BAS) : la charge vient d un appelant PUBLIC ; sans
+  // plafond, un corps volumineux (attaque ou bogue cote client) gonfle le
+  // journal indefiniment. Ce test echoue sans la borne : `toEqual` sur un
+  // objet contenant encore le temoin de 5000 caracteres.
+  it('remplace la charge par sa seule longueur au-dela du plafond, sans jamais serialiser son contenu', () => {
+    const witness = 'W_OVERSIZED_CHARGE_TEMOIN_'.repeat(200); // tres au-dela de MAX_SENT_CONFIG_LOG_LENGTH
+    const result = expurgeSentConfig({ kind: 'leaflet', oversizedField: witness });
+    expect(result).toMatchObject({ truncated: true });
+    expect((result as { originalLength: number }).originalLength).toBeGreaterThan(MAX_SENT_CONFIG_LOG_LENGTH);
+    expect(JSON.stringify(result)).not.toContain('W_OVERSIZED_CHARGE_TEMOIN');
+  });
+
+  it('ne tronque pas une charge sous le plafond', () => {
+    const result = expurgeSentConfig({ kind: 'leaflet', quantity: '500' });
+    expect(result).toEqual({ kind: 'leaflet', quantity: '500' });
+  });
 });
 
 describe('buildClariprintQuoteVerdict', () => {
-  it('assemble tous les champs conserves', () => {
+  it('assemble tous les champs conserves (aucun nom d imprimeur dans la charge de test, aucune substitution attendue)', () => {
     const verdict = buildClariprintQuoteVerdict({
       upstreamStatus: 200,
       upstreamSuccess: true,
       upstreamError: 'erreur amont',
       rawResponseValue: -1,
-      allProcess: [{ printer: 'a' }, { printer: 'b' }],
-      allFaultyProcess: { imp: 'raison' },
+      allProcess: [{ printer: 'ImprimerieAlpha' }, { printer: 'ImprimerieBeta' }],
+      allFaultyProcess: { gamme_offset: 'raison' },
       durationMs: 42,
       sentConfig: { reference: 'secret', quantity: '10' },
     });
@@ -110,6 +162,8 @@ describe('buildClariprintQuoteVerdict', () => {
       upstreamStatus: 200,
       upstreamSuccess: true,
       upstreamError: 'erreur amont',
+      errorClass: 'unclassified',
+      failureCategory: null,
       rawResponseValue: '-1',
       allProcessCount: 2,
       allFaultyProcess: [{ printer: 'imprimeur_1', detail: 'raison' }],
@@ -126,6 +180,76 @@ describe('buildClariprintQuoteVerdict', () => {
   it('rend rawResponseValue a null quand absent', () => {
     const verdict = buildClariprintQuoteVerdict({ upstreamStatus: null, upstreamSuccess: null, durationMs: 0, sentConfig: {} });
     expect(verdict.rawResponseValue).toBeNull();
+  });
+
+  // qa-review round 1 (MOYEN) : la version precedente serialisait un objet
+  // `response` en JSON complet (sans borne), laissant fuir des cles comme
+  // `html`/`quote_process`. Ce test echoue sur ce code-la.
+  it('remplace un objet/tableau de reponse par son seul TYPE, jamais son contenu', () => {
+    const witness = 'W_RAWRESPONSE_HTML_TEMOIN'.repeat(50);
+    const objectVerdict = buildClariprintQuoteVerdict({
+      upstreamStatus: 200,
+      upstreamSuccess: true,
+      rawResponseValue: { html: witness, quote_process: 'W_QUOTE_PROCESS_TEMOIN' },
+      durationMs: 1,
+      sentConfig: {},
+    });
+    expect(objectVerdict.rawResponseValue).toBe('[object]');
+    expect(JSON.stringify(objectVerdict)).not.toContain('W_RAWRESPONSE_HTML_TEMOIN');
+    expect(JSON.stringify(objectVerdict)).not.toContain('W_QUOTE_PROCESS_TEMOIN');
+
+    const arrayVerdict = buildClariprintQuoteVerdict({ upstreamStatus: 200, upstreamSuccess: true, rawResponseValue: ['W_ARRAY_TEMOIN'], durationMs: 1, sentConfig: {} });
+    expect(arrayVerdict.rawResponseValue).toBe('[array]');
+    expect(JSON.stringify(arrayVerdict)).not.toContain('W_ARRAY_TEMOIN');
+  });
+
+  it('tronque une chaine de reponse longue a RAW_RESPONSE_VALUE_MAX_LENGTH', () => {
+    const verdict = buildClariprintQuoteVerdict({ upstreamStatus: 200, upstreamSuccess: true, rawResponseValue: 'x'.repeat(500), durationMs: 1, sentConfig: {} });
+    expect(verdict.rawResponseValue).toHaveLength(RAW_RESPONSE_VALUE_MAX_LENGTH);
+  });
+
+  // Arbitrage architecte (qa-review de d8a0a57b, point (3)) : `payload.error`
+  // (et un texte de `all_faulty_process`) PEUT nommer un imprimeur du parc.
+  // Ce test echoue si le nom traverse tel quel : il exige la SUBSTITUTION
+  // par l ordinal, a partir des noms connus de la MEME reponse
+  // (all_process[].printer, cles de all_faulty_process, fournisseur).
+  it('substitue chaque nom d imprimeur connu de la meme reponse dans upstreamError, avant troncature', () => {
+    const verdict = buildClariprintQuoteVerdict({
+      upstreamStatus: 200,
+      upstreamSuccess: false,
+      upstreamError: 'Aucun papier disponible chez ImprimerieDupont pour cette gamme',
+      allProcess: [{ printer: 'ImprimerieDupont' }],
+      durationMs: 1,
+      sentConfig: {},
+    });
+    expect(verdict.upstreamError).toBe('Aucun papier disponible chez imprimeur_1 pour cette gamme');
+    expect(verdict.upstreamError).not.toContain('ImprimerieDupont');
+    expect(verdict.errorClass).toBe('unclassified');
+  });
+
+  it('substitue aussi un nom connu UNIQUEMENT via fournisseur (aucune entree all_process/all_faulty_process)', () => {
+    const verdict = buildClariprintQuoteVerdict({
+      upstreamStatus: 200,
+      upstreamSuccess: false,
+      upstreamError: 'ImprimerieDupont indisponible',
+      fournisseur: 'ImprimerieDupont',
+      durationMs: 1,
+      sentConfig: {},
+    });
+    expect(verdict.upstreamError).toBe('imprimeur_1 indisponible');
+  });
+
+  it('errorClass est null quand aucun texte amont n est fourni', () => {
+    const verdict = buildClariprintQuoteVerdict({ upstreamStatus: 200, upstreamSuccess: true, rawResponseValue: 5, durationMs: 1, sentConfig: {} });
+    expect(verdict.errorClass).toBeNull();
+    expect(verdict.upstreamError).toBeNull();
+  });
+
+  it('failureCategory est repercutee telle quelle, et null par defaut', () => {
+    const withCategory = buildClariprintQuoteVerdict({ upstreamStatus: null, upstreamSuccess: null, failureCategory: 'network', durationMs: 1, sentConfig: {} });
+    expect(withCategory.failureCategory).toBe('network');
+    const withoutCategory = buildClariprintQuoteVerdict({ upstreamStatus: 200, upstreamSuccess: true, rawResponseValue: 5, durationMs: 1, sentConfig: {} });
+    expect(withoutCategory.failureCategory).toBeNull();
   });
 });
 

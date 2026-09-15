@@ -38,15 +38,19 @@ export class HttpClariprintQuoteGateway implements ClariprintQuoteGateway {
     let response: Response;
     try {
       response = await this.fetchImplementation(apiUrl(this.host), { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString(), signal: AbortSignal.timeout(20_000) });
-    } catch (error) {
-      // BCP-1a (§8.25 point 2.3) : l'exception réseau (`TypeError: fetch
-      // failed`, etc.) PORTE SOUVENT L'HÔTE dans son message. Ce texte va au
-      // verdict journalisé (diagnostic, retrouvable par requestId), JAMAIS
-      // dans la réponse rendue à l'appelant — cette route est publique.
+    } catch {
+      // qa-review round 1 (rejet) : l'exception réseau (`TypeError: fetch
+      // failed`, etc.) PORTE SOUVENT L'HÔTE dans son message
+      // (`getaddrinfo ENOTFOUND <hôte>`). Ce n'est PAS `payload.error` — ce
+      // n'a donc rien à faire dans `upstreamError`, même au seul journal.
+      // Seule une CATÉGORIE sans contenu texte est conservée
+      // (`failureCategory: 'network'`) : elle suffit au diagnostic (« panne
+      // de transport »), sans jamais transporter l'hôte ni le message brut
+      // de l'exception. Le message d'exception n'est volontairement pas lu.
       this.record(requestId, 'unavailable', {
         upstreamStatus: null,
         upstreamSuccess: null,
-        upstreamError: error instanceof Error ? error.message : 'Erreur réseau inconnue',
+        failureCategory: 'network',
         durationMs: Date.now() - startedAt,
         sentConfig: product,
       });
@@ -55,17 +59,22 @@ export class HttpClariprintQuoteGateway implements ClariprintQuoteGateway {
     const durationMs = Date.now() - startedAt;
     const text = await response.text();
     if (!response.ok) {
-      // BCP-1a : `text` est le corps brut renvoyé par Clariprint (ou par un
-      // relais devant lui) sur un statut non-2xx — un extrait de réponse au
-      // sens du cadrage. Il va au verdict, jamais à l'appelant.
-      this.record(requestId, 'unavailable', { upstreamStatus: response.status, upstreamSuccess: null, upstreamError: text, durationMs, sentConfig: product });
+      // qa-review round 1 (rejet) : `text` est le corps brut renvoyé par
+      // Clariprint (ou par un relais devant lui) sur un statut non-2xx — il
+      // peut reprendre les paramètres envoyés (login, mot de passe) ou du
+      // HTML. Ce n'est PAS `payload.error` : il ne va JAMAIS au verdict, ni
+      // au journal. Seule la catégorie (`'http_status'`) et le statut HTTP
+      // amont (déjà conservé via `upstreamStatus`) sont gardés.
+      this.record(requestId, 'unavailable', { upstreamStatus: response.status, upstreamSuccess: null, failureCategory: 'http_status', durationMs, sentConfig: product });
       return { success: false, error: 'Clariprint injoignable ou en erreur' };
     }
     let payload: any;
     try {
       payload = JSON.parse(text);
     } catch {
-      this.record(requestId, 'unavailable', { upstreamStatus: response.status, upstreamSuccess: null, upstreamError: text, durationMs, sentConfig: product });
+      // qa-review round 1 (rejet) : même réserve que ci-dessus — `text` (le
+      // corps non-JSON) ne va jamais au verdict.
+      this.record(requestId, 'unavailable', { upstreamStatus: response.status, upstreamSuccess: null, failureCategory: 'non_json', durationMs, sentConfig: product });
       return { success: false, error: 'Réponse Clariprint invalide (non-JSON)' };
     }
     if (!payload.success) {
@@ -80,6 +89,7 @@ export class HttpClariprintQuoteGateway implements ClariprintQuoteGateway {
         rawResponseValue: payload.response,
         allProcess: payload.all_process,
         allFaultyProcess: payload.all_faulty_process,
+        fournisseur: payload.fournisseur,
         durationMs,
         sentConfig: product,
       });
@@ -93,6 +103,7 @@ export class HttpClariprintQuoteGateway implements ClariprintQuoteGateway {
         rawResponseValue: priceHT,
         allProcess: payload.all_process,
         allFaultyProcess: payload.all_faulty_process,
+        fournisseur: payload.fournisseur,
         durationMs,
         sentConfig: product,
       });
@@ -105,6 +116,7 @@ export class HttpClariprintQuoteGateway implements ClariprintQuoteGateway {
       rawResponseValue: priceHT,
       allProcess: payload.all_process,
       allFaultyProcess: payload.all_faulty_process,
+      fournisseur: payload.fournisseur,
       durationMs,
       sentConfig: product,
     });

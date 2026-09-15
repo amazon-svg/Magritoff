@@ -1,36 +1,51 @@
 /**
  * BCP-1a (docs/api/CONVENTIONS.md §8.25 point 2.3) — l'exécution du plan.
  *
- * Fonction pure « au sens des E/S injectées » : `callCheckAuth`, `callQuote`
- * et `archive` sont fournis par l'appelant. En mode sec (`runDryPlan`),
- * AUCUN des deux appelants réseau n'est invoqué — seul le plan déclaré
- * (`plan.mjs`) est parcouru pour produire un rapport. En exécution réelle
- * (`runClariprintVariantsBench`), chaque appel est compté AVANT d'être
- * effectué, `CheckAuth` compris, et le dix-neuvième est refusé.
+ * `callCheckAuth`/`callQuote` sont fournis par l'appelant et rendent le
+ * résultat BRUT d'un appel transport (forme de `performRawCall`,
+ * `classification.mjs`) : `{transport, httpStatus, payload, ok2xx}`. C'est
+ * CE module qui classe l'appel (`classifyCheckAuthCall`/`classifyQuoteCall`)
+ * et applique la règle d'arrêt — jamais l'appelant, pour que la même
+ * décision serve au mode réel et aux tests (stubs triviaux).
+ *
+ * En mode sec (`buildDryRunReport`), AUCUN des deux exécuteurs n'est fourni
+ * ni invoqué — seul le plan déclaré (`plan.mjs`) est parcouru pour produire
+ * un rapport, charges expurgées comprises.
+ *
+ * Arbitrage architecte (qa-review de `d8a0a57b`, point (1)) : une
+ * `transport_failure`, À N'IMPORTE QUEL APPEL DE N'IMPORTE QUELLE PHASE,
+ * ARRÊTE la campagne. On ne rejoue pas, on ne consomme pas le reste du
+ * plafond, et AUCUNE décision 422/502 n'est prise (`phase_a_verdict:
+ * 'inconclusive'`).
  */
+import {
+  classifyCheckAuthCall,
+  classifyQuoteCall,
+  collectKnownPrinterNames,
+  countAllProcess,
+  countFaultyProcess,
+  boundedResponseRaw,
+  substituteKnownNames,
+} from './classification.mjs';
+import { buildCallRecord, buildCampaignSummary } from './archive.mjs';
 import {
   MAX_BILLED_CALLS,
   PHASE_A_REPEAT_COUNT,
   PHASE_B_VARIANTS,
   PHASE_C_FINISHING_CODES,
+  PLAN_VERSION,
   buildWorstCasePlan,
   chargeAlreadyHasFinishing,
+  expurgeChargeForDisplay,
   planCallsByPhase,
   withFinishingCode,
 } from './plan.mjs';
 
-export class BilledCallCapExceededError extends Error {
-  constructor(limit) {
-    super(`Plafond de ${limit} appels facturés atteint : appel refusé avant exécution.`);
-    this.name = 'BilledCallCapExceededError';
-  }
-}
-
 /**
- * Mode sec (dry-run) : imprime le plan, les charges et le décompte, SANS
- * ouvrir aucune connexion. `callCheckAuth`/`callQuote` ne sont jamais
- * fournis à cette fonction : c'est la preuve, par signature, qu'aucun appel
- * réseau ne peut en sortir.
+ * Mode sec (dry-run) : imprime le plan, LES CHARGES (expurgées de
+ * `reference`/`address`) et le décompte, SANS ouvrir aucune connexion.
+ * Signature à un seul argument : aucune fonction réseau ne peut lui être
+ * passée, preuve structurelle qu'aucun appel ne peut en sortir.
  */
 export function buildDryRunReport(baseCharge) {
   const plan = buildWorstCasePlan(baseCharge);
@@ -39,21 +54,28 @@ export function buildDryRunReport(baseCharge) {
     maxBilledCalls: MAX_BILLED_CALLS,
     totalPlannedCalls: plan.length,
     callsByPhase: planCallsByPhase(plan),
-    steps: plan.map(({ id, phase, kind, label }) => ({ id, phase, kind, label })),
+    steps: plan.map((step) => ({
+      id: step.id,
+      phase: step.phase,
+      kind: step.kind,
+      variant: step.variant,
+      ...(step.charge ? { charge: expurgeChargeForDisplay(step.charge) } : {}),
+    })),
   };
 }
 
 /**
- * Exécution réelle, sous plafond, avec les règles d'arrêt du point 2.3
- * (tableau des phases). Chaque appel est archivé (`archive`) DÈS qu'il est
- * fait, pour qu'une interruption ne perde pas des appels déjà payés.
+ * Exécution réelle, sous plafond, avec les règles d'arrêt de l'arbitrage
+ * architecte. Chaque appel est archivé (`archive`) DÈS qu'il est fait, pour
+ * qu'une interruption ne perde pas des appels déjà payés.
  *
  * @param {object} options
- * @param {Record<string, unknown>} options.baseCharge - la charge exacte du smoke (A5).
- * @param {() => Promise<{allowed: boolean}>} options.callCheckAuth
- * @param {(charge: Record<string, unknown>) => Promise<{priced: boolean, price?: number}>} options.callQuote
- * @param {(calls: unknown[]) => Promise<void>} [options.archive]
+ * @param {Record<string, unknown>} options.baseCharge
+ * @param {() => Promise<{transport:string, httpStatus:number|null, payload:unknown, ok2xx:boolean}>} options.callCheckAuth
+ * @param {(charge: Record<string, unknown>) => Promise<{transport:string, httpStatus:number|null, payload:unknown, ok2xx:boolean}>} options.callQuote
+ * @param {(state: {calls: unknown[], texts: unknown[]}) => Promise<void>} [options.archive]
  * @param {number} [options.maxBilledCalls]
+ * @param {number} [options.billedCallsCumulativeBefore] - total facturé des campagnes précédentes du même objet.
  */
 export async function runClariprintVariantsBench({
   baseCharge,
@@ -61,89 +83,150 @@ export async function runClariprintVariantsBench({
   callQuote,
   archive = async () => {},
   maxBilledCalls = MAX_BILLED_CALLS,
+  billedCallsCumulativeBefore = 0,
 }) {
+  // qa-review round 1 (BAS, B7) : `maxBilledCalls` ne peut JAMAIS dépasser
+  // la constante écrite dans le code, quelle que soit la valeur fournie.
+  const effectiveMaxBilledCalls = Math.min(maxBilledCalls, MAX_BILLED_CALLS);
+
   const calls = [];
-  let callCount = 0;
+  const texts = [];
+  let stopped = null; // { stopReason, phaseAVerdict, retainedRule }
+  // Connu au moment d'un `cap_reached` : si la phase A a DÉJÀ conclu avant
+  // que le plafond ne coupe la campagne (en B ou en C), ce verdict est
+  // préservé — seule une `transport_failure` l'efface TOUJOURS en
+  // `inconclusive` (arbitrage architecte, point (1), littéral).
+  let knownPhaseAVerdict = 'inconclusive';
+  let knownRetainedRule = null;
 
-  async function billedCall(step, execute) {
-    // Le compteur s'incrémente AVANT chaque appel réseau, CheckAuth compris
-    // (point 2.3) : on ne sait pas s'il est facturé, donc il compte.
-    callCount += 1;
-    if (callCount > maxBilledCalls) {
-      throw new BilledCallCapExceededError(maxBilledCalls);
+  async function performCall(stepId, variant, invoke, classify) {
+    const ordinal = calls.length + 1;
+    if (ordinal > effectiveMaxBilledCalls) {
+      stopped = { stopReason: 'cap_reached', phaseAVerdict: knownPhaseAVerdict, retainedRule: knownRetainedRule };
+      return null;
     }
-    const startedAt = Date.now();
-    const result = await execute();
-    const record = { ...step, callIndex: callCount, durationMs: Date.now() - startedAt, result };
+    const startedAt = new Date().toISOString();
+    const t0 = Date.now();
+    const rawResult = await invoke();
+    const durationMs = Date.now() - t0;
+    const classified = classify(rawResult);
+    const payload = rawResult.payload;
+    const errorText = payload && typeof payload.error === 'string' ? payload.error : null;
+    const errorPresent = errorText !== null;
+    const responseRaw = classified.outcome === 'invalid_price' ? boundedResponseRaw(classified.rawValue) : undefined;
+    const record = buildCallRecord({
+      ordinal,
+      stepId,
+      variant,
+      startedAt,
+      durationMs,
+      classified,
+      allProcessCount: countAllProcess(payload),
+      faultyProcessCount: countFaultyProcess(payload),
+      errorPresent,
+      responseRaw,
+    });
     calls.push(record);
-    // L'archive s'écrit APRÈS CHAQUE appel (point 2.3).
-    await archive(calls.slice());
-    return result;
+    if (errorPresent) {
+      texts.push({ step_id: stepId, text: substituteKnownNames(errorText, collectKnownPrinterNames(payload)) });
+    }
+    await archive({ calls: calls.slice(), texts: texts.slice() });
+    if (classified.outcome === 'transport_failure') {
+      stopped = { stopReason: 'transport_failure', phaseAVerdict: 'inconclusive', retainedRule: null };
+    }
+    return classified;
   }
 
-  const authResult = await billedCall({ id: 'A0', phase: 'A', kind: 'check_auth' }, () => callCheckAuth());
-  if (!authResult.allowed) {
-    return finalize({ verdict: 'auth_refused', deterministic: null, cause: null, acceptedFinishingCodes: [] });
+  function finalize(outcome) {
+    const summary = buildCampaignSummary({
+      planVersion: PLAN_VERSION,
+      maxBilledCalls: effectiveMaxBilledCalls,
+      billedCallsUsed: calls.length,
+      billedCallsCumulative: billedCallsCumulativeBefore + calls.length,
+      stopReason: outcome.stopReason,
+      phaseAVerdict: outcome.phaseAVerdict,
+      retainedRule: outcome.retainedRule,
+    });
+    return { ...summary, calls, texts, cause: outcome.cause ?? null, acceptedFinishingCodes: outcome.acceptedFinishingCodes ?? [] };
   }
 
-  const phaseAResults = [];
-  for (let i = 1; i <= PHASE_A_REPEAT_COUNT; i += 1) {
-    const step = { id: `A${i}`, phase: 'A', kind: 'quote', charge: baseCharge };
-    // eslint-disable-next-line no-await-in-loop -- séquentiel par construction (phase A rejoue 3 fois la MÊME charge)
-    const result = await billedCall(step, () => callQuote(baseCharge));
-    phaseAResults.push(result);
-  }
-  const pricedInPhaseA = phaseAResults.some((result) => result.priced);
-
-  if (pricedInPhaseA) {
-    // Au moins un prix obtenu -> non déterministe (502 `clariprint.unavailable`,
-    // point 2.2) : B est SAUTÉE, et la charge devient la base de C (point 2.3).
-    const outcome = await runPhaseC(baseCharge, billedCall, callQuote);
-    return finalize({ verdict: 'non_deterministic', deterministic: false, cause: null, acceptedFinishingCodes: outcome });
+  // ── Phase A — CheckAuth (A1) ──────────────────────────────────────────
+  const authOutcome = await performCall('A1', null, callCheckAuth, classifyCheckAuthCall);
+  if (stopped) return finalize(stopped);
+  if (authOutcome.outcome === 'auth_refused') {
+    return finalize({ stopReason: 'auth_refused', phaseAVerdict: 'inconclusive', retainedRule: null });
   }
 
-  // Trois échecs identiques -> phase B, une dimension à la fois, arrêt au
-  // premier prix obtenu.
-  let phaseBWinner = null;
-  for (const variant of PHASE_B_VARIANTS) {
-    const charge = variant.apply(baseCharge);
-    const step = { id: variant.id, phase: 'B', kind: 'quote', charge };
+  // ── Phase A — 3 appels identiques (A2..A4) ───────────────────────────
+  const phaseAOutcomes = [];
+  for (let i = 0; i < PHASE_A_REPEAT_COUNT; i += 1) {
+    const variant = { dimension: 'baseline', value: 'smoke_A5' };
+    // eslint-disable-next-line no-await-in-loop -- séquentiel par construction (3 appels IDENTIQUES, dans l'ordre)
+    const outcome = await performCall(`A${i + 2}`, variant, () => callQuote(baseCharge), classifyQuoteCall);
+    if (stopped) return finalize(stopped);
+    phaseAOutcomes.push(outcome.outcome);
+  }
+
+  const pricedCount = phaseAOutcomes.filter((outcome) => outcome === 'priced').length;
+  let phaseAVerdict;
+  let retainedRule;
+  if (pricedCount === PHASE_A_REPEAT_COUNT) {
+    phaseAVerdict = 'priced';
+    retainedRule = null;
+  } else if (pricedCount === 0) {
+    phaseAVerdict = 'deterministic_not_priced';
+    retainedRule = 422;
+  } else {
+    phaseAVerdict = 'non_deterministic';
+    retainedRule = 502;
+  }
+  knownPhaseAVerdict = phaseAVerdict;
+  knownRetainedRule = retainedRule;
+
+  // ── Phase A entièrement priced OU mélange -> B est SAUTÉE, C sur baseCharge ──
+  if (phaseAVerdict !== 'deterministic_not_priced') {
+    const accepted = await runPhaseC(baseCharge, performCall, callQuote);
+    if (stopped) return finalize(stopped);
+    return finalize({ stopReason: 'completed', phaseAVerdict, retainedRule, acceptedFinishingCodes: accepted });
+  }
+
+  // ── Phase B — une dimension à la fois, arrêt au premier prix obtenu ──
+  let winner = null;
+  for (const variantDef of PHASE_B_VARIANTS) {
+    const charge = variantDef.apply(baseCharge);
     // eslint-disable-next-line no-await-in-loop -- arrêt au premier succès : les variantes suivantes ne doivent PAS être appelées (chaque appel est facturé)
-    const result = await billedCall(step, () => callQuote(charge));
-    if (result.priced) {
-      phaseBWinner = { variant, charge };
+    const outcome = await performCall(variantDef.id, variantDef.variant, () => callQuote(charge), classifyQuoteCall);
+    if (stopped) return finalize(stopped);
+    if (outcome.outcome === 'priced') {
+      winner = { id: variantDef.id, charge };
       break;
     }
   }
 
-  if (!phaseBWinner) {
+  if (!winner) {
     // Dix échecs -> fin de campagne à 14 appels : la cause n'est pas une
     // dimension de la charge (point 2.3).
-    return finalize({ verdict: 'cause_not_found', deterministic: true, cause: null, acceptedFinishingCodes: [] });
+    return finalize({ stopReason: 'completed', phaseAVerdict, retainedRule, cause: null, acceptedFinishingCodes: [] });
   }
 
-  const acceptedFinishingCodes = await runPhaseC(phaseBWinner.charge, billedCall, callQuote);
-  return finalize({
-    verdict: 'cause_found',
-    deterministic: true,
-    cause: phaseBWinner.variant.id,
-    acceptedFinishingCodes,
-  });
-
-  function finalize(outcome) {
-    return { ...outcome, calls, totalBilledCalls: callCount };
-  }
+  const acceptedFinishingCodes = await runPhaseC(winner.charge, performCall, callQuote);
+  if (stopped) return finalize(stopped);
+  return finalize({ stopReason: 'stopped_on_price', phaseAVerdict, retainedRule, cause: winner.id, acceptedFinishingCodes });
 }
 
-async function runPhaseC(baseChargeForC, billedCall, callQuote) {
+async function runPhaseC(base, performCall, callQuote) {
   const accepted = [];
-  const codesToTest = PHASE_C_FINISHING_CODES.filter((code) => !chargeAlreadyHasFinishing(baseChargeForC, code));
-  for (const code of codesToTest) {
-    const charge = withFinishingCode(baseChargeForC, code);
-    const step = { id: `C_${code}`, phase: 'C', kind: 'quote', charge };
+  const codesToTest = PHASE_C_FINISHING_CODES.filter((code) => !chargeAlreadyHasFinishing(base, code));
+  for (let index = 0; index < codesToTest.length; index += 1) {
+    const code = codesToTest[index];
+    const charge = withFinishingCode(base, code);
+    const stepId = `C${PHASE_C_FINISHING_CODES.indexOf(code) + 1}`;
+    const variant = { dimension: 'finishing_front', value: code };
     // eslint-disable-next-line no-await-in-loop -- séquentiel par construction (chaque appel est facturé)
-    const result = await billedCall(step, () => callQuote(charge));
-    if (result.priced) accepted.push(code);
+    const outcome = await performCall(stepId, variant, () => callQuote(charge), classifyQuoteCall);
+    if (!outcome) return accepted; // plafond atteint (cap_reached) : arrêt immédiat, géré par l'appelant
+    if (outcome.outcome === 'transport_failure') return accepted; // arrêt géré par l'appelant (stopped déjà positionné)
+    if (outcome.outcome === 'priced') accepted.push(code);
   }
   return accepted;
 }

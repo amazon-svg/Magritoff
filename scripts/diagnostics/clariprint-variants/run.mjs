@@ -8,28 +8,37 @@
  * CHAQUE APPEL RÉEL EST FACTURÉ sur le compte Clariprint de la plateforme.
  *
  *   Mode sec (par défaut, AUCUN appel réseau) :
- *     node scripts/diagnostics/clariprint-variants/run.mjs --charge <fichier.json>
+ *     node scripts/diagnostics/clariprint-variants/run.mjs --charge <fichier.json> --object <slug>
  *
  *   Exécution réelle (jamais lancée par un agent — décision d'Arnaud) :
  *     CLARIPRINT_HOST=... CLARIPRINT_LOGIN=... CLARIPRINT_PASSWORD=... \
- *     node scripts/diagnostics/clariprint-variants/run.mjs --charge <fichier.json> --execute
+ *     node scripts/diagnostics/clariprint-variants/run.mjs --charge <fichier.json> --object <slug> --execute
  *
  * `--charge <fichier.json>` est OBLIGATOIRE dans les deux modes : c'est la
  * charge EXACTE qui a produit le `-1` au smoke du 15/09 (capture réseau
- * réelle), jamais une reconstitution ni une valeur inventée par cet outil
- * (docs/api/CONVENTIONS.md §8.25 point 2.3, phase A du plan).
+ * réelle), jamais une reconstitution ni une valeur inventée par cet outil.
+ *
+ * Archive (arbitrage architecte, qa-review de `d8a0a57b`, point (2)) —
+ * `results/<date>-<objet>/` :
+ *   - `input.json` : la charge, sans `reference` ni `address` (COMMITÉ) ;
+ *   - `calls.json` : le résumé de campagne + chaque appel, champs sur liste
+ *     fermée (COMMITÉ) ;
+ *   - `texts.local.json` : les textes d'erreur Clariprint après
+ *     substitution des noms (IGNORÉ PAR GIT, `*.local.json`).
  */
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+import { performRawCall } from './classification.mjs';
 import { buildDryRunReport, runClariprintVariantsBench } from './runner.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const RESULTS_DIR = join(__dirname, 'results');
 
 function parseArgs(argv) {
-  const options = { execute: false, chargePath: null, outDir: join(__dirname, 'results'), object: 'clariprint-variants' };
+  const options = { execute: false, chargePath: null, outDir: RESULTS_DIR, object: 'clariprint-variants' };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === '--execute') options.execute = true;
@@ -62,59 +71,53 @@ function requireEnv(name) {
   return value;
 }
 
-/** Appel Clariprint réel — CheckAuth. Compte comme un appel facturé (point 2.3). */
-async function realCheckAuth(credentials) {
-  const body = new URLSearchParams({ login: credentials.login, password: credentials.password, action: 'CheckAuth', datas: '{}' });
-  const response = await fetch(apiUrl(credentials.host), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
-    signal: AbortSignal.timeout(15_000),
-  });
-  const text = await response.text();
-  let payload = null;
-  try { payload = JSON.parse(text); } catch { /* reponse non JSON : traitee comme un refus */ }
-  return { allowed: response.ok && payload?.success !== false };
+/** `performRawCall` fait le seul travail transport ; ici on ne fait que construire l'URL/le corps. */
+function realCheckAuth(credentials) {
+  const body = new URLSearchParams({ login: credentials.login, password: credentials.password, action: 'CheckAuth', datas: '{}' }).toString();
+  return () => performRawCall(fetch, apiUrl(credentials.host), body);
+}
+
+function realQuote(credentials) {
+  return (charge) => {
+    const body = new URLSearchParams({
+      login: credentials.login,
+      password: credentials.password,
+      action: 'QuoteRequest',
+      datas: JSON.stringify({ clariprint_product: charge }),
+    }).toString();
+    return performRawCall(fetch, apiUrl(credentials.host), body);
+  };
 }
 
 /**
- * Appel Clariprint réel — QuoteRequest. Ce banc parle à Clariprint EN
- * DIRECT (pas via `HttpClariprintQuoteGateway`) : c'est un instrument de
- * diagnostic qui a besoin de la réponse brute pour juger si une variante
- * chiffre, indépendamment de l'expurgation faite par la passerelle de
- * production pour ses propres appelants.
+ * `billed_calls_cumulative` (point 2) : somme des `billed_calls_used` des
+ * campagnes PRÉCÉDENTES du même objet (autres dossiers `<date>-<objet>` sous
+ * `results/`), lues depuis leur `calls.json` déjà commité. Best-effort : une
+ * lecture impossible (dossier absent, JSON invalide) compte pour 0, jamais
+ * une erreur bloquante — ce compteur est informatif, pas une barrière.
  */
-async function realQuote(credentials, charge) {
-  const body = new URLSearchParams({
-    login: credentials.login,
-    password: credentials.password,
-    action: 'QuoteRequest',
-    datas: JSON.stringify({ clariprint_product: charge }),
-  });
-  const response = await fetch(apiUrl(credentials.host), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
-    signal: AbortSignal.timeout(20_000),
-  });
-  const text = await response.text();
-  let payload = null;
-  try { payload = JSON.parse(text); } catch { return { priced: false }; }
-  if (!payload || payload.success !== true) return { priced: false };
-  const price = payload.response;
-  const priced = typeof price === 'number' && Number.isFinite(price) && price >= 0;
-  return priced ? { priced: true, price } : { priced: false };
-}
-
-async function archiveTo(outDir, object) {
-  await mkdir(outDir, { recursive: true });
-  const date = new Date().toISOString().slice(0, 10);
-  const path = join(outDir, `${date}-${object}.json`);
-  return async (calls) => {
-    // L'archive s'écrit après CHAQUE appel (point 2.3) : une interruption
-    // ne perd donc pas les appels déjà payés.
-    await writeFile(path, JSON.stringify({ archivedAt: new Date().toISOString(), calls }, null, 2), 'utf8');
-  };
+async function readCumulativeBilledCalls(outDir, object, currentDirName) {
+  let entries;
+  try {
+    entries = await readdir(outDir, { withFileTypes: true });
+  } catch {
+    return 0;
+  }
+  let total = 0;
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    if (entry.name === currentDirName) continue;
+    if (!entry.name.endsWith(`-${object}`)) continue;
+    try {
+      // eslint-disable-next-line no-await-in-loop -- lecture sequentielle de quelques fichiers, hors chemin facture
+      const raw = await readFile(join(outDir, entry.name, 'calls.json'), 'utf8');
+      const parsed = JSON.parse(raw);
+      if (typeof parsed.billed_calls_used === 'number') total += parsed.billed_calls_used;
+    } catch {
+      /* dossier partiel ou illisible : ignore, best-effort */
+    }
+  }
+  return total;
 }
 
 async function main() {
@@ -136,21 +139,78 @@ async function main() {
     password: requireEnv('CLARIPRINT_PASSWORD'),
   };
 
-  const archive = await archiveTo(options.outDir, options.object);
+  const date = new Date().toISOString().slice(0, 10);
+  const campaignDirName = `${date}-${options.object}`;
+  const campaignDir = join(options.outDir, campaignDirName);
+  await mkdir(campaignDir, { recursive: true });
+
+  const { expurgeChargeForDisplay } = await import('./plan.mjs');
+  await writeFile(join(campaignDir, 'input.json'), JSON.stringify(expurgeChargeForDisplay(baseCharge), null, 2), 'utf8');
+
+  const billedCallsCumulativeBefore = await readCumulativeBilledCalls(options.outDir, options.object, campaignDirName);
+
+  const writeCallsJson = async ({ calls }) => {
+    // Écrit APRÈS CHAQUE appel (point 2.3) — le résumé de campagne n'est pas
+    // encore connu pendant la campagne : on écrit un résumé PARTIEL,
+    // remplacé par le résumé final une fois `runClariprintVariantsBench`
+    // terminé (voir plus bas). Une interruption laisse donc au pire un
+    // résumé partiel, jamais aucun appel déjà payé perdu.
+    const partial = {
+      plan_version: undefined,
+      max_billed_calls: undefined,
+      billed_calls_used: calls.length,
+      billed_calls_cumulative: billedCallsCumulativeBefore + calls.length,
+      stop_reason: 'in_progress',
+      phase_a_verdict: null,
+      retained_rule: null,
+      calls,
+    };
+    await writeFile(join(campaignDir, 'calls.json'), JSON.stringify(partial, null, 2), 'utf8');
+  };
+  const writeTextsLocal = async ({ texts }) => {
+    if (texts.length === 0) return;
+    await writeFile(join(campaignDir, 'texts.local.json'), JSON.stringify(texts, null, 2), 'utf8');
+  };
+
   const outcome = await runClariprintVariantsBench({
     baseCharge,
-    callCheckAuth: () => realCheckAuth(credentials),
-    callQuote: (charge) => realQuote(credentials, charge),
-    archive,
+    callCheckAuth: realCheckAuth(credentials),
+    callQuote: realQuote(credentials),
+    archive: async (state) => {
+      await writeCallsJson(state);
+      await writeTextsLocal(state);
+    },
+    billedCallsCumulativeBefore,
   });
+
+  // Résumé FINAL, en remplacement du partiel écrit pendant la campagne.
+  const {
+    plan_version: planVersion,
+    max_billed_calls: maxBilledCalls,
+    billed_calls_used: billedCallsUsed,
+    billed_calls_cumulative: billedCallsCumulative,
+    stop_reason: stopReason,
+    phase_a_verdict: phaseAVerdict,
+    retained_rule: retainedRule,
+    calls,
+  } = outcome;
+  await writeFile(
+    join(campaignDir, 'calls.json'),
+    JSON.stringify({ plan_version: planVersion, max_billed_calls: maxBilledCalls, billed_calls_used: billedCallsUsed, billed_calls_cumulative: billedCallsCumulative, stop_reason: stopReason, phase_a_verdict: phaseAVerdict, retained_rule: retainedRule, calls }, null, 2),
+    'utf8',
+  );
+  await writeTextsLocal(outcome);
 
   console.log(JSON.stringify(
     {
-      verdict: outcome.verdict,
-      deterministic: outcome.deterministic,
+      stop_reason: stopReason,
+      phase_a_verdict: phaseAVerdict,
+      retained_rule: retainedRule,
       cause: outcome.cause,
       acceptedFinishingCodes: outcome.acceptedFinishingCodes,
-      totalBilledCalls: outcome.totalBilledCalls,
+      billed_calls_used: billedCallsUsed,
+      billed_calls_cumulative: billedCallsCumulative,
+      archived_to: campaignDir,
     },
     null,
     2,

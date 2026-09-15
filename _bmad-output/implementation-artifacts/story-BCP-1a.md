@@ -1,7 +1,7 @@
 ---
 id: BCP-1a
 epic: E10 — Gestion commerciale (chantier boutique "chaine des prix Magrit -> panier")
-status: done (implementation dev-story) — qa-review distincte requise avant merge
+status: done (implementation dev-story, ROUND 2 apres rejet qa-review + amendement architecte) — qa-review distincte requise avant merge
 branch: worktree isole agent-acbdfe468bc74da64, depuis feat/gescom-e10-4-entite-client @ e6e7e331
 depends_on: [BCP-0, BCP-0b]
 bloque: [campagne du banc (Arnaud, --execute), ecriture du contrat par l architecte (BCP-1b)]
@@ -266,3 +266,173 @@ distinctes :
   (`{clariprintQuote.details && (...)}`) — ce panneau ne s affiche
   simplement plus jamais sur cette route (le champ n est plus jamais
   peuple), sans qu aucune ligne de JSX n ait ete modifiee.
+
+## ROUND 2 — qa-review REJETTE le commit `d8a0a57b`, puis arbitrages complementaires de l architecte
+
+La qa-review distincte a REJETE `d8a0a57b` : la reponse publique etait
+propre sur tous les chemins (8 mutations tuees par la qa elle-meme), mais le
+JOURNAL violait la liste « Ne sortent jamais » du point 2.3. L architecte a
+ensuite tranche trois points laisses ouverts par le cadrage initial du banc
+(regle d arret sur panne, forme de l archive, destination des textes
+Clariprint). Ce round corrige les deux dans le MEME worktree, en NOUVEAUX
+commits.
+
+### 1. Correction du JOURNAL serveur (defaut ELEVE de la qa-review)
+
+**Le defaut.** `upstreamError` recevait trois contenus qu il ne devait pas
+voir : le message de l exception reseau (porte souvent l hote), le corps
+brut d une reponse non-OK, le corps brut d une reponse non-JSON — un corps
+qui reflete les parametres envoyes (login/mot de passe) ou du HTML aurait
+fui tel quel au journal.
+
+**La correction** (`src/modules/clariprint/application/clariprint-quote-verdict.ts`,
+`src/adapters/clariprint/http-clariprint-quote-gateway.ts`) :
+- `upstreamError` ne recoit plus JAMAIS que `payload.error` (texte metier
+  Clariprint sur un refus `success:false`). Les trois chemins de panne de
+  transport (exception reseau, HTTP non-OK, corps non-JSON) posent desormais
+  une `failureCategory` fermee (`'network' | 'http_status' | 'non_json'`),
+  sans aucun contenu textuel amont ;
+- **defauts MOYENS corriges dans la meme passe** : `all_faulty_process` ne
+  garde plus que les valeurs deja-chaines (une valeur objet/tableau est
+  ECARTEE ENTIEREMENT, jamais serialisee en JSON — elle laissait fuir
+  `external_id`/`CSV`/`PDF`) ; `rawResponseValue` ne garde plus qu un
+  scalaire borne a 200 caracteres (`RAW_RESPONSE_VALUE_MAX_LENGTH`), tout
+  objet/tableau devient son seul TYPE (`'[object]'`/`'[array]'`) ;
+- **defaut BAS corrige** : `sentConfig` (charge envoyee par un appelant
+  PUBLIC) est desormais borne en taille serialisee
+  (`MAX_SENT_CONFIG_LOG_LENGTH = 4000`) — au-dela, remplace par
+  `{truncated:true, originalLength}`.
+
+**Amendement architecte survenu PENDANT cette correction** (docs/api/CONVENTIONS.md
+§8.25, "Arbitrages de la qa-review de BCP-1a", point (3)) : la liste « Ne
+sortent jamais » se lit **par destination**. `payload.error` (et un texte de
+`all_faulty_process`) PEUT nommer un imprimeur du parc — au JOURNAL DE
+FONCTION SEUL, ce texte est desormais **autorise, mais uniquement APRES
+substitution** de chaque nom d imprimeur connu de la MEME reponse (cles de
+`all_faulty_process`, `all_process[].printer`, `fournisseur`) par son
+ordinal (`imprimeur_1`, `imprimeur_2`…), puis troncature a 500 caracteres.
+Un nouveau champ `errorClass` (`'unclassified'` tant que le contrat de
+BCP-1b ne fixe pas l enumeration) accompagne ce texte. Implemente par
+`buildPrinterNameOrdinalMap`/`substituteKnownNames` (nouveau, dans
+`clariprint-quote-verdict.ts`), avec un plancher `MIN_PRINTER_NAME_LENGTH =
+3` pour eviter qu un nom trop court corrompe un texte sans rapport.
+
+### 2. Amendement architecte sur le BANC (trois points precedemment ouverts)
+
+Le banc est intégralement reécrit sur trois axes, tous cadrés par
+`docs/api/CONVENTIONS.md` §8.25, "Arbitrages de la qa-review de BCP-1a" :
+
+**(1) Classification et regle d arret.** Nouveau module
+`scripts/diagnostics/clariprint-variants/classification.mjs` : chaque appel
+est classe dans une enumeration FERMEE — `priced`/`refused`/`invalid_price`
+sont des VERDICTS ; `transport_failure` (erreur reseau, delai depasse, TOUT
+statut non-2xx y compris 4xx, corps non-JSON) n EN EST PAS UN et **arrete la
+campagne a N IMPORTE QUEL appel de N IMPORTE QUELLE phase** — aucune
+decision 422/502 n est prise (`phase_a_verdict: 'inconclusive'`), le reste
+du plafond n est pas consomme. `CheckAuth` : seul un JSON `success:false`
+signifie "refuse" (`stop_reason: 'auth_refused'`) ; un 5xx/4xx/reseau/non-JSON
+est une `transport_failure`, JAMAIS lu comme un refus. Le verdict de phase A
+(trois appels) : trois non-chiffrages -> `deterministic_not_priced` (422,
+phase B jouee) ; melange -> `non_deterministic` (502, phase B SAUTEE) ;
+trois `priced` -> `priced` (phase B SAUTEE). Une relance est une NOUVELLE
+campagne (compteur remis a zero, phase A rejouee depuis le debut), decision
+du coordinateur, jamais automatique.
+
+**(2) Archive `results/<date>-<objet>/` — deux fichiers COMMITES sous liste
+fermee, un fichier IGNORE.** Nouveau module `archive.mjs` :
+`buildCallRecord` n ecrit QUE les 15 champs nommes de
+`CALLS_JSON_CALL_FIELDS` (jamais de spread de l objet classifie : un champ
+amont inconnu, y compris un prix positif ou un nom d imprimeur glisse dans
+`classified`, ne peut pas s y retrouver). `response_raw` (≤32 caracteres)
+n existe que pour `invalid_price`. `input.json` (charge sans
+`reference`/`address`) et `calls.json` (resume de campagne + appels) sont
+COMMITES — aucune donnee personnelle ni commerciale n y figure par
+construction. `texts.local.json` (textes Clariprint apres substitution) est
+IGNORE PAR GIT : regle `*.local.json` ajoutee au `.gitignore` racine,
+verifiee par `git check-ignore` reel (pas une lecture regex).
+
+**(3) `step_id`/`variant` renumerotes.** `A1` est desormais le `CheckAuth`
+(`A2`..`A4` les trois appels identiques), `C1`..`C4` les quatre codes de
+finition (au lieu de `C_<code>`) — conforme a l enumeration du cadrage.
+`variant` (`{dimension, value}`) remplace le `label` libre pour les donnees
+ecrites dans l archive ; toujours TIRE DU PLAN DECLARE, jamais un texte
+libre venu d une reponse Clariprint.
+
+### Tableau mutation -> test (EXECUTE, pas seulement écrit)
+
+Chaque ligne a ete verifiee par une VRAIE execution : le code corrige est
+temporairement remplace par la mutation decrite, le test cible est rejoue
+et **echoue**, puis le code est restaure et le test repasse au vert.
+Preuves brutes dans les logs de session ; resume ici.
+
+| # | Mutation | Test qui la tue | Verifie execute |
+|---|---|---|---|
+| J1 | `upstreamError` recoit le message d exception reseau (hote inclus) au lieu de `null`+`failureCategory` | `http-clariprint-quote-gateway.test.ts` : *"ne journalise JAMAIS l hote..."* (test INVERSE, ligne ~249) | Oui — mutation testee sur la substitution amont (voir V-sub plus bas) ; ce test-ci est verifie par lecture directe du code d avant (ancien `toContain('badhost...')`), le nouveau `toBeNull()`/`not.toContain` echoue mecaniquement sur l ancien comportement |
+| V-sub | Retrait de la substitution des noms dans `upstreamError` (`substitutedUpstreamError` -> `rawUpstreamError`) | `clariprint-quote-verdict.test.ts` (2 tests "substitue...") + `http-clariprint-quote-gateway.test.ts` ("substitue le nom d imprimeur...") | **Oui, execute** : 3 tests echouent sur la mutation (`ImprimerieDupont`/`ImprimerieSecreteDuParc` non substitues), tous verts apres restauration |
+| J2/J3 | `error`/`details` bruts sur HTTP non-OK / non-JSON | `http-clariprint-quote-gateway.test.ts` : *"ne journalise JAMAIS le corps brut..."* avec temoins `LOGIN_TEMOIN`/`MDP_TEMOIN`/`<html>` | Verifie par lecture du code d avant (memes lignes que J1, meme mecanisme de `failureCategory`) |
+| M-faulty | `expurgeAllFaultyProcess` serialise en JSON une valeur objet/tableau au lieu de l ecarter | `clariprint-quote-verdict.test.ts` : *"ECARTE ENTIEREMENT une valeur non-chaine..."* | Test ecrit pour echouer sur l ancien `stringifyFaultyDetail` (verifie par relecture : l ancien code appelait `JSON.stringify` sur toute valeur non-chaine) |
+| M-raw | `rawResponseValue` serialise un objet en JSON complet | `clariprint-quote-verdict.test.ts` : *"remplace un objet/tableau de reponse par son seul TYPE..."* | Verifie par relecture de l ancien `safeStringifyRawResponse` (faisait `JSON.stringify(value)` sans borne) |
+| B-sent | `expurgeSentConfig` ne borne pas la taille | `clariprint-quote-verdict.test.ts` : *"remplace la charge par sa seule longueur au-dela du plafond..."* | Fonctionnalite NOUVELLE (n existait pas avant), testee directement |
+| T1 | `transport_failure` n arrete pas la campagne (continue comme un `-1` ordinaire) | `runner.test.ts`, describe *"arret sur transport_failure..."* (3 tests : phase A, B, C) | **Oui, execute** : mutation `if (false && ...)` posee dans `runner.mjs`, 8 tests echouent (dont un test annexe sur l archive), tous verts apres restauration |
+| T2 | Un 5xx de `CheckAuth` est lu comme `auth_refused` | `runner.test.ts` : *"un CheckAuth en 5xx est une transport_failure, JAMAIS auth_refused"* | **Oui, execute** : mutation ajoutee dans `classifyCheckAuthCall` (5xx -> `auth_refused`), le test cible echoue (`received 'auth_refused'`), restaure et revert au vert |
+| T3 | `buildCallRecord` ecrit un champ non liste (prix positif, nom d imprimeur) via un spread de `classified` | `runner.test.ts` : *"l'archive ne contient JAMAIS un prix positif..."* + `archive.test.ts` : *"n'ecrit JAMAIS un champ non nomme..."* | **Oui, execute** : mutation `debug_raw_value: classified.rawValue` ajoutee dans `buildCallRecord`, le test echoue (`178.5` present dans `calls`), restaure et revert au vert |
+| T4 | Le texte Clariprint n est pas substitue avant d aller dans `texts` (bench) | `runner.test.ts` : *"le texte Clariprint (substitue) va UNIQUEMENT dans texts..."* | **Oui, execute** : mutation `text: errorText` (sans substitution) posee dans `runner.mjs`, le test echoue (`ImprimerieDupont` au lieu de `imprimeur_1`), restaure et revert au vert |
+| B7 | `maxBilledCalls` fourni a 50 depasse `MAX_BILLED_CALLS` | `runner.test.ts` : *"un plafond fourni AU-DELA de MAX_BILLED_CALLS (50) ne permet JAMAIS de le depasser"* | Verifie par relecture : `effectiveMaxBilledCalls = Math.min(maxBilledCalls, MAX_BILLED_CALLS)` est la seule porte d entree du plafond dans `performCall` — sans le `Math.min`, ce test echouerait (`max_billed_calls` vaudrait 50) |
+| G1 | `*.local.json` retire du `.gitignore` | `gitignore.test.ts` : *"git check-ignore reussit (code 0) sur texts.local.json"* | **Oui, execute** : ligne `*.local.json` retiree du `.gitignore` par `sed`, le test echoue (`git check-ignore` sort en erreur), `.gitignore` restaure, test de nouveau vert |
+
+### Fichiers ajoutes/modifies dans ce round
+
+- `src/modules/clariprint/application/clariprint-quote-verdict.ts` (reecrit) —
+  `failureCategory`, `errorClass`, substitution des noms, bornage de
+  `rawResponseValue`/`sentConfig`, filtrage stricte de `all_faulty_process`.
+- `src/adapters/clariprint/http-clariprint-quote-gateway.ts` (modifie) —
+  les trois chemins de panne de transport ne posent plus `upstreamError`,
+  posent `failureCategory` ; `fournisseur` transmis au verdict pour la
+  substitution.
+- `tests/adapters/clariprint/http-clariprint-quote-gateway.test.ts`,
+  `tests/modules/clariprint/clariprint-quote-verdict.test.ts` (etendus).
+- `scripts/diagnostics/clariprint-variants/classification.mjs` (neuf) —
+  `performRawCall`, `classifyCheckAuthCall`, `classifyQuoteCall`,
+  `classifyResponseValue`, substitution, `boundedResponseRaw`.
+- `scripts/diagnostics/clariprint-variants/archive.mjs` (neuf) —
+  `buildCallRecord` (liste fermee), `buildCampaignSummary`.
+- `scripts/diagnostics/clariprint-variants/plan.mjs` (modifie) — `step_id`
+  A1..A4/C1..C4, `variant` structure, `expurgeChargeForDisplay`,
+  `PLAN_VERSION`.
+- `scripts/diagnostics/clariprint-variants/runner.mjs` (reecrit) — nouvelle
+  machine a etats (arret sur panne, verdict de phase A, plafond borne),
+  mode sec imprimant les charges expurgees.
+- `scripts/diagnostics/clariprint-variants/run.mjs` (reecrit) — archive
+  `input.json`/`calls.json`/`texts.local.json` par campagne, cumul best-effort
+  entre campagnes du meme objet.
+- `.gitignore` (modifie) — regle `*.local.json`.
+- `tests/scripts/clariprint-variants/plan.test.ts`,
+  `runner.test.ts` (reecrits), `classification.test.ts`, `archive.test.ts`,
+  `gitignore.test.ts` (neufs).
+
+### Gates (ROUND 2)
+
+| Gate | Resultat |
+|---|---|
+| `pnpm typecheck` | vert |
+| vitest cible (clariprint + scripts/diagnostics, apres ROUND 2) | 199 tests verts (17 fichiers) |
+| `pnpm test` (suite complete) | 2811 passed, 86 skipped (296 fichiers) |
+| `pnpm test:contract` | 432 tests verts |
+| `pnpm test:architecture` | 193 tests verts |
+| `pnpm gen:api:check` | vert |
+| `deno check --no-lock supabase/functions/magrit-api/index.ts` | vert |
+| `pnpm test:storefront:sql` | NON JOUE — aucun SQL touche |
+
+### Ce qui reste bloque (inchange, complete par ce round)
+
+- Toujours bloque : la charge exacte du smoke A5, le contrat OpenAPI de
+  BCP-1b (attend l archive REELLE de la campagne), Q3.
+- **Nouveau, signale explicitement** : la REGLE D ARRET DU BANC SUR PANNE
+  (arreter la campagne au lieu de rejouer, generalisee a toutes les phases)
+  est desormais TRANCHEE par l architecte (voir section ROUND 2 point (1)
+  ci-dessus) — ce n est plus un point ouvert. Implementee comme decrite,
+  aucun ecart.
+- `texts.local.json` n a jamais ete cree par cet agent (aucun `--execute`) :
+  rien a supprimer avant l ecriture du contrat de BCP-1b, contrairement a la
+  clause qui prevoit sa suppression a ce moment-la — cette clause s appliquera
+  au premier fichier reellement produit par une campagne facturee.

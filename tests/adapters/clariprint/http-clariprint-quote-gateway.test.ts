@@ -246,26 +246,53 @@ describe('HttpClariprintQuoteGateway — verdict journalisé', () => {
     expect(entries[0]?.verdict.rawResponseValue).toBe('-3');
   });
 
-  it('journalise unavailable sur une exception reseau, avec l hote et le texte de l exception DANS LE VERDICT SEULEMENT', async () => {
+  // qa-review round 1 (REJET, ÉLEVÉ) — test INVERSÉ : il exigeait AVANT
+  // l'hôte dans le verdict. Il exige maintenant son ABSENCE, categorie
+  // `'network'`, et `upstreamError`/`errorClass` a `null` (aucun
+  // `payload.error` n'existe sur ce chemin, puisqu'aucune reponse n'a ete
+  // recue).
+  it("ne journalise JAMAIS l hote ni le texte de l exception reseau — seule la categorie 'network' est conservee", async () => {
     const { logger, entries } = spyLogger();
     const fetchMock = vi.fn(async () => { throw new TypeError('fetch failed: getaddrinfo ENOTFOUND badhost.clariprint.invalid'); });
     const gateway = new HttpClariprintQuoteGateway('https://badhost.clariprint.invalid', 'l', 'p', fetchMock as unknown as typeof fetch, logger);
     await gateway.quote({ clariprint: {} }, 'req-unavailable-network');
     expect(entries[0]).toMatchObject({ outcome: 'unavailable' });
-    expect(entries[0]?.verdict.upstreamError).toContain('badhost.clariprint.invalid');
+    expect(entries[0]?.verdict.failureCategory).toBe('network');
+    expect(entries[0]?.verdict.upstreamError).toBeNull();
+    expect(entries[0]?.verdict.errorClass).toBeNull();
     expect(entries[0]?.verdict.upstreamStatus).toBeNull();
+    const serialized = JSON.stringify(entries[0]);
+    expect(serialized).not.toContain('badhost.clariprint.invalid');
+    expect(serialized).not.toContain('getaddrinfo');
   });
 
-  it('journalise unavailable sur un HTTP non-OK et sur une reponse non-JSON', async () => {
+  // qa-review round 1 (ÉLEVÉ) — sonde qa : « une réponse 500 dont le corps
+  // reprend les paramètres envoyés fait arriver LOGIN_TEMOIN, MDP_TEMOIN et
+  // du HTML au journal ». Ce test pose ces temoins dans le corps non-OK ET
+  // dans le corps non-JSON, puis verifie leur absence totale du JOURNAL
+  // (serialisation des appels au logger), pas seulement de la reponse.
+  it('ne journalise JAMAIS le corps brut (login/mot de passe/HTML reflechis) sur un HTTP non-OK ni sur une reponse non-JSON', async () => {
     const { logger, entries } = spyLogger();
-    const httpErrorFetch = vi.fn(async () => new Response('boom', { status: 503 }));
+    const httpErrorFetch = vi.fn(async () => new Response(
+      '<html><body>login=LOGIN_TEMOIN&password=MDP_TEMOIN</body></html>',
+      { status: 503 },
+    ));
     await new HttpClariprintQuoteGateway('https://clariprint.test/optimproject/json.wcl', 'l', 'p', httpErrorFetch as unknown as typeof fetch, logger).quote({ clariprint: {} }, 'req-http-error');
     expect(entries[0]).toMatchObject({ outcome: 'unavailable' });
+    expect(entries[0]?.verdict.failureCategory).toBe('http_status');
     expect(entries[0]?.verdict.upstreamStatus).toBe(503);
+    expect(entries[0]?.verdict.upstreamError).toBeNull();
 
-    const nonJsonFetch = vi.fn(async () => new Response('not json'));
+    const nonJsonFetch = vi.fn(async () => new Response('login=LOGIN_TEMOIN&password=MDP_TEMOIN not json'));
     await new HttpClariprintQuoteGateway('https://clariprint.test/optimproject/json.wcl', 'l', 'p', nonJsonFetch as unknown as typeof fetch, logger).quote({ clariprint: {} }, 'req-non-json');
     expect(entries[1]).toMatchObject({ outcome: 'unavailable' });
+    expect(entries[1]?.verdict.failureCategory).toBe('non_json');
+    expect(entries[1]?.verdict.upstreamError).toBeNull();
+
+    const serialized = JSON.stringify(entries);
+    expect(serialized).not.toContain('LOGIN_TEMOIN');
+    expect(serialized).not.toContain('MDP_TEMOIN');
+    expect(serialized).not.toContain('<html>');
   });
 
   it('journalise not_configured quand les identifiants sont absents, sans appeler fetch', async () => {
@@ -296,6 +323,23 @@ describe('HttpClariprintQuoteGateway — verdict journalisé', () => {
     expect(serializedVerdict).not.toContain('ImprimeurReelSecret1');
     expect(serializedVerdict).not.toContain('ImprimeurReelSecret2');
     expect(serializedVerdict).not.toContain('ImprimeurReelSecret3');
+  });
+
+  // Arbitrage architecte (qa-review de d8a0a57b, point (3)) : `payload.error`
+  // peut nommer un imprimeur du parc — il est admis au journal APRES
+  // substitution par l ordinal, jamais tel quel.
+  it('substitue le nom d imprimeur present dans payload.error avant de le journaliser', async () => {
+    const { logger, entries } = spyLogger();
+    const fetchMock = vi.fn(async () => Response.json({
+      success: false,
+      error: 'Aucun papier disponible chez ImprimerieSecreteDuParc pour cette gamme',
+      all_process: [{ printer: 'ImprimerieSecreteDuParc' }],
+    }));
+    const gateway = new HttpClariprintQuoteGateway('https://clariprint.test/optimproject/json.wcl', 'l', 'p', fetchMock as unknown as typeof fetch, logger);
+    await gateway.quote({ clariprint: {} }, 'req-substitution');
+    expect(entries[0]?.verdict.upstreamError).toBe('Aucun papier disponible chez imprimeur_1 pour cette gamme');
+    expect(entries[0]?.verdict.errorClass).toBe('unclassified');
+    expect(JSON.stringify(entries[0])).not.toContain('ImprimerieSecreteDuParc');
   });
 
   it('expurge reference et address de la charge envoyee dans le verdict, mais garde le reste', async () => {

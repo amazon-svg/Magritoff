@@ -9,17 +9,26 @@
  * le compte Clariprint de la plateforme.
  *
  * Trois phases, arrêt dès que la question est tranchée (point 2.3, tableau) :
- *  - A (4 appels au plus) : CheckAuth ×1, puis la charge exacte du smoke
- *    (A5) ×3, identique — tranche les identifiants et le déterminisme du
- *    `-1`.
- *  - B (≤ 10) : une dimension à la fois, dans l'ordre du soupçon — tranche
- *    la cause du `-1`.
- *  - C (≤ 4) : chacun des quatre codes de finition du référentiel
+ *  - A (4 appels au plus) : CheckAuth ×1 (A1), puis la charge exacte du
+ *    smoke (A5) ×3, identique (A2..A4) — tranche les identifiants et le
+ *    déterminisme du `-1`.
+ *  - B (≤ 10, B1..B10) : une dimension à la fois, dans l'ordre du soupçon —
+ *    tranche la cause du `-1`.
+ *  - C (≤ 4, C1..C4) : chacun des quatre codes de finition du référentiel
  *    (`clariprint-finishing-codes.ts`) que la base ne porte pas déjà —
  *    tranche les codes que le compte accepte.
  *
+ * `step_id` (A1…A4, B1…B10, C1…C4) et `variant` (dimension changée + valeur
+ * posée) sont écrits tels quels dans l'archive commitée du banc
+ * (`calls.json`, arbitrage architecte qa-review de `d8a0a57b`, point (2)) :
+ * ce sont des identifiants et des paramètres DÉCLARÉS ici, jamais un texte
+ * libre venu d'une réponse Clariprint.
+ *
  * Nombre fixé avant de lancer : 18 appels au plus (4 + 10 + 4).
  */
+
+/** Version du plan déclaré, écrite dans l'archive (`calls.json`, `plan_version`). */
+export const PLAN_VERSION = '1';
 
 /** Plafond écrit dans le code (Q7, décision d'Arnaud du 2026-09-15). */
 export const MAX_BILLED_CALLS = 18;
@@ -84,18 +93,19 @@ function withSizeInsteadOfWidthHeight(charge) {
  * B3 `finishing_front: ""` · B4 `papers.of` · B5 `back_colors` absent ·
  * B6 encre `"4color"` · B7 `"quadri"` · B8 `deliveries` en tableau ·
  * B9 `size` au lieu de `width`/`height` · B10 `with_bleeds: "0"`.
+ * `variant` est le couple {dimension, value} ÉCRIT TEL QUEL dans l'archive.
  */
 export const PHASE_B_VARIANTS = Object.freeze([
-  { id: 'B1', label: 'qualité "Couché Mat PEFC"', apply: (charge) => withPapersQuality(charge, 'Couché Mat PEFC') },
-  { id: 'B2', label: 'qualité "Offset Blanc"', apply: (charge) => withPapersQuality(charge, 'Offset Blanc') },
-  { id: 'B3', label: 'finishing_front vide', apply: (charge) => ({ ...charge, finishing_front: '' }) },
-  { id: 'B4', label: 'papers.of au lieu de papers.custom', apply: (charge) => withPapersKey(charge, 'of') },
-  { id: 'B5', label: 'back_colors absent', apply: (charge) => withoutKey(charge, 'back_colors') },
-  { id: 'B6', label: 'encre "4color"', apply: (charge) => withInkCode(charge, '4color') },
-  { id: 'B7', label: 'encre "quadri"', apply: (charge) => withInkCode(charge, 'quadri') },
-  { id: 'B8', label: 'deliveries en tableau', apply: (charge) => withDeliveriesAsArray(charge) },
-  { id: 'B9', label: '"size" au lieu de width/height', apply: (charge) => withSizeInsteadOfWidthHeight(charge) },
-  { id: 'B10', label: 'with_bleeds "0"', apply: (charge) => ({ ...charge, with_bleeds: '0' }) },
+  { id: 'B1', variant: { dimension: 'papers.quality', value: 'Couché Mat PEFC' }, apply: (charge) => withPapersQuality(charge, 'Couché Mat PEFC') },
+  { id: 'B2', variant: { dimension: 'papers.quality', value: 'Offset Blanc' }, apply: (charge) => withPapersQuality(charge, 'Offset Blanc') },
+  { id: 'B3', variant: { dimension: 'finishing_front', value: '' }, apply: (charge) => ({ ...charge, finishing_front: '' }) },
+  { id: 'B4', variant: { dimension: 'papers.key', value: 'of' }, apply: (charge) => withPapersKey(charge, 'of') },
+  { id: 'B5', variant: { dimension: 'back_colors', value: 'absent' }, apply: (charge) => withoutKey(charge, 'back_colors') },
+  { id: 'B6', variant: { dimension: 'ink_code', value: '4color' }, apply: (charge) => withInkCode(charge, '4color') },
+  { id: 'B7', variant: { dimension: 'ink_code', value: 'quadri' }, apply: (charge) => withInkCode(charge, 'quadri') },
+  { id: 'B8', variant: { dimension: 'deliveries', value: 'array' }, apply: (charge) => withDeliveriesAsArray(charge) },
+  { id: 'B9', variant: { dimension: 'dimensions', value: 'size' }, apply: (charge) => withSizeInsteadOfWidthHeight(charge) },
+  { id: 'B10', variant: { dimension: 'with_bleeds', value: '0' }, apply: (charge) => ({ ...charge, with_bleeds: '0' }) },
 ]);
 
 /** Un code de finition figure-t-il déjà dans la charge (front OU back) ? */
@@ -106,6 +116,32 @@ export function chargeAlreadyHasFinishing(charge, code) {
 /** Applique un code de finition en façade (`finishing_front`), pour la phase C. */
 export function withFinishingCode(charge, code) {
   return { ...charge, finishing_front: code };
+}
+
+/** Champs de texte libre pouvant porter le nom ou l'adresse d'une personne. */
+const CHARGE_FORBIDDEN_KEYS = new Set(['reference', 'address']);
+
+function expurgeChargeDeep(value) {
+  if (Array.isArray(value)) return value.map(expurgeChargeDeep);
+  if (value && typeof value === 'object') {
+    const result = {};
+    for (const [key, entryValue] of Object.entries(value)) {
+      if (CHARGE_FORBIDDEN_KEYS.has(key)) continue;
+      result[key] = expurgeChargeDeep(entryValue);
+    }
+    return result;
+  }
+  return value;
+}
+
+/**
+ * Expurge une charge (mode sec, `input.json` de l'archive) : sans
+ * `reference` ni aucun `address`, à quelque profondeur. Le mode sec DOIT
+ * imprimer les charges (« il imprime le plan, LES CHARGES et le décompte »)
+ * — jamais les textes libres qu'elles peuvent porter.
+ */
+export function expurgeChargeForDisplay(charge) {
+  return expurgeChargeDeep(charge);
 }
 
 /**
@@ -119,16 +155,28 @@ export function withFinishingCode(charge, code) {
  * d'appels que ce plan n'en déclare.
  */
 export function buildWorstCasePlan(baseCharge) {
-  const steps = [{ id: 'A0', phase: 'A', kind: 'check_auth', label: 'CheckAuth' }];
-  for (let i = 1; i <= PHASE_A_REPEAT_COUNT; i += 1) {
-    steps.push({ id: `A${i}`, phase: 'A', kind: 'quote', label: 'charge exacte du smoke (A5), identique', charge: baseCharge });
+  const steps = [{ id: 'A1', phase: 'A', kind: 'check_auth', variant: null }];
+  for (let i = 0; i < PHASE_A_REPEAT_COUNT; i += 1) {
+    steps.push({
+      id: `A${i + 2}`,
+      phase: 'A',
+      kind: 'quote',
+      variant: { dimension: 'baseline', value: 'smoke_A5' },
+      charge: baseCharge,
+    });
   }
   for (const variant of PHASE_B_VARIANTS) {
-    steps.push({ id: variant.id, phase: 'B', kind: 'quote', label: variant.label, charge: variant.apply(baseCharge) });
+    steps.push({ id: variant.id, phase: 'B', kind: 'quote', variant: variant.variant, charge: variant.apply(baseCharge) });
   }
-  for (const code of PHASE_C_FINISHING_CODES) {
-    steps.push({ id: `C_${code}`, phase: 'C', kind: 'quote', label: `finition ${code}`, charge: withFinishingCode(baseCharge, code) });
-  }
+  PHASE_C_FINISHING_CODES.forEach((code, index) => {
+    steps.push({
+      id: `C${index + 1}`,
+      phase: 'C',
+      kind: 'quote',
+      variant: { dimension: 'finishing_front', value: code },
+      charge: withFinishingCode(baseCharge, code),
+    });
+  });
   return steps;
 }
 

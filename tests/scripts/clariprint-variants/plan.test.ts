@@ -6,6 +6,7 @@ import {
   PHASE_C_FINISHING_CODES,
   buildWorstCasePlan,
   chargeAlreadyHasFinishing,
+  expurgeChargeForDisplay,
   planCallsByPhase,
   withFinishingCode,
 } from '../../../scripts/diagnostics/clariprint-variants/plan.mjs';
@@ -48,11 +49,13 @@ describe('buildWorstCasePlan', () => {
     expect(byPhase.C).toBe(4);
   });
 
-  it('la phase A commence par un CheckAuth puis 3 fois EXACTEMENT la meme charge (point 2.3)', () => {
+  // Arbitrage architecte (qa-review de d8a0a57b, point (2)) : step_id
+  // enumere A1...A4, B1...B10, C1...C4 — A1 est desormais le CheckAuth.
+  it('la phase A commence par un CheckAuth (A1) puis 3 fois EXACTEMENT la meme charge (A2..A4)', () => {
     const plan = buildWorstCasePlan(BASE_CHARGE);
-    expect(plan[0]).toMatchObject({ id: 'A0', phase: 'A', kind: 'check_auth' });
+    expect(plan[0]).toMatchObject({ id: 'A1', phase: 'A', kind: 'check_auth', variant: null });
     const phaseAQuotes = plan.filter((step) => step.phase === 'A' && step.kind === 'quote');
-    expect(phaseAQuotes).toHaveLength(3);
+    expect(phaseAQuotes.map((step) => step.id)).toEqual(['A2', 'A3', 'A4']);
     for (const step of phaseAQuotes) expect(step.charge).toEqual(BASE_CHARGE);
   });
 
@@ -62,15 +65,25 @@ describe('buildWorstCasePlan', () => {
     expect(phaseBIds).toEqual(['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B9', 'B10']);
   });
 
-  it('la phase C porte les quatre codes du referentiel des finitions, EXACTEMENT ceux de src/modules/clariprint', () => {
+  it('la phase C porte les quatre codes du referentiel des finitions (id C1..C4), EXACTEMENT ceux de src/modules/clariprint', () => {
     const plan = buildWorstCasePlan(BASE_CHARGE);
-    const phaseCIds = plan.filter((step) => step.phase === 'C').map((step) => step.id);
-    expect(phaseCIds).toEqual(PHASE_C_FINISHING_CODES.map((code) => `C_${code}`));
+    const phaseCSteps = plan.filter((step) => step.phase === 'C');
+    expect(phaseCSteps.map((step) => step.id)).toEqual(['C1', 'C2', 'C3', 'C4']);
+    expect(phaseCSteps.map((step) => step.variant.value)).toEqual([...PHASE_C_FINISHING_CODES]);
     // Le referentiel applicatif (src/modules/clariprint) et la copie
     // declarative du banc (plan.mjs, hors perimetre tsc) ne doivent jamais
     // diverger : les quatre codes sont les memes cles, moins la ligne vide.
     const referentialCodes = Object.keys(CLARIPRINT_FINISHING_LABELS).filter((code) => code !== '');
     expect([...PHASE_C_FINISHING_CODES].sort()).toEqual([...referentialCodes].sort());
+  });
+});
+
+describe('expurgeChargeForDisplay', () => {
+  it('retire reference et address a toute profondeur (mode sec : "il imprime le plan, les charges")', () => {
+    const result = expurgeChargeForDisplay(BASE_CHARGE);
+    expect(result).not.toHaveProperty('reference');
+    expect(result.deliveries.d_livraison).not.toHaveProperty('address');
+    expect(result.quantity).toBe('500');
   });
 });
 
