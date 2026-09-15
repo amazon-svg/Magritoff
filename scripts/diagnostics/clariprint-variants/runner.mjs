@@ -25,6 +25,7 @@ import {
   countAllProcess,
   countFaultyProcess,
   boundedResponseRaw,
+  shouldIncludeResponseRaw,
   substituteKnownNames,
 } from './classification.mjs';
 import { buildCallRecord, buildCampaignSummary } from './archive.mjs';
@@ -113,7 +114,14 @@ export async function runClariprintVariantsBench({
     const payload = rawResult.payload;
     const errorText = payload && typeof payload.error === 'string' ? payload.error : null;
     const errorPresent = errorText !== null;
-    const responseRaw = classified.outcome === 'invalid_price' ? boundedResponseRaw(classified.rawValue) : undefined;
+    // qa-review round 2 (MOYEN, sonde n°1) : `response_raw` n'est ecrit que
+    // pour une anomalie NUMERIQUE (negative/not_finite/zero), jamais pour un
+    // texte ou un objet — meme quand `outcome` vaut `invalid_price` (un
+    // `success` non strictement booleen classe deja `positive`/`non_number`
+    // en `invalid_price`, sans que ce soit un `response_raw` admissible).
+    const responseRaw = classified.outcome === 'invalid_price' && shouldIncludeResponseRaw(classified.responseClass)
+      ? boundedResponseRaw(classified.rawValue)
+      : undefined;
     const record = buildCallRecord({
       ordinal,
       stepId,

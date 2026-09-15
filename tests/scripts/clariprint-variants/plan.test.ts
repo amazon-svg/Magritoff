@@ -35,7 +35,21 @@ describe('MAX_BILLED_CALLS', () => {
 });
 
 describe('buildWorstCasePlan', () => {
-  it('compte exactement 18 etapes dans le pire cas (4 + 10 + 4)', () => {
+  // qa-review round 2 (BAS, résidu n°3) : « le nombre annoncé est celui que
+  // le code exécute » (point 2.3). Si la charge de base porte DEJA l un des
+  // quatre codes de finition (cas reel : la charge A5 du smoke porte
+  // PELLIC_ACETATE_MAT), le plan NE DOIT PAS annoncer cet appel — le
+  // runner (`runPhaseC`) ne le rejoue jamais.
+  it('filtre la phase C exactement comme le runner : 17 etapes (pas 18) si la charge porte deja une finition', () => {
+    const chargeWithFinishing = { ...BASE_CHARGE, finishing_front: PHASE_C_FINISHING_CODES[1] };
+    const plan = buildWorstCasePlan(chargeWithFinishing);
+    expect(plan).toHaveLength(17);
+    const phaseCIds = plan.filter((step) => step.phase === 'C').map((step) => step.id);
+    // Le code deja porte est PHASE_C_FINISHING_CODES[1] -> id C2 absent.
+    expect(phaseCIds).toEqual(['C1', 'C3', 'C4']);
+  });
+
+  it('compte exactement 18 etapes dans le pire cas (4 + 10 + 4), quand la charge ne porte AUCUNE finition', () => {
     const plan = buildWorstCasePlan(BASE_CHARGE);
     expect(plan).toHaveLength(MAX_BILLED_CALLS);
   });

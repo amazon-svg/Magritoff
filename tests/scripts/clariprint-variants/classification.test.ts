@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   boundedResponseRaw,
   classifyCheckAuthCall,
@@ -7,7 +7,9 @@ import {
   collectKnownPrinterNames,
   performRawCall,
   RESPONSE_RAW_MAX_LENGTH,
+  shouldIncludeResponseRaw,
   substituteKnownNames,
+  TRANSPORT_TIMEOUT_MS,
 } from '../../../scripts/diagnostics/clariprint-variants/classification.mjs';
 
 function jsonResponse(body, status = 200) {
@@ -48,6 +50,41 @@ describe('performRawCall', () => {
     expect(result.httpStatus).toBe(404);
   });
 
+  // qa-review round 2 (MOYEN, K2) : un 403 dont le corps contient
+  // `{success:false}` ne doit JAMAIS etre lu — le corps n'est pas lu du
+  // tout sur un non-2xx (4xx compris), donc `payload` reste `null`.
+  it('un 403 avec un corps {success:false} ne lit PAS le corps (payload reste null)', async () => {
+    let bodyRead = false;
+    const fetchImpl = async () => {
+      const response = new Response(JSON.stringify({ success: false }), { status: 403 });
+      const originalText = response.text.bind(response);
+      response.text = async () => { bodyRead = true; return originalText(); };
+      return response;
+    };
+    const result = await performRawCall(fetchImpl, 'https://host.invalid', 'body');
+    expect(result).toEqual({ transport: 'ok', httpStatus: 403, payload: null, ok2xx: false });
+    expect(bodyRead).toBe(false);
+  });
+
+  // qa-review round 2 (BAS, resu #2) : le delai doit bornera la LECTURE du
+  // corps, pas seulement l obtention de la reponse HTTP. Un corps qui ne se
+  // termine jamais ne doit jamais bloquer indefiniment : timeout attendu.
+  it('un corps qui ne se termine jamais donne timeout apres le delai (la lecture du corps est bornee)', async () => {
+    vi.useFakeTimers();
+    try {
+      const fetchImpl = async () => ({
+        status: 200,
+        text: () => new Promise(() => { /* ne se resout jamais */ }),
+      });
+      const resultPromise = performRawCall(fetchImpl, 'https://host.invalid', 'body');
+      await vi.advanceTimersByTimeAsync(TRANSPORT_TIMEOUT_MS + 1);
+      const result = await resultPromise;
+      expect(result).toEqual({ transport: 'timeout', httpStatus: null, payload: null, ok2xx: false });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("un corps non-JSON sur un 2xx donne transport='non_json'", async () => {
     const fetchImpl = async () => new Response('not json', { status: 200 });
     const result = await performRawCall(fetchImpl, 'https://host.invalid', 'body');
@@ -68,6 +105,16 @@ describe('classifyCheckAuthCall', () => {
     }
     expect(classifyCheckAuthCall({ transport: 'ok', httpStatus: 503, payload: null, ok2xx: false })).toMatchObject({ outcome: 'transport_failure', httpStatus: 503 });
     expect(classifyCheckAuthCall({ transport: 'ok', httpStatus: 404, payload: null, ok2xx: false })).toMatchObject({ outcome: 'transport_failure', httpStatus: 404 });
+  });
+
+  // qa-review round 2 (MOYEN, K2) : un 403 (4xx) accompagne d un
+  // `{success:false}` — meme si un futur `performRawCall` peuplait `payload`
+  // par erreur sur un non-2xx — reste une `transport_failure`, JAMAIS
+  // `auth_refused`. `ok2xx=false` doit primer sur tout contenu de `payload`.
+  it('un 403 avec un corps {success:false} donne transport_failure, JAMAIS auth_refused', () => {
+    const result = classifyCheckAuthCall({ transport: 'ok', httpStatus: 403, payload: { success: false }, ok2xx: false });
+    expect(result.outcome).toBe('transport_failure');
+    expect(result.outcome).not.toBe('auth_refused');
   });
 
   it('JSON success:false -> auth_refused', () => {
@@ -117,6 +164,52 @@ describe('classifyQuoteCall', () => {
     expect(classifyQuoteCall({ transport: 'ok', httpStatus: 200, payload: { success: true }, ok2xx: true }).outcome).toBe('invalid_price');
     expect(classifyQuoteCall({ transport: 'ok', httpStatus: 200, payload: { success: true, response: 'x' }, ok2xx: true }).outcome).toBe('invalid_price');
   });
+
+  // qa-review round 2 (MOYEN, K2) : un 403 (4xx) reste une transport_failure,
+  // jamais `refused`, meme si `payload` etait (a tort) peuple.
+  it('un 403 avec un corps {success:false} donne transport_failure, JAMAIS refused', () => {
+    const result = classifyQuoteCall({ transport: 'ok', httpStatus: 403, payload: { success: false }, ok2xx: false });
+    expect(result.outcome).toBe('transport_failure');
+    expect(result.outcome).not.toBe('refused');
+  });
+});
+
+describe('shouldIncludeResponseRaw (qa-review round 2, MOYEN, sonde n°1)', () => {
+  it('autorise UNIQUEMENT les trois classes d anomalie numerique', () => {
+    expect(shouldIncludeResponseRaw('negative')).toBe(true);
+    expect(shouldIncludeResponseRaw('not_finite')).toBe(true);
+    expect(shouldIncludeResponseRaw('zero')).toBe(true);
+    expect(shouldIncludeResponseRaw('positive')).toBe(false);
+    expect(shouldIncludeResponseRaw('non_number')).toBe(false);
+    expect(shouldIncludeResponseRaw('absent')).toBe(false);
+  });
+
+  // Sonde qa n°1 : success:"true" (CHAINE, pas le booleen) avec
+  // response:178.95 classe en invalid_price/positive — response_raw NE DOIT
+  // PAS en sortir (ce serait un prix positif dans l archive commitee).
+  it("sonde 1 : success chaine 'true' + response positif -> invalid_price/positive, response_raw INTERDIT", () => {
+    const classified = classifyQuoteCall({ transport: 'ok', httpStatus: 200, payload: { success: 'true', response: 178.95 }, ok2xx: true });
+    expect(classified.outcome).toBe('invalid_price');
+    expect(classified.responseClass).toBe('positive');
+    expect(shouldIncludeResponseRaw(classified.responseClass)).toBe(false);
+  });
+
+  // Sonde qa n°2 : response en texte (nom d imprimeur) -> non_number,
+  // response_raw INTERDIT.
+  it('sonde 2 : response en texte -> non_number, response_raw INTERDIT', () => {
+    const classified = classifyQuoteCall({ transport: 'ok', httpStatus: 200, payload: { success: true, response: 'Aucun stock chez ImprimerieDupont' }, ok2xx: true });
+    expect(classified.outcome).toBe('invalid_price');
+    expect(classified.responseClass).toBe('non_number');
+    expect(shouldIncludeResponseRaw(classified.responseClass)).toBe(false);
+  });
+
+  // Sonde qa n°3 : response en objet -> non_number, response_raw INTERDIT.
+  it('sonde 3 : response en objet -> non_number, response_raw INTERDIT', () => {
+    const classified = classifyQuoteCall({ transport: 'ok', httpStatus: 200, payload: { success: true, response: { html: '<div>x</div>' } }, ok2xx: true });
+    expect(classified.outcome).toBe('invalid_price');
+    expect(classified.responseClass).toBe('non_number');
+    expect(shouldIncludeResponseRaw(classified.responseClass)).toBe(false);
+  });
 });
 
 describe('collectKnownPrinterNames', () => {
@@ -147,6 +240,12 @@ describe('substituteKnownNames', () => {
 
   it('ne modifie pas le texte si aucun nom ne correspond', () => {
     expect(substituteKnownNames('Texte neutre', ['ImprimerieAlpha'])).toBe('Texte neutre');
+  });
+
+  // qa-review round 2 (BAS, residu n°1) : substitution INSENSIBLE A LA CASSE.
+  it('substitue independamment de la casse', () => {
+    expect(substituteKnownNames('probleme chez imprimeriealpha', ['ImprimerieAlpha'])).toBe('probleme chez imprimeur_1');
+    expect(substituteKnownNames('Probleme chez IMPRIMERIEALPHA', ['ImprimerieAlpha'])).toBe('Probleme chez imprimeur_1');
   });
 });
 

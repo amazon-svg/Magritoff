@@ -239,6 +239,84 @@ describe('buildClariprintQuoteVerdict', () => {
     expect(verdict.upstreamError).toBe('imprimeur_1 indisponible');
   });
 
+  // qa-review round 2 (BAS, G10b) : une CLE de `all_faulty_process`, citee
+  // dans `error`, doit etre substituee — AUCUNE entree `all_process` ni
+  // `fournisseur` ici : la seule source du nom est la cle de
+  // `all_faulty_process`.
+  it('substitue une cle de all_faulty_process citee dans upstreamError (seule source, ni all_process ni fournisseur)', () => {
+    const verdict = buildClariprintQuoteVerdict({
+      upstreamStatus: 200,
+      upstreamSuccess: false,
+      upstreamError: 'Refus global : voir ImprimerieDesFlandres pour le detail',
+      allFaultyProcess: { ImprimerieDesFlandres: 'papier indisponible' },
+      durationMs: 1,
+      sentConfig: {},
+    });
+    expect(verdict.upstreamError).toBe('Refus global : voir imprimeur_1 pour le detail');
+    expect(verdict.upstreamError).not.toContain('ImprimerieDesFlandres');
+  });
+
+  // qa-review round 2 (BAS, résidu n°1) : substitution INSENSIBLE A LA CASSE.
+  it('substitue independamment de la casse dans upstreamError', () => {
+    const verdict = buildClariprintQuoteVerdict({
+      upstreamStatus: 200,
+      upstreamSuccess: false,
+      upstreamError: 'probleme chez imprimeriedupont',
+      fournisseur: 'ImprimerieDupont',
+      durationMs: 1,
+      sentConfig: {},
+    });
+    expect(verdict.upstreamError).toBe('probleme chez imprimeur_1');
+  });
+
+  // qa-review round 2 (BAS, résidu n°3) : `rawResponseValue`, quand c est un
+  // TEXTE, doit lui aussi subir la substitution — avant troncature.
+  it('substitue les noms connus DANS rawResponseValue quand c est un texte', () => {
+    const verdict = buildClariprintQuoteVerdict({
+      upstreamStatus: 200,
+      upstreamSuccess: true,
+      rawResponseValue: 'prix via ImprimerieDupont',
+      fournisseur: 'ImprimerieDupont',
+      durationMs: 1,
+      sentConfig: {},
+    });
+    expect(verdict.rawResponseValue).toBe('prix via imprimeur_1');
+    expect(verdict.rawResponseValue).not.toContain('ImprimerieDupont');
+  });
+
+  // qa-review round 2 (BAS, G8) : ORDRE substitution PUIS troncature à 500
+  // caractères. Un nom à cheval sur la limite ne doit laisser AUCUN
+  // fragment si la substitution a bien lieu avant la coupe.
+  it('G8 : substitue AVANT de tronquer a 500 caracteres — aucun fragment du nom ne survit a la limite', () => {
+    const name = 'ImprimerieDesFlandresATP'; // 24 caracteres, a cheval sur la position 500
+    const prefix = 'x'.repeat(490);
+    const suffix = 'y'.repeat(50);
+    const verdict = buildClariprintQuoteVerdict({
+      upstreamStatus: 200,
+      upstreamSuccess: false,
+      upstreamError: `${prefix}${name}${suffix}`,
+      fournisseur: name,
+      durationMs: 1,
+      sentConfig: {},
+    });
+    expect(verdict.upstreamError).toHaveLength(UPSTREAM_ERROR_MAX_LENGTH);
+    expect(verdict.upstreamError).not.toMatch(/Imprimerie|Flandres/i);
+  });
+
+  // qa-review round 2 (BAS, G8b) : meme regle pour `all_faulty_process`,
+  // dont chaque detail est tronque a 300 caracteres.
+  it('G8b : substitue AVANT de tronquer a 300 caracteres (all_faulty_process) — aucun fragment ne survit', () => {
+    const name = 'ImprimerieDesFlandresATP'; // 24 caracteres, a cheval sur la position 300
+    const prefix = 'x'.repeat(290);
+    const suffix = 'y'.repeat(50);
+    const result = expurgeAllFaultyProcess(
+      { gamme_offset: `${prefix}${name}${suffix}` },
+      new Map([[name, 'imprimeur_1']]),
+    );
+    expect(result[0]?.detail).toHaveLength(300);
+    expect(result[0]?.detail).not.toMatch(/Imprimerie|Flandres/i);
+  });
+
   it('errorClass est null quand aucun texte amont n est fourni', () => {
     const verdict = buildClariprintQuoteVerdict({ upstreamStatus: 200, upstreamSuccess: true, rawResponseValue: 5, durationMs: 1, sentConfig: {} });
     expect(verdict.errorClass).toBeNull();

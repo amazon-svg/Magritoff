@@ -342,6 +342,23 @@ describe('HttpClariprintQuoteGateway — verdict journalisé', () => {
     expect(JSON.stringify(entries[0])).not.toContain('ImprimerieSecreteDuParc');
   });
 
+  // qa-review round 2 (BAS, G12) : sur le chemin success:false, la
+  // PASSERELLE (pas seulement la fonction pure) doit transmettre
+  // `fournisseur` au verdict — ce test n a NI all_process NI
+  // all_faulty_process : `fournisseur` est la SEULE source du nom.
+  it("transmet fournisseur au verdict sur le chemin success:false (test de la passerelle, pas seulement de la fonction pure)", async () => {
+    const { logger, entries } = spyLogger();
+    const fetchMock = vi.fn(async () => Response.json({
+      success: false,
+      error: 'ImprimerieDuNordEtDeLEst indisponible pour cette gamme',
+      fournisseur: 'ImprimerieDuNordEtDeLEst',
+    }));
+    const gateway = new HttpClariprintQuoteGateway('https://clariprint.test/optimproject/json.wcl', 'l', 'p', fetchMock as unknown as typeof fetch, logger);
+    await gateway.quote({ clariprint: {} }, 'req-fournisseur-substitution');
+    expect(entries[0]?.verdict.upstreamError).toBe('imprimeur_1 indisponible pour cette gamme');
+    expect(JSON.stringify(entries[0])).not.toContain('ImprimerieDuNordEtDeLEst');
+  });
+
   it('expurge reference et address de la charge envoyee dans le verdict, mais garde le reste', async () => {
     const { logger, entries } = spyLogger();
     const fetchMock = vi.fn(async () => Response.json({ success: true, response: 5 }));

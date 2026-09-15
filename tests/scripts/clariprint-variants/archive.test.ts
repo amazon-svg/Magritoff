@@ -47,6 +47,26 @@ describe('buildCallRecord — liste fermee (arbitrage architecte, point (2))', (
     expect(invalid.response_raw).toBe('-1');
   });
 
+  // qa-review round 2 (MOYEN, sonde n°1) — défense en profondeur : même si
+  // l'appelant passait quand même `responseRaw` pour un `response_class`
+  // non numérique (positive/non_number), `buildCallRecord` doit refuser de
+  // l'écrire lui-même.
+  it("refuse response_raw pour un response_class non autorise (positive/non_number), meme si l appelant le fournit", () => {
+    const positive = buildCallRecord({
+      ordinal: 1, stepId: 'A2', variant: null, startedAt: 'x', durationMs: 1,
+      classified: { outcome: 'invalid_price', transport: 'ok', httpStatus: 200, upstreamSuccess: false, responseClass: 'positive' },
+      responseRaw: '178.95',
+    });
+    expect(positive).not.toHaveProperty('response_raw');
+
+    const nonNumber = buildCallRecord({
+      ordinal: 1, stepId: 'A2', variant: null, startedAt: 'x', durationMs: 1,
+      classified: { outcome: 'invalid_price', transport: 'ok', httpStatus: 200, upstreamSuccess: true, responseClass: 'non_number' },
+      responseRaw: 'ImprimerieSecrete',
+    });
+    expect(nonNumber).not.toHaveProperty('response_raw');
+  });
+
   it('error_class vaut unclassified uniquement quand error_present est vrai', () => {
     const withError = buildCallRecord({ ordinal: 1, stepId: 'A2', variant: null, startedAt: 'x', durationMs: 1, classified: { outcome: 'refused', transport: 'ok', httpStatus: 200, upstreamSuccess: false }, errorPresent: true });
     expect(withError.error_class).toBe('unclassified');

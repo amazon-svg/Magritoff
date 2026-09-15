@@ -168,7 +168,14 @@ export function buildWorstCasePlan(baseCharge) {
   for (const variant of PHASE_B_VARIANTS) {
     steps.push({ id: variant.id, phase: 'B', kind: 'quote', variant: variant.variant, charge: variant.apply(baseCharge) });
   }
+  // qa-review round 2 (BAS, résidu n°3) : « le nombre annoncé est celui que
+  // le code exécute » (point 2.3). Le runner (`runPhaseC`, `runner.mjs`)
+  // FILTRE déjà les codes que `baseCharge` porte déjà — le plan déclaré du
+  // mode sec doit filtrer EXACTEMENT de la même façon, sinon il annonce un
+  // appel (et un plafond) que l'exécution réelle ne peut pas atteindre pour
+  // cette charge précise.
   PHASE_C_FINISHING_CODES.forEach((code, index) => {
+    if (chargeAlreadyHasFinishing(baseCharge, code)) return;
     steps.push({
       id: `C${index + 1}`,
       phase: 'C',

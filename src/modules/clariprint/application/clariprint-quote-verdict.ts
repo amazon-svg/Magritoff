@@ -175,11 +175,21 @@ function buildPrinterNameOrdinalMap(input: ClariprintQuoteVerdictInput): Readonl
   return map;
 }
 
-/** Remplace chaque nom connu (clé de la table) par son ordinal (valeur). Aucune correspondance : texte inchangé. */
+function escapeForRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Remplace chaque nom connu (clé de la table) par son ordinal (valeur).
+ * Aucune correspondance : texte inchangé. qa-review round 2 (BAS, résidu
+ * n°1) : substitution INSENSIBLE À LA CASSE — un nom d'imprimeur cité avec
+ * une casse différente de celle observée dans `all_process`/
+ * `all_faulty_process`/`fournisseur` doit sortir substitué tout autant.
+ */
 function substituteKnownNames(text: string, ordinalMap: ReadonlyMap<string, string>): string {
   let result = text;
   for (const [name, ordinal] of ordinalMap) {
-    result = result.split(name).join(ordinal);
+    result = result.replace(new RegExp(escapeForRegExp(name), 'gi'), ordinal);
   }
   return result;
 }
@@ -265,11 +275,16 @@ export function expurgeSentConfig(value: Readonly<Record<string, unknown>>): Cla
  * garde qu'un SCALAIRE (nombre, chaîne courte ou booléen), tronqué. Un objet
  * ou un tableau (qui peut porter `html`, `quote_process`, etc.) est
  * remplacé par son seul TYPE, jamais son contenu sérialisé.
+ *
+ * qa-review round 2 (BAS, résidu n°3) : quand `response` est un TEXTE (ex.
+ * `"prix via ImprimerieDupont"`), il subit la MÊME substitution des noms
+ * connus que `upstreamError`/`all_faulty_process`, AVANT troncature — sinon
+ * un nom d'imprimeur sortirait tel quel par ce champ.
  */
-function safeStringifyRawResponse(value: unknown): string | null {
+function safeStringifyRawResponse(value: unknown, ordinalMap: ReadonlyMap<string, string>): string | null {
   if (value === undefined) return null;
   if (value === null) return 'null';
-  if (typeof value === 'string') return truncateScalarString(value);
+  if (typeof value === 'string') return truncateScalarString(substituteKnownNames(value, ordinalMap));
   if (typeof value === 'number' || typeof value === 'boolean') return truncateScalarString(String(value));
   if (Array.isArray(value)) return '[array]';
   if (typeof value === 'object') return '[object]';
@@ -291,7 +306,7 @@ export function buildClariprintQuoteVerdict(input: ClariprintQuoteVerdictInput):
     upstreamError: truncateUpstreamError(substitutedUpstreamError),
     errorClass: rawUpstreamError === null ? null : 'unclassified',
     failureCategory: input.failureCategory ?? null,
-    rawResponseValue: safeStringifyRawResponse(input.rawResponseValue),
+    rawResponseValue: safeStringifyRawResponse(input.rawResponseValue, ordinalMap),
     allProcessCount: countAllProcessEntries(input.allProcess),
     allFaultyProcess: expurgeAllFaultyProcess(input.allFaultyProcess, ordinalMap),
     durationMs: input.durationMs,

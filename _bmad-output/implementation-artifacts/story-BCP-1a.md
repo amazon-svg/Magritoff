@@ -1,7 +1,7 @@
 ---
 id: BCP-1a
 epic: E10 — Gestion commerciale (chantier boutique "chaine des prix Magrit -> panier")
-status: done (implementation dev-story, ROUND 2 apres rejet qa-review + amendement architecte) — qa-review distincte requise avant merge
+status: done (implementation dev-story, ROUND 3 apres second rejet qa-review, partiel) — qa-review distincte requise avant merge
 branch: worktree isole agent-acbdfe468bc74da64, depuis feat/gescom-e10-4-entite-client @ e6e7e331
 depends_on: [BCP-0, BCP-0b]
 bloque: [campagne du banc (Arnaud, --execute), ecriture du contrat par l architecte (BCP-1b)]
@@ -436,3 +436,138 @@ Preuves brutes dans les logs de session ; resume ici.
   rien a supprimer avant l ecriture du contrat de BCP-1b, contrairement a la
   clause qui prevoit sa suppression a ce moment-la — cette clause s appliquera
   au premier fichier reellement produit par une campagne facturee.
+
+## ROUND 3 — qa-review round 2 REJETTE `1c0b8125`, sur un perimetre reduit
+
+La qa-review round 2 a valide le journal et la reponse publique sur les 7
+chemins sondes (35 mutations tuees), mais a trouve DEUX defauts MOYENS
+(bloquants avant la campagne facturee) et plusieurs points BAS sur les
+arbitrages memes de l architecte (§8.25 points (1)/(2)/(3)). Corriges dans
+le meme worktree, nouveau commit.
+
+### MOYEN 1 — `response_raw` pouvait porter un prix positif, un texte ou un objet
+
+**Le defaut.** `response_raw` etait ecrit pour TOUT `outcome === 'invalid_price'`,
+sans regarder `response_class`. Trois sondes qa :
+- `success:"true"` (chaine, pas le booleen) + `response:178.95` classe en
+  `invalid_price`/`positive` (puisque `payload.success === true` est faux
+  au sens strict) → `response_raw` aurait ecrit `"178.95"`, un PRIX POSITIF
+  dans l archive commitee ;
+- `response` en texte (nom d imprimeur) classe en `invalid_price`/`non_number`
+  → `response_raw` aurait ecrit le texte ;
+- `response` en objet classe aussi en `invalid_price`/`non_number` →
+  `response_raw` aurait serialise l objet.
+
+**La correction** (`classification.mjs`) : `RESPONSE_RAW_ALLOWED_CLASSES =
+['negative', 'not_finite', 'zero']` et `shouldIncludeResponseRaw(responseClass)`
+— LA seule porte d entree. `runner.mjs` ne calcule `responseRaw` que si
+`shouldIncludeResponseRaw(classified.responseClass)` est vrai. **Défense en
+profondeur** : `archive.mjs` (`buildCallRecord`) réapplique le même filtre
+lui-même, indépendamment de ce que l'appelant lui passerait.
+
+### MOYEN 2 — 4xx non teste (K2)
+
+**Le defaut.** Le code respectait deja la regle (« `!ok2xx` vérifié en
+premier, `payload` jamais lu ») mais aucun test ne le prouvait pour un 403
+accompagne d un corps `{success:false}`, ni pour `CheckAuth` ni pour un
+chiffrage.
+
+**La correction.** Tests ajoutes a trois niveaux : `classification.mjs`
+(fonctions pures, avec un `payload` défensivement peuplé sur `ok2xx:false`),
+`runner.mjs` (intégration, même scénario via l'exécuteur), et
+`performRawCall` (test réel : un 403 avec un corps JSON `{success:false}`
+ne lit **jamais** le corps — `bodyRead` reste `false`).
+
+### BAS — résidus et sources non testées
+
+- **G8/G8b (ordre substitution → troncature).** Tests avec un nom
+  d'imprimeur À CHEVAL sur la limite (500 caractères pour `upstreamError`,
+  300 pour chaque détail de `all_faulty_process`) : aucun fragment du nom
+  ne doit survivre. Le code était déjà correct (substitution avant
+  troncature) ; les tests ne le prouvaient pas.
+- **G10b (source `all_faulty_process`).** Une CLÉ de `all_faulty_process`
+  citée dans `error`, SANS aucune entrée `all_process` ni `fournisseur`,
+  doit être substituée. Le code était déjà correct ; test ajouté.
+- **G12 (passerelle, pas seulement la fonction pure).** Test AU NIVEAU DE
+  LA PASSERELLE (`http-clariprint-quote-gateway.test.ts`) : sur le chemin
+  `success:false`, avec `fournisseur` comme SEULE source du nom (aucun
+  `all_process`), la passerelle transmet bien `fournisseur` au verdict.
+- **Plan de 17, pas 18 (`buildWorstCasePlan`).** Corrigé : la phase C du
+  plan déclaré filtre désormais les codes déjà portés par `baseCharge`,
+  EXACTEMENT comme `runPhaseC` du runner. Pour une charge qui porte déjà
+  une finition (cas réel : la charge A5 du smoke porte
+  `PELLIC_ACETATE_MAT`), le mode sec annonce 17, pas 18.
+- **`rawResponseValue` non substitué.** Corrigé : quand `response` est un
+  TEXTE (ex. `"prix via ImprimerieDupont"`), il subit désormais la même
+  substitution que `upstreamError`/`all_faulty_process`, avant troncature.
+- **Substitution insensible à la casse.** `substituteKnownNames` (TS ET
+  JS) utilise désormais une regex `gi` (au lieu d'un `split`/`join` exact)
+  — un nom cité avec une casse différente est substitué tout autant.
+- **`performRawCall` : le délai borne aussi la LECTURE du corps.**
+  Réécrit avec une course (`Promise.race`) entre la tentative complète
+  (fetch + lecture du corps) et un minuteur, au lieu d'un simple
+  `AbortSignal` posé sur `fetch()` (qui ne couvre pas la lecture du corps
+  pour un `fetchImpl` factice de test). Test avec un corps qui ne se
+  termine jamais : `timeout` après `TRANSPORT_TIMEOUT_MS`, jamais un
+  blocage indéfini.
+
+### Tableau mutation → test (EXÉCUTÉ)
+
+Chaque ligne : le code corrigé a été temporairement remplacé par la
+mutation décrite, le test cible a été rejoué en RÉEL (pas par lecture), a
+échoué, puis le code a été restauré et le test repasse au vert.
+
+| # | Mutation | Fichier muté | Test qui la tue | Résultat observé |
+|---|---|---|---|---|
+| response_raw sonde 1 | `shouldIncludeResponseRaw` retourne toujours `true` | `classification.mjs` | `classification.test.ts` (3 sondes) + `runner.test.ts` (3 sondes bout-en-bout) | 4 tests échouent (`expected true to be false`) |
+| response_raw defense-en-profondeur | `buildCallRecord` n'appelle plus `shouldIncludeResponseRaw` | `archive.mjs` | `archive.test.ts` : *"refuse response_raw pour un response_class non autorise..."* | `positive` reçoit `response_raw:"178.95"` au lieu d'aucune propriété |
+| K2 CheckAuth | `classifyCheckAuthCall` teste `payload.success===false` AVANT `!ok2xx` | `classification.mjs` | `classification.test.ts` + `runner.test.ts` : *"un 403 avec un corps {success:false}..."* | `auth_refused` au lieu de `transport_failure` |
+| K2 Quote | `classifyQuoteCall` teste `payload.success===false` AVANT `!ok2xx` | `classification.mjs` | `classification.test.ts` + `runner.test.ts` : *"un chiffrage en 403..."* | `refused` au lieu de `transport_failure` |
+| Casse (JS) | `substituteKnownNames` utilise le flag `'g'` au lieu de `'gi'` | `classification.mjs` | `classification.test.ts` : *"substitue independamment de la casse"* | nom en minuscules non substitué |
+| Casse (TS) | idem | `clariprint-quote-verdict.ts` | `clariprint-quote-verdict.test.ts` : *"substitue independamment de la casse..."* | idem |
+| G8 (ordre 500) | `upstreamError` tronqué PUIS substitué | `clariprint-quote-verdict.ts` | *"G8 : substitue AVANT de tronquer..."* | fragment `"Imprimerie"` survit dans le résultat tronqué |
+| G8b (ordre 300) | detail de `all_faulty_process` tronqué PUIS substitué | `clariprint-quote-verdict.ts` | *"G8b : substitue AVANT de tronquer..."* | même fragment survit |
+| G10b | retrait de la boucle sur les clés de `all_faulty_process` dans `buildPrinterNameOrdinalMap` | `clariprint-quote-verdict.ts` | *"substitue une cle de all_faulty_process citee..."* | nom non substitué |
+| G12 | retrait de `fournisseur: payload.fournisseur` du chemin `success:false` de la passerelle | `http-clariprint-quote-gateway.ts` | *"transmet fournisseur au verdict sur le chemin success:false..."* | nom non substitué (verdict reçoit `fournisseur:undefined`) |
+| rawResponseValue | substitution retirée du branchement chaîne de `safeStringifyRawResponse` | `clariprint-quote-verdict.ts` | *"substitue les noms connus DANS rawResponseValue..."* | nom non substitué |
+| Plan de 17 | filtre de `buildWorstCasePlan` désactivé (`if (false && ...)`) | `plan.mjs` | *"filtre la phase C exactement comme le runner : 17 etapes..."* | plan annonce 18 au lieu de 17 |
+| Timeout lecture du corps | `clearTimeout(timer)` déplacé juste après `fetch()`, avant `response.text()` | `classification.mjs` | *"un corps qui ne se termine jamais donne timeout..."* | le test time-out réellement à 30 000 ms (`Error: Test timed out in 30000ms`), preuve du blocage réel avant correction |
+
+### Fichiers modifiés dans ce round
+
+- `scripts/diagnostics/clariprint-variants/classification.mjs` —
+  `RESPONSE_RAW_ALLOWED_CLASSES`, `shouldIncludeResponseRaw`,
+  `performRawCall` réécrit (course fetch+lecture du corps vs minuteur),
+  substitution insensible à la casse (regex `gi`).
+- `scripts/diagnostics/clariprint-variants/archive.mjs` — défense en
+  profondeur sur `response_raw` (`shouldIncludeResponseRaw` réappelé).
+- `scripts/diagnostics/clariprint-variants/runner.mjs` — utilise
+  `shouldIncludeResponseRaw` avant `boundedResponseRaw`.
+- `scripts/diagnostics/clariprint-variants/plan.mjs` — `buildWorstCasePlan`
+  filtre la phase C comme le runner (`chargeAlreadyHasFinishing`).
+- `src/modules/clariprint/application/clariprint-quote-verdict.ts` —
+  substitution insensible à la casse, `rawResponseValue` substitué avant
+  troncature (branche chaîne).
+- `src/adapters/clariprint/http-clariprint-quote-gateway.ts` — inchangé sur
+  le fond (le G12 confirmait un comportement déjà correct ; testé, pas
+  modifié).
+- Tests étendus : `tests/scripts/clariprint-variants/{classification,archive,runner,plan}.test.ts`,
+  `tests/modules/clariprint/clariprint-quote-verdict.test.ts`,
+  `tests/adapters/clariprint/http-clariprint-quote-gateway.test.ts`.
+
+### Gates (ROUND 3)
+
+| Gate | Résultat |
+|---|---|
+| `pnpm typecheck` | vert |
+| vitest ciblé (clariprint + scripts/diagnostics) | 221 tests verts (17 fichiers) |
+| `pnpm test` (suite complète) | 2833 passed, 86 skipped (296 fichiers) |
+| `pnpm test:contract` | 432 tests verts |
+| `pnpm test:architecture` | 193 tests verts |
+| `pnpm gen:api:check` | vert |
+| `deno check --no-lock supabase/functions/magrit-api/index.ts` | vert |
+| `pnpm test:storefront:sql` | NON JOUÉ — aucun SQL touché |
+
+Aucun appel réel à Clariprint, `--execute` jamais lancé. Toutes les
+mutations ci-dessus ont été appliquées, exécutées en échec, puis
+restaurées — aucune vérification par lecture seule sur ce round.

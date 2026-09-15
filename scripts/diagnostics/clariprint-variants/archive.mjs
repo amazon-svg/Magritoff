@@ -13,7 +13,14 @@
  * positif, `costs`, `delais`, `weight`, `fournisseur`, le contenu de
  * `all_process`, les clés et les textes de `all_faulty_process`, le texte
  * d'`error`, les identifiants, l'hôte.
+ *
+ * qa-review round 2 (MOYEN, sonde n°1) : `response_raw` n'est écrit QUE pour
+ * un `response_class` d'anomalie numérique (`shouldIncludeResponseRaw`),
+ * jamais pour un texte ou un objet — défense en profondeur, EN PLUS du
+ * filtre déjà posé par l'appelant (`runner.mjs`) : cette fonction ne
+ * s'en remet pas au seul appelant pour ne pas produire la forme interdite.
  */
+import { shouldIncludeResponseRaw } from './classification.mjs';
 
 export const CALLS_JSON_CALL_FIELDS = Object.freeze([
   'ordinal',
@@ -71,9 +78,10 @@ export function buildCallRecord({
     error_present: errorPresent,
     error_class: errorPresent ? 'unclassified' : null,
   };
-  // `response_raw` n'existe que pour `invalid_price` (point 2) : la clé
-  // elle-même est absente ailleurs, jamais `null` ou vide.
-  if (classified.outcome === 'invalid_price' && responseRaw !== undefined) {
+  // `response_raw` n'existe que pour `invalid_price`, et seulement pour une
+  // anomalie NUMERIQUE (point 2 ; qa-review round 2, MOYEN sonde n°1) : la
+  // clé elle-même est absente ailleurs, jamais `null` ou vide.
+  if (classified.outcome === 'invalid_price' && shouldIncludeResponseRaw(classified.responseClass) && responseRaw !== undefined) {
     record.response_raw = responseRaw;
   }
   return record;

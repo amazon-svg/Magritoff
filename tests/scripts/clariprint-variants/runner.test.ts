@@ -113,6 +113,16 @@ describe('runClariprintVariantsBench — CheckAuth (arbitrage architecte, point 
     expect(outcome.stop_reason).toBe('transport_failure');
   });
 
+  // qa-review round 2 (MOYEN, K2) : un 403 accompagne d un corps
+  // {success:false} — meme defensivement peuple sur ok2xx=false — doit
+  // rester une transport_failure, JAMAIS auth_refused.
+  it('un CheckAuth en 403 avec un corps {success:false} reste une transport_failure, JAMAIS auth_refused', async () => {
+    const callCheckAuth = vi.fn(async () => ({ transport: 'ok', httpStatus: 403, payload: { success: false }, ok2xx: false }));
+    const outcome = await runClariprintVariantsBench({ baseCharge: BASE_CHARGE, callCheckAuth, callQuote: vi.fn() });
+    expect(outcome.stop_reason).toBe('transport_failure');
+    expect(outcome.stop_reason).not.toBe('auth_refused');
+  });
+
   it('un CheckAuth avec une erreur reseau ou un delai depasse est une transport_failure', async () => {
     const networkOutcome = await runClariprintVariantsBench({
       baseCharge: BASE_CHARGE,
@@ -201,6 +211,16 @@ describe("runClariprintVariantsBench — arret sur transport_failure, a N'IMPORT
 });
 
 describe('runClariprintVariantsBench — verdict de phase A (arbitrage architecte, point (1))', () => {
+  // qa-review round 2 (MOYEN, K2) : un chiffrage en 403 avec {success:false}
+  // (defensivement peuple sur ok2xx=false) reste une transport_failure,
+  // JAMAIS refused.
+  it('un chiffrage en 403 avec un corps {success:false} reste une transport_failure, JAMAIS refused', async () => {
+    const callQuote = vi.fn(async () => ({ transport: 'ok', httpStatus: 403, payload: { success: false }, ok2xx: false }));
+    const outcome = await runClariprintVariantsBench({ baseCharge: BASE_CHARGE, callCheckAuth: ALWAYS_ALLOWED_AUTH, callQuote });
+    expect(outcome.stop_reason).toBe('transport_failure');
+    expect(outcome.phase_a_verdict).toBe('inconclusive');
+  });
+
   it('trois refused/invalid_price (mix) -> deterministic_not_priced, retained_rule=422, phase B jouee', async () => {
     let call = 0;
     const callQuote = vi.fn(async () => {
@@ -313,6 +333,36 @@ describe("runClariprintVariantsBench — calls.json (liste fermee) : jamais un p
         'upstream_success', 'variant',
       ].sort());
     }
+  });
+
+  // qa-review round 2 (MOYEN, sonde n°1) : `response_raw` etait ecrit pour
+  // TOUT `invalid_price`, y compris un prix positif, un texte ou un objet.
+  // Trois sondes bout-en-bout (jusqu'a `outcome.calls`, l'archive reelle).
+  it('sonde 1 : success chaine "true" + response positif (178.95) -> AUCUN response_raw, AUCUN prix dans calls.json', async () => {
+    const callQuote = vi.fn(async () => jsonOk({ success: 'true', response: 178.95 }));
+    const outcome = await runClariprintVariantsBench({ baseCharge: BASE_CHARGE, callCheckAuth: ALWAYS_ALLOWED_AUTH, callQuote });
+    const call = outcome.calls.find((c) => c.step_id === 'A2');
+    expect(call.outcome).toBe('invalid_price');
+    expect(call).not.toHaveProperty('response_raw');
+    expect(JSON.stringify(outcome.calls)).not.toContain('178.95');
+  });
+
+  it('sonde 2 : response en texte (nom d imprimeur) -> AUCUN response_raw, le nom n apparait nulle part dans calls.json', async () => {
+    const callQuote = vi.fn(async () => jsonOk({ success: true, response: 'Aucun stock chez ImprimerieSecrete2' }));
+    const outcome = await runClariprintVariantsBench({ baseCharge: BASE_CHARGE, callCheckAuth: ALWAYS_ALLOWED_AUTH, callQuote });
+    const call = outcome.calls.find((c) => c.step_id === 'A2');
+    expect(call.outcome).toBe('invalid_price');
+    expect(call).not.toHaveProperty('response_raw');
+    expect(JSON.stringify(outcome.calls)).not.toContain('ImprimerieSecrete2');
+  });
+
+  it('sonde 3 : response en objet -> AUCUN response_raw, AUCUNE serialisation de l objet dans calls.json', async () => {
+    const callQuote = vi.fn(async () => jsonOk({ success: true, response: { html: 'W_HTML_TEMOIN' } }));
+    const outcome = await runClariprintVariantsBench({ baseCharge: BASE_CHARGE, callCheckAuth: ALWAYS_ALLOWED_AUTH, callQuote });
+    const call = outcome.calls.find((c) => c.step_id === 'A2');
+    expect(call.outcome).toBe('invalid_price');
+    expect(call).not.toHaveProperty('response_raw');
+    expect(JSON.stringify(outcome.calls)).not.toContain('W_HTML_TEMOIN');
   });
 
   it('le texte Clariprint (substitue) va UNIQUEMENT dans `texts`, jamais dans `calls`', async () => {
