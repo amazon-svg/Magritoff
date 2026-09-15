@@ -4873,7 +4873,20 @@ Moyens : la campagne du banc (phases B et C, point 2.3) et les pages `JsonVarnis
 - `ValidateOrderConfirmDialog.tsx:76` devient « La commande passera de **En attente de validation** à **Validée** » ;
 - `orderValidation.helpers.ts:34` et `orderCancellation.helpers.ts:36` deviennent « … n'est plus en attente de validation … » ;
 - `PortalOrderEditor.tsx:59` devient « Modifiable tant qu'elle est en attente de validation. » ;
-- l'infobulle de `OrderHistoryTable.tsx:1121` et la liste de `OrderRolesPage.tsx:578` suivent aussi.
+- l'infobulle de `OrderHistoryTable.tsx:1121` suit aussi.
+
+**Arbitrage de l'architecte (2026-09-15), sur un constat du dev-story de BCP-5 : la liste de `OrderRolesPage.tsx:578`.**
+- **(a) Ce que représente l'item « En attente de validation » déjà présent : AUCUN statut.**
+  - Il fait partie d'une **phrase écrite en dur**, dans le bloc « Statuts personnalisés de commande », marqué « Lecture seule — édition à venir ». Rien ne le relie à une donnée.
+  - Cette phrase aligne **huit** libellés, alors que l'énumération `tenant_order_status` compte **sept** valeurs (`draft`, `validated`, `in_production`, `shipped`, `delivered`, `invoiced`, `cancelled` ; migration `20260509000100`, l. 32).
+  - Le huitième est le **vestige du statut `pending_validation` de la maquette de Sally, que S-ORDER-ROLES a délibérément NON créé**. La migration `20260609000200` (l. 20-21) l'écrit : « pas de statut 'pending_validation' qui n'existe pas dans l'enum canonique v1.1 ».
+  - « À valider », dans le portail, est un **compteur calculé** : des commandes `draft` visibles d'un porteur de `can_validate`. Ce n'est pas un statut.
+  - Le seul statut futur que le code évoque, `pending_approval_n1` (commentaire de `orderStatus.ts:42`, circuit N+1, S-N1-APPROVAL), **n'est ni décidé ni construit**. L'item n'en est pas une anticipation fondée.
+- **(b) L'item fantôme est RETIRÉ, pas renommé. `draft` n'est pas renommé autrement.** La phrase devient exactement : **« En attente de validation · Validée · En production · Expédiée · Livrée · Facturée · Annulée »**. Ce sont les sept valeurs de l'énumération, dans l'ordre du flux, avec les libellés de la table unique. **Aucun doublon, et aucun libellé inventé pour un circuit N+1 non décidé.** Le jour où un statut d'approbation existera en base, il entrera dans la table unique, et donc dans cette liste, par le point (c).
+- **(c) Cet écran LIT la table unique, il ne garde pas de vocabulaire propre.** Son bloc s'intitule « Statuts personnalisés **de commande** » : il parle de statuts, pas d'étapes du circuit. Les étapes du circuit sont les **rôles** (`can_validate`, approbation, production) que présentent les autres blocs du même écran.
+  - La liste est donc **tirée de `orderStatus.ts`** (les statuts du flux, puis les terminaux, sans les statuts hérités `pending` et `approved` de `shop_orders`), par un helper pur testé que le JSX parcourt. **Elle n'est plus écrite en dur.**
+  - Test exigé : la liste rendue est égale, dans l'ordre, aux libellés de la table pour ces statuts. Sur le code d'avant, il échoue, puisque la phrase porte huit entrées.
+  - **La garde d'architecture de BCP-5 est complétée** : elle protégeait contre une seconde **table** de libellés, et laissait passer une **phrase** en dur. Elle refuse désormais tout littéral de libellé de statut de commande (« Brouillon », « En attente de validation », « Validée »…) hors de `orderStatus.ts` dans `src/modules/orders/` et `src/modules/roles/`. Les messages d'erreur qui nomment un statut le tirent eux aussi de la table.
 
 `tests/lib/orderStatus.test.ts` change d'assertion, et le story doc en donne le motif.
 
