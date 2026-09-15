@@ -113,6 +113,7 @@ import { TEST_IDS } from '@/shared/presentation/testIds';
 import { CommercialOrdersApiClient } from '../../api/client';
 import { CustomerFilterSelect } from '../components/CustomerFilterSelect';
 import { buildCustomerSearch } from '../components/customer-filter-select.helpers';
+import { OrderExportPanel } from '../components/OrderExportPanel';
 import {
   buildCellContext,
   canLoadMore,
@@ -381,6 +382,16 @@ export function DashboardCommercialOrders() {
           </button>
         </div>
       )}
+
+      {/* E10.18e-2 — bouton d export, modale et registre. Domicile UNIQUE
+          de la fonctionnalite (docs/api/CONVENTIONS.md §8.24, consigne
+          E10.18e-2) : `OrderExportPanel` recoit les filtres ACTIFS de
+          CETTE grille (meme etat que `state.filters`/`selectedCustomerLabel`/
+          `state.stepCatalog`), jamais une copie amendee — c est ce qui rend
+          "exactement les filtres de la grille" possible (voir
+          `buildOrderExportFilters`, `order-export.helpers.ts`). Se rend
+          seul (`null`) si l acteur n a pas `can_export_orders`. */}
+      <OrderExportPanel filters={state.filters} selectedCustomerLabel={state.selectedCustomerLabel} stepCatalog={state.stepCatalog} />
     </div>
   );
 }

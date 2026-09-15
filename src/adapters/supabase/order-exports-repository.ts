@@ -146,6 +146,21 @@ export class SupabaseOrderExportsRepository implements OrderExportsRepository {
    * `download_url` reserve au DEMANDEUR (contrat) et au SEUL statut `ready`
    * — dans les deux autres cas, `null`, JAMAIS un 403 (le demandeur reste
    * visible, seul le lien disparait).
+   *
+   * MOYEN M2, qa-review round 2 (2026-09-15) — `{ download: row.file_name }`
+   * FORCE le telechargement, meme modele exact que
+   * `SupabaseOrderFilesRepository.toDetailDto()` (`order-files-repository.ts`).
+   * Avant ce correctif, l URL etait signee SANS cette option : l ancre
+   * detachee de `triggerBrowserDownload()` (`OrderExportPanel.tsx`) pointe
+   * vers l ORIGINE DU BUCKET SUPABASE, pas celle de l application — l attribut
+   * `download` d une ancre HTML n est HONORE PAR LE NAVIGATEUR que si la
+   * reponse porte deja `Content-Disposition: attachment` (ou provient de la
+   * MEME origine) ; sans cette option de signature, un CSV/XLSX servi sans cet
+   * en-tete aurait fait NAVIGUER l onglet vers l URL signee au lieu de
+   * declencher un telechargement. `row.file_name` est TOUJOURS non nul quand
+   * `isOwnerReady` est vrai : `markReady()` pose `storage_path` ET
+   * `file_name` dans la MEME ecriture (voir plus bas), jamais l un sans
+   * l autre.
    */
   private async toDto(row: Record<string, any>, actor: UserId): Promise<OrderExportDto> {
     const isOwnerReady = row.status === 'ready' && row.requested_by === actor && typeof row.storage_path === 'string';
@@ -154,7 +169,7 @@ export class SupabaseOrderExportsRepository implements OrderExportsRepository {
     if (isOwnerReady) {
       const { data: signed, error } = await this.storageClient.storage
         .from(BUCKET)
-        .createSignedUrl(row.storage_path, DOWNLOAD_URL_TTL_SECONDS);
+        .createSignedUrl(row.storage_path, DOWNLOAD_URL_TTL_SECONDS, { download: row.file_name as string });
       if (!error && signed) {
         downloadUrl = signed.signedUrl;
         downloadUrlExpiresAt = new Date(Date.now() + DOWNLOAD_URL_TTL_SECONDS * 1000).toISOString();

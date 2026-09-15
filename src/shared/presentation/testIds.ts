@@ -768,6 +768,29 @@ export const TEST_IDS = {
     listLoadMoreBtn: 'order-list-load-more-btn',
   },
 
+  // ─── E10.18e-2 — Export comptable des commandes ────────────────────────
+  // Bouton + modale + panneau, sur la grille des commandes COMMERCIALES
+  // (`commercial-orders`, jamais celle du module `orders`/boutique).
+  // Testids REPRIS A L IDENTIQUE du cahier Notion TF-187
+  // (docs/api/CONVENTIONS.md §8.24, consigne E10.18e-2, point 9) : ne pas
+  // renommer sans dual-tag + mise a jour du cahier. `row`/`status` ajoutes
+  // par le cadrage (point 6) pour le registre, non couverts par TF-187.
+  orderExport: {
+    btn: 'orders-export-btn',
+    dialog: 'orders-export-dialog',
+    formatRadio: 'orders-export-format-radio',
+    granularityRadio: 'orders-export-granularity-radio',
+    submitBtn: 'orders-export-submit-btn',
+    errorBanner: 'orders-export-error-banner',
+    downloadLink: 'orders-export-download-link',
+    // Panneau (registre tenant-large) — `row` porte `data-export-id`, meme
+    // convention que `commercialOrder.listRow`/`data-order-id`.
+    panel: 'orders-export-panel',
+    row: 'orders-export-row',
+    status: 'orders-export-status',
+    loadErrorBanner: 'orders-export-load-error-banner',
+  },
+
   // ─── E10.10b-4a — Gabarits PDF de documents (import et stockage) ───────────
   // Ecran de parametrage minimal : lister, importer, nommer, defaut, activer,
   // supprimer (CA de la sous-story 4a, docs/api/CONVENTIONS.md §8.18). PAS
