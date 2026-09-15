@@ -30,9 +30,16 @@ const CLIENT_IP_HEADER = 'cf-connecting-ip';
  * gérées (500), jamais atteint ici puisque `ApiHttpError` est rattrapée
  * avant lui.
  *
- * `key` est déjà la forme stockée (`ip:<hmac hex>`, `account:<uuid>`,
- * `user:<uuid>` ou `shared`) : jamais une IP ni un identifiant en clair,
- * au plus la clé déjà hachée/préfixée qui sert au budget lui-même.
+ * qa-review round 2 — CORRECTIF : `key` a été RETIRÉ de l'événement
+ * `refused`. Le cadrage l'interdit deux fois (§8.25 (11) « jamais une IP ni
+ * son empreinte » ; point 2.4 « ni l'IP ni son empreinte ne figurent au
+ * journal ») — pour un visiteur anonyme, `key` VAUT `ip:<hmac>`, l'empreinte
+ * de son IP ; pour un visiteur avec session boutique, `key` vaut
+ * `account:<uuid>`, un identifiant en clair. Aucun des deux n'est autorisé
+ * au journal. Seul le point (4) autorise une trace : « les membres [sont]
+ * traçables au journal par `user_id` ». D'où `userId`, optionnel, rempli
+ * UNIQUEMENT quand `callerKind` vaut `'member'` — jamais d'IP, jamais
+ * d'empreinte, jamais de `account:`, jamais de clé partagée.
  */
 export type ClariprintRateLimitLogEvent =
   | Readonly<{ event: 'client_ip_missing' }>
@@ -43,9 +50,13 @@ export type ClariprintRateLimitLogEvent =
       /** L1 (`visitor`), L3 (`public`) ou l'étage atelier (`member`). */
       scope: 'visitor' | 'member' | 'public';
       callerKind: 'visitor' | 'member';
-      key: string;
+      /** Rempli UNIQUEMENT si `callerKind === 'member'` (point 2.3bis (4)). */
+      userId?: string;
     }>
   | Readonly<{ event: 'unavailable'; requestId: string; reason: string }>;
+
+/** Préfixe posé par `resolveClariprintQuoteCaller` sur la clé d'un membre (`user:<id>`). */
+const MEMBER_KEY_PREFIX = 'user:';
 
 export type ClariprintQuoteCallerDependencies = Readonly<{
   /**
@@ -94,7 +105,12 @@ export function createClariprintRoutes(
                 requestId: context.requestId,
                 scope: error.refusedScope,
                 callerKind: caller.kind,
-                key: caller.key,
+                // qa-review round 2 : JAMAIS l IP, son empreinte, ni le
+                // compte boutique — seul le membre est tracable, par
+                // user_id (point 2.3bis (4)).
+                ...(caller.kind === 'member' && caller.key.startsWith(MEMBER_KEY_PREFIX)
+                  ? { userId: caller.key.slice(MEMBER_KEY_PREFIX.length) }
+                  : {}),
               });
             }
             throw toRateLimitHttpError(error);

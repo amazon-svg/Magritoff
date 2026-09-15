@@ -418,7 +418,15 @@ describe('BCP-0b — limiteur de débit sur POST /api/v1/clariprint/quote', () =
   // jamais être avalée (avant ce correctif, `clariprint-routes.ts:62` ne
   // journalisait rien du tout).
   describe('journalisation des refus et des pannes (recette 11)', () => {
-    it('un refus visiteur (429) journalise scope=visitor, callerKind=visitor et la clé (jamais l IP)', async () => {
+    // qa-review round 2 : le cadrage interdit DEUX FOIS qu une IP ou son
+    // empreinte figure au journal (§8.25 (11) et point 2.4), et n autorise
+    // AUCUN identifiant en clair pour un visiteur (compte boutique compris)
+    // — seul le membre est tracable, par `user_id` (point 2.3bis (4)).
+    // Chaque test verifie sur le JSON.stringify de l evenement, avec des
+    // chaines temoins, qu AUCUNE de ces valeurs n y figure.
+    const FORBIDDEN_SUBSTRINGS = ['ip:', 'account:', '203.0.113.9', 'shared'];
+
+    it('un refus VISITEUR ANONYME (429) ne journalise NI l IP NI son empreinte NI aucune cle', async () => {
       const events: ClariprintRateLimitLogEvent[] = [];
       const handler = buildHandler({
         budget: { async consume() { return { allowed: false, refusedScope: 'visitor' }; } },
@@ -433,11 +441,59 @@ describe('BCP-0b — limiteur de débit sur POST /api/v1/clariprint/quote', () =
       expect(event.requestId).toBe('clariprint-rate-limit-test');
       expect(event.scope).toBe('visitor');
       expect(event.callerKind).toBe('visitor');
-      expect(event.key).toMatch(/^ip:[0-9a-f]{64}$/);
-      expect(event.key).not.toContain('203.0.113.9');
+      expect(event.userId).toBeUndefined();
+      expect('key' in event).toBe(false);
+
+      const serialized = JSON.stringify(event);
+      // HMAC hex de 64 caracteres : forme que portait l ancienne `key`.
+      expect(serialized).not.toMatch(/[0-9a-f]{64}/);
+      for (const forbidden of FORBIDDEN_SUBSTRINGS) {
+        expect(serialized).not.toContain(forbidden);
+      }
     });
 
-    it('un refus membre (429) journalise scope=member et callerKind=member', async () => {
+    it('un refus VISITEUR AVEC SESSION BOUTIQUE (acheteur connecté) ne journalise NI le compte NI aucune cle', async () => {
+      const shopId = '11111111-1111-4111-8111-111111111111';
+      const accountId = '22222222-2222-4222-8222-222222222222';
+      const cookiePolicy = storefrontSessionCookiePolicy(false);
+      const opaqueToken = 'b'.repeat(40);
+      const gateway: StorefrontSessionGateway = {
+        async resolve(token) {
+          if (token !== opaqueToken) return null;
+          return {
+            identity: { kind: 'shop_customer', shopId, shopCustomerAccountId: accountId },
+            customer: { id: accountId, shopId, email: 'client@example.test', fullName: 'Client Test', status: 'active' },
+            expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+          };
+        },
+        async revoke() { return true; },
+      };
+      const events: ClariprintRateLimitLogEvent[] = [];
+      const handler = buildHandler({
+        budget: { async consume() { return { allowed: false, refusedScope: 'visitor' }; } },
+        deps: defaultCallerDependencies({
+          storefrontSessions: new StorefrontSessionService(gateway),
+          storefrontCookiePolicy: cookiePolicy,
+          onRateLimitEvent: (event) => events.push(event),
+        }),
+      });
+      await postQuote(handler, { cookie: `${cookiePolicy.name}=${opaqueToken}` });
+
+      expect(events).toHaveLength(1);
+      const event = events[0];
+      if (event?.event !== 'refused') throw new Error('événement refused attendu');
+      expect(event.callerKind).toBe('visitor');
+      expect(event.userId).toBeUndefined();
+      expect('key' in event).toBe(false);
+
+      const serialized = JSON.stringify(event);
+      expect(serialized).not.toContain(accountId);
+      for (const forbidden of FORBIDDEN_SUBSTRINGS) {
+        expect(serialized).not.toContain(forbidden);
+      }
+    });
+
+    it('un refus MEMBRE (429) journalise scope=member, callerKind=member ET son userId — jamais de cle', async () => {
       const events: ClariprintRateLimitLogEvent[] = [];
       const handler = buildHandler({
         budget: { async consume() { return { allowed: false, refusedScope: 'member' }; } },
@@ -446,8 +502,9 @@ describe('BCP-0b — limiteur de débit sur POST /api/v1/clariprint/quote', () =
       await postQuote(handler, { authorization: 'Bearer jeton-membre' });
 
       expect(events).toEqual([
-        { event: 'refused', requestId: 'clariprint-rate-limit-test', scope: 'member', callerKind: 'member', key: 'user:jeton-membre' },
+        { event: 'refused', requestId: 'clariprint-rate-limit-test', scope: 'member', callerKind: 'member', userId: 'jeton-membre' },
       ]);
+      expect('key' in (events[0] as object)).toBe(false);
     });
 
     it('un refus L3 (503 public) journalise scope=public', async () => {

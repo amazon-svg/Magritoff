@@ -630,12 +630,15 @@ export async function handleRequest(request: Request): Promise<Response> {
       // chaque panne du limiteur (503 clariprint.unavailable) sont
       // desormais journalises ici, par le MEME port que
       // client_ip_missing/ip_hmac_secret_missing — aucun second mecanisme
-      // de journal cree. Jamais d IP ni d identifiant en clair : `key` est
-      // deja la forme stockee (hachee/prefixee) que porte le budget.
+      // de journal cree.
+      // qa-review round 2 — CORRECTIF : plus AUCUNE cle (`key`) au journal,
+      // ni IP ni empreinte ni compte boutique (§8.25 (11) et point 2.4).
+      // Seul le membre est tracable, par `user_id` (point 2.3bis (4)).
       clariprintOnRateLimitEvent: (event) => {
         if (event.event === 'refused') {
+          const userIdSuffix = event.userId ? ` user_id=${event.userId}` : '';
           console.warn(
-            `[magrit-api] rate_limit.refused request_id=${event.requestId} scope=${event.scope} caller_kind=${event.callerKind} key=${event.key}`,
+            `[magrit-api] rate_limit.refused request_id=${event.requestId} scope=${event.scope} caller_kind=${event.callerKind}${userIdSuffix}`,
           );
           return;
         }

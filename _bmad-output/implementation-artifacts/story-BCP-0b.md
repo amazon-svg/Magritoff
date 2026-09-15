@@ -1,7 +1,7 @@
 ---
 id: BCP-0b
 epic: Chantier boutique — chaîne des prix Magrit (hors E10)
-status: corrected-qa-review-round-1
+status: corrected-qa-review-round-2
 branch: worktree-agent-a041a2721c4d4213b (worktree isolé créé depuis le HEAD commité de feat/gescom-e10-4-entite-client, SHA 8b23db6a — qa-review round 1 a signalé un défaut bas #8 sur ce champ, corrigé ici)
 depends_on: [BCP-0]
 blocks: [BCP-1a, BCP-1b]
@@ -157,9 +157,12 @@ de cycle possible.
   429/503, `ClariprintQuoteCallerDependencies` injectées. **qa-review
   round 1** : le port de journalisation (`onRateLimitEvent`) est élargi
   (type `ClariprintRateLimitLogEvent`) pour couvrir chaque refus
-  (`scope`/`callerKind`/clé déjà hachée) et la cause d'un 503
-  `clariprint.unavailable` (auparavant avalée) — même port, pas de second
-  mécanisme.
+  (`scope`/`callerKind`) et la cause d'un 503 `clariprint.unavailable`
+  (auparavant avalée) — même port, pas de second mécanisme. **qa-review
+  round 2** : l'événement `refused` ne porte plus `key` (l'empreinte d'IP
+  ou le compte boutique y fuyaient, interdit par §8.25 (11) et le point
+  2.4) — remplacé par `userId`, optionnel, rempli UNIQUEMENT pour un
+  membre (point 2.3bis (4)).
 - `src/server/api/legacy-routes.ts` (modifié) — trois nouvelles
   dépendances (`clariprintIsMember`, `clariprintIpHmacSecret`,
   `clariprintOnRateLimitEvent`) sur `LegacyApiServices`, spécial-casées
@@ -304,7 +307,18 @@ JAMAIS journalisés (`clariprint-routes.ts:62`, avant ce correctif).
 **Corrigé** : le même port est ÉLARGI (type `ClariprintRateLimitLogEvent`,
 union discriminée) à deux événements de plus, `refused` (portée, type
 d'appelant, clé déjà hachée/préfixée — jamais l'IP en clair) et
-`unavailable` (cause). Aucun second mécanisme créé — c'est le SEUL port de
+`unavailable` (cause).
+
+> **CORRECTION qa-review round 2** : l'affirmation ci-dessus (« clé déjà
+> hachée/préfixée — jamais l'IP en clair ») était FAUSSE en pratique. La
+> « clé déjà hachée » d'un visiteur anonyme VAUT `ip:<hmac>` : c'est
+> l'empreinte de son IP, que §8.25 (11) et le point 2.4 interdisent
+> explicitement au journal, deux fois. Pour un visiteur avec session
+> boutique, elle vaut `account:<uuid>`, un identifiant en clair. `key` a
+> été RETIRÉ de l'événement `refused`, remplacé par `userId` (optionnel,
+> membre seulement — voir section dédiée plus bas).
+
+Aucun second mécanisme créé — c'est le SEUL port de
 journalisation de ce lot, et la façade historique n'en offre pas d'autre
 pour un refus intentionnel (`onUnexpectedError` ne sert qu'aux 500).
 Composé dans `magrit-api/index.ts` en `console.warn`/`console.error`
@@ -380,6 +394,29 @@ du worktree (`worktree-agent-a041a2721c4d4213b`). Corrigé en front-matter.
 Chaque ligne a été rejouée réellement (mutation posée, test exécuté et
 observé en échec, mutation retirée, `git diff`/état de la base vérifié
 propre, test re-exécuté vert) — pas seulement raisonnée.
+
+## qa-review round 2 (2026-09-15) — REJETÉ sur UN SEUL point, CORRIGÉ
+
+L'événement `refused` (ajouté en round 1) portait `key`, la clé du budget
+elle-même — pour un visiteur anonyme, `ip:<hmac>` (l'empreinte de son IP,
+interdite deux fois : §8.25 (11) « jamais une IP ni son empreinte » et le
+point 2.4 « ni l'IP ni son empreinte ne figurent au journal ») ; pour un
+visiteur avec session boutique, `account:<uuid>` en clair. Le test de
+route l'exigeait même explicitement (`toMatch(/^ip:[0-9a-f]{64}$/)`).
+
+**Corrigé** : `key` retiré de `ClariprintRateLimitLogEvent['refused']`,
+remplacé par `userId?: string`, rempli UNIQUEMENT quand `callerKind ===
+'member'` (point 2.3bis (4), seul cas où le cadrage autorise une trace —
+« traçables au journal par `user_id` »). La ligne `console.warn` de
+`magrit-api/index.ts` n'écrit plus `key=` ; elle écrit `user_id=<id>`
+pour un membre seulement. Vérifié par `grep` : aucune des trois autres
+lignes de journal (`unavailable`, `client_ip_missing`,
+`ip_hmac_secret_missing`) ne porte de clé ni d'IP.
+
+Trois tests réécrits/ajoutés dans `tests/server/clariprint-routes.test.ts`
+(visiteur anonyme, visiteur avec session boutique, membre) — chacun
+vérifié en échec contre `607b72a0` (voir « Tests exécutés », round 3) puis
+en succès après correction.
 
 ## Problème d'infrastructure trouvé et contourné SANS modification du dépôt (à signaler au coordinateur)
 
@@ -487,6 +524,31 @@ Chaque mutation a été posée directement dans le fichier réel (jamais dans
 une copie), le test rejoué, l'échec observé et rapporté avec le message
 exact, puis le fichier restauré et re-vérifié vert (`git diff` propre
 avant de continuer).
+
+### Round 3 (après correction qa-review round 2, ce commit)
+
+- `pnpm typecheck` (modular) → vert.
+- `pnpm exec vitest run tests/server tests/modules/clariprint
+  tests/adapters/clariprint tests/architecture` → vert, **79 fichiers
+  passés, 5 ignorés (84), 433 cas passés, 39 ignorés (472)** (périmètre
+  réduit par rapport au round 2 : `tests/contract` non ré-exécuté à ce
+  tour, aucun endpoint E10 concerné).
+- `pnpm test:architecture` → vert, 183 cas, 40 fichiers, inchangé.
+- `deno check --no-lock supabase/functions/magrit-api/index.ts` → vert.
+
+**Preuve d'échec contre `607b72a0`** (le commit rejeté) : les trois
+fichiers `src/server/api/clariprint-routes.ts` d'AVANT ce correctif ont
+été restaurés temporairement (`git show 607b72a0:... >
+src/server/api/clariprint-routes.ts`), et les 3 tests nouveaux/réécrits
+exécutés contre cette version :
+- visiteur anonyme → `expected true to be false` sur `'key' in event`
+  (l'ancienne version pose `key`, la nouvelle assertion l'interdit) ;
+- visiteur avec session boutique → même échec, `'key' in event` vrai ;
+- membre → `toEqual` échoue, `key: 'user:jeton-membre'` présent au lieu
+  de `userId: 'jeton-membre'`.
+
+Fichier restauré (version corrigée), les 23 cas de
+`clariprint-routes.test.ts` repassent au vert.
 
 ## Dérogation R5 utilisée
 
