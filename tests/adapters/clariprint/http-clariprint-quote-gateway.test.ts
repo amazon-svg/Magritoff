@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { HttpClariprintQuoteGateway } from '@/adapters/clariprint/http-clariprint-quote-gateway';
+import type { ClariprintQuoteLogEntry } from '@/modules/clariprint/application/clariprint-quote-logger';
 
 describe('HttpClariprintQuoteGateway', () => {
   it('normalise le produit et traduit une réponse de prix valide', async () => {
@@ -70,13 +71,16 @@ describe('HttpClariprintQuoteGateway', () => {
       all_faulty_process: { gamme_offset: 'W_NEG_FAULTY_1' },
     }));
     const result = await new HttpClariprintQuoteGateway('https://clariprint.test/optimproject/json.wcl', 'l', 'p', fetchMock as unknown as typeof fetch).quote({ clariprint: {} });
-    expect(result).toMatchObject({ success: false, error: 'Prix Clariprint invalide (négatif)' });
+    expect(result).toEqual({ success: false, error: 'Prix Clariprint invalide (négatif)' });
     const serialized = JSON.stringify(result);
     expect(serialized).not.toContain('W_NEG_ALLPROC_1');
     expect(serialized).not.toContain('W_NEG_ALLPROC_2');
     expect(serialized).not.toContain('W_NEG_FAULTY_1');
     expect(result).not.toHaveProperty('allResults');
     expect(result).not.toHaveProperty('faultyProcess');
+    // BCP-1a : plus aucun extrait de reponse (`priceHT brut recu: -1.2`) dans
+    // la reponse publique — il n'existait qu'au verdict journalise.
+    expect(result).not.toHaveProperty('details');
   });
 
   it('bloque les prix non numeriques du fournisseur sans laisser fuir le detail interne des gammes', async () => {
@@ -87,22 +91,47 @@ describe('HttpClariprintQuoteGateway', () => {
       all_faulty_process: { gamme_offset: 'W_NAN_FAULTY_1' },
     }));
     const result = await new HttpClariprintQuoteGateway('https://clariprint.test/optimproject/json.wcl', 'l', 'p', fetchMock as unknown as typeof fetch).quote({ clariprint: {} });
-    expect(result).toMatchObject({ success: false, error: 'Prix Clariprint invalide (absent, NaN ou non-numérique)' });
+    expect(result).toEqual({ success: false, error: 'Prix Clariprint invalide (absent, NaN ou non-numérique)' });
     const serialized = JSON.stringify(result);
     expect(serialized).not.toContain('W_NAN_ALLPROC_1');
     expect(serialized).not.toContain('W_NAN_ALLPROC_2');
     expect(serialized).not.toContain('W_NAN_FAULTY_1');
     expect(result).not.toHaveProperty('allResults');
     expect(result).not.toHaveProperty('faultyProcess');
+    expect(result).not.toHaveProperty('details');
+  });
+
+  // BCP-1a (docs/api/CONVENTIONS.md §8.25 point 2.3) : une exception reseau
+  // (`fetch` qui rejette) porte SOUVENT L'HOTE dans son message
+  // (`getaddrinfo ENOTFOUND badhost.clariprint.invalid`, etc.). Avant ce
+  // lot, `details: error.message.slice(0, 500)` le recopiait tel quel vers
+  // l'appelant anonyme de cette route publique — dette qa de BCP-0, fermee
+  // ici : ni l'hote, ni aucun texte d'exception ne sortent.
+  it("ne laisse jamais fuir l hote ni le texte de l exception reseau vers l appelant", async () => {
+    const fetchMock = vi.fn(async () => {
+      throw new TypeError('fetch failed: getaddrinfo ENOTFOUND badhost.clariprint.invalid');
+    });
+    const gateway = new HttpClariprintQuoteGateway('https://badhost.clariprint.invalid', 'l', 'p', fetchMock as unknown as typeof fetch);
+    const result = await gateway.quote({ clariprint: {} });
+    expect(result).toEqual({ success: false, error: 'Connexion Clariprint impossible' });
+    const serialized = JSON.stringify(result);
+    expect(serialized).not.toContain('badhost.clariprint.invalid');
+    expect(serialized).not.toContain('getaddrinfo');
+    expect(result).not.toHaveProperty('details');
   });
 
   // Correctif sécurité 2026-09-15 : `all_process` (déjà présent dans le
   // fixture précédente sous `all_faulty_process` seul) est ajouté ici pour
   // couvrir le chemin `success:false` avec les DEUX champs de detail interne.
-  it('ne transmet jamais le detail interne des gammes en cas d echec fournisseur', async () => {
+  // BCP-1a (docs/api/CONVENTIONS.md §8.25 point 2.3) : avant ce lot,
+  // `error: typeof payload.error === 'string' ? payload.error : ...`
+  // recopiait le texte brut d'erreur de Clariprint tel quel vers l'appelant
+  // anonyme de cette route publique. Il est desormais generique ; le texte
+  // brut ne va qu'au verdict journalise (teste plus bas via un logger espion).
+  it('ne transmet jamais le detail interne des gammes ni le texte brut de Clariprint en cas d echec fournisseur', async () => {
     const fetchMock = vi.fn(async () => Response.json({
       success: false,
-      error: 'Configuration produit refusee',
+      error: 'Configuration produit refusee W_UPSTREAM_ERROR_TEXT_1',
       all_process: [{ printer: 'W_FALSE_ALLPROC_1' }],
       all_faulty_process: { gamme_offset: 'FaultySecretDEF' },
     }));
@@ -111,8 +140,11 @@ describe('HttpClariprintQuoteGateway', () => {
     const serialized = JSON.stringify(result);
     expect(serialized).not.toContain('FaultySecretDEF');
     expect(serialized).not.toContain('W_FALSE_ALLPROC_1');
+    expect(serialized).not.toContain('W_UPSTREAM_ERROR_TEXT_1');
+    expect(result).toEqual({ success: false, error: 'Erreur de calcul Clariprint' });
     expect(result).not.toHaveProperty('allResults');
     expect(result).not.toHaveProperty('faultyProcess');
+    expect(result).not.toHaveProperty('details');
   });
 
   it('ne transmet jamais le detail interne des gammes en cas de succes', async () => {
@@ -132,15 +164,13 @@ describe('HttpClariprintQuoteGateway', () => {
     expect(result).not.toHaveProperty('faultyProcess');
   });
 
-  // Chemin HTTP non-OK : le corps brut de la réponse est repris tronqué dans
-  // `details` (`text.slice(0, 500)`) — expurgation de `details`/`error` hors
-  // périmètre BCP-0 (lot BCP-1a). Ce test vérifie ce qui EST du ressort de
-  // BCP-0 : le detail interne des gammes n'est jamais reconstruit en champ
-  // structuré (`costs`, `allResults`, `faultyProcess`) sur ce chemin. Si le
-  // corps brut simulé tient dans les 500 premiers caractères, la chaîne
-  // témoin reste visible dans `details` : c'est la dette BCP-1a documentée,
-  // pas une régression de ce correctif.
-  it('ne construit aucun champ structure de detail interne sur une reponse HTTP non-OK', async () => {
+  // BCP-1a (docs/api/CONVENTIONS.md §8.25 point 2.3) : avant ce lot, le corps
+  // brut de la réponse était repris tronqué dans `details`
+  // (`text.slice(0, 500)`) — un extrait de réponse au sens du cadrage, donc
+  // interdit vers l'appelant anonyme. Il ne va plus qu'au verdict
+  // journalisé (testé plus bas via un logger espion) ; ce test vérifie
+  // qu'aucun champ structuré ni aucun extrait brut ne fuit sur ce chemin.
+  it('ne laisse fuir aucun detail interne ni extrait de reponse sur une reponse HTTP non-OK', async () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({
       success: true,
       response: 42,
@@ -149,23 +179,142 @@ describe('HttpClariprintQuoteGateway', () => {
     }), { status: 500 }));
     const gateway = new HttpClariprintQuoteGateway('https://clariprint.test/optimproject/json.wcl', 'l', 'p', fetchMock as unknown as typeof fetch);
     const result = await gateway.quote({ clariprint: {} });
-    expect(result.success).toBe(false);
+    expect(result).toEqual({ success: false, error: 'Clariprint injoignable ou en erreur' });
+    const serialized = JSON.stringify(result);
+    expect(serialized).not.toContain('W_NONOK_ALLPROC_1');
+    expect(serialized).not.toContain('W_NONOK_FAULTY_1');
     expect(result).not.toHaveProperty('costs');
     expect(result).not.toHaveProperty('allResults');
     expect(result).not.toHaveProperty('faultyProcess');
     expect(result).not.toHaveProperty('priceHT');
+    expect(result).not.toHaveProperty('details');
   });
 
-  // Chemin réponse non-JSON : même réserve BCP-1a que ci-dessus sur le
-  // contenu brut de `details` (`text.slice(0, 300)`).
-  it('ne construit aucun champ structure de detail interne sur une reponse non-JSON', async () => {
+  // BCP-1a : même réserve que ci-dessus sur le contenu brut de `details`
+  // (`text.slice(0, 300)`), désormais fermée.
+  it('ne laisse fuir aucun detail interne ni extrait de reponse sur une reponse non-JSON', async () => {
     const fetchMock = vi.fn(async () => new Response('all_process contains W_NONJSON_ALLPROC_1 but this is not JSON {'));
     const gateway = new HttpClariprintQuoteGateway('https://clariprint.test/optimproject/json.wcl', 'l', 'p', fetchMock as unknown as typeof fetch);
     const result = await gateway.quote({ clariprint: {} });
-    expect(result.success).toBe(false);
+    expect(result).toEqual({ success: false, error: 'Réponse Clariprint invalide (non-JSON)' });
+    const serialized = JSON.stringify(result);
+    expect(serialized).not.toContain('W_NONJSON_ALLPROC_1');
     expect(result).not.toHaveProperty('costs');
     expect(result).not.toHaveProperty('allResults');
     expect(result).not.toHaveProperty('faultyProcess');
     expect(result).not.toHaveProperty('priceHT');
+    expect(result).not.toHaveProperty('details');
+  });
+});
+
+// ============================================================================
+// BCP-1a — le verdict journalisé (docs/api/CONVENTIONS.md §8.25 point 2.3).
+// ============================================================================
+describe('HttpClariprintQuoteGateway — verdict journalisé', () => {
+  function spyLogger() {
+    const entries: ClariprintQuoteLogEntry[] = [];
+    return { logger: { log: (entry: ClariprintQuoteLogEntry) => entries.push(entry) }, entries };
+  }
+
+  it('journalise un succes avec outcome=priced, le requestId fourni, et n appelle jamais le logger avant la reponse', async () => {
+    const { logger, entries } = spyLogger();
+    const fetchMock = vi.fn(async () => Response.json({ success: true, response: 12.5 }));
+    const gateway = new HttpClariprintQuoteGateway('https://clariprint.test/optimproject/json.wcl', 'l', 'p', fetchMock as unknown as typeof fetch, logger);
+    await gateway.quote({ clariprint: { quantity: 10 } }, 'req-priced-1');
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({ event: 'clariprint.quote', requestId: 'req-priced-1', outcome: 'priced' });
+    expect(entries[0]?.verdict.upstreamSuccess).toBe(true);
+    expect(entries[0]?.verdict.rawResponseValue).toBe('12.5');
+  });
+
+  it('journalise not_priced sur un refus Clariprint (success:false), avec le texte amont tronque DANS LE VERDICT SEULEMENT', async () => {
+    const { logger, entries } = spyLogger();
+    const fetchMock = vi.fn(async () => Response.json({ success: false, error: 'Configuration produit refusee' }));
+    const gateway = new HttpClariprintQuoteGateway('https://clariprint.test/optimproject/json.wcl', 'l', 'p', fetchMock as unknown as typeof fetch, logger);
+    await gateway.quote({ clariprint: {} }, 'req-not-priced-1');
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.outcome).toBe('not_priced');
+    expect(entries[0]?.verdict.upstreamError).toBe('Configuration produit refusee');
+  });
+
+  it('journalise not_priced sur un prix invalide (succes amont mais prix negatif)', async () => {
+    const { logger, entries } = spyLogger();
+    const fetchMock = vi.fn(async () => Response.json({ success: true, response: -3 }));
+    const gateway = new HttpClariprintQuoteGateway('https://clariprint.test/optimproject/json.wcl', 'l', 'p', fetchMock as unknown as typeof fetch, logger);
+    await gateway.quote({ clariprint: {} }, 'req-invalid-price');
+    expect(entries[0]).toMatchObject({ outcome: 'not_priced' });
+    expect(entries[0]?.verdict.rawResponseValue).toBe('-3');
+  });
+
+  it('journalise unavailable sur une exception reseau, avec l hote et le texte de l exception DANS LE VERDICT SEULEMENT', async () => {
+    const { logger, entries } = spyLogger();
+    const fetchMock = vi.fn(async () => { throw new TypeError('fetch failed: getaddrinfo ENOTFOUND badhost.clariprint.invalid'); });
+    const gateway = new HttpClariprintQuoteGateway('https://badhost.clariprint.invalid', 'l', 'p', fetchMock as unknown as typeof fetch, logger);
+    await gateway.quote({ clariprint: {} }, 'req-unavailable-network');
+    expect(entries[0]).toMatchObject({ outcome: 'unavailable' });
+    expect(entries[0]?.verdict.upstreamError).toContain('badhost.clariprint.invalid');
+    expect(entries[0]?.verdict.upstreamStatus).toBeNull();
+  });
+
+  it('journalise unavailable sur un HTTP non-OK et sur une reponse non-JSON', async () => {
+    const { logger, entries } = spyLogger();
+    const httpErrorFetch = vi.fn(async () => new Response('boom', { status: 503 }));
+    await new HttpClariprintQuoteGateway('https://clariprint.test/optimproject/json.wcl', 'l', 'p', httpErrorFetch as unknown as typeof fetch, logger).quote({ clariprint: {} }, 'req-http-error');
+    expect(entries[0]).toMatchObject({ outcome: 'unavailable' });
+    expect(entries[0]?.verdict.upstreamStatus).toBe(503);
+
+    const nonJsonFetch = vi.fn(async () => new Response('not json'));
+    await new HttpClariprintQuoteGateway('https://clariprint.test/optimproject/json.wcl', 'l', 'p', nonJsonFetch as unknown as typeof fetch, logger).quote({ clariprint: {} }, 'req-non-json');
+    expect(entries[1]).toMatchObject({ outcome: 'unavailable' });
+  });
+
+  it('journalise not_configured quand les identifiants sont absents, sans appeler fetch', async () => {
+    const { logger, entries } = spyLogger();
+    const fetchMock = vi.fn();
+    const gateway = new HttpClariprintQuoteGateway('https://clariprint.test', null, null, fetchMock as unknown as typeof fetch, logger);
+    await gateway.quote({ clariprint: {} }, 'req-not-configured');
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(entries).toEqual([
+      expect.objectContaining({ event: 'clariprint.quote', requestId: 'req-not-configured', outcome: 'not_configured' }),
+    ]);
+  });
+
+  it('expurge all_faulty_process dans le verdict (ordinal, jamais le nom reel de l imprimeur) et compte all_process sans le reproduire', async () => {
+    const { logger, entries } = spyLogger();
+    const fetchMock = vi.fn(async () => Response.json({
+      success: true,
+      response: 5,
+      all_process: [{ printer: 'ImprimeurReelSecret1' }, { printer: 'ImprimeurReelSecret2' }],
+      all_faulty_process: { ImprimeurReelSecret3: 'raison du refus' },
+    }));
+    const gateway = new HttpClariprintQuoteGateway('https://clariprint.test/optimproject/json.wcl', 'l', 'p', fetchMock as unknown as typeof fetch, logger);
+    await gateway.quote({ clariprint: {} }, 'req-expurge');
+    const verdict = entries[0]?.verdict;
+    expect(verdict?.allProcessCount).toBe(2);
+    expect(verdict?.allFaultyProcess).toEqual([{ printer: 'imprimeur_1', detail: 'raison du refus' }]);
+    const serializedVerdict = JSON.stringify(verdict);
+    expect(serializedVerdict).not.toContain('ImprimeurReelSecret1');
+    expect(serializedVerdict).not.toContain('ImprimeurReelSecret2');
+    expect(serializedVerdict).not.toContain('ImprimeurReelSecret3');
+  });
+
+  it('expurge reference et address de la charge envoyee dans le verdict, mais garde le reste', async () => {
+    const { logger, entries } = spyLogger();
+    const fetchMock = vi.fn(async () => Response.json({ success: true, response: 5 }));
+    const gateway = new HttpClariprintQuoteGateway('https://clariprint.test/optimproject/json.wcl', 'l', 'p', fetchMock as unknown as typeof fetch, logger);
+    await gateway.quote({
+      clariprint: {
+        reference: 'Devis pour Mme Personne Secrete',
+        quantity: 500,
+        deliveries: { d_livraison: { iso: 'FR-75', address: '12 rue Secrete', quantity: 500 } },
+      },
+    }, 'req-sent-config');
+    const sentConfig = entries[0]?.verdict.sentConfig;
+    expect(sentConfig).not.toHaveProperty('reference');
+    expect((sentConfig?.deliveries as Record<string, unknown>)?.d_livraison).not.toHaveProperty('address');
+    expect(sentConfig?.quantity).toBe('500');
+    const serialized = JSON.stringify(sentConfig);
+    expect(serialized).not.toContain('Personne Secrete');
+    expect(serialized).not.toContain('rue Secrete');
   });
 });
