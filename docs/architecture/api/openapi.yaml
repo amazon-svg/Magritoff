@@ -65,6 +65,10 @@ paths:
             — BCP-0c, docs/api/CONVENTIONS.md §8.25 point 2.3ter. Cet appel
             est facturé (Anthropic) : aucun appel sortant n'est fait sur ce
             refus.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ApiProblem'
   /diagnostics/clariprint:
     get:
       operationId: testClariprint
@@ -86,6 +90,10 @@ paths:
             — BCP-0c, docs/api/CONVENTIONS.md §8.25 point 2.3ter. Cet appel
             est peut-être facturé (Clariprint `CheckAuth`) : aucun appel
             sortant n'est fait sur ce refus.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ApiProblem'
   /tenants/{tenantId}/quotes/drafts:
     post:
       operationId: createQuoteDraft
