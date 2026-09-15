@@ -116,7 +116,12 @@ Joué par le coordinateur dans Chrome DevTools, compte acheteur ERAM connecté p
 - le rechargement de la liste après un échec n'est testé nulle part, ni côté boutique ni côté atelier ;
 - tout 409 est traité comme un conflit (un `api.idempotency_key_reused` afficherait « n'est plus en attente de validation »).
 
-Correction en cours. Dette basse : le test de hauteur de ligne recopie la classe du wrapper ; la logique commune est rangée dans le helper d'annulation.
+  **Round 2** (`3bbec03e`) : 404, 403 et `order_not_editable` sont traduits d'après leur code, dans un module neutre `orderTransitionErrors.helpers.ts`. Quand un code est présent, il tranche seul, sans repli sur le texte. `runCancelOrder` et `runOrderTransition` sont extraits et testés : la liste se recharge après un échec, et aucun toast de succès n'apparaît en cas d'échec. Un 409 d'idempotence n'est plus pris pour un conflit. **qa round 2 APPROUVÉE** : 18 mutations rejouées, dont 15 tuées ; codes vérifiés dans la fonction SQL, l'adaptateur et la route. **Fusionné** (`24634582`), gates vertes (typecheck, 260 tests d'architecture, 461 tests boutique et hooks). Le contrôle navigateur (gestes C1 à C7) n'est pas encore joué. Dette non bloquante :
+  - M4c et M4d : le branchement du rechargement dans les hooks n'est pas testé (seules les fonctions extraites le sont). Couvert par le geste de recette C6 ;
+  - repli générique : une panne réseau affiche « Failed to fetch » (`FetchApiClient` n'enveloppe pas la `TypeError`), et un futur code `orders.*` non traité afficherait son texte brut. Correction à faire : ne plus recopier le message quand un code est présent ;
+  - la branche « Votre session a expiré » est morte pour la route actuelle (code `identity.authentication_required`, titre en français) ;
+  - D3c : aucun test ne vérifie que `sheet.tsx` utilise la constante exportée ;
+  - préexistant : `startProduction` et `markShipped` n'affichent rien quand ils échouent.
 - **Revalidation depuis un onglet périmé** : conforme par conception. Une clé d'idempotence déterministe donne `replayed: true` et un seul événement.
 - **Sans objet** :
   - `OrderRolesPage` n'est montée nulle part **par décision** : sa route `order-roles` (`roles.manage`) a été retirée par le commit UM1 `838e8c90` du 2026-08-24, avec le verrou de délégation des rôles. Ce n'est pas une régression ;
@@ -132,6 +137,16 @@ Correction en cours. Dette basse : le test de hauteur de ligne recopie la classe
   - aucun test sur le rechargement au changement d'identité, sur `retry`, ni sur le verrou `sessionReady` ; une assertion existante est affaiblie.
 
   Dette : garde contournable (`globalThis`, `setTimeout` récursif, `window.onfocus`, autre fichier) ; rechargement au retour sur l'onglet sans annulation. L'hypothèse de la qa, selon laquelle des rechargements Vite auraient produit la cadence de 5 s, est écartée : 0 rechargement Vite pendant la mesure.
+
+  **Round 2** (`d04e2204`, worktree) :
+  - **401** : `FetchApiClient` expose un pub/sub `onUnauthorized()`, notifié pour toute réponse 401. L'abonnement, unique, est posé dans `useStorefrontSession` sur l'`apiClient` partagé de `StorefrontRuntimeBoundary`, et couvre toutes les actions de la boutique. Anti-boucle : aucune revalidation tant qu'une vérification est en vol ;
+  - **D1** : pas de rechargement tant que le statut n'est pas `ready` ;
+  - **tests** : M7b/M8 à M12, suite complète verte (2 969 tests), 432 tests de contrat au vert.
+
+  qa round 2 en cours. Points vérifiés :
+  - la portée du pub/sub hors boutique ;
+  - les boucles 401 résiduelles (boutique privée sans session) ;
+  - la solidité des tests qui comparent le texte source.
 - **Hors lot, relevés pour les lots 4, 7 et 8** :
   - dimensions « ?×? mm » ;
   - livraison « Siège social » et budget factice ;
