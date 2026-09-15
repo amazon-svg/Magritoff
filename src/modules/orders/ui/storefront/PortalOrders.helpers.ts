@@ -11,6 +11,7 @@
  */
 
 import type { OrderSummary } from '@/modules/orders';
+import { STATUS_LABELS as CANONICAL_STATUS_LABELS } from '@/modules/orders/ui/helpers/orderStatus';
 
 export type OrderSource = 'legacy' | 'v1_1';
 
@@ -135,22 +136,16 @@ export function normalizeTenantOrder(
 }
 
 /**
- * Mapping unifie raw_status -> label UI + className (port de PortalOrders
- * STATUS_LABELS etendu avec les statuts tenant_order_status v1.1).
+ * Mapping unifie raw_status -> label UI + className.
+ *
+ * BCP-5 (docs/api/CONVENTIONS.md §8.25 point 5.1) : ce n'est plus une table
+ * propre a ce fichier, c'est un re-export de la table UNIQUE portee par
+ * `orderStatus.ts` (`STATUS_LABELS`). Une seconde table de libelles de
+ * statut sous src/modules/orders/ ferait echouer
+ * tests/architecture/order-status-single-source.test.ts.
  */
-export const STATUS_LABELS: Record<string, { label: string; className: string }> = {
-  // shop_orders legacy
-  pending: { label: 'En attente', className: 'bg-warn-bg text-warn-fg border-warn-fg/20' },
-  approved: { label: 'Validée', className: 'bg-ok-bg text-ok-fg border-ok-line' },
-  // tenant_orders v1.1
-  draft: { label: 'Brouillon', className: 'bg-warn-bg text-warn-fg border-warn-fg/20' },
-  validated: { label: 'Validée', className: 'bg-ok-bg text-ok-fg border-ok-line' },
-  in_production: { label: 'En production', className: 'bg-info-bg text-info-fg border-info-fg/20' },
-  shipped: { label: 'Expédiée', className: 'bg-info-bg text-info-fg border-info-fg/20' },
-  delivered: { label: 'Livrée', className: 'bg-ok-bg text-ok-fg border-ok-line' },
-  invoiced: { label: 'Facturée', className: 'bg-ok-bg text-ok-fg border-ok-line' },
-  cancelled: { label: 'Annulée', className: 'bg-err-bg text-err-fg border-err-fg/20' },
-};
+export const STATUS_LABELS: Record<string, { label: string; className: string }> =
+  CANONICAL_STATUS_LABELS;
 
 /**
  * Merge + tri chronologique DESC de 2 cohorts d orders normalises.

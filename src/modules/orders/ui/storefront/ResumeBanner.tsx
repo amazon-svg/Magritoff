@@ -10,6 +10,7 @@
 import { History, RotateCcw, ShoppingCart } from 'lucide-react';
 import { TEST_IDS } from '@/shared/presentation/testIds';
 import { formatEuro } from '@/modules/catalog/ui/storefront';
+import { getStatusInfo } from '@/modules/orders/ui/helpers/orderStatus';
 
 /** Dernière commande de l'acheteur sur la boutique (fetch PublicShop). */
 export interface ResumeLastOrder {
@@ -63,17 +64,15 @@ function formatOrderDate(iso: string): string {
   return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  draft: 'brouillon',
-  validated: 'validée',
-  in_production: 'en production',
-  shipped: 'expédiée',
-  delivered: 'livrée',
-  cancelled: 'annulée',
-};
-
+/**
+ * Libellé de statut en minuscule pour une insertion en fin de phrase
+ * (« Suivre ma dernière commande (validée) »). DÉRIVÉ de la table UNIQUE
+ * `STATUS_LABELS` de `orderStatus.ts` — ce n'est pas une seconde table
+ * (BCP-5, docs/api/CONVENTIONS.md §8.25 point 5.1).
+ */
 function statusLabel(status: string): string {
-  return STATUS_LABELS[status] ?? status;
+  const label = getStatusInfo(status).label;
+  return label.length > 0 ? label.charAt(0).toLowerCase() + label.slice(1) : label;
 }
 
 const CHIP_ICONS = {

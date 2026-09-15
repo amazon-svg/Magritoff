@@ -2,8 +2,25 @@
  * Tests vitest pour PortalThankYou helpers (Story S-CONSO-3, Sprint 4 Phase 2).
  */
 
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { formatShortOrderId } from '@/modules/orders/ui/storefront/PortalThankYou';
+
+const source = readFileSync(
+  resolve(process.cwd(), 'src/modules/orders/ui/storefront/PortalThankYou.tsx'),
+  'utf8',
+);
+
+describe('PortalThankYou — libellé de remerciement (BCP-5)', () => {
+  // BCP-5 (docs/api/CONVENTIONS.md §8.25 point 5.1) : le statut draft reste
+  // conforme au PRD (FR18/FR49) - seul l'écran ne doit plus dire "confirmée",
+  // puisque seul l'imprimeur (admin du tenant) valide la commande.
+  it('annonce la transmission à l imprimeur, pas une confirmation', () => {
+    expect(source).toContain("Commande transmise — en attente de validation par l'imprimeur");
+    expect(source).not.toContain('Commande confirmée');
+  });
+});
 
 describe('formatShortOrderId', () => {
   it('UUID standard -> 8 premiers chars uppercase', () => {

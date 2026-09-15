@@ -73,7 +73,7 @@ export function ValidateOrderConfirmDialog({
                 Commande <span className="font-mono">#{orderShortId}</span>.{' '}
               </>
             )}
-            La commande passera du statut <strong>Brouillon</strong> à{' '}
+            La commande passera de <strong>En attente de validation</strong> à{' '}
             <strong>Validée</strong>. Elle pourra alors être renouvelée par l'acheteur
             et entrera dans le pipeline de production. L'événement est tracé dans
             l'historique.

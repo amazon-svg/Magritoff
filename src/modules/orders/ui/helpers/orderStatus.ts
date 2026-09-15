@@ -54,8 +54,13 @@ export const STATUS_LABELS: Record<OrderStatus, OrderStatusInfo> = {
     group: "legacy",
   },
   // tenant_orders v1.1 workflow
+  // BCP-5 (docs/api/CONVENTIONS.md §8.25 point 5.1, decision Arnaud Q1
+  // 2026-09-15) : "draft" reste conforme au PRD (FR18/FR49), seul le
+  // libelle change. Cette table est la SEULE source de libelles de statut
+  // sous src/modules/orders/ - gardee par
+  // tests/architecture/order-status-single-source.test.ts.
   draft: {
-    label: "Brouillon",
+    label: "En attente de validation",
     className: "bg-warn-bg text-warn-fg border-warn-fg/20",
     group: "workflow",
   },

@@ -198,7 +198,9 @@ describe('orderAuditTrail.helpers (pur)', () => {
         kind: 'status',
         payload: { from_status: 'draft', to_status: 'validated' },
       });
-      expect(formatAuditEventTitle(e)).toBe('Statut : Brouillon → Validée');
+      // BCP-5 (docs/api/CONVENTIONS.md §8.25 point 5.1, Q1 2026-09-15) :
+      // libellé unique, "draft" -> "En attente de validation".
+      expect(formatAuditEventTitle(e)).toBe('Statut : En attente de validation → Validée');
     });
 
     it('role assigned affiche le nom du rôle', () => {

@@ -54,7 +54,9 @@ describe("orderStatus / STATUS_LABELS", () => {
 
 describe("orderStatus / getStatusInfo", () => {
   it("retourne le mapping correct pour chaque statut canonique", () => {
-    expect(getStatusInfo("draft").label).toBe("Brouillon");
+    // BCP-5 (docs/api/CONVENTIONS.md §8.25 point 5.1, Q1 2026-09-15) :
+    // le cycle de vie reste draft, seul le libelle change.
+    expect(getStatusInfo("draft").label).toBe("En attente de validation");
     expect(getStatusInfo("draft").group).toBe("workflow");
 
     expect(getStatusInfo("delivered").label).toBe("Livrée");
@@ -80,7 +82,7 @@ describe("orderStatus / getStatusInfo", () => {
 
 describe("orderStatus / labelToStatus", () => {
   it("inverse correctement les labels canoniques", () => {
-    expect(labelToStatus("Brouillon")).toBe("draft");
+    expect(labelToStatus("En attente de validation")).toBe("draft");
     expect(labelToStatus("En production")).toBe("in_production");
     expect(labelToStatus("Annulée")).toBe("cancelled");
     expect(labelToStatus("En attente")).toBe("pending");

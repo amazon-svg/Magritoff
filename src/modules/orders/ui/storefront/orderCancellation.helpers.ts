@@ -33,7 +33,9 @@ export function formatCancelErrorMessage(err: RpcLikeError | null | undefined): 
     return "Vous n'avez pas les droits pour annuler cette commande. Seul le createur ou un administrateur tenant peut le faire.";
   }
   if (msg.includes('transition') && msg.includes('not allowed')) {
-    return "Cette commande n'est plus en statut Brouillon (peut-etre validee ou annulee dans une autre fenetre).";
+    // BCP-5 (docs/api/CONVENTIONS.md §8.25 point 5.1) : libelle "en attente
+    // de validation", pas "Brouillon".
+    return "Cette commande n'est plus en attente de validation (peut-etre validee ou annulee dans une autre fenetre).";
   }
   if (msg.length > 0) {
     return `Erreur lors de l'annulation : ${err?.message}`;

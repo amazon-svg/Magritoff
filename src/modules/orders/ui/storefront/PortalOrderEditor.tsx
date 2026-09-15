@@ -56,7 +56,7 @@ export function PortalOrderEditor({ order, onClose, onSaved }: Props) {
         <DialogHeader>
           <DialogTitle>Éditer la commande {order ? `#${shortId(order.id)}` : ''}</DialogTitle>
           <DialogDescription>
-            Ajustez les quantités et les prix. Modifiable tant que la commande est en brouillon.
+            Ajustez les quantités et les prix. Modifiable tant qu'elle est en attente de validation.
           </DialogDescription>
         </DialogHeader>
 

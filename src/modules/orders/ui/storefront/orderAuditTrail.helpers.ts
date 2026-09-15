@@ -5,6 +5,7 @@
  */
 
 import { OrdersApiClient } from '@/modules/orders';
+import { getStatusInfo } from '@/modules/orders/ui/helpers/orderStatus';
 
 export interface OrderAuditEvent {
   event_id: string;
@@ -55,25 +56,20 @@ export async function fetchOrderAuditTrail(
   }
 }
 
-const STATUS_LABELS_FR: Record<string, string> = {
-  draft: 'Brouillon',
-  validated: 'Validée',
-  in_production: 'En production',
-  shipped: 'Expédiée',
-  delivered: 'Livrée',
-  invoiced: 'Facturée',
-  cancelled: 'Annulée',
-};
-
 /**
  * Construit le titre humain d'un event (affiché en gras dans la timeline).
  * Pas de JSX : helper pur testable.
+ *
+ * BCP-5 (docs/api/CONVENTIONS.md §8.25 point 5.1) : le libellé vient de la
+ * table UNIQUE `STATUS_LABELS` de `orderStatus.ts` (via `getStatusInfo`,
+ * fallback safe sur le statut brut), jamais d'une table propre à ce
+ * fichier.
  */
 export function formatAuditEventTitle(event: OrderAuditEvent): string {
   if (event.kind === 'status') {
     const from = String(event.payload.from_status ?? '?');
     const to = String(event.payload.to_status ?? '?');
-    return `Statut : ${STATUS_LABELS_FR[from] ?? from} → ${STATUS_LABELS_FR[to] ?? to}`;
+    return `Statut : ${getStatusInfo(from).label} → ${getStatusInfo(to).label}`;
   }
   // kind === 'role'
   switch (event.event_type) {

@@ -57,6 +57,19 @@ describe('buildResumeChips (S7.9 AC1/AC2)', () => {
     expect(chips.map((c) => c.key)).toEqual(['cart', 'renew', 'track']);
   });
 
+  it('statut draft → libellé dérivé de la table unique orderStatus (BCP-5)', () => {
+    // BCP-5 (docs/api/CONVENTIONS.md §8.25 point 5.1, Q1 2026-09-15) :
+    // ResumeBanner n'a plus sa propre table, le libellé "draft" vient de
+    // orderStatus.ts et n'est plus "brouillon".
+    const chips = buildResumeChips({
+      cartCount: 0,
+      cartTotalHT: 0,
+      lastOrder: order({ status: 'draft', source: 'legacy' }),
+    });
+    expect(chips[0].label).toContain('en attente de validation');
+    expect(chips[0].label).not.toContain('brouillon');
+  });
+
   it('statut inconnu → affiché tel quel (pas de crash), date invalide → tiret', () => {
     const chips = buildResumeChips({
       cartCount: 0,

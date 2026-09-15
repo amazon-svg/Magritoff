@@ -29,7 +29,7 @@ describe('formatCancelErrorMessage', () => {
 
   it("pattern 'Transition not allowed' → message status change race condition", () => {
     expect(formatCancelErrorMessage({ message: 'Transition draft -> cancelled not allowed in v1.1' }))
-      .toContain("plus en statut Brouillon");
+      .toContain("plus en attente de validation");
   });
 
   it("message inconnu non-vide → fallback avec message brut", () => {

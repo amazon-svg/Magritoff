@@ -87,7 +87,7 @@ export function PortalThankYou({ orderId, taxRate, userEmail, onBackToCatalog, o
           className="mt-5 text-ink m-0 outline-none focus:outline-none"
           style={{ fontSize: "28px", fontWeight: 300, letterSpacing: "-0.025em" }}
         >
-          Commande confirmée
+          Commande transmise — en attente de validation par l'imprimeur
         </h1>
         <p
           className="mt-2 text-ink-muted font-mono"

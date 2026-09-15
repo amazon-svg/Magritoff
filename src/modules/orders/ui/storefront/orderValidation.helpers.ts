@@ -31,7 +31,9 @@ export function formatValidateErrorMessage(err: RpcLikeError | null | undefined)
     return "Vous n'avez pas les droits pour valider cette commande.";
   }
   if (msg.includes('transition') && msg.includes('not allowed')) {
-    return "Cette commande n'est plus en statut Brouillon (peut-etre deja validee ou annulee).";
+    // BCP-5 (docs/api/CONVENTIONS.md §8.25 point 5.1) : libelle "en attente
+    // de validation", pas "Brouillon".
+    return "Cette commande n'est plus en attente de validation (peut-etre deja validee ou annulee).";
   }
   if (msg.length > 0) {
     return `Erreur lors de la validation : ${err?.message}`;
