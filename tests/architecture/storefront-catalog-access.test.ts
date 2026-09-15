@@ -23,10 +23,46 @@ describe('accès catalogue par session storefront', () => {
   it('attend la résolution storefront avant de charger un catalogue privé', () => {
     expect(storefront).toContain('storefrontSessionLoading');
     expect(storefront).toContain('sessionShopId: storefrontSession?.identity.shopId ?? null');
-    expect(catalogLifecycle).toContain('if (!slug || sessionLoading) return');
+    // BCP-6b — la porte d'entrée du catalogue latche UNE FOIS que la session
+    // s'est résolue (`sessionReady`), plutôt que de dépendre directement de
+    // `sessionLoading` : une revalidation silencieuse ultérieure de la
+    // session ne doit plus jamais relancer le catalogue (CONVENTIONS.md
+    // §8.25 point 5.2).
+    expect(catalogLifecycle).toContain('if (!sessionLoading) setSessionReady(true)');
+    expect(catalogLifecycle).toContain('if (!slug || !sessionReady) return');
     expect(catalogLifecycle).toContain('storefrontShopId: sessionShopId');
     expect(storefront).not.toContain('resolveShopAccessFromMemberships');
     expect(storefront).not.toContain('useTenant');
     expect(storefront).not.toContain('useAuth');
+  });
+
+  // BCP-6b (correction qa-review round 1, M9/M10/M11) — le fichier contient
+  // DEUX effets qui partagent le même garde littéral
+  // `if (!slug || !sessionReady) return` (l'effet principal, sonde +
+  // catalogue, et l'effet de retour au premier plan). Une assertion qui se
+  // contente de chercher cette chaîne ne prouve rien sur l'effet PRINCIPAL en
+  // particulier : elle passerait même si une mutation retirait
+  // `sessionShopId` ou `attempt` de son tableau de dépendances, tant que le
+  // garde littéral survit ailleurs dans le fichier. Ce test extrait le
+  // tableau de dépendances qui suit IMMÉDIATEMENT la première occurrence du
+  // garde (donc celui de l'effet principal, qui apparaît en premier dans le
+  // fichier) et l'exige identique, terme à terme.
+  it('M9/M10/M11 — l\'effet principal (sonde + catalogue) dépend de sessionShopId ET de attempt, distinct de l\'effet de retour au premier plan', () => {
+    const mainEffectMatch = catalogLifecycle.match(
+      /if \(!slug \|\| !sessionReady\) return;[\s\S]*?\}, \[([^\]]+)\]\);/,
+    );
+    expect(mainEffectMatch).not.toBeNull();
+    // M9 : sessionShopId (changement d'identité) ; M10 : attempt (retry) ;
+    // M11 : le garde sessionReady est bien celui de CET effet, avec CES
+    // dépendances exactes (pas une réordonnance, pas un oubli).
+    expect(mainEffectMatch?.[1]).toBe('api, attempt, sessionReady, sessionShopId, slug');
+
+    // L'effet de retour au premier plan existe, mais ne partage PAS ces
+    // dépendances : il ne relance jamais la sonde, seulement le catalogue,
+    // et seulement via son écouteur `visibilitychange` (voir
+    // tests/architecture/storefront-refresh-scheduling.test.ts, M8).
+    const allDependencyArrays = [...catalogLifecycle.matchAll(/\}, \[([^\]]+)\]\);/g)].map((m) => m[1]);
+    expect(allDependencyArrays).toContain('api, sessionReady, slug');
+    expect(allDependencyArrays).not.toContain('api, attempt, sessionReady, sessionShopId, slug, sessionLoading');
   });
 });

@@ -41,8 +41,17 @@ export class ApiClientError extends Error {
   }
 }
 
+/**
+ * BCP-6b (CONVENTIONS.md §8.25 point 5.2, correction qa-review round 1) —
+ * rappel invoqué sur TOUTE reponse 401, quelle que soit l action qui l a
+ * provoquee. Ne porte aucune logique de revalidation : c est au module
+ * abonne (ex. `useStorefrontSession`) de decider quoi en faire.
+ */
+export type UnauthorizedListener = () => void;
+
 export class FetchApiClient {
   private readonly fetchImplementation: typeof fetch;
+  private readonly unauthorizedListeners = new Set<UnauthorizedListener>();
 
   constructor(
     private readonly baseUrl = '',
@@ -64,17 +73,43 @@ export class FetchApiClient {
    * Permet a la surface applicative d attacher le contexte d appel sans que
    * les clients de module (`CustomersApiClient`, ...) aient a le transporter
    * dans chaque methode — ils continuent de ne connaitre que leur ressource.
+   *
+   * BCP-6b (correction qa-review round 3, point non bloquant) — les abonnes
+   * `onUnauthorized` sont repris sur la copie : un abonnement pose sur
+   * l instance d origine reste actif sur le client derive, qui partage donc
+   * silencieusement le meme canal de notification 401 plutot que d en perdre
+   * la trace.
    */
   withHeaders(headers: Readonly<Record<string, string>>): FetchApiClient {
-    return new FetchApiClient(this.baseUrl, this.fetchImplementation, this.accessTokenProvider, {
+    const derived = new FetchApiClient(this.baseUrl, this.fetchImplementation, this.accessTokenProvider, {
       ...this.defaultHeaders,
       ...headers,
     });
+    for (const listener of this.unauthorizedListeners) derived.unauthorizedListeners.add(listener);
+    return derived;
+  }
+
+  /**
+   * S abonne aux reponses 401 rencontrees par CE client (donc par toute
+   * ressource construite sur la meme instance — ex. tous les clients
+   * storefront, qui partagent l `apiClient` unique de `StorefrontRuntimeBoundary`).
+   * Rend une fonction de desabonnement.
+   */
+  onUnauthorized(listener: UnauthorizedListener): () => void {
+    this.unauthorizedListeners.add(listener);
+    return () => {
+      this.unauthorizedListeners.delete(listener);
+    };
+  }
+
+  private notifyUnauthorized(status: number): void {
+    if (status !== 401) return;
+    for (const listener of this.unauthorizedListeners) listener();
   }
 
   async request<T>(request: ApiRequest<T>): Promise<T> {
     const response = await this.send(request);
-    return parseResponse(response, request.responseSchema);
+    return this.parseResponse(response, request.responseSchema);
   }
 
   /**
@@ -84,7 +119,7 @@ export class FetchApiClient {
    */
   async requestWithEtag<T>(request: ApiRequest<T>): Promise<ApiResponseWithEtag<T>> {
     const response = await this.send(request);
-    const data = await parseResponse(response, request.responseSchema);
+    const data = await this.parseResponse(response, request.responseSchema);
     return { data, etag: response.headers.get('etag') };
   }
 
@@ -124,7 +159,39 @@ export class FetchApiClient {
       ...(request.signal === undefined ? {} : { signal: request.signal }),
     });
 
-    return parseResponse(response, request.responseSchema);
+    return this.parseResponse(response, request.responseSchema);
+  }
+
+  private async parseResponse<T>(response: Response, responseSchema: z.ZodType<T>): Promise<T> {
+    const payload = await readJson(response);
+    if (!response.ok) {
+      this.notifyUnauthorized(response.status);
+      const parsedProblem = apiProblemSchema.safeParse(payload);
+      if (parsedProblem.success) throw new ApiClientError(parsedProblem.data);
+
+      throw new ApiClientError({
+        type: 'about:blank',
+        title: 'Erreur API Magrit',
+        status: response.status,
+        code: 'api.invalid_error_response',
+        detail: `La réponse d erreur ne respecte pas le contrat API.`,
+        requestId: response.headers.get('x-request-id') ?? 'unknown',
+      });
+    }
+
+    const parsedResponse = responseSchema.safeParse(payload);
+    if (!parsedResponse.success) {
+      throw new ApiClientError({
+        type: 'about:blank',
+        title: 'Réponse API invalide',
+        status: 502,
+        code: 'api.invalid_success_response',
+        detail: 'La réponse reçue ne respecte pas le contrat attendu.',
+        requestId: response.headers.get('x-request-id') ?? 'unknown',
+      });
+    }
+
+    return parsedResponse.data;
   }
 }
 
@@ -132,37 +199,6 @@ function assertApiPath(path: string): void {
   if (!path.startsWith(`${API_V1_BASE_PATH}/`)) {
     throw new TypeError(`Une route API Magrit doit commencer par ${API_V1_BASE_PATH}/.`);
   }
-}
-
-async function parseResponse<T>(response: Response, responseSchema: z.ZodType<T>): Promise<T> {
-  const payload = await readJson(response);
-  if (!response.ok) {
-    const parsedProblem = apiProblemSchema.safeParse(payload);
-    if (parsedProblem.success) throw new ApiClientError(parsedProblem.data);
-
-    throw new ApiClientError({
-      type: 'about:blank',
-      title: 'Erreur API Magrit',
-      status: response.status,
-      code: 'api.invalid_error_response',
-      detail: `La réponse d erreur ne respecte pas le contrat API.`,
-      requestId: response.headers.get('x-request-id') ?? 'unknown',
-    });
-  }
-
-  const parsedResponse = responseSchema.safeParse(payload);
-  if (!parsedResponse.success) {
-    throw new ApiClientError({
-      type: 'about:blank',
-      title: 'Réponse API invalide',
-      status: 502,
-      code: 'api.invalid_success_response',
-      detail: 'La réponse reçue ne respecte pas le contrat attendu.',
-      requestId: response.headers.get('x-request-id') ?? 'unknown',
-    });
-  }
-
-  return parsedResponse.data;
 }
 
 export class SystemApiClient {

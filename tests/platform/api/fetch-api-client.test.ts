@@ -192,6 +192,99 @@ describe('client fetch API Magrit', () => {
       },
     } satisfies Partial<ApiClientError>);
   });
+
+  // BCP-6b (correction qa-review round 1, point BLOQUANT) — le client est le
+  // seul point commun a toutes les actions storefront (`useStorefrontApi`
+  // le memoise sur l `apiClient` unique du runtime), donc le seul endroit ou
+  // brancher une revalidation de session sur TOUTE reponse 401 sans toucher
+  // aux modules d action (`useStorefrontOrderLifecycle`, etc.).
+  describe('onUnauthorized', () => {
+    it('notifie sur un 401, jamais sur un autre statut', async () => {
+      let status = 401;
+      const client = new FetchApiClient('https://magrit.test', async () =>
+        new Response(
+          JSON.stringify({ type: 'about:blank', title: 'x', status, code: 'x', request_id: 'r' }),
+          { status },
+        ),
+      );
+      let notifications = 0;
+      client.onUnauthorized(() => { notifications += 1; });
+
+      await client.request({ path: '/api/v1/customers', responseSchema: z.unknown() }).catch(() => undefined);
+      expect(notifications).toBe(1);
+
+      status = 500;
+      await client.request({ path: '/api/v1/customers', responseSchema: z.unknown() }).catch(() => undefined);
+      expect(notifications).toBe(1);
+    });
+
+    it('ne notifie jamais sur une reponse en succes', async () => {
+      const client = new FetchApiClient('https://magrit.test', async () =>
+        new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } }),
+      );
+      let notifications = 0;
+      client.onUnauthorized(() => { notifications += 1; });
+
+      await client.request({ path: '/api/v1/customers', responseSchema: z.object({ ok: z.boolean() }) });
+
+      expect(notifications).toBe(0);
+    });
+
+    it('desabonne : le rappel rendu par onUnauthorized coupe la notification', async () => {
+      const client = new FetchApiClient('https://magrit.test', async () =>
+        new Response(
+          JSON.stringify({ type: 'about:blank', title: 'x', status: 401, code: 'x', request_id: 'r' }),
+          { status: 401 },
+        ),
+      );
+      let notifications = 0;
+      const unsubscribe = client.onUnauthorized(() => { notifications += 1; });
+      unsubscribe();
+
+      await client.request({ path: '/api/v1/customers', responseSchema: z.unknown() }).catch(() => undefined);
+
+      expect(notifications).toBe(0);
+    });
+
+    it('notifie chaque abonne independamment, requestForm et requestWithEtag inclus', async () => {
+      const client = new FetchApiClient('https://magrit.test', async () =>
+        new Response(
+          JSON.stringify({ type: 'about:blank', title: 'x', status: 401, code: 'x', request_id: 'r' }),
+          { status: 401 },
+        ),
+      );
+      let a = 0;
+      let b = 0;
+      client.onUnauthorized(() => { a += 1; });
+      client.onUnauthorized(() => { b += 1; });
+
+      await client.requestWithEtag({ path: '/api/v1/customers', responseSchema: z.unknown() }).catch(() => undefined);
+      const form = new FormData();
+      await client.requestForm({ method: 'POST', path: '/api/v1/assets', form, responseSchema: z.unknown() }).catch(() => undefined);
+
+      expect(a).toBe(2);
+      expect(b).toBe(2);
+    });
+
+    // BCP-6b (correction qa-review round 3, point non bloquant) — un client
+    // derive par withHeaders() (ex. le contexte tenant en atelier,
+    // order-upload-links) reste abonnable/notifiable comme l original.
+    it("withHeaders() reprend les abonnes onUnauthorized de l instance d origine", async () => {
+      const client = new FetchApiClient('https://magrit.test', async () =>
+        new Response(
+          JSON.stringify({ type: 'about:blank', title: 'x', status: 401, code: 'x', request_id: 'r' }),
+          { status: 401 },
+        ),
+      );
+      let notifications = 0;
+      client.onUnauthorized(() => { notifications += 1; });
+      const derived = client.withHeaders({ 'X-Magrit-Tenant': 'tenant-1' });
+
+      await derived.request({ path: '/api/v1/customers', responseSchema: z.unknown() }).catch(() => undefined);
+
+      expect(notifications).toBe(1);
+    });
+  });
 });
 
 function bridgeTo(handler: (request: Request) => Promise<Response>): typeof fetch {
