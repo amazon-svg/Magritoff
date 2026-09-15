@@ -4605,6 +4605,48 @@ Vérifications après déploiement : le job figure dans `cron.job`, et une conso
 - **au journal**, chaque refus porte `request_id`, `scope` et le type d'appelant, jamais une IP ni son empreinte ;
 - **en base**, `api_rate_limit_counters` ne contient aucune IP en clair, et le job de purge est planifié.
 
+##### 2.3ter BCP-0c — les diagnostics de plateforme, réservés à l'administrateur de la plateforme (tranché par l'architecte sur un constat de la qa-review de BCP-0b)
+
+**Le constat, vérifié.**
+- **`GET /api/v1/diagnostics/clariprint` appelle `CheckAuth`** sur le compte Clariprint unique de la plateforme. On ne sait pas si cet appel est facturé ; le banc le compte comme tel par prudence (point 2.3).
+- **La route voisine `GET /api/v1/diagnostics/ai` a le même défaut, et le sien est certain** : elle fait un **vrai appel facturé** à Anthropic (`ai-diagnostics-gateway.ts:22-25`, `max_tokens: 50`).
+- **Les deux routes sont `authentication: 'required'`, sans aucun contrôle de rôle** (`diagnostics-routes.ts`). Elles sont donc ouvertes à tout compte, alors que l'inscription et la création d'un espace sont en libre-service (point 2.3bis (4)).
+- **Leur seul appelant est le bouton « Diagnostic des connexions API »** de l'en-tête de l'atelier (`Header.tsx:34-40`, par `usePlatformDiagnostics`), affiché à **tout** utilisateur connecté, sans condition. La boutique compose bien un `DiagnosticsApiClient` dans `ClariprintHttpAdapter`, mais aucun écran n'y appelle `testConnection()` (vérifié) ; sans jeton, elle recevrait d'ailleurs un 401.
+
+**(a) Tranché : les deux routes sont RÉSERVÉES À L'ADMINISTRATEUR DE LA PLATEFORME.** Elles n'entrent pas dans le budget, et elles ne sont pas retirées. La garde est `public.is_super_admin()` : admin ou owner de l'espace système `magrit-root` (migration `20260424000100`, l. ~123).
+- **Pas l'owner d'un espace** : un espace se crée en libre-service, donc un owner n'est pas une garde.
+- **Pas le budget** : un diagnostic n'a pas besoin d'un quota, il a besoin d'un **destinataire**. Il teste la configuration de la **plateforme** (le compte Clariprint unique, la clé du fournisseur IA), et son résultat (identifiants absents, serveur injoignable, authentification refusée) est une information d'exploitation qui ne regarde aucun espace. Un quota laisserait encore n'importe quel compte inscrit consommer ces appels et lire cet état.
+- **Pas le retrait** : c'est le seul moyen, pour l'exploitant, de vérifier depuis l'interface les identifiants Clariprint et la clé IA après une rotation de secret.
+
+**Règles opposables :**
+- **La garde vit côté serveur**, avant tout appel sortant. Elle évalue `is_super_admin()` sous le jeton de l'appelant : c'est la fonction qu'emploient déjà les policies (`20260814000200_admin_unique.sql`), jamais une réécriture en TypeScript de la règle « espace système ». Un appelant qui n'est pas administrateur de la plateforme reçoit un **403 `identity.role_required`**, dans la forme d'erreur de la façade historique. C'est le code déjà publié pour « habilitation utilisateur insuffisante » (§3.5, règle 3). **Aucun appel à Clariprint ni à Anthropic n'est alors fait.**
+- **Le bouton de l'en-tête** est masqué pour qui n'est pas administrateur de la plateforme, si le front dispose déjà de cette information. Sinon, le panneau affiche, sur un 403, « Réservé à l'administrateur de la plateforme. » au lieu de l'erreur brute que rend `diagnosticRequestError` (`String(cause)`). **Le masquage n'est que de l'ergonomie : la barrière est le serveur** (§3.5, règle 5).
+- **Le banc du point 2.3 n'est pas concerné** : il fait son propre `CheckAuth`, avec les identifiants de son environnement, et ne passe pas par cette route.
+
+**(b) Tranché : un lot SÉPARÉ, BCP-0c.** Ni un complément de BCP-0b, ni BCP-1a.
+- **Pas BCP-0b.** Le mécanisme n'est pas le même (une autorisation, pas un quota), et les fichiers non plus. Attacher une garde de deux routes à un lot qui porte une migration, un secret et une mesure la retarderait sans raison.
+- **Pas BCP-1a.** Son « diagnostic » est le verdict d'un chiffrage, pas ces routes. Et il vient plus tard, ce qui laisserait deux appels facturés ouverts plus longtemps.
+- **BCP-0c ne dépend que de BCP-0**, n'a aucun fichier commun avec BCP-0b, et **peut se faire en parallèle de lui**, dans son propre worktree. Fichiers : `diagnostics-routes.ts` et la composition de `magrit-api` pour la garde, `Header.tsx` et `usePlatformDiagnostics.ts` pour l'écran.
+- **Tests exigés**, chacun échouant sur le code d'avant, pour chacune des deux routes :
+  - un compte sans espace → 403 ;
+  - l'owner d'un espace ordinaire → 403 ;
+  - un administrateur de la plateforme → 200 ;
+  - **aucun appel sortant sur un 403** (espion sur les deux passerelles) ;
+  - le message du panneau sur un 403.
+- **Recette** : avec un compte ordinaire, le panneau n'appelle rien (onglet réseau) ou affiche le message ; avec un administrateur de la plateforme, les deux tests passent. **Déploiement** : `magrit-api`, puis le front.
+
+**(c) Le contrat.**
+- **`openapi/magrit-core.v1.yaml` ne change pas** : ces routes n'y figurent pas.
+- **Elles figurent en revanche dans l'ancien contrat `docs/architecture/api/openapi.yaml`** (`testClariprint` et la route IA voisine, `security: bearerAuth`, réponses 200/401). Ce fichier « continue d'être maintenu » pour les routes qu'il décrit. BCP-0c y ajoute donc, **dans le même commit que le code** et pour les deux opérations :
+  - une réponse `'403'` ;
+  - une phrase : « réservé à l'administrateur de la plateforme (`is_super_admin()`) ».
+
+  Pas avant le code : le document décrirait un comportement pas encore déployé.
+- **C'est une restriction d'accès sur une route publiée**, donc au sens strict un changement cassant (§7, par analogie). Il est **assumé**, pour trois raisons :
+  - la capacité n'a jamais été destinée à un espace ;
+  - son seul appelant est notre propre en-tête ;
+  - c'est une correction de sécurité, de même nature que la fermeture des routes Clariprint de BCP-0.
+
 ##### 2.4 BCP-1b — le contrat, REFAIT après la décision Q2 (écrit par l'architecte sur l'archive du banc)
 
 **Décision d'Arnaud (Q2, 2026-09-15) : un visiteur non connecté obtient un vrai chiffrage Clariprint.** Ce cadrage recommandait l'inverse. Le contrat suit la décision, et il en écrit les conditions.
@@ -4840,6 +4882,7 @@ Ce sont les cinq valeurs du prompt. **Les libellés sont une proposition**, vali
 |---|---|---|---|
 | **BCP-0** | 1 — correctif immédiat de la fuite sur ses deux portes (décision d'Arnaud) : la passerelle de `magrit-api` (worktree isolé, commit `461a1cca`), et `make-server-e3db71a4`, dont `clariprint-quote` et `clariprint-test` sont d'abord neutralisés (v28), puis **retirés en 410 Gone** (décision du quatrième round ; correctif séparé, base `chore/chat-sonnet-5`). **BCP-0 se ferme avec ce déploiement** | — | `src/adapters/clariprint/http-clariprint-quote-gateway.ts`, `src/modules/clariprint/api/contracts.ts` ; `clariprint-quote` et `clariprint-test` de `make-server-e3db71a4` |
 | **BCP-0b** | 1 — limite de débit sur la route actuelle (décisions d'Arnaud Q9 et Q10) : L1 visiteur (clé IP lue dans `cf-connecting-ip`), étage membre, L3 à 500 par jour ; sur la seule route de `magrit-api`, l'ancienne fonction étant en 410 | BCP-0 ; la mesure de la source d'IP, faite le 2026-09-15 (point 2.3bis (5)) | migration (tables, fonctions, job de purge), port `ClariprintQuoteBudget`, `src/adapters/supabase/clariprint-quote-budget-repository.ts`, `clariprint-routes.ts`, composition `magrit-api` |
+| **BCP-0c** | 1 — `/diagnostics/clariprint` et `/diagnostics/ai` réservés à l'administrateur de la plateforme (`is_super_admin()`), bouton de l'en-tête (point 2.3ter) | BCP-0 ; **parallélisable avec BCP-0b** | `src/server/api/diagnostics-routes.ts`, composition `magrit-api`, `src/app/layouts/Header.tsx`, `usePlatformDiagnostics.ts`, `docs/architecture/api/openapi.yaml` (réponse 403) |
 | **BCP-1a** | 1 — verdict, journal, expurgation, banc, référentiel des finitions | BCP-0, BCP-0b | `src/adapters/clariprint/`, `src/modules/clariprint/application/`, `scripts/diagnostics/clariprint-variants/`, composition `magrit-api` |
 | *(campagne)* | banc joué **en mode sec, puis réellement sous un plafond de 18 appels** (point 2.3) | BCP-1a | `scripts/diagnostics/clariprint-variants/results/` |
 | *(architecte)* | écriture du contrat, **après la campagne archivée** | la campagne | `openapi/magrit-core.v1.yaml`, ce document |
@@ -4866,6 +4909,7 @@ Ce sont les cinq valeurs du prompt. **Les libellés sont une proposition**, vali
 **Déploiements** :
 - BCP-0 : `magrit-api` ; puis `make-server-e3db71a4`, avec ses routes Clariprint en 410, après sa qa-review distincte et la lecture des journaux de production, et un `/assistant/chat` rejoué après ;
 - BCP-0b : le secret de fonction, `supabase db push`, puis `magrit-api` seul (point 2.3bis (10)). La mesure de la source d'IP est faite ;
+- BCP-0c : `magrit-api`, puis le front ;
 - BCP-1a : `magrit-api` ;
 - BCP-1b : une migration additive (portée L2), et `magrit-api` deux fois, dans l'ordre du point 2.4 ;
 - tous les autres lots : **front seul, aucun déploiement Supabase**.
@@ -4939,6 +4983,8 @@ Ce sont les cinq valeurs du prompt. **Les libellés sont une proposition**, vali
 **Troisième round (seconde porte, Q9, Q10, cadrage de BCP-0b)** : même état. Aucune ligne d'`openapi/` ni de `src/`, et `pnpm gen:api:check` rejoué.
 
 **Quatrième round (mesure de l'IP, retrait en 410 de la seconde porte)** : même état. Seul ce document change.
+
+**Cinquième round (BCP-0c, routes de diagnostic)** : même état. `openapi/magrit-core.v1.yaml` est inchangé. L'ajout du 403 à `docs/architecture/api/openapi.yaml` est un livrable de BCP-0c, dans le même commit que son code.
 
 ## 9. Commandes
 
