@@ -111,7 +111,12 @@ Joué par le coordinateur dans Chrome DevTools, compte acheteur ERAM connecté p
   - message de conflit brut « transition_not_allowed: validated -> cancelled » à l'annulation (et à l'identique à la validation). Défaut préexistant : les helpers attendent l'ancien texte « not allowed » avec une espace ;
   - hauteur de ligne du sous-titre de `ProductOverlay` passée de 18px à 17,14px (`text-sm` de `SheetDescription`).
 
-  **Correctif livré** (`43622559`, worktree) : le conflit est reconnu par le code problem `orders.transition_not_allowed` d'abord, puis par les deux formes textuelles ; la validation reprend la même logique ; la liste se recharge après succès ET échec (boutique et atelier) ; le sous-titre de `ProductOverlay` passe par une constante `text-[12px]` que `tailwind-merge` substitue à `text-sm` (hauteur de ligne héritée rétablie, `sheet.tsx` inchangé) ; 8 tests échouent sur l'ancien code ; suite complète verte (2938) ; **qa distincte en cours**.
+  **Correctif livré** (`43622559`, worktree) : le conflit est reconnu par le code problem `orders.transition_not_allowed` d'abord, puis par les deux formes textuelles ; la validation reprend la même logique ; la liste se recharge après succès ET échec (boutique et atelier) ; le sous-titre de `ProductOverlay` passe par une constante `text-[12px]` que `tailwind-merge` substitue à `text-sm` (hauteur de ligne héritée rétablie, `sheet.tsx` inchangé) ; 8 tests échouent sur l'ancien code ; suite complète verte (2938) ; **qa REJETÉE sur trois points** (les deux défauts de recette sont bien corrigés) :
+- les 404 et 403 de la même route affichent encore le texte technique brut (`order_not_found: <UUID>`, `permission_denied: …`, en tiret bas). Défaut préexistant de la même famille, à traduire par le code problem ;
+- le rechargement de la liste après un échec n'est testé nulle part, ni côté boutique ni côté atelier ;
+- tout 409 est traité comme un conflit (un `api.idempotency_key_reused` afficherait « n'est plus en attente de validation »).
+
+Correction en cours. Dette basse : le test de hauteur de ligne recopie la classe du wrapper ; la logique commune est rangée dans le helper d'annulation.
 - **Revalidation depuis un onglet périmé** : conforme par conception. Une clé d'idempotence déterministe donne `replayed: true` et un seul événement.
 - **Sans objet** :
   - `OrderRolesPage` n'est montée nulle part **par décision** : sa route `order-roles` (`roles.manage`) a été retirée par le commit UM1 `838e8c90` du 2026-08-24, avec le verrou de délégation des rôles. Ce n'est pas une régression ;
