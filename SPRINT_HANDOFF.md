@@ -114,7 +114,7 @@ Joué par le coordinateur dans Chrome DevTools, compte acheteur ERAM connecté p
   Correctif en worktree.
 - **Revalidation depuis un onglet périmé** : conforme par conception. Une clé d'idempotence déterministe donne `replayed: true` et un seul événement.
 - **Sans objet** :
-  - `OrderRolesPage` n'est **montée nulle part**, alors que S-ORDER-ROLES-3 l'avait livrée en juin ;
+  - `OrderRolesPage` n'est montée nulle part **par décision** : sa route `order-roles` (`roles.manage`) a été retirée par le commit UM1 `838e8c90` du 2026-08-24, avec le verrou de délégation des rôles. Ce n'est pas une régression ;
   - badge prix marché (produits à prix fixe).
 - **Boucle mesurée** : environ une paire `session/current` + `catalog` complet toutes les 5 s, onglet au repos (§8.25 5.2). Lot à trancher par l'architecte.
 - **Hors lot, relevés pour les lots 4, 7 et 8** :
