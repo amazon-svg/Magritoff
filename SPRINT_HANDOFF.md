@@ -111,7 +111,7 @@ Joué par le coordinateur dans Chrome DevTools, compte acheteur ERAM connecté p
   - message de conflit brut « transition_not_allowed: validated -> cancelled » à l'annulation (et à l'identique à la validation). Défaut préexistant : les helpers attendent l'ancien texte « not allowed » avec une espace ;
   - hauteur de ligne du sous-titre de `ProductOverlay` passée de 18px à 17,14px (`text-sm` de `SheetDescription`).
 
-  Correctif en worktree.
+  **Correctif livré** (`43622559`, worktree) : le conflit est reconnu par le code problem `orders.transition_not_allowed` d'abord, puis par les deux formes textuelles ; la validation reprend la même logique ; la liste se recharge après succès ET échec (boutique et atelier) ; le sous-titre de `ProductOverlay` passe par une constante `text-[12px]` que `tailwind-merge` substitue à `text-sm` (hauteur de ligne héritée rétablie, `sheet.tsx` inchangé) ; 8 tests échouent sur l'ancien code ; suite complète verte (2938) ; **qa distincte en cours**.
 - **Revalidation depuis un onglet périmé** : conforme par conception. Une clé d'idempotence déterministe donne `replayed: true` et un seul événement.
 - **Sans objet** :
   - `OrderRolesPage` n'est montée nulle part **par décision** : sa route `order-roles` (`roles.manage`) a été retirée par le commit UM1 `838e8c90` du 2026-08-24, avec le verrou de délégation des rôles. Ce n'est pas une régression ;
