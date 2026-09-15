@@ -1,11 +1,17 @@
 /**
- * Drain de generation (story E10.18c, plafond corrige a 5 000 en E10.18d,
- * §8.24 point 4, douzieme entree du bandeau). Le PLAFOND `ORDER_EXPORT_ROW_LIMIT`
+ * Drain de generation (story E10.18c, plafond mesure tenable a 5 000 et
+ * corrige en E10.18d, §8.24 point 4, douzieme entree du bandeau — puis
+ * ABAISSE a 2 500 le 2026-09-15, decision Arnaud : le generateur est active
+ * en production sans avoir pu rejouer la porte d activation hebergee a
+ * 5 000, faute de commandes en production ; 2 500 est retenu par prudence,
+ * 5 000 reste la valeur mesuree tenable localement et pourra etre
+ * retrouvee sur une mesure hebergee). Le PLAFOND `ORDER_EXPORT_ROW_LIMIT`
  * est le seul filet PREVENTIF contre une mise a mort par le superviseur
  * (CPU, pas memoire — corrige, voir `order-export-generation-service.ts`)
  * qu aucun `try/catch` ne rattrape : verifie ICI qu il est constate AVANT
  * tout appel au renderer, jamais apres. Ce test est ECRIT CONTRE LA
- * CONSTANTE (`ORDER_EXPORT_ROW_LIMIT`), jamais contre un nombre litteral :
+ * CONSTANTE (`ORDER_EXPORT_ROW_LIMIT`), jamais contre un nombre litteral
+ * (sauf l assertion dediee qui verrouille la VALEUR courante elle-meme) :
  * il vaut pour la valeur courante SANS MODIFICATION si elle est revisee.
  */
 import { describe, expect, it, vi } from 'vitest';
@@ -91,9 +97,32 @@ function rowsOfSize(n: number): readonly OrderExportRawRow[] {
   return Array.from({ length: n }, (_, i) => ({ order_number: `CDE-${i}` }));
 }
 
-describe('Valeurs corrigees en E10.18d (§8.24 point 4, douzieme entree du bandeau)', () => {
-  it('ORDER_EXPORT_ROW_LIMIT vaut 5 000 (pas 50 000, corrige sur une mesure du chemin reel)', () => {
-    expect(ORDER_EXPORT_ROW_LIMIT).toBe(5_000);
+/**
+ * Decoupe `n` lignes en pages de `READ_PAGE_SIZE` (constante PRIVEE du
+ * service, valeur 1000 reprise ICI cote test — voir
+ * `order-export-generation-service.ts`), la derniere page pouvant etre
+ * partielle. Generique en `n` : NE SUPPOSE PAS que `n` est un multiple de
+ * 1000, pour rester correct quelle que soit `ORDER_EXPORT_ROW_LIMIT`
+ * (2 500 aujourd hui, pas un multiple de 1000 — contrairement a l ancienne
+ * valeur 5 000 que ce fichier verrouillait a tort par une division entiere).
+ */
+function pagesForRowCount(n: number): OrderExportRowsPage[] {
+  const READ_PAGE_SIZE_TEST = 1000;
+  const pages: OrderExportRowsPage[] = [];
+  let remaining = n;
+  let i = 0;
+  while (remaining > 0) {
+    const size = Math.min(READ_PAGE_SIZE_TEST, remaining);
+    remaining -= size;
+    pages.push({ rows: rowsOfSize(size), nextAfter: remaining > 0 ? { i } : null });
+    i += 1;
+  }
+  return pages;
+}
+
+describe('Valeur retenue en production le 2026-09-15 (decision Arnaud, §8.24 point 4)', () => {
+  it('ORDER_EXPORT_ROW_LIMIT vaut 2 500 (retenu par prudence, sans porte d activation hebergee jouee a 5 000 ; 5 000 reste mesure tenable localement, pas 50 000)', () => {
+    expect(ORDER_EXPORT_ROW_LIMIT).toBe(2_500);
   });
 
   it('DEFAULT_ORDER_EXPORT_RUN_SETTINGS.limit vaut 1 (un export par invocation, pas 5 — le budget CPU se cumule sur le lot)', () => {
@@ -105,13 +134,10 @@ describe('OrderExportGenerationService — plafond ORDER_EXPORT_ROW_LIMIT', () =
   it('refuse AVANT tout appel au renderer des que le plafond est depasse', async () => {
     const repository = new FakeRunRepository();
     repository.claimedExports = [claimed()];
-    // Deux pages : la premiere sature exactement le plafond, la seconde
-    // (encore une ligne) le fait deborder — READ_PAGE_SIZE interne = 1000.
-    const fullPages = Math.floor(ORDER_EXPORT_ROW_LIMIT / 1000);
-    for (let i = 0; i < fullPages; i += 1) {
-      repository.pages.push({ rows: rowsOfSize(1000), nextAfter: { i } });
-    }
-    repository.pages.push({ rows: rowsOfSize(1), nextAfter: null });
+    // ORDER_EXPORT_ROW_LIMIT + 1 lignes, exactement une de trop — construit
+    // generiquement (voir `pagesForRowCount`), valable que le plafond soit
+    // ou non un multiple de 1000 (2 500 ne l est pas).
+    repository.pages = pagesForRowCount(ORDER_EXPORT_ROW_LIMIT + 1);
 
     const renderer = rendererReturning({ ok: true, bytes: new Uint8Array() });
     const storage = new FakeStorage();
@@ -133,10 +159,7 @@ describe('OrderExportGenerationService — plafond ORDER_EXPORT_ROW_LIMIT', () =
   it('accepte exactement le plafond (ORDER_EXPORT_ROW_LIMIT lignes)', async () => {
     const repository = new FakeRunRepository();
     repository.claimedExports = [claimed()];
-    const fullPages = ORDER_EXPORT_ROW_LIMIT / 1000;
-    for (let i = 0; i < fullPages; i += 1) {
-      repository.pages.push({ rows: rowsOfSize(1000), nextAfter: i === fullPages - 1 ? null : { i } });
-    }
+    repository.pages = pagesForRowCount(ORDER_EXPORT_ROW_LIMIT);
 
     const renderer = rendererReturning({ ok: true, bytes: new TextEncoder().encode('csv') });
     const storage = new FakeStorage();

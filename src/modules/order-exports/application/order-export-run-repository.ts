@@ -26,7 +26,10 @@ export type OrderExportRunSettings = Readonly<{
 
 export const DEFAULT_ORDER_EXPORT_RUN_SETTINGS: OrderExportRunSettings = Object.freeze({
   // `1`, PAS `5` — CORRIGE le 2026-09-13 (§8.24 point 4, douzieme entree du
-  // bandeau, condition 2 du plafond de 5 000 lignes). MESURE, pas suppose :
+  // bandeau, condition 2 du plafond `ORDER_EXPORT_ROW_LIMIT` MESURE tenable
+  // a 5 000 lignes localement — valeur RETENUE en production : 2 500 depuis
+  // le 2026-09-15, decision Arnaud, voir order-export-generation-service.ts).
+  // MESURE, pas suppose :
   // le budget CPU d une invocation (256 Mo, 2 s de CPU) se CUMULE sur le LOT
   // que `runOnce()` traite dans une seule requete, pas par export. Un XLSX
   // de 10 000 lignes passe SEUL ; reclame par lot de cinq dans le MEME tour,

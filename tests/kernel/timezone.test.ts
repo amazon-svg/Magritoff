@@ -90,7 +90,8 @@ describe('formatCivilDateInReferenceTimeZone — formateur MIS EN CACHE (E10.18d
   it(
     'construit `Intl.DateTimeFormat("en-CA", ...)` UNE SEULE FOIS, quel que soit le nombre d appels ' +
       '(MESURE : 1 757 ms pour 50 000 lignes si reconstruit a chaque appel, contre 70 ms en cache — ' +
-      'sans ce correctif, le plafond d export serait 2 000 lignes au lieu de 5 000, §8.24 point 4)',
+      'sans ce correctif, le plafond tenable serait 2 000 lignes au lieu des 5 000 mesurees tenables, ' +
+      '§8.24 point 4 ; le plafond RETENU en production est 2 500 depuis le 2026-09-15, decision Arnaud)',
     async () => {
       // Espion pose AVANT le chargement du module : `CIVIL_DATE_FORMATTER`
       // est une constante de PORTEE MODULE, construite au premier import —

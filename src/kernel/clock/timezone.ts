@@ -41,9 +41,13 @@ export const PRODUCT_REFERENCE_TIME_ZONE = 'Europe/Paris' as const;
  * exportee (CSV comme XLSX, une ligne = un appel) coutait **1 757 ms pour
  * 50 000 lignes**, contre **70 ms** avec un formateur reutilise — c etait
  * le PREMIER poste de CPU du renderer, avant meme la bibliotheque XLSX.
- * **Sans ce correctif, le plafond d export (`ORDER_EXPORT_ROW_LIMIT`,
- * `order-export-generation-service.ts`) serait 2 000 lignes au lieu de
- * 5 000** (§8.24 point 4).
+ * **Sans ce correctif, le plafond d export tenable serait 2 000 lignes au
+ * lieu des 5 000 MESUREES tenables** (§8.24 point 4). Le plafond
+ * `ORDER_EXPORT_ROW_LIMIT` (`order-export-generation-service.ts`) RETENU en
+ * production est toutefois 2 500 depuis le 2026-09-15 (decision Arnaud,
+ * prudence faute de porte d activation hebergee jouee a 5 000) — la mesure
+ * ci-dessus reste vraie, elle documente le plafond TENABLE, pas la valeur
+ * retenue.
  *
  * AUCUN CHANGEMENT DE COMPORTEMENT : `Intl.DateTimeFormat.prototype.format()`
  * est une fonction PURE vis-a-vis de son instance — elle ne porte aucun etat

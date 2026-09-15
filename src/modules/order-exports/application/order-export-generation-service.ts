@@ -34,24 +34,36 @@ import type { OrderExportStorage } from './order-export-storage.ts';
 
 /**
  * Plafond DUR, IDENTIQUE quel que soit le format (contrat point 4 : "un seul
- * nombre a connaitre, un seul message a ecrire"). **`5_000`, pas `50_000`**
- * — valeur CORRIGEE le 2026-09-13 (douzieme entree du bandeau §8.24) sur une
- * mesure du CHEMIN REEL (Edge Function servie en *user worker*, limites
- * exactes de la CLI Supabase : 256 Mo, CPU 1000/2000 ms), apres qu une
- * premiere mesure (50 000, prise hors de la limite CPU du superviseur) s est
- * revelee fausse : a 50 000 lignes, meme la bibliotheque XLSX SEULE est tuee
- * par le CPU. **Valable SOUS TROIS CONDITIONS, sans lesquelles 5 000 est
- * fausse aussi** (contrat point 4) : (1) le formateur de date civile est mis
- * en cache (`src/kernel/clock/timezone.ts`, `CIVIL_DATE_FORMATTER`) — SANS
- * lui, le plafond serait 2 000 ; (2) un seul export par invocation
- * (`DEFAULT_ORDER_EXPORT_RUN_SETTINGS.limit`, `order-export-run-repository.ts`)
- * — le budget CPU se cumule sur le LOT que `runOnce()` traite ; (3) un filet
- * de reprise des exports tues (migration `20260913010000`). Cette valeur
- * n est validee que localement (Apple Silicon, arm64) : l activation du
- * runner en production reste subordonnee a une mesure sur le projet
- * heberge (contrat point 4, "validation sur la plateforme").
+ * nombre a connaitre, un seul message a ecrire"). **`2_500`, pas `5_000`**
+ * — decision d Arnaud du 2026-09-15 : le generateur d exports est active EN
+ * PRODUCTION sans avoir pu rejouer la porte d activation hebergee a 5 000
+ * lignes (la production ne contient aucune commande, ce test ne peut donc
+ * pas y etre joue). 2 500 est retenu PAR PRUDENCE — la moitie de la valeur
+ * mesuree tenable localement, jamais mesuree sur la plateforme hebergee.
+ *
+ * `5_000` reste la valeur MESUREE tenable du CHEMIN REEL (Edge Function
+ * servie en *user worker*, limites exactes de la CLI Supabase : 256 Mo, CPU
+ * 1000/2000 ms — douzieme entree du bandeau §8.24, mesure du 2026-09-13),
+ * apres qu une premiere mesure (50 000, prise hors de la limite CPU du
+ * superviseur) s est revelee fausse : a 50 000 lignes, meme la bibliotheque
+ * XLSX SEULE est tuee par le CPU. Cette valeur (5 000) n a jamais ete
+ * mesuree que localement (Apple Silicon, arm64), jamais sur le projet
+ * heberge — c est PRECISEMENT ce qui manque pour la retrouver (contrat
+ * point 4, "validation sur la plateforme") : le jour ou cette mesure
+ * hebergee sera jouee, `ORDER_EXPORT_ROW_LIMIT` pourra remonter jusqu a
+ * 5 000 sur cette base, jamais avant.
+ *
+ * **Valable SOUS TROIS CONDITIONS, sans lesquelles meme 5 000 serait
+ * fausse** (contrat point 4) — ces conditions restent LA DISCIPLINE A
+ * TENIR quelle que soit la valeur retenue : (1) le formateur de date civile
+ * est mis en cache (`src/kernel/clock/timezone.ts`, `CIVIL_DATE_FORMATTER`)
+ * — SANS lui, le plafond tenable tomberait a 2 000 ; (2) un seul export par
+ * invocation (`DEFAULT_ORDER_EXPORT_RUN_SETTINGS.limit`,
+ * `order-export-run-repository.ts`) — le budget CPU se cumule sur le LOT
+ * que `runOnce()` traite ; (3) un filet de reprise des exports tues
+ * (migration `20260913010000`).
  */
-export const ORDER_EXPORT_ROW_LIMIT = 5_000;
+export const ORDER_EXPORT_ROW_LIMIT = 2_500;
 
 /** 7 jours, NON CONFIGURABLE PAR ESPACE (contrat point 3(e)). */
 const RETENTION_DAYS = 7;

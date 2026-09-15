@@ -124,7 +124,11 @@ observé jusqu'à 919 Mio) :
 | XLSX 10 000 | tué | passe 5/5, 1 843 ms au pire (92 %) |
 | XLSX 20 000 | tué | tué 1 fois sur 3 (2 221 ms) |
 
-**Plafond retenu : `ORDER_EXPORT_ROW_LIMIT = 5 000`**, sous TROIS
+**Plafond mesuré tenable localement : `ORDER_EXPORT_ROW_LIMIT = 5 000`**
+(valeur EN VIGUEUR en production depuis le 2026-09-15 : **2 500**, décision
+Arnaud, par prudence — la porte d'activation hébergée à 5 000 n'a pas pu
+être rejouée en production, faute de commandes ; voir
+`order-export-generation-service.ts`), sous TROIS
 conditions sans lesquelles il serait faux lui aussi (§8.24 point 4) :
 formateur de date construit une seule fois (`src/kernel/clock/timezone.ts`,
 `CIVIL_DATE_FORMATTER`), un export par invocation

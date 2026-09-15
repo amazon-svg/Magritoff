@@ -1242,3 +1242,58 @@ Toutes les sondes ont été supprimées après leur test (`git status
   `ImportEqualsDeclaration`/`ExternalModuleReference`) ; motif `git grep`
   étendu à l'accent grave ; `execSync` remplacé par `execFileSync` ;
   `.mts`/`.cts` routés explicitement par l'AST.
+
+## 2026-09-15 — Plafond abaissé à 2 500 (décision Arnaud, petit lot)
+
+**Décision.** Arnaud active le générateur d'exports en production **sans**
+avoir pu rejouer la porte d'activation hébergée à 5 000 lignes (la
+production ne contient encore aucune commande — ce test ne peut donc pas y
+être joué). `ORDER_EXPORT_ROW_LIMIT` passe de `5_000` à `2_500`, par
+prudence. `5 000` reste la valeur MESURÉE tenable localement (§8.24 point
+4) — elle n'est pas invalidée, elle n'a simplement jamais été vérifiée sur
+la plateforme hébergée. La valeur pourra remonter jusqu'à 5 000 le jour où
+cette mesure hébergée sera jouée, jamais avant.
+
+**Fichiers modifiés.**
+- `src/modules/order-exports/application/order-export-generation-service.ts`
+  — `ORDER_EXPORT_ROW_LIMIT = 2_500` ; commentaire réécrit pour distinguer
+  la valeur RETENUE (2 500, décision du jour) de la valeur MESURÉE tenable
+  (5 000, inchangée).
+- `src/modules/order-exports/application/order-export-run-repository.ts` —
+  commentaire de `DEFAULT_ORDER_EXPORT_RUN_SETTINGS` aligné (renvoi vers la
+  valeur retenue en production).
+- `src/kernel/clock/timezone.ts` — commentaire du formateur civil mis en
+  cache aligné (le plafond « sans correctif serait 2 000 » reste vrai et
+  documente le plafond TENABLE, pas la valeur retenue).
+- `tests/kernel/timezone.test.ts` — libellé du test aligné, aucune
+  assertion modifiée (ce test ne porte pas sur `ORDER_EXPORT_ROW_LIMIT`).
+- `tests/modules/order-exports/order-export-generation-service.test.ts` —
+  l'assertion `ORDER_EXPORT_ROW_LIMIT` passe à `2_500` ; les deux tests de
+  bord (plafond respecté / dépassé) sont réécrits de façon GÉNÉRIQUE
+  (`pagesForRowCount(n)`), car l'ancien calcul (`ORDER_EXPORT_ROW_LIMIT /
+  1000`) supposait à tort un plafond multiple de 1000 — vrai pour 5 000,
+  faux pour 2 500. Nouveaux bords vérifiés : 2 500 lignes acceptées, 2 501
+  refusées en `order_export.row_limit_exceeded` (« resserrez la période »),
+  AVANT tout appel au renderer.
+- `scripts/bench/order-export/README.md` — une ligne ajoutée précisant que
+  la valeur EN VIGUEUR en production est 2 500 depuis le 2026-09-15 ;
+  aucune donnée de mesure du banc n'est modifiée (les mesures restent
+  vraies pour 5 000, valeur qui n'a pas été rejouée).
+
+**Preuve par mutation** (fichier de test ci-dessus) : `ORDER_EXPORT_ROW_LIMIT`
+remis à `5_000` dans le service → le test qui verrouille la valeur en
+vigueur tombe (`expected 5000 to be 2500`), les 10 autres tests du fichier
+restent verts ; valeur restaurée à `2_500` → 11/11 verts.
+
+**Non touché, par choix, avec justification** : `xlsx-renderer.ts` et
+`tests/modules/order-exports/xlsx-renderer.volume.test.ts` contiennent des
+mentions de « 5 000 lignes », mais elles décrivent un seuil TECHNIQUE
+indépendant (le point de bascule Worker de `fflate`, mesuré à ~2 000
+lignes côté bibliothèque zip) — un volume de test délibérément choisi
+au-dessus de ce seuil pour le mettre en défaut, jamais le plafond métier
+`ORDER_EXPORT_ROW_LIMIT`. Aucune modification.
+
+**Gates rejouées** : `pnpm typecheck` ; `pnpm exec vitest run
+tests/modules/order-exports tests/server/api tests/architecture` ;
+`pnpm test:contract` ; `pnpm test:architecture` ; `deno check` sur
+`magrit-order-export-runner`, `magrit-api`, `magrit-order-file-purge`.
