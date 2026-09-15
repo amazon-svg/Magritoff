@@ -21,11 +21,13 @@
 
 import { describe, it, expect } from 'vitest';
 import { cn } from '@/shared/ui/utils';
+import { SHEET_DESCRIPTION_BASE_CLASSNAME } from '@/shared/ui/sheet';
 import { PRODUCT_OVERLAY_SUBTITLE_CLASSNAME } from '@/modules/catalog/ui/storefront/ProductOverlay.helpers';
 
-// Reproduit exactement `SheetDescription` (src/shared/ui/sheet.tsx) :
-// `cn("text-muted-foreground text-sm", className)`.
-const SHEET_DESCRIPTION_BASE_CLASSNAME = 'text-muted-foreground text-sm';
+// Fix D3a (qa-review round 2, 2026-09-16) : la classe de base n'est plus
+// recopiee en dur ici — elle est importee depuis le wrapper partage
+// (src/shared/ui/sheet.tsx), pour ne jamais diverger silencieusement si son
+// implementation change.
 
 describe('PRODUCT_OVERLAY_SUBTITLE_CLASSNAME neutralise text-sm au point d appel (BCP-6 5.2)', () => {
   const merged = cn(SHEET_DESCRIPTION_BASE_CLASSNAME, PRODUCT_OVERLAY_SUBTITLE_CLASSNAME);
@@ -58,5 +60,13 @@ describe('PRODUCT_OVERLAY_SUBTITLE_CLASSNAME neutralise text-sm au point d appel
 
   it("PRODUCT_OVERLAY_SUBTITLE_CLASSNAME est stable (pas de derive silencieuse du point d appel)", () => {
     expect(PRODUCT_OVERLAY_SUBTITLE_CLASSNAME).toBe('text-ink-muted m-0 mt-1 text-[12px]');
+  });
+
+  // Garde-fou anti-faux-positif : si SHEET_DESCRIPTION_BASE_CLASSNAME ne
+  // contient plus text-sm (le wrapper a change), les assertions ci-dessus
+  // passeraient pour une mauvaise raison. On verifie explicitement la
+  // premisse du test.
+  it("premisse : le wrapper porte bien text-sm avant neutralisation", () => {
+    expect(SHEET_DESCRIPTION_BASE_CLASSNAME.split(/\s+/)).toContain('text-sm');
   });
 });

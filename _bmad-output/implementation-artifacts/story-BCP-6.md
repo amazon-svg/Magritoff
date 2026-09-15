@@ -290,3 +290,14 @@ en échec sur le code pré-fix puis verte après. La garde AST des descriptions
 mise à jour pour refléter le nouveau point d'appel (className via constante,
 plus littéral recopié) — la structure de la garde
 (`storefront-dialog-description-guard.ts`) n'a pas changé.
+
+### Round 2 qa-review (2026-09-16) — dette D3a acquittée
+
+Sur demande qa-review (dette non bloquante, faite pendant la reprise round 2
+pour BCP-5) : `src/shared/ui/sheet.tsx` exporte désormais
+`SHEET_DESCRIPTION_BASE_CLASSNAME` (`"text-muted-foreground text-sm"`), et
+`ProductOverlay.sheetDescriptionStyle.test.ts` l'importe au lieu de la
+recopier en dur — le rendu de `SheetDescription` est inchangé (même valeur,
+juste exportée). Un test de garde vérifie explicitement la prémisse
+(`text-sm` présent avant neutralisation), pour ne jamais faire passer les
+autres assertions pour une mauvaise raison si le wrapper change un jour.

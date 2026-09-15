@@ -9,15 +9,23 @@
  *   draft → validated : admin tenant uniquement (role in 'owner','admin')
  *
  * Fix BCP-5/BCP-6 (recette navigateur 2026-09-15/16, docs/api/CONVENTIONS.md
- * §8.25 lot 5 point 5.1(b)) : meme defaut que `formatCancelErrorMessage`
- * (orderCancellation.helpers.ts) — le chemin actuel `POST
- * /orders/{id}/transitions` renvoie `transition_not_allowed: <from> -> <to>`
- * (tiret bas), plus le texte de l'ancien RPC ('not allowed', espace). La
- * detection du conflit est mutualisee via `isTransitionConflict()`.
+ * §8.25 lot 5 point 5.1(b)) : meme defaut que `orderCancellation.helpers.ts`
+ * — le chemin actuel `POST /orders/{id}/transitions` renvoie un texte brut
+ * en tiret bas (`order_not_found: <uuid>`, `permission_denied: ...`,
+ * `transition_not_allowed: <from> -> <to>`), plus le texte espace de
+ * l'ancien RPC. La classification est mutualisee dans le module neutre
+ * `orderTransitionErrors.helpers.ts` (qa-review round 2, 2026-09-16, dette
+ * D3b), partage avec `orderCancellation.helpers.ts`.
  */
 
 import { getStatusLabelLowerFirst } from '@/modules/orders/ui/helpers/orderStatus';
-import { isTransitionConflict, type RpcLikeError } from '@/modules/orders/ui/storefront/orderCancellation.helpers';
+import {
+  isOrderNotFound,
+  isOrderNotEditable,
+  isPermissionDenied,
+  isTransitionConflict,
+  type RpcLikeError,
+} from '@/modules/orders/ui/storefront/orderTransitionErrors.helpers';
 
 export type { RpcLikeError };
 
@@ -27,14 +35,20 @@ export function formatValidateErrorMessage(err: RpcLikeError | null | undefined)
   if (msg.includes('authentication required') || msg.includes('auth.uid()')) {
     return 'Votre session a expire. Reconnectez-vous puis reessayez.';
   }
-  if (msg.includes('not found')) {
+  if (isOrderNotFound(err, msg)) {
     return "Cette commande n'existe plus (peut-etre supprimee dans une autre fenetre).";
   }
-  if (msg.includes('permission denied') && msg.includes('admin tenant')) {
+  if (isPermissionDenied(err, msg) && msg.includes('admin tenant')) {
     return "Seul un administrateur tenant peut valider une commande. Contactez l'administrateur.";
   }
-  if (msg.includes('permission denied')) {
+  if (isPermissionDenied(err, msg)) {
     return "Vous n'avez pas les droits pour valider cette commande.";
+  }
+  if (isOrderNotEditable(err, msg)) {
+    // Meme texte que useStorefrontOrderEditor.ts (edition du brouillon) —
+    // non atteignable aujourd'hui par ce flux, traite par defense (cf.
+    // orderTransitionErrors.helpers.ts).
+    return "Cette commande n'est plus modifiable (elle a peut-être été validée). Rechargez la page.";
   }
   if (isTransitionConflict(err, msg)) {
     // BCP-5 (docs/api/CONVENTIONS.md §8.25 point 5.1(c), qa-review) : le
