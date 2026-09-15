@@ -116,7 +116,12 @@ Joué par le coordinateur dans Chrome DevTools, compte acheteur ERAM connecté p
 - **Sans objet** :
   - `OrderRolesPage` n'est montée nulle part **par décision** : sa route `order-roles` (`roles.manage`) a été retirée par le commit UM1 `838e8c90` du 2026-08-24, avec le verrou de délégation des rôles. Ce n'est pas une régression ;
   - badge prix marché (produits à prix fixe).
-- **Boucle mesurée** : environ une paire `session/current` + `catalog` complet toutes les 5 s, onglet au repos (§8.25 5.2). **Architecte (commit `57d909b5`) : story dédiée BCP-6b**, rattachée au lot 6 (`usePublicShopCatalog.ts`, `useStorefrontSession.ts`). Au chargement, 1 appel de chaque. Plus aucun intervalle, et `visibilitychange` remplace `focus`. Le catalogue n'est rechargé qu'au besoin ou après 10 min d'absence ; la session est revalidée au plus une fois par minute, ou sur un 401. Preuves : fonction pure à horloge simulée (0 appel sur 60 s au repos) et comptage par point d'entrée en recette. Dev-story lancé en worktree, en parallèle du correctif des lots 5 et 6.
+- **Boucle mesurée** : environ une paire `session/current` + `catalog` complet toutes les 5 s, onglet au repos (§8.25 5.2). **Architecte (commit `57d909b5`) : story dédiée BCP-6b**, rattachée au lot 6 (`usePublicShopCatalog.ts`, `useStorefrontSession.ts`). Au chargement, 1 appel de chaque. Plus aucun intervalle, et `visibilitychange` remplace `focus`. Le catalogue n'est rechargé qu'au besoin ou après 10 min d'absence ; la session est revalidée au plus une fois par minute, ou sur un 401. Preuves : fonction pure à horloge simulée (0 appel sur 60 s au repos) et comptage par point d'entrée en recette. **BCP-6b livré** (`b8a12879`, worktree) :
+- **Mécanisme établi** : deux canaux, chacun `focus` + `setInterval(15 s)`, soit 8 appels sur 60 s au repos, prouvé à horloge simulée. `StrictMode`, `apiClient` et `sessionShopId` sont écartés.
+- **Non expliqué par le code** : la cadence d'environ 5 s mesurée et les 14 appels au chargement. Le correctif retire tout canal sans événement explicite, et le comptage navigateur tranchera.
+- **Preuves** : 16 tests sur 23 échouent sur l'ancien code, dont la garde d'architecture `storefront-refresh-scheduling`. Suite complète verte (2941).
+- **Dérogation R5** : `notifyUnauthorized()` est exposé mais pas branché aux gestionnaires de 401 réels, qui sont dans des fichiers d'un autre agent. À brancher dans une story de suivi.
+- **qa distincte en cours.**
 - **Hors lot, relevés pour les lots 4, 7 et 8** :
   - dimensions « ?×? mm » ;
   - livraison « Siège social » et budget factice ;
