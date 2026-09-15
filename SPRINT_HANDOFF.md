@@ -126,7 +126,12 @@ Correction en cours. Dette basse : le test de hauteur de ligne recopie la classe
 - **Non expliqué par le code** : la cadence d'environ 5 s mesurée et les 14 appels au chargement. Le correctif retire tout canal sans événement explicite, et le comptage navigateur tranchera.
 - **Preuves** : 16 tests sur 23 échouent sur l'ancien code, dont la garde d'architecture `storefront-refresh-scheduling`. Suite complète verte (2941).
 - **Dérogation R5** : `notifyUnauthorized()` est exposé mais pas branché aux gestionnaires de 401 réels, qui sont dans des fichiers d'un autre agent. À brancher dans une story de suivi.
-- **qa distincte en cours.**
+- **qa REJETÉE** (politique pure juste et testée). Points bloquants :
+  - aucun 401 d'une action n'est traité : `notifyUnauthorized` n'est branché nulle part, et la prémisse du cadrage (« une session expirée est refusée en 401 à la première action ») est fausse dans le code. Une session qui expire onglet au premier plan laisse l'en-tête « connecté » indéfiniment, ce qui est une RÉGRESSION par rapport à l'intervalle de 15 s. Correction en cours : branchement au niveau du client API de la boutique (`StorefrontRuntimeBoundary`) ;
+  - D1 : sans chargement réussi (boutique privée sans session, échec, onglet en arrière-plan), chaque retour sur l'onglet relance le catalogue sans seuil ;
+  - aucun test sur le rechargement au changement d'identité, sur `retry`, ni sur le verrou `sessionReady` ; une assertion existante est affaiblie.
+
+  Dette : garde contournable (`globalThis`, `setTimeout` récursif, `window.onfocus`, autre fichier) ; rechargement au retour sur l'onglet sans annulation. L'hypothèse de la qa, selon laquelle des rechargements Vite auraient produit la cadence de 5 s, est écartée : 0 rechargement Vite pendant la mesure.
 - **Hors lot, relevés pour les lots 4, 7 et 8** :
   - dimensions « ?×? mm » ;
   - livraison « Siège social » et budget factice ;
