@@ -4244,6 +4244,689 @@ La fiche propose `src/services/exports/orders.ts`. **Il n'existe aucun dossier `
 
 **Aucun test de contrat spécifique à E10.18 n'est écrit ici**, et c'est conforme au CA12 : un test de contrat vérifie **une route contre le contrat**, or aucune route n'existe encore. `tests/contract/order-exports.contract.test.ts` est un livrable de **E10.18c**, en même temps que les routes ; le test du filtre de période est un livrable d'**E10.18a**, à ajouter à `tests/contract/commercial-orders.contract.test.ts`.
 
+### 8.25 Chantier boutique « chaîne des prix Magrit → panier et qualité d'affichage » (hors E10) — CADRAGE : le contrat attend la mesure, et un échec ne se sert plus en 200
+
+> **Origine.** Le smoke E2E acheteur (Definition of Done) du 2026-09-15 sur `/shop/eram` (`SPRINT_HANDOFF.md`, bloc « Smoke E2E parcours acheteur ») a trouvé une chaîne de prix cassée entre la suggestion de Magrit et le panier, plus une série de défauts d'affichage. Deux diagnostics ont été faits en lecture seule. **Décisions d'Arnaud du 2026-09-15, opposables et non rouvertes ici** : chantier complet, dans l'ordre (1) diagnostic Clariprint côté serveur, (2) suggestions configurables et charge corrigée, (3) recherche IA, (4) prix catalogue et « dès X € », (5) libellés de statut, (6) console, (7) dimensions et finitions, (8) panier et budget, (9) libellé de l'acheteur. Autres décisions : **le cycle de vie reste `draft`, seuls les libellés changent** ; **le budget factice est retiré** ; **un prix à 0 € tombe sur `resolvePrice` avec le badge « Prix marché », ET les données ERAM sont corrigées côté atelier** ; smoke rejoué en fin de chantier.
+>
+> **Avertissement de méthode, celui des §8.23/§8.24.** Aucune fiche Notion n'a été lue. Tout ce qui suit s'appuie sur les deux diagnostics transmis, **vérifiés fichier par fichier**, et ils ont été corrigés sur quatre points (point 1). Si un dev-story constate un écart avec ce cadrage, il le **remonte**. Il ne le tranche pas en silence, même quand il a raison (§8.24, quatrième correction).
+>
+> **Ce que ce round NE fait PAS, délibérément : il ne modifie pas `openapi/magrit-core.v1.yaml`.** Le contrat de chiffrage est cadré ici dans sa forme complète (point 2.4). Mais il n'est **écrit** qu'après le banc de rejeu du lot 1a, parce que deux de ses choix sont irréversibles en v1 et dépendent d'un fait que personne n'a mesuré (point 2.1).
+>
+> **SECOND ROUND — arbitrages d'Arnaud du 2026-09-15 sur le point 9, opposables.** Quatre décisions changent ce cadrage.
+> - **La fuite `all_process` / `all_faulty_process` est corrigée IMMÉDIATEMENT, avant BCP-1a** : c'est BCP-0 (point 2.3). Constat ajouté en l'instruisant : la même fuite a une seconde porte, l'ancien gestionnaire de `make-server-e3db71a4` (point 1 (11)).
+> - **Q1 : oui.** L'atelier affiche aussi « En attente de validation », avec une seule table (point 5.1).
+> - **Q2 : le chiffrage est OUVERT au visiteur non connecté**, contrairement à la recommandation de ce cadrage. Le contrat de BCP-1b est refait (point 2.4) : une opération publique résolue par le slug, une limite de débit obligatoire à trois étages, une réponse publique sans rien d'interne. **Le plafond global quotidien (L3) est la condition de cette décision : tant qu'Arnaud n'en a pas fixé la valeur, BCP-1b ne se déploie pas** (point 2.4, risque résiduel).
+> - **Q7 : les appels Clariprint sont facturés, et le banc est joué quand même**, sous un plafond écrit dans le code et avec un mode sec : **18 appels au plus**, justifiés au point 2.3.
+>
+> Q3, Q4, Q5, Q6 et Q8 ne sont pas encore arbitrées. Les recommandations par défaut du point 9 tiennent jusqu'à leur arbitrage.
+>
+> **TROISIÈME ROUND — arbitrages d'Arnaud du 2026-09-15, opposables.**
+> - **La seconde porte** relève de BCP-0, en correctif séparé. Elle est **neutralisée, pas supprimée**, et sa suppression est reportée au retrait de la fonction (point 2.3).
+> - **Q9 : L3 vaut 500 appels Clariprint par jour pour toute la plateforme**, ajustable par configuration quand le prix d'un appel sera connu. Le risque bloquant du point 2.4 est levé.
+> - **Q10 : le limiteur passe EN PREMIER**, sur la route actuelle, juste après BCP-0 et avant BCP-1a. C'est **BCP-0b** (point 2.3bis), et BCP-1b le reprend tel quel.
+> - **Deux constats ajoutés en cadrant BCP-0b** : la seconde porte, bien que neutralisée, **appelle toujours Clariprint sans aucune limite** (point 2.3bis (7)) ; et l'exemption de l'atelier **se contourne**, parce que l'inscription et la création d'un espace sont en libre-service (point 2.3bis (4), Q11).
+
+#### 1. Ce que le dépôt montre en plus des diagnostics — onze constats
+
+**(1) La passerelle ne « jette » pas tout, elle expose.** `http-clariprint-quote-gateway.ts` ne retire `all_faulty_process` et `all_process` que sur les **deux chemins d'échec** : `!payload.success` (l. 27) et le prix invalide (l. 29). **Sur un succès, elle les rend** en `allResults` / `faultyProcess` (l. 31, admis par `.passthrough()` dans `clariprintQuoteResultSchema`). Or `all_process` porte, par imprimeur, son nom, son `external_id`, ses coûts, la gamme de fabrication en CSV et en PDF base64 (`src/imports/JsonApi.txt:404-423`). Et la route est déclarée `authentication: 'public'` (`clariprint-routes.ts:7`). **Aucun consommateur** de `allResults` ni de `faultyProcess` n'existe dans `src/` (vérifié). La fuite ne sert donc à rien : elle est pure perte.
+
+**(2) Le compte Clariprint est UNIQUE pour toute la plateforme, et la route est publique.** Identifiants lus dans l'environnement de `magrit-api` (`supabase/functions/magrit-api/index.ts:218-229`), pas par espace. N'importe quel appelant sur Internet consomme ce compte, y compris un visiteur anonyme de boutique : `canCreateOrder` exige la session (`PublicShop.tsx:380-381`), mais ni la navigation ni le chiffrage ne l'exigent.
+
+**(3) Le fournisseur Clariprint est montré à l'acheteur** : « Clariprint · {fournisseur} » (`PortalProduct.tsx:360-366`).
+
+**(4) Le chiffrage Clariprint est affiché à l'acheteur tel quel, sans marge** (`useProductConfigurator.ts:61-65`, `PortalCatalog.tsx:224-227`). La doc le qualifie de « coût simplifié » (`JsonApi.txt:429`). **Hors de ce chantier**, remonté (point 9, Q8) : la règle du sprint fait passer tout calcul de prix par `PricingEngine` (E10.21), et ce cadrage n'en ajoute aucun.
+
+**(5) Il y a QUATRE tables de libellés de statut, pas deux** : `orderStatus.ts:44`, `ResumeBanner.tsx:66`, `PortalOrders.helpers.ts:141`, `orderAuditTrail.helpers.ts:58`. Surtout, **`OrderHistoryTable` sert aussi l'atelier** (`src/modules/orders/ui/workspace/OrdersPage.tsx:17`) : changer le libellé de `draft` change aussi l'écran de l'imprimeur (point 5.1, Q1).
+
+**(6) « Vous recevrez un email de confirmation » (`PortalCart.tsx:417`) est faux.** `send-order-notification` écrit aux seuls admins du tenant (en-tête l. 4, sélection des destinataires l. 170-178). L'adresse de l'acheteur n'est lue que pour figurer dans ce courriel. Aucun chemin n'écrit à l'acheteur.
+
+**(7) La charge du configurateur n'est pas que celle de la boutique.** `buildClariprintPayload` est appelé par `useProductConfigurator` (l. 142 et 222), partagé avec l'atelier. `PortalProduct.tsx:76` envoie la configuration **stockée** telle quelle, et personne ne connaît la répartition des formes stockées.
+
+**(8) Le prompt servi décrit les brochures autrement que la doc.** `/assistant/chat` passe par `assistant-stream-proxy.ts:36`, qui relaie vers `make-server-e3db71a4` (le prompt des l. 367-497 est bien celui qui sert). Pour `kind: "book"`, ce prompt pose `pages` au premier niveau. La doc range les pages dans `components.<nom>.pages` et le papier dans `cover` / `components` (`JsonApi.txt:315-363`). Qu'une forme ne soit pas documentée ne la rend pas fausse, mais elle reste **non tranchée** : la brochure est hors de la campagne du banc (point 2.3), faute de brochure dans la chaîne à réparer.
+
+**(9) La doc Clariprint se contredit sur deux formes, et il lui manque une liste.**
+- `deliveries` est un **objet** en `:218`, un **tableau** en `:288` et `:364`.
+- L'encre s'écrit `"4-color"` en `:111`, `"4color"` en `:257` et `:357`.
+- La liste des finitions valides est une page à part (`JsonVarnish`, `:5`), **absente du dépôt**.
+
+**(10) Un schéma Zod de réponse Clariprint existe déjà hors du module** : `src/schemas/clariprintPayload.schema.ts`, importé par un seul test (`tests/schemas/schemas.test.ts`). Il est à réutiliser ou à retirer, jamais à doubler (point 2.4).
+
+**(11) La même fuite a une seconde porte.** `make-server-e3db71a4` sert toujours `POST /make-server-e3db71a4/clariprint-quote` (`index.ts:1068`).
+- Sur un succès, il rend `allResults` et `faultyProcess` (bloc de succès, vers les l. 1218-1238).
+- Sur un échec, il rend `rawResponse`, c'est-à-dire la réponse brute de Clariprint entière (l. 1150, 1170-1171, 1199).
+- Aucun appelant dans `src/` (vérifié).
+
+La fonction n'est pas déclarée `verify_jwt = false` dans `supabase/config.toml` : elle exige donc un JWT. Mais **la clé anon publique du front en est un**. Elle est déployée et vivante, puisque `/assistant/chat` relaie vers elle (`assistant-stream-proxy.ts:36`). **Retirer les deux champs de la seule passerelle de `magrit-api` laisserait donc la fuite ouverte à côté.** Cette seconde porte est traitée dans BCP-0 : elle est neutralisée, et sa suppression est reportée au retrait de la fonction (point 2.3).
+
+#### 2. Lot 1 — le diagnostic Clariprint côté serveur
+
+##### 2.1 Tranché : `/api/v1/clariprint/quote` N'ENTRE PAS dans l'OpenAPI, ni maintenant ni plus tard. Une opération E10 neuve y entre, À LA FIN du lot 1
+
+*(i) Décrire la route telle quelle graverait trois violations en v1* : un payload nu (CA6), un échec servi en 200 (CA6), une route `public` (CA5). v1 étant additive (§7), on ne pourrait plus les retirer qu'en ouvrant `/api/v2`.
+
+*(ii) La sortie est déjà prévue.* La table R5 (§8, première ligne) veut qu'un endpoint historique migre vers l'enveloppe E10 « lors de sa prochaine évolution fonctionnelle ». **Le lot 1 est cette évolution.**
+
+*(iii) Pourquoi pas maintenant.* Deux choix que v1 ne permet plus de défaire dépendent d'un fait inconnu :
+- **Le statut HTTP d'une configuration non chiffrée** : 422 dit « verdict, inutile de rejouer », 502 dit « panne, rejouez ». Ce choix dépend de la réponse à une question : le `-1` est-il **déterministe** ?
+- **La sévérité du corps canonique** : forme de `deliveries`, forme de l'encre, `back_colors: []` ou absent, pages de brochure.
+
+Publier maintenant, ce serait graver une supposition. C'est la règle du §8.17 (« un contrat écrit d'avance n'est légitime que devant une capacité qui existe ») et la leçon de la douzième entrée du §8.24 (« un critère d'architecte n'est une vérité qu'une fois exécuté »).
+
+*(iv) Le coût.* La route historique vit un lot de plus. Mais BCP-0 en retire la fuite tout de suite (point 2.3), sans changer sa forme.
+
+**Dérogation R5 déclarée pour la durée BCP-0 → BCP-1b** : la route historique reste publique, en payload nu, avec ses échecs en 200. **Elle porte un risque déjà présent aujourd'hui, que BCP-0 ne réduit pas** : elle est publique **sans aucune limite de débit**, sur un compte facturé (point 2.4, risque 4). BCP-0b borne ce risque, avant tout autre lot (point 2.3bis). **Chemin de mise en conformité** : BCP-1b publie les opérations du point 2.4, migre les trois appelants navigateur, puis retire la route.
+
+##### 2.2 Tranché : un échec métier n'est JAMAIS servi en 200
+
+Le motif est un fait, pas une préférence. **Le critère (b) du smoke du 15/09 (« zéro erreur edge function ») a été trompé par ce 200 précisément** : « réseau entièrement en 2xx », alors que rien n'était chiffré. Voici la règle de la nouvelle opération. Les codes vivent sous le domaine `clariprint.`, celui du module.
+
+| Situation | Statut | `code` | Rejouable |
+|---|---|---|---|
+| Corps non canonique (point 3.2) | 422 | `api.validation_failed`, avec `errors[]` par champ | non |
+| Clariprint a répondu, sans prix exploitable (`success: false`, ou prix négatif, NaN ou absent) | **422, sous réserve de la phase A du banc** | `clariprint.not_priced` | non |
+| Clariprint injoignable, délai dépassé, HTTP non 2xx ou réponse non JSON | 502 | `clariprint.unavailable` | oui |
+| Identifiants absents côté serveur | 503 | `clariprint.not_configured` (atelier seulement ; en public, servi comme `clariprint.unavailable`, point 2.4) | non (geste d'exploitation) |
+
+**La coupe est « rejouable ou non »**, parce que c'est la seule différence qu'un appelant peut exploiter : dans tous les cas, l'écran retombe sur le prix marché. **Seul point ouvert : la phase A du banc** (point 2.3). Si un même corps donne tantôt `-1`, tantôt un prix, le « prix inexploitable » est une panne et passe en 502 `clariprint.unavailable`. C'est exactement pour cela que le contrat s'écrit après la phase A. Les refus de débit (429, 503) de l'opération publique sont au point 2.4.
+
+##### 2.3 BCP-1a — ce que la passerelle conserve, journalise et rend (aucun changement de contrat, aucun changement de forme de la route)
+
+**Conserver.** À chaque réponse de Clariprint, succès compris, la passerelle construit un **verdict** : un type interne de `src/modules/clariprint/application/`. Il contient :
+- le statut HTTP amont, le `success` amont, l'`error` amont tronqué à 500 caractères ;
+- la valeur brute de `response` sérialisée en chaîne (`"-1"`) ;
+- le nombre d'entrées de `all_process` ;
+- `all_faulty_process` expurgé ;
+- la durée de l'appel en ms ;
+- la **charge effectivement envoyée**, après la complétion déjà faite par la passerelle (quantité en chaîne, `deliveries` par défaut), expurgée.
+
+**Expurger — par liste AUTORISÉE, jamais par liste d'interdits.** Seul sort ce qui est listé ici. **Tout champ amont non listé est retenu.** Un champ que Clariprint ajouterait demain ne fuit donc pas par défaut (critère plutôt que liste, §8.24 neuvième correction).
+- **Sortent** :
+  - les **textes** d'erreur de `all_faulty_process` : les clés (noms d'imprimeurs du parc du compte) sont remplacées par un ordinal `imprimeur_1`, `imprimeur_2`… Au plus 20 entrées, 300 caractères chacune ;
+  - la charge envoyée, **sans `reference` ni aucun `address`** : ce sont des textes libres, qui peuvent porter le nom ou l'adresse d'une personne ;
+  - les champs scalaires listés sous « Conserver ».
+- **Ne sortent jamais**, et chacun a un test qui échoue s'il sort : `login`, `password`, l'URL de l'hôte, `external_id`, les noms d'imprimeurs, `CSV`, `PDF`, `quote_process`, `html`, `text`, les coûts par imprimeur.
+
+**Journaliser.** Une ligne JSON structurée par appel, émise par un **port de journalisation injecté** dans la passerelle. Il est testable, et c'est `supabase/functions/magrit-api/index.ts` qui compose sa version console : `info` pour un succès, `warn` pour un refus, `error` pour une indisponibilité ou une configuration absente. Les champs :
+- `event: "clariprint.quote"` ;
+- `request_id` : c'est l'en-tête `X-Request-Id` que la façade historique pose déjà (`api-v1-handler.ts:185`), donc la clé que le coordinateur lit dans l'onglet réseau ;
+- `outcome`, parmi `priced`, `not_priced`, `unavailable`, `not_configured` ;
+- le verdict.
+
+Aucune table, donc aucune rétention à arbitrer. **Réserve à lever avant de promettre qu'un diagnostic se retrouve** : la durée de conservation des journaux de fonction Supabase **n'est pas vérifiée**. Elle est à lire dans la documentation officielle, via Context7, et **pas de mémoire** : le précédent `pg_net` (6 heures, découvert en E10.22) montre ce que coûte une durée supposée.
+
+**BCP-0 — correctif immédiat de la fuite, AVANT BCP-1a (décision d'Arnaud du 2026-09-15).** dev-story, dans un worktree isolé, sur un périmètre fermé : retirer `all_process` et `all_faulty_process` des réponses. **Ni journal, ni banc, ni aucun autre changement de forme.** Consignes opposables :
+1. **Le modèle de sortie est `clariprintQuoteResultSchema`** (`src/modules/clariprint/api/contracts.ts`).
+   - Il était déclaré en `.passthrough()`, et c'est ce qui laissait sortir n'importe quel champ posé par la passerelle.
+   - **`.passthrough()` est retiré de `clariprintQuoteResultSchema`** (commit `461a1cca`). Le schéma devient une liste autorisée : `allResults`, `faultyProcess` et tout champ futur non déclaré ne sortent plus, même si la passerelle les pose encore. Ce qu'un schéma Zod fait des clés non déclarées est à confirmer via Context7 sur la version 4 du dépôt, pas de mémoire.
+   - La passerelle cesse aussi de les poser (`http-clariprint-quote-gateway.ts:31`).
+   - **`clariprintCostsSchema` perd AUSSI son `.passthrough()`, et `validCosts` ne recopie plus que les six clés documentées** (`paper`, `print`, `makeready`, `packaging`, `delivery`, `total`). C'est le complément de BCP-0 sur la base `461a1cca`, demandé par la qa-review distincte de ce commit, qui s'appuyait sur la lettre de cette consigne : « les deux schémas ». **C'est de la défense en profondeur, pas une fuite constatée.** Selon la doc (`JsonApi.txt`, bloc `costs`), `costs` ne porte que ces six clés : le passthrough n'ajoutait aucun champ connu, mais laissait passer tout champ que Clariprint y ajouterait demain. Ce n'est pas vérifié sur une réponse réelle, et la phase A du banc le montrera. Le complément ajoute aussi le test du champ inconnu venu de Clariprint (consigne 3), et tue la mutation survivante M4e. **L'exposition réelle reste ailleurs** : les six clés déclarées sont elles-mêmes la structure de coût de l'imprimeur, servie publiquement jusqu'à BCP-1b, dont la réponse publique n'en porte aucune (point 2.4).
+2. **La seconde porte relève aussi de BCP-0, en correctif séparé, décidé par Arnaud** (point 1 (11)). Elle est **NEUTRALISÉE, PAS SUPPRIMÉE** :
+   - dans `make-server-e3db71a4/index.ts`, `clariprint-quote` (l. 1068) ne rend plus rien de tiré de `all_process` ni de `all_faulty_process`, ni `rawResponse`, ni aucun extrait brut ;
+   - `clariprint-test` (l. 1249) est réduit à `{timestamp, success, message}`.
+
+   **Pourquoi pas la suppression** : un ancien front encore déployé pourrait appeler ces routes. La neutralisation ferme la fuite sans rien casser. **La suppression est reportée au retrait de la fonction.**
+
+   La base du correctif est `chore/chat-sonnet-5`, identique octet pour octet au code en production (v27, Sonnet 5). Cette fonction **porte aussi le relais de l'assistant** : après son redéploiement, on rejoue un `/assistant/chat`.
+3. **Tests.**
+   - `http-clariprint-quote-gateway.test.ts:13` fournit déjà `all_process` : il doit affirmer son **absence**.
+   - Un second cas pose un champ amont inconnu et affirme qu'il ne sort pas.
+   - Chaque test échoue sur le code d'avant.
+4. **Déploiement** : `magrit-api` pour la première porte ; `make-server-e3db71a4` pour la seconde, **après sa propre qa-review distincte**. Front inchangé, puisque aucun écran ne lit ces champs (point 1 (1)).
+
+**BCP-1a part de BCP-0** : la route historique ne porte déjà plus la fuite, et BCP-1a n'y ajoute rien de visible.
+
+**Rendre — par la route historique, en BCP-1a :**
+- **(a) ne rien ajouter.** Pas de diagnostic dans une réponse publique, où il partirait vers n'importe qui. Le diagnostic se lit au journal, par `request_id`.
+- **(b) garder le reste de la forme, `fournisseur` compris.** La réduction de ce que voit l'acheteur appartient à BCP-1b.
+
+**Le banc de rejeu — un instrument, pas une capacité, et CHAQUE APPEL EST FACTURÉ.** Arnaud veut qu'on teste (Q7), au plus petit nombre d'appels qui tranche. Le banc vit sous `scripts/diagnostics/clariprint-variants/`.
+- **Ce n'est ni un endpoint, ni un rejeu automatique en production.** Un rejeu automatique multiplierait les appels facturés et la latence de l'acheteur à chaque échec ; un endpoint serait une surface d'attaque de plus sur ce même compte.
+- **Il est lancé à la main**, avec les identifiants dans l'environnement, jamais dans le dépôt.
+
+**Exigences écrites dans le code du banc**, chacune tenue par un test en mode sec :
+- **Mode sec par défaut.** Il imprime le plan, les charges et le décompte, et n'ouvre **aucune** connexion. L'appel réel exige un drapeau explicite (`--execute`) et les identifiants dans l'environnement.
+- **Plafond `MAX_BILLED_CALLS = 18`, en constante.** Le compteur s'incrémente **avant** chaque appel réseau, `CheckAuth` compris : on ne sait pas s'il est facturé, donc il compte. Le banc refuse le dix-neuvième appel.
+- **L'archive s'écrit après CHAQUE appel**, pour qu'une interruption ne perde pas des appels déjà payés. Elle est gardée avec son entrée sous `results/<date>-<objet>.json` (douzième entrée du §8.24 : une mesure qui fonde un choix se garde avec son script et ses données).
+- **Le plan est une donnée déclarée** (étapes et règles d'arrêt), exécutée par une fonction pure testée en mode sec : le nombre annoncé est celui que le code exécute.
+
+**Le plan — trois phases, arrêt dès que la question est tranchée :**
+
+| Phase | Appels | Ce qu'elle tranche | Règle |
+|---|---|---|---|
+| **A** | **4** : `CheckAuth` ×1, puis la charge exacte du smoke (A5) ×3, identique | les identifiants ; le `-1` se reproduit-il, et toujours ? → **422 ou 502** (point 2.2) | Toujours jouée. `CheckAuth` refusé → arrêt à 1 appel. Trois `-1` → phase B. Un prix obtenu au moins une fois → **non déterministe, donc 502** : B est sautée, et la charge devient la base de C |
+| **B** | **≤ 10**, une dimension à la fois, dans l'ordre du soupçon : B1 qualité « Couché Mat PEFC » · B2 « Offset Blanc » · B3 `finishing_front: ""` · B4 `papers.of` · B5 `back_colors` absent · B6 encre `"4color"` · B7 `"quadri"` · B8 `deliveries` en tableau · B9 `size` au lieu de `width`/`height` · B10 `with_bleeds: "0"` | **la cause du `-1`** | **Arrêt au premier prix obtenu** : la variante qui chiffre désigne la cause et devient la base de C. Dix échecs → fin de campagne à 14 appels : la cause n'est pas une dimension de la charge mais le compte ou son parc, et l'archive part chez Clariprint |
+| **C** | **≤ 4**, sur la base qui chiffre : chacun des quatre codes de finition du point 5.3 que la base ne porte pas déjà | les codes que le compte accepte (référentiel du point 5.3, correspondance des options du configurateur) | Les qualités de papier ne sont **pas** rejouées ici : B1 et B2 les ont testées, ou bien A a chiffré avec la qualité du prompt, ce qui suffit au normaliseur |
+
+**Nombre fixé avant de lancer : 18 appels au plus** (4 + 10 + 4). C'est le chemin où la cause n'apparaît qu'à la dernière variante. Chemin nominal, si le premier suspect est le bon : 4 + 1 + 4 = **9**. Si la phase A chiffre : 4 + 4 = **8**.
+
+**Pourquoi pas moins.**
+- La phase A rejoue trois fois la même charge parce que deux résultats égaux ne distinguent pas une coïncidence d'une règle. Or c'est ce verdict qui fixe un statut HTTP irréversible en v1.
+- Les dix variantes de B sont les dix dimensions de la charge que la doc laisse ambiguës, ou que le prompt fixe sans preuve (point 1 (9), point 3.2). En retirer une, c'est accepter qu'une campagne finisse sans cause, donc qu'elle ait été payée pour rien.
+
+**Pourquoi pas plus.** La forme canonique est **celle qui a chiffré**. Rien n'oblige à savoir si l'autre forme est acceptée aussi : `"4color"`, `deliveries` en tableau et `back_colors` absent ne sont testés que comme suspects en B, jamais pour eux-mêmes.
+
+**Hors campagne, délibérément, et chacun demande son propre accord de dépense** :
+- la brochure (`pages` au premier niveau contre `components`, point 1 (8)) : aucune brochure dans la chaîne à réparer ;
+- la capacité du parc à chiffrer le grand format ;
+- les grammages disponibles par qualité.
+
+**Ce qu'on attend de la campagne** : la cause du `-1`, le verdict de déterminisme et les codes de finition acceptés. L'archive fonde l'écriture du contrat.
+
+**BCP-1a crée aussi le référentiel des finitions** (point 5.3). C'est une donnée pure du vocabulaire Clariprint, dans le même module. BCP-2 et BCP-7 l'importent, et le créer ici leur évite de se disputer le fichier.
+
+##### 2.3bis BCP-0b — la limite de débit, EN PREMIER, sur la route actuelle (décisions d'Arnaud Q9 et Q10 du 2026-09-15)
+
+**Les décisions.**
+- **Q10** : le limiteur passe en premier, sur `POST /api/v1/clariprint/quote` telle qu'elle est, juste après les deux correctifs de fuite (BCP-0) et avant BCP-1a. BCP-1b le reprend tel quel.
+- **Q9** : L3 vaut 500 appels Clariprint par jour pour toute la plateforme, ajustable par configuration quand le prix d'un appel sera connu.
+
+**(1) Ce que la route actuelle permet, et ce qu'elle ne permet pas.**
+- **Aucune boutique n'y est désignée** : le chemin n'a pas de slug, et le corps n'est qu'une configuration. **L2 (par boutique) ne peut donc pas s'y appliquer** ; il arrive avec BCP-1b et son `{shopSlug}`.
+- Déduire la boutique du `Referer` est exclu : cet en-tête est facultatif et forgeable. Et on n'ajoute rien à la route, ni en-tête, ni paramètre.
+- **BCP-0b pose donc deux étages** : L1 par visiteur, sans la dimension boutique, et L3 quotidien. S'y ajoute un étage propre aux membres de l'atelier (point (4)).
+
+**(2) La migration.**
+- **La table `public.api_rate_limit_counters`** porte `scope` (texte, énumération fermée par `check`), `key_hash` (texte), `window_start` (`timestamptz`) et `hits` (entier ≥ 0), avec la clé primaire (`scope`, `key_hash`, `window_start`). Son nom est générique : BCP-1b y ajoute la portée de L2 par une valeur de `check` de plus, en migration additive.
+- **La table `public.api_rate_limits`** porte une ligne par portée : `max_hits` et la fenêtre (en secondes, ou le jour civil `Europe/Paris`). **C'est la « configuration » qu'exige Q9** : changer L3 revient à un `update` sur une ligne, sans redéploiement, et aucun appelant ne peut passer sa propre limite.
+  - Valeurs initiales : visiteur, 30 par 600 s ; membre, 120 par 600 s (valeur proposée, Q11) ; public, 500 par jour civil `Europe/Paris`.
+  - Tout changement de valeur est consigné dans `SPRINT_HANDOFF.md` par le coordinateur. Il n'y a pas de table d'audit pour trois lignes de réglage.
+- **Sur les deux tables** : RLS activée, **aucune policy**, et `revoke all` à `public`, `anon` et `authenticated`. **Jamais de `grant` à `anon` ni à `authenticated`**, ni sur les tables, ni sur les fonctions.
+- **La fonction `public.api_consume_clariprint_quote_budget(p_caller_kind text, p_key_hash text, p_now timestamptz default now())`** rend (`allowed`, `refused_scope`). Elle est `security definer`, avec `set search_path = ''` ; `revoke execute` à `public`, `anon` et `authenticated` ; **`grant execute` au seul `service_role`**. Patron des fonctions `api_claim_*` du sprint.
+  - **Tout se joue dans une seule transaction, tout ou rien.** Elle détermine les étages qui s'appliquent à l'appelant (visiteur : L1 visiteur et L3 ; membre : l'étage membre seul). Elle crée les lignes de fenêtre manquantes, puis les verrouille (`for update`) dans un **ordre fixe**, par `scope`, pour que deux appels concurrents ne créent aucun interblocage. Elle vérifie chaque plafond, puis **incrémente tous les étages, ou aucun**. Un appel refusé par L3 ne consomme donc pas le quota L1 du visiteur.
+  - La fenêtre de L1 est fixe, alignée sur les multiples de sa durée. Le jour de L3 est `date_trunc('day', p_now at time zone 'Europe/Paris')`, la constante de produit du §8.24.
+  - `p_now` n'existe que pour les tests : la composition ne le passe jamais.
+- **La purge au-delà de 24 h passe par `pg_cron`, en SQL direct**, sans Edge Function ni secret. C'est une purge de **lignes** : le bon patron est `magrit-notification-log-purge` (migration `20260912000100`, vers la l. 502), et non la purge d'objets Storage (§8.24, septième correction).
+  - La fonction `public.purge_expired_rate_limit_counters()` supprime les lignes dont `window_start` a plus de 24 h. Au moment de la purge, la fenêtre du jour civil en cours a toujours moins de 24 h.
+  - Le job `magrit-rate-limit-purge` est planifié **par la migration elle-même**, chaque jour à **03:40 UTC** (`40 3 * * *`), en dehors des créneaux déjà pris : 03:10 pour la purge des journaux, 05:00 pour celle des fichiers, sans compter les jobs à la minute.
+  - La planification reprend le bloc `do $$ … cron.unschedule … cron.schedule … $$` du précédent, pour qu'un rejeu de la migration ne double pas le job.
+
+**(3) La clé des visiteurs, et le secret HMAC.**
+- **La clé d'un visiteur**, dans cet ordre :
+  - **son compte boutique**, si le cookie de session est valide. Il est lu par `readStorefrontSessionCookie` et le service de session, comme dans `orders-routes.ts` ;
+  - sinon, **l'empreinte de son IP**. Pour l'IPv6, l'empreinte porte sur le **préfixe /64** : un abonné en dispose couramment de milliers d'adresses, et une clé par adresse ne limiterait rien.
+- **L'empreinte est un HMAC-SHA256** de l'IP normalisée. **Le secret est un secret d'Edge Function** de `magrit-api` (`MAGRIT_RATE_LIMIT_IP_HMAC_SECRET`), **pas un secret Vault** : seule la fonction calcule l'empreinte, et Vault ne sert, dans ce dépôt, qu'aux secrets que la base doit présenter elle-même (les appels `pg_net` des drains). L'IP en clair n'est jamais écrite, ni en base, ni au journal.
+- **Secret absent : échec FERMÉ pour les visiteurs anonymes, jamais ouvert.** Tous les visiteurs sans session partagent alors **une seule** clé (30 chiffrages par 10 min pour tous), et chaque appel journalise une erreur `rate_limit.ip_hmac_secret_missing`. Trois motifs :
+  - *(i)* un échec ouvert, sans L1, laisserait un seul abuseur vider L3 en quelques minutes, et priverait tous les acheteurs de chiffrage pour la journée : c'est pire ;
+  - *(ii)* stocker l'IP en clair pour « continuer quand même » est exclu ;
+  - *(iii)* L3 et l'étage membre, qui n'ont pas besoin d'IP, restent appliqués normalement : **la facture reste bornée dans tous les cas.**
+
+  Les acheteurs connectés gardent leur clé de compte et ne sont pas touchés. Le front retombe sur le prix marché, sans rien casser.
+- **Base injoignable ou fonction en erreur : échec FERMÉ aussi.** Clariprint n'est pas appelé, et la réponse est un 503 `clariprint.unavailable`. Un compteur qu'on ne peut pas lire ne borne rien ; le prix marché est une issue acceptable, une facture non bornée ne l'est pas.
+
+**(4) Distinguer l'atelier sur la route actuelle, et pourquoi l'exemption de L3 ne suffit pas.**
+- **Oui, l'atelier passe aujourd'hui par la même route.** `browser-runtime.ts:24` compose `ClariprintApiClient` avec le `FetchApiClient` de l'atelier, qui pose le jeton `Authorization` (`fetch-api-client.ts:102`, `:117`). La façade historique résout ce jeton en acteur `user`, même sur une route `public` (`api-v1-handler.ts:80`).
+- **Est « membre » un appelant dont le jeton est résolu en acteur `user`, ET qui appartient à au moins un espace.** L'appartenance se lit par `current_user_tenant_ids()`, la fonction qu'emploient les policies RLS et le vérificateur de principal E10 (§3.4) : la route et la base ne peuvent pas être en désaccord. Un jeton présent mais non résolu n'est jamais exempté, et l'appelant est traité en visiteur.
+- **Un membre n'entre pas dans L3**, conformément à la règle du point 2.4 : un abus public ne peut pas priver l'atelier de chiffrage.
+- **Mais cette exemption se contourne, et c'est un fait vérifié.** L'inscription est ouverte (`enable_signup = true` dans `supabase/config.toml`, `SignupModal`), et la création d'un espace est en libre-service (`/tenants/new`, `create_tenant_with_owner` grantée à `authenticated`, migration `20260424000500`). N'importe qui devient donc « membre » en deux formulaires.
+- **D'où un étage propre aux membres, avec l'identifiant utilisateur pour clé : 120 chiffrages par 10 min, valeur proposée.** C'est quatre fois l'étage visiteur, parce qu'un deviseur d'atelier chiffre plusieurs produits d'affilée, sur des sessions longues.
+- **Cet étage borne un compte, pas une ferme de comptes : un plafond quotidien propre à l'atelier (L3a) reste à décider** (Q11). Sans lui, la facture de la voie atelier n'est bornée que par le nombre de comptes qu'un attaquant accepte de créer. C'est déjà le cas aujourd'hui, mais cela lui demande désormais un compte et un espace par tranche de 120 appels, traçables au journal par `user_id`.
+
+**(5) La source de l'IP derrière le proxy Supabase — la documentation ne tranchait pas. La MESURE était un PRÉALABLE OPPOSABLE au code de L1 par IP. Ce préalable est LEVÉ le 2026-09-15 : la règle (i) est retenue, et on lit `cf-connecting-ip` seul.**
+
+**Résultat de la mesure** (sonde `ip-probe-tmp`, projet hébergé, 2026-09-15) :
+- **Méthode.** La sonde a été déployée avec `--no-verify-jwt`, donc par le même chemin d'entrée que `magrit-api`, puis supprimée. Elle ne renvoyait que des booléens, et des empreintes salées par un sel choisi par l'appelant, jamais une IP. La matrice détaillée est à archiver dans le story doc de BCP-0b.
+
+| Élément | Constat |
+|---|---|
+| `cf-connecting-ip` | **Une entrée, TOUJOURS l'IP réelle**, avec la même empreinte d'une requête à l'autre. Un client qui envoie son propre `CF-Connecting-IP` reçoit un **403 de Cloudflare** (text/plain), et la requête n'atteint jamais la fonction : **l'en-tête ne se forge pas.** |
+| `x-forwarded-for` | Trois entrées : aux positions 0 et 1, l'IP réelle ; à la position 2, un relais public v4, dont l'empreinte change à chaque requête. Un XFF forgé, à une ou deux entrées, est **remplacé** par la plateforme et n'apparaît à aucune position. |
+| `true-client-ip`, `x-client-ip`, `forwarded` | Absents sans forge. Forgés, **transmis tels quels** : ils se forgent, et ne se lisent donc jamais. |
+| `x-real-ip` | Absent, même forgé. |
+| `remoteAddr` | Un relais v4 constant, jamais le client. |
+| IPv6 | **Non mesurable aujourd'hui.** Le projet a deux enregistrements A et aucun AAAA : il n'est joignable qu'en IPv4, et les requêtes en `curl -6` sont sorties avec la même IPv4 (même empreinte). |
+
+Les en-têtes reçus par la fonction sont : `accept`, `accept-encoding`, `baggage`, `cdn-loop`, `cf-connecting-ip`, `cf-ew-via`, `cf-ray`, `cf-visitor`, `cf-worker`, `content-length`, `host`, `sb-request-id`, `traceparent`, `user-agent`, `x-amzn-trace-id`, `x-forwarded-for`, `x-forwarded-port`, `x-forwarded-proto`.
+
+**La règle retenue, opposable — la (i).**
+- **On lit `cf-connecting-ip` seul**, et en une seule entrée.
+- **Absent, vide ou à plusieurs entrées : quota partagé**, comme en l'absence de secret (point (3)), avec une erreur journalisée `rate_limit.client_ip_missing`, jamais la valeur.
+- **On ne lit JAMAIS `x-forwarded-for`** (à aucune position), **ni `true-client-ip`, `x-client-ip`, `forwarded` ou `x-real-ip`**, ni `remoteAddr`.
+- **L'IPv6 garde sa défense par préfixe /64** (point (3)), pour le jour où un enregistrement AAAA apparaîtrait. Ce jour-là, la mesure se rejoue en IPv6 avant d'en dépendre.
+
+**Pourquoi `cf-connecting-ip` plutôt que la position 0 ou 1 de XFF**, qui porte aussi l'IP réelle aujourd'hui : le remplacement de XFF est un comportement **constaté**, que rien ne documente ni ne garantit. `cf-connecting-ip`, lui, est protégé par un **refus explicite** de Cloudflare, et c'est une seule valeur, sans position à interpréter. **Écart assumé avec les exemples officiels**, qui lisent `X-Forwarded-For[0]` : la lecture retenue repose sur une mesure, pas sur un exemple.
+
+**Ce qui ne tient plus que par cette mesure, et doit donc être revérifié** : si Supabase changeait de fournisseur ou de configuration devant ses fonctions, `cf-connecting-ip` pourrait disparaître. Le repli est sûr (quota partagé, erreur au journal), et l'erreur journalisée en est le détecteur.
+
+*Le texte ci-dessous est celui d'avant la mesure. Il est conservé parce qu'il explique pourquoi la mesure était requise.*
+
+**Ce que la documentation dit** (recherche Context7 du 2026-09-15, en lecture seule) :
+- les exemples officiels lisent l'IP **à gauche** de `X-Forwarded-For` (`[0]`) : `securing-your-api` (« Rate limit per IP », qui passe par PostgREST), et les exemples d'Edge Function `cloudflare-turnstile` et `location` ;
+- l'exemple officiel de limite de débit en Edge Function (Upstash) prend `userClaims.id` pour clé, et **ne lit aucune IP** ;
+- **Cloudflare est devant la plateforme.** Les `edge_logs` exposent `cf_connecting_ip`, observé sur `/auth/v1`, mais rien ne prouve que cet en-tête parvienne jusqu'à la fonction ;
+- chez Deno, `ServeHandlerInfo.remoteAddr` donne l'adresse de la connexion, a priori celle du relais et non celle du client.
+
+**Ce qu'elle ne dit PAS :**
+- ce que devient un `X-Forwarded-For` forgé par le client : conservé, remplacé ou préfixé ;
+- l'ordre des proxys et le nombre de sauts ;
+- si `cf-connecting-ip`, `x-real-ip`, `true-client-ip` ou `x-client-ip` sont présents, ou réécrits, à l'entrée de la fonction ;
+- le comportement en IPv6.
+
+L'Edge Runtime Supabase n'est d'ailleurs pas indexé par Context7. **Et aucune lecture d'IP n'existe dans le dépôt** : `magrit-api/index.ts:663-679` ne lit que `x-forwarded-host`, `x-forwarded-proto` et `x-forwarded-port`, pour reconstituer l'URL.
+
+**Interdit opposable : on ne lit JAMAIS `X-Forwarded-For[0]`**, même si les exemples officiels le font. Cette valeur est celle que le client écrit lui-même. En la suivant, un attaquant forge une IP différente à chaque appel : L1 ne le freine plus, il épuise L3 en quelques minutes, et **tous** les acheteurs perdent le chiffrage jusqu'à minuit. La facture reste bornée par L3, mais c'est un déni de service à la portée d'une boucle `curl`. Les exemples officiels servent un autre propos : ils illustrent une lecture, ils ne défendent pas un plafond facturé.
+
+**La règle de décision, appliquée dans l'ordre sur la matrice mesurée :**
+- **(i)** Si un en-tête **posé par la plateforme** vaut **toujours** l'IP réelle, et qu'**aucune** valeur forgée n'y survit (en IPv4 comme en IPv6, depuis les deux réseaux, avec ou sans `apikey`), on lit **cet en-tête seul**.
+- **(ii)** Sinon, si l'IP réelle occupe dans `X-Forwarded-For` une position **constante depuis la droite**, soit `longueur − N`, avec N **identique** dans toutes les mesures, en IPv4 comme en IPv6 et quel que soit le nombre d'entrées forgées, on lit **cette position seule**.
+- **(iii)** Sinon, **pas de L1 par IP** : tous les visiteurs anonymes partagent la clé unique, comme en l'absence de secret (point (3)). L3 et l'étage membre restent appliqués normalement.
+
+**Ce qui attend la mesure, et ce qui n'attend pas.** Seule la **dérivation de la clé IP** l'attend : la fonction qui extrait l'IP de la requête, et son test d'en-tête forgé (point (9)). Le reste de BCP-0b peut s'écrire avant elle : les tables, la fonction atomique, la purge, l'étage membre, la clé par compte boutique, la clé partagée et L3. **Aucun code de L1 par IP ne s'écrit, et aucune règle (i)/(ii) ne se choisit, avant que la matrice soit archivée.** La règle retenue, et la valeur de N le cas échéant, sont inscrites dans le story doc de BCP-0b, avec la matrice qui les fonde.
+
+**Le protocole de mesure** (proposé par le coordinateur, retenu tel quel ; son déploiement est une action en production, proposée à Arnaud) :
+- **Une fonction jetable `ip-probe-tmp`**, déployée avec `--no-verify-jwt`. Ce n'est pas une route dans `magrit-api`, qui imposerait deux redéploiements de production. Elle passe par la même passerelle d'entrée que `magrit-api` : c'est ce qui rend sa mesure valable pour elle.
+- **Elle n'accède à rien et n'écrit rien** : ni base, ni Clariprint, ni secrets, et rien dans les journaux.
+- **Elle ne renvoie jamais de valeur.** Pour chaque en-tête candidat et pour `remoteAddr`, elle dit seulement :
+  - s'il est présent, et combien il compte d'entrées ;
+  - pour chaque position, si la valeur égale l'IP attendue (transmise par l'appelant dans `x-probe-expected`), ou la valeur forgée, et de quelle famille est l'adresse.
+
+  Elle renvoie en plus la liste des **noms** d'en-têtes reçus.
+- **La matrice des requêtes :**
+  - en `curl -4`, puis en `curl -6`, depuis deux réseaux ;
+  - sans en-tête forgé ;
+  - avec un `X-Forwarded-For` forgé à une, puis à deux entrées (adresses de documentation RFC 5737) ;
+  - avec `X-Real-IP`, `CF-Connecting-IP`, `True-Client-IP` et `X-Client-IP` forgés ;
+  - les mêmes cas en IPv6 (préfixe de documentation `2001:db8::/32`) ;
+  - avec et sans `apikey`.
+- **Le retrait :** `supabase functions delete ip-probe-tmp`, une vérification par `list`, la suppression du dossier local, puis l'**archivage de la matrice (booléens seulement)** dans le story doc de BCP-0b.
+
+**(6) Ce que renvoie la route actuelle quand la limite est atteinte, sans graver de contrat.**
+- La route n'est dans aucun des deux contrats, et **on n'y ajoute rien** : ni champ, ni en-tête, ni paramètre, ni ligne d'OpenAPI.
+- **Le refus se fait en levant une `ApiHttpError`**, c'est-à-dire dans la forme d'erreur que la façade historique sert déjà à toutes ses routes (`application/problem+json`, avec `requestId`) :
+  - étage visiteur ou étage membre : **429 `api.rate_limited`** ;
+  - L3 : **503 `clariprint.public_quota_exhausted`** ;
+  - base injoignable : **503 `clariprint.unavailable`**.
+
+  Ce sont les codes que BCP-1b publiera : le lot suivant ne renomme rien. Le `detail` est générique et sans chiffre.
+- **Pas de `Retry-After` dans ce lot.** `problemResponse` (`api-v1-handler.ts`) ne sait pas poser d'en-tête. L'ajouter toucherait le cœur de la façade historique, commun à toutes ses routes, pour un en-tête que notre seul client ne lit pas. Il arrive avec BCP-1b, sur la façade E10.
+- **Ce que fait le front de ce retour — vérifié, et BCP-0b ne touche pas au front :**
+  - `FetchApiClient` lève une `ApiClientError` sur tout statut non 2xx (`fetch-api-client.ts:139-146`) ;
+  - `ClariprintHttpAdapter` la rattrape et lève `ClariprintError("network")` (`browser-clariprint-adapter.ts:103-110`). **`validateClariprintResponse` n'est donc jamais atteinte** : elle ne s'applique qu'à un corps reçu en 2xx ;
+  - dans le configurateur, `computeErrorPhase` retombe sur le **prix marché**, à la quantité choisie (`useProductConfigurator.ts`, fin de la fonction) ;
+  - `computeClariprintQuoteSafe` (catalogue, fiche produit, atelier) rend `success: false`. La fiche produit retombe sur le prix marché par `resolvePrice`. La suggestion de Magrit reste à 0 € (« Prix à calculer ») jusqu'à BCP-4, comme pour tout autre échec aujourd'hui.
+
+  **Le repli fonctionne, mais le message est faux** : « Erreur réseau — Prix marché estimé (réessayez) ». Il invite à réessayer une requête qui sera refusée jusqu'à la fin de la fenêtre. C'est accepté dans ce lot, puisque seul un usage anormal atteint la limite. La correction appartient à BCP-1b, qui migre l'adaptateur.
+
+**(7) La seconde porte appelle AUSSI Clariprint.** Une fois neutralisé, `make-server-e3db71a4/clariprint-quote` ne renvoie plus rien d'interne, mais **il appelle toujours Clariprint, sans aucune limite, pour quiconque présente la clé anon publique**. La facture a donc deux portes, comme la fuite.
+- **BCP-0b applique le même budget à ce gestionnaire** : même fonction SQL, par un client `service_role`, même règle de clé, même refus. Il n'a aucun appelant connu : aucun risque de régression.
+- Si le coordinateur préfère le laisser hors du lot, il faut le remonter à Arnaud : **L3 ne bornerait alors plus la facture.**
+- `clariprint-test` fait un `CheckAuth`, dont on ne sait pas s'il est facturé : même traitement, par prudence.
+
+**(8) Le domicile du code — BCP-1b le reprend tel quel.**
+- Un port `ClariprintQuoteBudget` vit dans `src/modules/clariprint/application/`. `ClariprintService.quote` le consulte **après** la validation du corps et **avant** la passerelle : un corps invalide ne consomme rien, et un refus n'appelle jamais Clariprint.
+- L'appelant (`member` ou `visitor`, avec sa clé) est établi par la route et passé au service.
+- L'adaptateur `src/adapters/supabase/clariprint-quote-budget-repository.ts` appelle la fonction par le client `service_role` que `magrit-api` compose déjà (`index.ts:240-247`). Imports relatifs en `.ts` explicite : ce code est atteint par une Edge Function (trou de gate connu, noté dans `SPRINT_HANDOFF.md`).
+
+**(9) Les tests exigés.** Chacun échoue sur le code d'avant, ou sous mutation.
+- **SQL réel**, ajouté à la chaîne `pnpm test:storefront:sql` :
+  - **RLS et droits** : sous `anon` et sous `authenticated` (`set role`), `select`, `insert`, `update` et `delete` sont refusés sur les deux tables, et `execute` est refusé sur les deux fonctions. Sous `service_role`, la consommation passe ;
+  - **concurrence** : deux connexions **réellement concurrentes**, jamais simulées dans une seule transaction. Soit deux processus `psql` lancés en parallèle par le script, soit `dblink` si l'extension est disponible (à vérifier). À une unité du plafond, **exactement un** appel est accepté ;
+  - **tout ou rien** : un visiteur sous L1, mais avec L3 épuisé, est refusé, et son compteur L1 n'a pas bougé ;
+  - **fenêtres** : la bascule de la fenêtre de 10 min, et celle du jour civil `Europe/Paris`, y compris la nuit du changement d'heure du **25 octobre 2026** ;
+  - **purge** : elle supprime ce qui a plus de 24 h et garde la fenêtre du jour ;
+  - **configuration** : un `update` de la limite L3 prend effet dès l'appel suivant ;
+  - **données personnelles** : aucune colonne ne contient une IP en clair.
+- **TypeScript** :
+  - la clé du membre, qui exige un jeton résolu ET une appartenance. Un jeton résolu sans appartenance donne un visiteur, un jeton non résolu aussi ;
+  - la clé du visiteur connecté est son compte ; sinon, le HMAC de son IP, l'IPv6 étant ramenée au /64 ;
+  - secret absent : clé unique partagée, et erreur journalisée ;
+  - **la clé IP se lit dans `cf-connecting-ip` seul** : une requête qui porte en même temps un `x-forwarded-for`, un `true-client-ip`, un `x-client-ip`, un `forwarded` et un `x-real-ip`, tous différents, donne la même clé que la requête sans eux ;
+  - **un `cf-connecting-ip` absent, vide ou à plusieurs entrées donne le quota partagé**, avec l'erreur `rate_limit.client_ip_missing` au journal, et jamais une clé tirée d'un autre en-tête ;
+  - **la passerelle n'est jamais appelée** quand le budget refuse, ni quand la base est en erreur (espion) ;
+  - un corps invalide ne consomme rien ;
+  - chaque refus donne le bon statut (429 ou 503) et le bon code ;
+  - le gestionnaire de `make-server` consomme le même budget.
+- **Gates** : `pnpm typecheck`, les tests unitaires, `test:contract` (inchangé : aucune route E10 n'est touchée), `test:architecture`, `test:storefront:sql` (Supabase local), un `supabase functions deploy` réel des deux fonctions (seul révélateur d'un import sans `.ts`), et **aucune ligne d'`openapi/`**.
+
+**(10) Le déploiement, dans cet ordre :**
+1. la mesure du point (5) sur l'hébergé ;
+2. la pose du secret `MAGRIT_RATE_LIMIT_IP_HMAC_SECRET` ;
+3. `supabase db push` : tables, fonctions et job de purge ;
+4. le déploiement de `magrit-api` et de `make-server-e3db71a4`.
+
+Vérifications après déploiement : le job figure dans `cron.job`, et une consommation réelle apparaît dans `api_rate_limit_counters`, sans IP en clair.
+
+**(11) Ce que la recette doit montrer.** Elle se joue dans un navigateur réel, sans aucun agent qui écrive dans la copie servie, complétée par un script d'appels :
+- **un visiteur anonyme** configure un produit sur `/shop/eram`, et le chiffrage lui est servi tant qu'il reste sous la limite ;
+- **un script envoie 31 appels anonymes en 10 min** : le 31e reçoit un 429 `api.rate_limited`, et la boutique affiche aussitôt le prix marché, sans rien casser ;
+- **la règle (i) étant retenue**, le même script, qui forge un `X-Forwarded-For` différent à chaque appel, est **quand même** refusé au 31e. C'est la preuve, en production et sur `magrit-api`, que la règle mesurée sur la sonde tient bien sur la vraie route ;
+- **un acheteur connecté** n'est pas limité par la clé du visiteur anonyme de la même IP ;
+- **L3 épuisé, simulé en base LOCALE seulement** (la limite ramenée à 1, jamais en production) : le visiteur reçoit un 503 `clariprint.public_quota_exhausted`, et **un membre de l'atelier chiffre toujours** ;
+- **au journal**, chaque refus porte `request_id`, `scope` et le type d'appelant, jamais une IP ni son empreinte ;
+- **en base**, `api_rate_limit_counters` ne contient aucune IP en clair, et le job de purge est planifié.
+
+##### 2.4 BCP-1b — le contrat, REFAIT après la décision Q2 (écrit par l'architecte sur l'archive du banc)
+
+**Décision d'Arnaud (Q2, 2026-09-15) : un visiteur non connecté obtient un vrai chiffrage Clariprint.** Ce cadrage recommandait l'inverse. Le contrat suit la décision, et il en écrit les conditions.
+
+**Le sort des deux opérations du premier jet :**
+
+| Chemin | `operationId` | Sécurité | Sort |
+|---|---|---|---|
+| `POST /api/v1/clariprint-quotes` | `requestClariprintQuote` | `bearerAuth` seul, sans `serviceKey` (aucun besoin exprimé ; l'ajout serait additif) | **CONSERVÉE.** Atelier, simple appartenance, avec l'extension `diagnostic` |
+| ~~`POST /api/v1/storefront-clariprint-quotes`~~ | ~~`requestStorefrontClariprintQuote`~~ | ~~`storefrontSession`~~ | **ABANDONNÉE.** Une session boutique n'ouvre droit à rien de plus qu'un visiteur anonyme : même réponse, même limite de débit. Deux chemins pour une seule réponse, ce serait deux choses à tenir identiques |
+| `POST /api/v1/public-shops/{shopSlug}/clariprint-quotes` | `requestPublicShopClariprintQuote` | **aucune** (`security: []`) | **NOUVELLE.** Toute la boutique, connectée ou non |
+
+**L'opération publique :**
+- **Le chemin.** Le précédent historique est `GET /public/shops/{slug}/catalog` (`shops-routes.ts:24`). Sa forme ne passe pas la règle CA3 du dépôt : `public` y est une ressource au singulier en position paire (`path-rules.ts`, `isResourcePosition`). D'où `/public-shops/{shopSlug}/clariprint-quotes`, conforme, et sans recouvrement avec `/public/shops/{slug}/…` puisque le premier segment diffère.
+- **Une précision au CA4, tranchée par la décision Q2 et écrite comme telle.** Sur une opération sans credential, l'espace est désigné par la **boutique publique**, jamais par un identifiant d'espace. `{shopSlug}` ne figure pas dans `TENANT_ADDRESSING_TOKENS` et ne doit pas y entrer. Ce n'est pas une brèche du CA4 au sens du §3.4, qui interdit qu'un paramètre fasse **autorité** :
+  - le slug **n'ouvre l'accès à aucune donnée de l'espace** : il désigne une vitrine déjà publique ;
+  - l'opération ne lit rien de l'espace hors l'existence de la boutique, et n'écrit rien ;
+  - elle n'emploie l'espace qu'à trois fins : la clé de limite de débit, le journal, et le refus d'une boutique inexistante.
+- **La boutique se résout par la règle qui sert déjà le catalogue public, jamais par une seconde.** C'est `publicCatalogAccess`, puis `service.publicCatalog(…, slug)` (`shops-routes.ts:24`) : si le catalogue d'une boutique n'est pas servi au visiteur, son chiffrage non plus. Boutique inconnue ou non servie : **404 `shop.not_found`, réponse identique dans les deux cas.** Le nom exact de la règle est désigné à l'écriture du contrat, en lisant ce service.
+- **Aucune credential ne sert à autoriser.**
+  - `Authorization` et `X-Magrit-Service-Key` ne sont **pas vérifiés** : un jeton périmé ne transforme pas une opération publique en 401.
+  - Le cookie boutique n'est lu **que pour choisir la clé de limite** (L1 ci-dessous). Absent, invalide ou d'une autre boutique, on retombe sur l'IP, jamais sur une erreur.
+
+  C'est une cinquième branche du §3.6, à y ajouter à l'écriture du contrat. Elle ne peut élever aucun droit, puisque l'opération n'en accorde aucun.
+- **La réponse 200 `{data, meta}` porte `price_excl_tax` (Money) et `lead_time_days`, et RIEN d'autre.** Ni `supplier_label`, ni `cost_breakdown`, ni `weight_kg`, ni durée de fabrication, ni `sent_config`, ni `diagnostic`.
+- **`fournisseur` et `costs` ne sont servis ni au visiteur anonyme, ni à l'acheteur connecté.** Ce sont des données internes de l'imprimeur et du compte Clariprint, et une session boutique ne donne droit à aucune d'elles. Conséquence visible, déjà notée : la ligne « Clariprint · {fournisseur} » de `PortalProduct.tsx:360-366` disparaît.
+- **Les erreurs publiques portent des codes et un `detail` génériques**, jamais le texte d'erreur de Clariprint :
+  - `clariprint.not_priced` (422, sous réserve de la phase A) ;
+  - `clariprint.unavailable` (502) ;
+  - **`clariprint.not_configured` n'est pas servi en public** : il est rendu comme `clariprint.unavailable`, parce qu'une configuration d'exploitation n'a pas à être annoncée à Internet ;
+  - plus les deux refus de débit ci-dessous.
+
+**La limite de débit — obligatoire, côté serveur, à trois étages.** Il n'en existe **aucune** dans le dépôt aujourd'hui : ni code, ni table, ni code d'erreur (vérifié). C'est la première, et elle se conçoit ici.
+
+| Étage | Clé | Valeur proposée | Motif | Refus |
+|---|---|---|---|---|
+| **L1** par visiteur et par boutique | le compte boutique si le cookie est valide **pour cette boutique**, sinon l'IP | **30 chiffrages / 10 min** | Le configurateur recalcule à chaque changement d'option, avec un anti-rebond de 300 ms (`RECALC_DEBOUNCE_MS`, `useProductConfigurator.ts:34`). Avec sept options, une configuration complète tient en 10 à 20 calculs, et une question à Magrit en ajoute 1 à 3 (un par suggestion). 30 couvre donc un produit configuré de bout en bout plus une question, dans la même fenêtre. La clé est le compte pour l'acheteur connecté : sinon tous les salariés d'un même bureau, derrière une seule IP, partageraient un seul quota | 429 `api.rate_limited` + `Retry-After` |
+| **L2** par boutique, toutes clés confondues | la boutique | **300 / heure** | Borne une attaque qui fait tourner les IP sur un seul slug. **Aucune mesure du trafic réel n'existe** : c'est une valeur de départ, une constante de produit (pas un réglage par boutique), à revoir sur données mesurées (règle projet) | 429 `api.rate_limited` + `Retry-After` |
+| **L3** plafond global quotidien des appels publics | la plateforme | **500 / jour : décision d'Arnaud (Q9)**, ajustable par configuration (table `api_rate_limits`, BCP-0b) quand le prix d'un appel sera connu | **C'est le seul étage qui borne la facture.** L1 et L2 bornent un attaquant ; ils ne bornent pas mille IP sur mille boutiques. Jour civil `Europe/Paris`, la constante de produit déjà en place (§8.24) | 503 `clariprint.public_quota_exhausted` + `Retry-After` jusqu'à minuit |
+
+**Règles opposables de la limite :**
+- **Elle se compte APRÈS la validation du corps et AVANT l'appel à Clariprint.** Un corps invalide ne coûte rien et ne consomme rien ; tout ce qui atteindrait Clariprint consomme les trois étages.
+- **L'opération atelier n'entre dans aucun étage.** Elle exige un membre authentifié, et son volume est borné par l'appartenance. Un abus public ne peut donc pas priver l'atelier de chiffrage.
+- **Le compteur vit en base**, parce qu'une Edge Function ne partage aucun état entre ses isolats.
+  - Une table `api_rate_limit_counters` (portée, clé hachée, début de fenêtre, compte), avec la RLS activée et **aucune policy**.
+  - Une fonction atomique `api_consume_rate_limit(...)`, `security definer`, grantée au seul `service_role`, sur le patron des fonctions `api_claim_*` du sprint. Elle est appelée par un client `service_role` de la composition : un visiteur anonyme n'a aucun droit en base.
+  - Un test SQL réel prouve l'atomicité : deux consommations concurrentes n'en laissent pas passer une de trop.
+- **L'IP est une donnée personnelle.** Elle n'est **jamais stockée en clair** (HMAC-SHA256 avec un secret de fonction), et les fenêtres de plus de 24 h sont purgées. Ni l'IP ni son empreinte ne figurent au journal.
+- **L'en-tête qui porte l'IP du client derrière la passerelle Supabase n'est PAS affirmé ici.** Il se lit dans la documentation officielle via Context7, en vérifiant qu'un appelant ne peut pas le forger : sinon L1 tombe.
+- **Deux codes nouveaux** : `api.rate_limited` (transverse, à ajouter à `SHARED_PROBLEM_CODES`) et `clariprint.public_quota_exhausted`.
+
+**Le risque résiduel, écrit noir sur blanc — et une partie est BLOQUANTE :**
+1. **Levé par la décision Q9 : L3 vaut 500 appels par jour**, et cette valeur vit dans une table de réglage (point 2.3bis (2)). Sans L3, une attaque répartie sur de nombreuses IP viderait le compte. Avec L3, la facture publique est bornée à 500 appels par jour, quel que soit le nombre d'IP.
+2. **Accepté avec L3 : un abus peut épuiser le quota public d'une journée.** Tous les visiteurs, connectés ou non, retombent alors sur le prix marché jusqu'à minuit. C'est une dégradation, pas une panne : le panier reste actif (FR49), et l'atelier n'est pas touché.
+3. **Accepté : le compte devient une calculette Clariprint pour n'importe quelle configuration**, pas seulement celles du catalogue. On ne peut pas restreindre au catalogue, puisque les suggestions de Magrit sont des configurations libres. Le schéma strict des champs canoniques (point 3.2) est la première défense ; L1 à L3 bornent le reste.
+4. **Traité par BCP-0b (décision Q10).** La route actuelle, publique et jusque-là sans aucune limite, reçoit le limiteur avant tout autre lot, et le gestionnaire neutralisé de `make-server` le reçoit aussi (point 2.3bis (7)). Ce qui reste de ce risque est la voie atelier (Q11).
+
+**Ce qui ne change pas par rapport au premier jet :**
+- Le nom `clariprint-quotes`. La description dira que c'est un **chiffrage**, pas un devis (`/quotes`). Aucun recouvrement avec `/clariprint/quote` : `assertNoFacadeCollision` le vérifie.
+- **Un calcul, rien de créé** : ni 201 ni `Idempotency-Key` (précédent : `resolvePriceRule`).
+- **La requête `{ clariprint_config: ClariprintProductConfig }`.**
+  - Le nom `clariprint_config` est repris de `ProjectItem.clariprint_config`, jamais un nom neuf.
+  - Les champs canoniques sont typés (point 3.2), et les autres champs Clariprint passent tels quels (`additionalProperties: true`). Ce schéma ne se referme plus en v1, **opération publique comprise**.
+- **La réponse atelier** :
+  - `price_excl_tax: Money`, tiré de `response` et arrondi au centime demi-supérieur (178 → `"178.00"`) ;
+  - `lead_time_days: integer | null` ;
+  - `weight_kg: number | null` : une masse, donc un nombre JSON est admis (§5) ;
+  - `supplier_label: string | null` ;
+  - `cost_breakdown`, en `Money` optionnels arrondis un à un. Le contrat dira que leur somme peut s'écarter de `total` d'un centime ;
+  - `sent_config`, expurgé comme le journal ;
+  - l'extension `diagnostic` sur `clariprint.not_priced` et `clariprint.unavailable`, sur le précédent de `current_state` (§4).
+- **La migration par `ClariprintHttpAdapter`** (`browser-clariprint-adapter.ts:90-104`).
+  - Il choisit l'opération selon la surface : `clariprint-quotes` dans l'atelier (`browser-runtime.ts:24`) ; l'opération publique dans la boutique, avec le slug courant, que le runtime boutique (`storefront-browser-runtime.ts:16`) lui fournit.
+  - Il continue de rendre `ClariprintQuoteResult` aux écrans. Un 429 ou un 503 devient `success: false` : l'écran retombe sur le prix marché, sans message technique. BCP-1b ne touche donc aucun écran.
+- **Le retrait de `src/schemas/clariprintPayload.schema.ts`** : il ne reste qu'un schéma, celui de `src/modules/clariprint/api/contracts.ts`.
+- **Le retrait de la route historique, en commit distinct**, déployé dans cet ordre : `magrit-api` avec les deux routes, puis le front migré, puis `magrit-api` sans la route historique. Elle n'est décrite dans aucun contrat et n'a que des appelants internes : son retrait n'est **pas** une rupture de v1.
+
+**Le déploiement de BCP-1b** comprend une migration **additive** (la portée de L2 et sa ligne de limite) et deux déploiements de `magrit-api`. **La limite elle-même est en place depuis BCP-0b** : BCP-1b la reprend telle quelle, et y ajoute L2 (par le slug) et `Retry-After`, sur la façade E10.
+
+#### 3. Lots 2 et 4 — le normaliseur « config → charge Clariprint »
+
+##### 3.1 Où il vit — tranché, et ce n'est PAS la recommandation du mandat telle quelle
+
+La recommandation était un normaliseur tolérant côté serveur, dans la passerelle. **Retenu : UNE fonction pure, `toClariprintProductConfig()`, dans `src/modules/clariprint/application/clariprint-product-config.ts`.**
+- Elle n'a aucune E/S. Serveur et UI l'importent par la racine du module.
+- **Chaque producteur l'appelle avant d'envoyer** : le configurateur, les suggestions de Magrit, les configurations stockées envoyées par `PortalProduct`.
+- **Le serveur est la BARRIÈRE** : dès BCP-1b, le schéma strict du contrat refuse en 422, champ par champ, toute charge non canonique.
+
+**Pourquoi pas un normaliseur tolérant dans la passerelle** :
+- *(i)* Un serveur qui accepte des millimètres en nombre, `papers` en tableau ou `"flyer"` doit **déclarer ces formes au contrat**. Le contrat du partenaire publierait alors la convention interne P0.9, « chaîne = cm, nombre = mm » (`productEnrichment.ts:185-201`), comme règle d'API publique, et v1 ne pourrait plus s'en défaire.
+- *(ii)* Un normaliseur placé derrière un schéma qui dit autre chose ferait **mentir le contrat**.
+
+**Pourquoi le but est quand même atteint** : le prompt et le configurateur ne peuvent plus diverger. D'abord, ils passent par la même fonction. Ensuite, un producteur qui la contourne prend un **422 visible dans l'onglet réseau**, au lieu d'un `-1` silencieux. Le serveur ne répare pas, il refuse : c'est exactement ce qui a manqué au smoke. Les configurations stockées passent par la même fonction, donc **aucune migration de données**.
+
+##### 3.2 Formes canoniques, d'après `src/imports/JsonApi.txt` — opposables
+
+| Champ | Forme canonique | Doc | Ce que produit le normaliseur |
+|---|---|---|---|
+| `kind` | `"leaflet"` · `"folded"` · `"book"` | `:80` | `"flyer"`, `"affiche"`, `"carte"` → `"leaflet"`. **Valeur inconnue → refus, jamais de défaut.** Ce n'est pas le cas aujourd'hui : `ProductOverlay.helpers.ts:301` pose `"flyer"` par défaut |
+| `quantity` | chaîne de chiffres, sans zéro en tête | `:81` | entier → chaîne |
+| `width`, `height` | **centimètres**, chaîne décimale à point, 2 décimales au plus (`"14.8"`) | `:99-100` | convention P0.9 : un nombre (mm) est divisé par 10, une chaîne (cm) est gardée ; un nom de format passe par la table en mm (`ProductOverlay.helpers.ts:72-82`, divisée par 10). **`size` n'est jamais produit** |
+| `openwidth`, `openheight`, `folds` (dépliant) | même règle ; `folds` en chaîne | `:239-246` | tel quel |
+| `papers` | objet à **une** clé `custom` (ou `of`), valeur `{quality, weight}` en chaînes | `:124-134`, `:248-251` | `"135g"` → `weight: "135"`. `quality` vient de la configuration de base du produit. **Absente → configuration non chiffrable, aucune qualité inventée** (Q3) |
+| `front_colors`, `back_colors` | tableau de codes d'encre | `:110-114` | `4` → `["4-color"]`, `0` → `[]`. Forme retenue : **celle qui chiffre dans la campagne** (phases A/B, point 2.3) |
+| `finishing_front`, `finishing_back` | code du référentiel, ou `""` ; tableau pour une combinaison | `:119-123` | option du configurateur → code par le référentiel (point 5.3). **Option sans code → configuration non chiffrable** |
+| `deliveries` | objet (clé libre → `{iso, address, quantity}`) | `:218` (contra `:288`) | complété par la passerelle quand il est absent (existant) ; forme retenue : **celle qui chiffre dans la campagne** (point 2.3) |
+| `with_bleeds` | `"1"` ou `"0"` | `:103` | tel quel |
+| `binding`, `cover`, `components` (brochure) | selon la doc | `:315-363` | **hors campagne** (point 2.3) : la forme du prompt, avec `pages` au premier niveau, reste non vérifiée ; il n'y a aucune brochure dans la chaîne à réparer |
+| `reference` | chaîne libre | `:79` | conservée |
+
+**Options du configurateur sans correspondance documentée** : `dorure` (`ProductOverlay.helpers.ts:319-321`) est un champ **inventé**. La doc parle de `gilding_*`, qui exige une position et des dimensions. `soft-touch` n'a **aucun code connu**. Tant que Q3 n'est pas tranchée, une configuration qui porte l'une de ces options est **non chiffrable** : elle retombe sur le prix marché. Elle n'est jamais envoyée avec l'option omise en silence, ce qui afficherait un prix trop bas.
+
+**Ce qui reste à vérifier sur le référentiel réel du compte, et que ce cadrage n'affirme PAS** :
+- les **codes de finition valides** : la page `JsonVarnish` n'est pas dans le dépôt ;
+- les **qualités de papier** du référentiel, dont la doc exige le « texte exact » (`:133`) ;
+- les **grammages** disponibles par qualité ;
+- la **capacité du parc à chiffrer le grand format** (kakémono, banderole : aucun exemple dans la doc) ;
+- les **zones ISO**.
+
+Moyens : la campagne du banc (phases B et C, point 2.3) et les pages `JsonVarnish` / `JsonFold` à obtenir de Clariprint. L'interlocuteur est à désigner par Arnaud.
+
+**Prérequis de BCP-2, en lecture seule : l'audit des configurations stockées** (règle projet : audit de la production d'abord). Il donne la répartition des formes de `config.clariprintData` sur les produits de boutique et de bibliothèque : type de `width`, forme de `papers`, forme des couleurs, valeurs de `kind`, valeurs de finition. Le résultat va dans le story doc. **Une forme non prévue ici rouvre ce cadrage.**
+
+##### 3.3 BCP-2 — les suggestions configurables, avec la charge corrigée
+
+- `buildClariprintPayload` (`ProductOverlay.helpers.ts:278-331`) délègue au normaliseur et perd sa propre logique d'unités.
+- **Les deux implémentations de la convention P0.9 n'en font plus qu'une**, dans le module du normaliseur : `toMm` (`productEnrichment.ts:191-202`) et `normalizeDimensions` (`ProductOverlay.helpers.ts:149-176`). BCP-7 la consomme pour l'affichage.
+- **« Configurer » sur une suggestion ouvre l'overlay existant** : `setOverlayProduct` (`PortalCatalog.tsx:155`, `:861-883`). Le clic sur la carte (`:757`) aussi. Aujourd'hui, `onSelectProduct` mène vers `/p/ai-…`, introuvable, puis vers `Navigate` (`PublicShop.tsx:534-536`). Une suggestion n'est pas un produit du catalogue : elle n'a pas de route.
+- `extractInitialOptions` lit la forme canonique : `papers.custom.weight` et les couleurs en tableaux.
+- **Conséquence pour l'atelier** : `useProductConfigurator` est partagé. La recette couvre donc aussi l'« Éditer » de `ProductCard` côté atelier.
+
+#### 4. Lot 4 — la règle exacte de `resolvePrice` dans la boutique
+
+**Règle générale : tout prix montré à l'acheteur sort de `resolvePrice(product, clariprintQuote)`** (`priceResolver.ts:133`). Aucun composant ne lit `price_ht` directement, et la hiérarchie n'est pas modifiée. La règle d'affichage est une **fonction pure**, « résolution → texte + badge », testée cas par cas. Elle est partagée par les trois emplacements ci-dessous.
+
+- **(a) Carte catalogue** (`ShopProductCard.tsx:291-312`) : `resolvePrice(product, product.config.clariprintQuote ?? null)`.
+  - Source `clariprint` ou `library_cached` : le prix, sans badge.
+  - `prix_marche` : le prix, avec le badge.
+  - `zero` : « Prix à la configuration », **jamais « 0 € »**.
+  - Le cas S2.33 (produit issu du PIM à 0 € → « Configurez pour le prix ») est **absorbé** : par décision d'Arnaud, un produit à 0 € reçoit le prix marché. Le format est inchangé (entier, « / N ex. »).
+- **(b) Plancher « dès X € »** (`gammeFloorPrices.ts:22-49`) : **deux paliers**. D'abord le minimum sur les sources `clariprint` et `library_cached`. **Seulement si la gamme n'en a aucune**, le minimum sur `prix_marche`, avec le badge. Jamais `zero`. Motif : un « dès » est une promesse de plancher, et une estimation ne doit jamais sous-coter un vrai prix du catalogue. C'est exactement le « dès 1,00 € » du smoke.
+- **(c) Suggestions de Magrit** (`PortalCatalog.tsx:218-230`, `:832-840`) : `resolvePrice(suggestion, quote)`. Un chiffrage réussi donne le prix sans badge ; un échec donne le prix marché avec le badge. « Prix à calculer » disparaît, sauf pour `zero`, qui devient « Prix à la configuration ». Le panier résout déjà par la même fonction (`cartPricing.ts:19`), donc **la carte et le panier affichent le même prix**.
+- **(d) `estimateMarketPriceHT`** (`priceResolver.ts:85-94`) : la comparaison des mots-clés se fait **après retrait des diacritiques** (« kakémono » = « kakemono »). C'est une correction de défaut, pas un chiffre nouveau.
+  - **Aucune base nouvelle** (banderole, bâche, oriflamme) : un chiffre heuristique se fonde sur des données de production, pas sur un avis (Q4).
+  - **Le plancher de 1 € reste en place** : le panier en a besoin pour que « Ajouter au panier » reste toujours actif (FR49).
+  - **Reliquat assumé** : une gamme dont aucun produit n'a ni mot-clé reconnu ni prix peut encore afficher « dès 1,00 € ». Après correction des données ERAM, il n'y en a plus aucune sur cette boutique.
+- **(e) Le badge** : libellé exact **« Prix marché »** partout. `GammeTile.tsx:107-111` passe de « ⚠️ marché » à ce libellé. Infobulle exacte : **« Estimation Magrit. Le prix définitif est confirmé par l'imprimeur à la validation de la commande. »**
+- **(f) Les données ERAM** (23 produits sur 30 à `price_ht = 0.00`) : leur correction est un **geste humain dans l'atelier**, par Arnaud ou l'imprimeur, dans l'écran de tarification. **Aucune migration, aucun `update` en production par un agent.** Elle peut précéder ou suivre le code. Après elle, (a) à (c) affichent `library_cached` sans badge.
+
+#### 5. Lots 5 à 9 — les libellés exacts
+
+##### 5.1 BCP-5 — une table de statuts, une seule
+
+**`src/modules/orders/ui/helpers/orderStatus.ts` (`STATUS_LABELS`) devient la seule table.** Les trois autres sont remplacées par des imports :
+- `ResumeBanner.tsx:66-77`, qui utilise une **forme en ligne** : le libellé, première lettre en minuscule. Elle est **dérivée**, ce n'est pas une seconde table ;
+- `PortalOrders.helpers.ts:141-153` ;
+- `orderAuditTrail.helpers.ts:58-66`.
+
+**Un test échoue si une seconde table de libellés de statut réapparaît sous `src/modules/orders/`.**
+
+| Statut | Libellé |
+|---|---|
+| `draft` | **En attente de validation** |
+| `validated` · `in_production` · `shipped` · `delivered` · `invoiced` · `cancelled` | inchangés (Validée · En production · Expédiée · Livrée · Facturée · Annulée) |
+| `pending` · `approved` (hérités) | inchangés (En attente · Validée) |
+
+**Décision d'Arnaud (Q1, 2026-09-15) : l'atelier voit le même mot**, avec une seule table pour les deux surfaces (point 1 (5)). Les textes de l'atelier qui nomment « Brouillon » suivent :
+- `ValidateOrderConfirmDialog.tsx:76` devient « La commande passera de **En attente de validation** à **Validée** » ;
+- `orderValidation.helpers.ts:34` et `orderCancellation.helpers.ts:36` deviennent « … n'est plus en attente de validation … » ;
+- `PortalOrderEditor.tsx:59` devient « Modifiable tant qu'elle est en attente de validation. » ;
+- l'infobulle de `OrderHistoryTable.tsx:1121` et la liste de `OrderRolesPage.tsx:578` suivent aussi.
+
+`tests/lib/orderStatus.test.ts` change d'assertion, et le story doc en donne le motif.
+
+**Écran de remerciement** (`PortalThankYou.tsx:90`) : **« Commande transmise — en attente de validation par l'imprimeur »**. Vérifié : seul l'admin du tenant, donc l'imprimeur, fait passer `draft` à `validated` (`20260509000100_e1_orders_v1_1.sql:247`, PRD FR49), et `PortalOrders.tsx:7` confirme que la validation reste interne.
+
+**Panier :**
+- `PortalCart.tsx:417`, « Vous recevrez un email de confirmation. » : **supprimé, pas reformulé** (point 1 (6)).
+- `PortalCart.tsx:428` devient **« Votre commande sera transmise à l'imprimeur, qui la validera. »** Son infobulle, qui promet un circuit N+1 « dans une prochaine version », est retirée.
+- `PortalCart.tsx:349` devient **« Prix marché — au moins une ligne est une estimation Magrit. Le prix définitif sera confirmé par l'imprimeur à la validation de la commande. »** La parenthèse « Clariprint pas encore intégré » est fausse et technique.
+
+##### 5.2 BCP-6 — une console propre
+
+- **`SheetOverlay` doit transmettre sa référence** (`sheet.tsx:31-45`). Le dépôt est en React 18.3.1 et `@radix-ui/react-dialog` 1.1.6 (`package.json`). **Le motif exact se prend dans la documentation de Radix et de React via Context7, pas de mémoire** (règle projet). Le correctif couvre la **famille** : tout composant de `src/shared/ui/` qui enveloppe un `Overlay` ou un `Content` Radix de la même façon (un critère, pas une ligne).
+- **Description du tiroir panier** (`ShopLayout.tsx:498-542`) : une vraie description, visuellement masquée si besoin, au texte exact **« Articles de votre panier et total de la commande. »**. On ne se contente pas de faire taire l'avertissement.
+- **À mesurer, pas à corriger d'office** : la paire `session/current` + `catalog` relancée toutes les quelques secondes. Mesure sur 60 s d'inactivité sur le catalogue, **sans aucun agent qui écrive**, pour ne pas reproduire la fausse boucle du 15/09. On ne corrige que si une cause est trouvée dans le code.
+
+##### 5.3 BCP-7 — dimensions et finitions
+
+**Dimensions : un seul formateur, `formatDimensionsMm(config)`, sur la convention unifiée en BCP-2.** Il sort des entiers en millimètres : **« 85 × 55 mm »**. Il s'applique à trois endroits :
+- `productEnrichment.ts:281-286` (`{{format}}`) ;
+- `PortalCart.tsx:215-216` ;
+- `PortalCatalog.tsx:95`, qui affiche aujourd'hui des cm.
+
+La ligne du panier montre le format **configuré** : les `width`/`height` de la configuration passent avant la chaîne `format` du produit de base. Cela ferme l'anomalie 4 du `backlog.md` (« Anomalies Epic 7 »).
+
+**Finitions : le référentiel `src/modules/clariprint/application/clariprint-finishing-codes.ts`** (créé en BCP-1a) :
+
+| Code | Libellé acheteur | Option du configurateur |
+|---|---|---|
+| `""` | *(ligne masquée)* | `aucun` |
+| `PELLIC_ACETATE_BRILLANT` | Pelliculage brillant | `brillant` |
+| `PELLIC_ACETATE_MAT` | Pelliculage mat | `mat` |
+| `OFFSET_SATIN` | Vernis satiné | — |
+| `UVS_MAT_RESERVE` | Vernis sélectif mat | — |
+
+Ce sont les cinq valeurs du prompt. **Les libellés sont une proposition**, validée par Arnaud à la recette, sans rien bloquer.
+- **Code inconnu → masqué, jamais affiché.** Exemple : `PELLIC_BRILL`, présent seulement dans une fixture (`tests/components/shop/ProductOverlay.helpers.test.ts:303`).
+- **Combinaison** : les libellés connus, joints par « + ». Si aucun n'est connu, la ligne est masquée.
+- **Aucun journal console** par code inconnu (BCP-6).
+
+##### 5.4 BCP-8 — cohérence du panier, budget retiré
+
+- **Ligne en HT** : `PortalCart.tsx:276` affiche le total de ligne HT, suffixé « HT ». Le TTC n'apparaît qu'au total.
+- **Budget factice retiré partout** :
+  - `PublicShop.tsx:164-172` ;
+  - `ShopLayout.tsx:144-146` et `:373-410` ;
+  - `PortalCart.tsx:82-84` et `:354-386` ;
+  - le type `BudgetInfo` et sa chaîne de props ;
+  - `PortalChrome.tsx`, qui n'a **aucun importeur** (vérifié) et est supprimé.
+
+  Cela ferme l'anomalie 2 du `backlog.md`.
+- **Tiroir resté ouvert sur `/checkout`** : **cause non identifiée, et ce cadrage ne l'affirme pas.** Première hypothèse à éprouver : l'effet `ShopLayout.tsx:136-138` rouvre le tiroir quand `ShopLayout` se remonte alors que `cartOpenRequest > 0` persiste. **Acceptation** : le tiroir est fermé à l'arrivée sur le checkout et après la commande, preuve en recette.
+- **« Livraison : Siège social · Paris »** (`PortalCart.tsx:247`) est un factice de même nature que le budget, mais il n'est pas dans la décision d'Arnaud (Q5).
+
+##### 5.5 BCP-9 — libellé de l'acheteur
+
+`ShopLayout.tsx:346` : `Compte de ${fullName}` devient **« Mon compte ({fullName}) »** avec une session. Sans session, « Compte boutique » est inchangé. Le défaut d'élision disparaît pour **tout** nom commençant par une voyelle, pas seulement « acheteur ».
+
+#### 6. Découpage, dépendances, parallélisation
+
+| Story (proposée) | Lot | Dépend de | Fichiers qu'elle possède |
+|---|---|---|---|
+| **BCP-0** | 1 — correctif immédiat de la fuite sur ses deux portes (décision d'Arnaud) : la passerelle de `magrit-api` (worktree isolé, commit `461a1cca`), et `make-server-e3db71a4` **neutralisé** (correctif séparé, base `chore/chat-sonnet-5`) | — | `src/adapters/clariprint/http-clariprint-quote-gateway.ts`, `src/modules/clariprint/api/contracts.ts` ; `clariprint-quote` et `clariprint-test` de `make-server-e3db71a4` |
+| **BCP-0b** | 1 — limite de débit sur la route actuelle (décisions d'Arnaud Q9 et Q10) : L1 visiteur, étage membre, L3 à 500 par jour ; appliquée aussi au gestionnaire neutralisé de `make-server` | BCP-0 ; la mesure de la source d'IP (point 2.3bis (5)) | migration (tables, fonctions, job de purge), port `ClariprintQuoteBudget`, `src/adapters/supabase/clariprint-quote-budget-repository.ts`, `clariprint-routes.ts`, composition `magrit-api`, gestionnaire `clariprint-quote` de `make-server-e3db71a4` |
+| **BCP-1a** | 1 — verdict, journal, expurgation, banc, référentiel des finitions | BCP-0, BCP-0b | `src/adapters/clariprint/`, `src/modules/clariprint/application/`, `scripts/diagnostics/clariprint-variants/`, composition `magrit-api` |
+| *(campagne)* | banc joué **en mode sec, puis réellement sous un plafond de 18 appels** (point 2.3) | BCP-1a | `scripts/diagnostics/clariprint-variants/results/` |
+| *(architecte)* | écriture du contrat, **après la campagne archivée** | la campagne | `openapi/magrit-core.v1.yaml`, ce document |
+| **BCP-1b** | 1 — opération atelier, opération publique par slug (L2 et `Retry-After` ajoutés au limiteur de BCP-0b), migration des appelants, retrait de la route historique | le contrat écrit ; BCP-0b | `src/modules/clariprint/api/`, `src/server/api/clariprint-quotes-routes.ts`, migration additive (portée L2), `browser-clariprint-adapter.ts`, runtimes, `src/schemas/clariprintPayload.schema.ts` |
+| **BCP-2** | 2 — normaliseur, configurateur, « Configurer » | BCP-1a (formes), BCP-1b (barrière), audit, Q3 pour dorure/soft-touch | normaliseur, `ProductOverlay.helpers.ts`, `useProductConfigurator.ts`, `PortalProduct.tsx`, `PortalCatalog.tsx` |
+| **BCP-3** | 3 — recherche IA | BCP-2 (même fichier) | `PortalCatalog.tsx`, `PortalCatalog.helpers.ts` |
+| **BCP-4** | 4 — prix, plancher, suggestions, badge | BCP-3 (même fichier) ; données ERAM : geste humain, à tout moment | `ShopProductCard.tsx`, `gammeFloorPrices.ts`, `priceResolver.ts`, `GammeTile.tsx`, `PortalCatalog.tsx` |
+| **BCP-5** | 5 — table unique de statuts, textes | — (Q1 tranchée : oui) | helpers de `src/modules/orders/ui/`, `PortalThankYou.tsx`, `PortalCart.tsx` (textes) |
+| **BCP-6** | 6 — console | — | `src/shared/ui/`, `ShopLayout.tsx` (description) |
+| **BCP-7** | 7 — dimensions, finitions | BCP-2 (formateur unifié), BCP-1a (référentiel) | `productEnrichment.ts`, `PortalCart.tsx` (format) |
+| **BCP-8** | 8 — panier, budget | BCP-5 et BCP-7 (même fichier), Q5 pour la ligne livraison | `PortalCart.tsx`, `ShopLayout.tsx`, `PublicShop.tsx`, `PortalChrome.tsx` |
+| **BCP-9** | 9 — libellé acheteur | BCP-6 (même fichier) | `ShopLayout.tsx` (une ligne) |
+| *Clôture* | smoke E2E rejoué | tous | — |
+
+**Réponse à « le lot 2 dépend-il des lots 1 et 4 ? »** Oui du lot 1, entier : de BCP-1a pour les formes, de BCP-1b pour la barrière. **Non du lot 4 dans le code.** Le lot 4 ne fait qu'afficher ce que le lot 2 chiffre. Seul le smoke de clôture exige les deux.
+
+**Ordre par défaut : celui d'Arnaud.** Trois conflits de fichiers imposent leur propre séquence :
+- `PortalCatalog.tsx` : 2 → 3 → 4 ;
+- `PortalCart.tsx` : 5 → 7 → 8 ;
+- `ShopLayout.tsx` : 6 → 9 → 8.
+
+**Parallélisable sans conflit** : la piste « commande et affichage » (5, 6, 9) peut avancer pendant le seul temps mort de la piste « chiffrage », c'est-à-dire la campagne de banc puis l'écriture du contrat. Cela **déroge à l'ordre fixé par Arnaud** et ne se fait qu'avec son accord (Q6). Chaque piste dans son propre worktree, avec son propre serveur Vite sur un port distinct.
+
+**Déploiements** :
+- BCP-0 : `magrit-api` ; puis `make-server-e3db71a4` après sa qa-review distincte, avec un `/assistant/chat` rejoué après ;
+- BCP-0b : la mesure de la source d'IP, le secret de fonction, `supabase db push`, puis `magrit-api` et `make-server-e3db71a4` (point 2.3bis (10)) ;
+- BCP-1a : `magrit-api` ;
+- BCP-1b : une migration additive (portée L2), et `magrit-api` deux fois, dans l'ordre du point 2.4 ;
+- tous les autres lots : **front seul, aucun déploiement Supabase**.
+
+#### 7. Écarts avec des documents périmés — à corriger par le coordinateur
+
+- **`CLAUDE.md:51`** cite `ClariprintAdapter` dans `src/server/clariprint/`, **qui n'existe pas**. La réalité : `src/modules/clariprint/`, `src/adapters/clariprint/` et la route `src/server/api/clariprint-routes.ts` (puis les deux opérations de BCP-1b). **`CLAUDE.md:52`** : `src/app/utils/priceResolver.ts` devient `src/modules/clariprint/ui/helpers/priceResolver.ts`.
+- **`docs/project-context.md:239`** porte le même chemin périmé ; **`:253`** cite le patron `ClariprintAdapter` (S1.2) au présent.
+- **`docs/PRICE_SOURCES.md`** : l'audit du 2026-05-09 dit `priceResolver` « à créer » (`:18`, `:147`) et prescrit `ClariprintAdapter` (`:174-177`). **Ne pas réécrire une trace datée** : lui ajouter un en-tête « chemins périmés, voir CONVENTIONS §8.25 ».
+- **`docs/spec/backlog.md`** (« Anomalies Epic 7 », vers `:561`) :
+  - l'anomalie 1 est traitée par BCP-1a et BCP-2 ;
+  - l'anomalie 2 par BCP-8 ;
+  - l'anomalie 4 par BCP-7 ;
+  - dans l'anomalie 5, « `PELLIC_ACETATE_BRILLANT` brut » est traité par BCP-7, et « brouillon éditable » est répondu par la décision sur le statut.
+
+  Les mentions `ClariprintAdapter` de `:74`, `:80`, `:231` et `:238` sont des noms de stories historiques : on n'y touche pas.
+- **`SPRINT_HANDOFF.md`**, bloc smoke : « la passerelle JETTE `all_faulty_process` » est à préciser. Elle ne le jette qu'en échec, et en succès elle **rend `all_process` publiquement** (point 1 (1)). Une seconde porte existe en outre dans `make-server-e3db71a4` (point 1 (11)).
+- **`orderStatus.ts`** se dit « référence centrale » alors que trois autres tables existent : son en-tête devient vrai en BCP-5.
+- **Ce document, §8.17**, décrit l'intégration comme « une route » : c'est vrai jusqu'à BCP-1b, puis à amender.
+
+#### 8. Méthode — opposable à chaque lot
+
+1. **dev-story**. Il ne crée ni branche ni worktree sans le coordinateur.
+2. **qa-review distincte, avec mutations.** Règle du §8.24, point 8 : une propriété que seul un commentaire affirme n'est pas une propriété, et chaque test **doit échouer sur le code d'avant**. Les règles se livrent en **fonctions pures testées cas par cas**, et le JSX ne fait que les parcourir (principe (b1) d'E10.18e-1) :
+   - la table du normaliseur, dont la charge A5 du smoke et la charge fautive actuelle du configurateur ;
+   - l'allowlist d'expurgation ;
+   - la table de statuts ;
+   - le référentiel des finitions ;
+   - le formateur de dimensions ;
+   - la règle d'affichage du prix et le plancher à deux paliers.
+3. **Recette dans un vrai navigateur, jouée par le coordinateur, sans AUCUN agent qui écrive dans la copie de travail servie.** Règle du 2026-09-15 : Vite recharge tous les onglets de son serveur. Un worktree séparé suppose donc son propre serveur, sur un autre port que celui où tourne la revue d'E10.18e-2. **Pas de merge sans cette recette.**
+4. **Pour BCP-1a** : la campagne de banc est jouée par un humain ou par le coordinateur, **d'abord en mode sec, puis réellement, sous le plafond de 18 appels** (point 2.3). Elle est ensuite archivée. **Le contrat est écrit par l'architecte, jamais par dev-story.**
+5. **Clôture : le smoke E2E rejoué** sur ERAM après déploiement, parcours du 15/09, avec ces critères :
+   - console : zéro erreur, zéro avertissement ;
+   - aucun chiffrage servi en 200 sans prix, tout échec en `application/problem+json`, aucun 5xx inattendu ;
+   - la suggestion « flyers A5 recto-verso » est chiffrée par Clariprint, **ou** affiche « Prix marché » avec son verdict retrouvable au journal par `request_id` ;
+   - la même question, posée **sans session**, est chiffrée aussi (décision Q2), et la réponse publique ne porte ni fournisseur ni coûts ;
+   - « Configurer » ouvre la configuration, le prix se recalcule, l'ajout au panier fonctionne ;
+   - aucune carte à 0 €, aucun « dès 1,00 € » ;
+   - les dimensions sont justes en mm, aucune finition n'apparaît en code ;
+   - le panier est en HT par ligne, sans budget, et le tiroir est fermé au checkout ;
+   - les libellés de remerciement et de « Mes commandes » sont conformes ;
+   - l'`aria-label` du compte est conforme.
+
+   **Chaque rejouage crée une commande ERAM réelle** ; son sort appartient à Arnaud.
+
+#### 9. Ce qui remonte à Arnaud
+
+**État au 2026-09-15, second round** : Q1, Q2 et Q7 sont tranchées. Q3, Q4, Q5, Q6 et Q8 ne sont **pas arbitrées**, et leurs recommandations par défaut tiennent jusqu'à leur arbitrage, posé au moment du lot concerné. Q9 et Q10, nées de la décision Q2, sont tranchées au troisième round. Q11 naît du cadrage de BCP-0b.
+
+| # | Question | État, ou ce qu'elle bloque | Décision, ou recommandation |
+|---|---|---|---|
+| **Q1** | L'atelier lit-il lui aussi « En attente de validation » pour une commande boutique `draft` ? | **TRANCHÉE le 2026-09-15 : oui** | une seule table pour les deux surfaces (point 5.1) |
+| **Q2** | Un visiteur **non connecté** obtient-il un chiffrage Clariprint ? | **TRANCHÉE le 2026-09-15 : oui, le chiffrage est ouvert**, contrairement à la recommandation de ce cadrage | contrat refait au point 2.4. Condition : Q9 |
+| **Q3** | Les options sans code Clariprint connu (dorure, soft-touch), et la qualité de papier quand la configuration de base n'en porte pas | non arbitrée ; bloque la partie de BCP-2 qui touche ces options | masquer dorure et soft-touch tant que le référentiel n'est pas obtenu ; aucune qualité par défaut inventée |
+| **Q4** | Une base heuristique pour banderole, bâche et oriflamme | non arbitrée ; ne bloque rien | seulement sur des prix réels observés |
+| **Q5** | « Livraison : Siège social · Paris » dans le panier est un factice : le retirer avec le budget ? | non arbitrée ; bloque cet élément de BCP-8 | retirer |
+| **Q6** | Paralléliser 5, 6 et 9 pendant la campagne de banc, en dérogeant à l'ordre fixé | non arbitrée ; ne bloque rien (défaut : l'ordre) | oui, en worktree séparé |
+| **Q7** | Le coût des appels au compte Clariprint | **TRANCHÉE le 2026-09-15 : les appels sont facturés, et on teste quand même** | **18 appels au plus**, plafond écrit dans le code, mode sec par défaut (point 2.3). Reste ouvert : l'interlocuteur Clariprint pour la page `JsonVarnish` |
+| **Q9** | La valeur du plafond global quotidien L3 | **TRANCHÉE le 2026-09-15 : 500 appels par jour pour toute la plateforme**, ajustable par configuration quand le prix d'un appel sera connu | la table `api_rate_limits` (point 2.3bis (2)). Les valeurs de L1 (30 par 10 min) et de L2 (300 par heure) restent des propositions |
+| **Q10** | Poser le limiteur d'abord sur la route actuelle | **TRANCHÉE le 2026-09-15 : oui, en premier** : c'est BCP-0b, après BCP-0 et avant BCP-1a | point 2.3bis. BCP-1b le reprend tel quel |
+| **Q11** | **Un plafond quotidien propre à l'atelier (L3a)**, et la validation de l'étage membre à 120 par 10 min. L'exemption de L3 se contourne, puisque compte et espace se créent en libre-service (point 2.3bis (4)) | ne bloque pas BCP-0b. Sans L3a, la facture de la voie atelier n'est bornée que par le nombre de comptes | un plafond quotidien pour l'atelier, dont la valeur se fixe contre le prix d'un appel. À défaut, restreindre l'exemption aux espaces vérifiés, selon un critère à définir |
+| **Q8** | *Pour information, hors chantier* : le chiffrage est montré à l'acheteur **sans marge** (point 1 (4)) ; le fournisseur, affiché aujourd'hui à l'acheteur, **disparaît** en BCP-1b ; la zone de livraison `FR-75` est codée en dur dans tous les chiffrages, qui incluent donc une livraison à Paris | rien | à inscrire au backlog |
+
+#### 10. État des gates
+
+**Aucune modification de `openapi/magrit-core.v1.yaml` dans ce round** (point 2.1). Seul ce document change. `pnpm gen:api:check` a été rejoué pour confirmer que le fichier généré n'a pas dérivé. `typecheck`, `test:contract` et `test:architecture` n'ont pas été rejoués : aucun fichier qu'ils lisent n'a changé, et une qa-review d'E10.18e-2 mute en parallèle `src/modules/commercial-orders` et `src/modules/order-exports`, ce qui rendrait leurs résultats illisibles. Ils le seront par l'architecte à l'écriture du contrat BCP-1b.
+
+**Second round (arbitrages du 2026-09-15)** : toujours aucune modification de `openapi/` ni de `src/`. Seul ce document change, et `pnpm gen:api:check` a été rejoué, vert.
+
+**Troisième round (seconde porte, Q9, Q10, cadrage de BCP-0b)** : même état. Aucune ligne d'`openapi/` ni de `src/`, et `pnpm gen:api:check` rejoué.
+
 ## 9. Commandes
 
 ```bash

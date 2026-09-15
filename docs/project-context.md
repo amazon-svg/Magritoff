@@ -236,7 +236,7 @@ Contraintes techniques :
 
 Le **Prix marché** est le tier de prix toujours disponible quand Clariprint n'est pas en mesure de fournir un prix réel.
 
-- **v1.0 / v1.1 (aujourd'hui) :** estimation heuristique via `estimateMarketPriceHT()` dans `src/app/utils/priceResolver.ts`.
+- **v1.0 / v1.1 (aujourd'hui) :** estimation heuristique via `estimateMarketPriceHT()` dans `src/modules/clariprint/ui/helpers/priceResolver.ts`.
 - **V2+ (panel Magrit) :** prix calculé par agrégat anonymisé des parcs imprimeurs Pro souscrits, alimenté par Clariprint.
 - **UI :** badge "⚠️ Prix marché" avec sous-texte "prix réel Clariprint à venir".
 - **Hiérarchie canonique** (`resolvePrice`) : `clariprint > library_cached > prix_marche > zero`.
@@ -250,7 +250,7 @@ Constatées en prod, doivent être filtrées défensivement par `validateClaripr
 2. **Valeurs `undefined`** dans les payloads.
 3. **Produits légalement requis manquants** dans les réponses catalogue.
 
-Toute interaction avec Clariprint passe par le pattern `ClariprintAdapter` (S1.2) — pas de `fetch` direct depuis les composants ou endpoints.
+Toute interaction avec Clariprint passe par le pattern `ClariprintAdapter` (S1.2) — pas de `fetch` direct depuis les composants ou endpoints. Côté navigateur : `src/adapters/http/browser-clariprint-adapter.ts` ; côté serveur : `src/adapters/clariprint/http-clariprint-quote-gateway.ts` ; validateur : `src/modules/clariprint/application/clariprint-quote.ts`.
 
 ## 4. Convention `data-testid` (E7.7 livré)
 

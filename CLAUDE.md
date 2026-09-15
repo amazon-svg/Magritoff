@@ -46,10 +46,10 @@ Le repo `amazon-svg/Magritoff` est cloné **deux fois** en local. Les deux clone
 - **Langue de travail** : français (commits, code, livrables).
 - **Format commits** : `feat|fix|chore|test|docs(v5): description courte` — **PAS d apostrophes** (HEREDOC).
 - **Confirmation systématique avant push**.
-- **Pas d invention de `data-testid`** — déclarer dans [src/app/lib/testIds.ts](src/app/lib/testIds.ts).
+- **Pas d invention de `data-testid`** — déclarer dans [src/shared/presentation/testIds.ts](src/shared/presentation/testIds.ts).
 - **Persona IA** = `Magrit` (pas `Marguerite` — décision 2026-05-08).
-- **Toute interaction Clariprint** passe par `ClariprintAdapter` ([src/server/clariprint/](src/server/clariprint/)) + `validateClariprintResponse()`.
-- **Hiérarchie de prix** : `clariprint > library_cached > prix_marche > zero` via `resolvePrice()` ([src/app/utils/priceResolver.ts](src/app/utils/priceResolver.ts)).
+- **Toute interaction Clariprint** passe par le port `ClariprintAdapter` (navigateur : [src/adapters/http/browser-clariprint-adapter.ts](src/adapters/http/browser-clariprint-adapter.ts) → `/api/v1/clariprint/quote` ; serveur : [src/adapters/clariprint/http-clariprint-quote-gateway.ts](src/adapters/clariprint/http-clariprint-quote-gateway.ts)) + `validateClariprintResponse()` ([src/modules/clariprint/application/clariprint-quote.ts](src/modules/clariprint/application/clariprint-quote.ts)). Cadrage en cours : `docs/api/CONVENTIONS.md` §8.25.
+- **Hiérarchie de prix** : `clariprint > library_cached > prix_marche > zero` via `resolvePrice()` ([src/modules/clariprint/ui/helpers/priceResolver.ts](src/modules/clariprint/ui/helpers/priceResolver.ts)).
 
 ## Sprint 5 — Gestion commerciale (Epic E10, API-first)
 
