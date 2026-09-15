@@ -36,6 +36,7 @@ import {
   FORMATS,
   PAPERS,
   PRINTINGS,
+  PRODUCT_OVERLAY_SUBTITLE_CLASSNAME,
 } from "@/modules/catalog/ui/storefront/ProductOverlay.helpers";
 // S7.2 — le moteur configuration/prix vit dans le hook partagé (garde-fou
 // n°1 : aucune logique de prix dans ce composant, uniquement du rendu).
@@ -112,7 +113,7 @@ export function ProductOverlay({
                 {product.name}
               </SheetTitle>
               <SheetDescription
-                className="text-ink-muted m-0 mt-1"
+                className={PRODUCT_OVERLAY_SUBTITLE_CLASSNAME}
                 style={{ fontSize: "12px", fontWeight: 400 }}
               >
                 Configurez puis ajoutez au panier

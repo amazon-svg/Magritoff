@@ -284,3 +284,40 @@ de promesse elle-même n'a pas été touchée.
 Chaque geste ci-dessus crée ou modifie une vraie commande de recette ; son
 sort (conservation ou nettoyage) appartient à Arnaud, comme pour le smoke
 E2E de clôture du chantier §8.25.
+
+## Correctif post-recette (2026-09-16, worktree isolé agent-a08a64b0c890d33e8)
+
+Recette navigateur du 2026-09-15/16 a trouvé un défaut préexistant à BCP-5
+(non introduit par ce lot) : `formatCancelErrorMessage`/`formatValidateErrorMessage`
+(`src/modules/orders/ui/storefront/order{Cancellation,Validation}.helpers.ts`)
+ne reconnaissaient le conflit de transition que sous l'ancien texte RPC
+(`'not allowed'`, espace) — la route actuelle `POST /orders/{id}/transitions`
+renvoie `transition_not_allowed: <from> -> <to>` (tiret bas), donc le texte
+technique brut fuitait à l'écran côté acheteur et atelier. Fix : détection du
+conflit par code métier stable (`ApiClientError.problem.code ===
+'orders.transition_not_allowed'`, préféré au texte) via un nouveau
+`toRpcLikeError()`, plus tolérance des deux formes textuelles ; la liste des
+commandes se recharge désormais après un conflit (succès ET échec) pour ne
+plus laisser une ligne afficher un statut périmé. Tests exécutés avec les
+messages exacts `transition_not_allowed: validated -> cancelled` et
+`transition_not_allowed: cancelled -> validated`, prouvés en échec sur le
+code pré-fix puis verts après. Aucun libellé de statut retouché — la table
+unique reste la seule source, inchangée par ce correctif.
+
+### Round 2 qa-review (2026-09-16) — 404/403 même défaut, reload sans test, 409 générique mal classé
+
+qa-review distincte a rejeté le premier correctif : le même défaut existait
+sur `order_not_found` (404, UUID affiché à l'écran) et `permission_denied`
+(403) — mêmes fonctions, même cause (texte tiret bas non reconnu). La
+classification (code métier préféré au texte, `order_not_found`,
+`permission_denied`, `order_not_editable` par défense, `transition_not_allowed`)
+est maintenant mutualisée dans un module neutre
+`orderTransitionErrors.helpers.ts` (dette D3b), importé par les deux
+helpers. Ajout aussi : (1) tests d'orchestration `runCancelOrder`/
+`runOrderTransition` (extraits purs, sans rendu React) prouvant qu'un échec
+recharge toujours la liste et n'affiche jamais de toast de succès (mutations
+M4/M5) ; (2) un garde-fou strict — un code métier présent qui ne vaut PAS
+`orders.transition_not_allowed` (ex. `api.idempotency_key_reused`, 409
+générique à la façade E10) n'est plus jamais requalifié en conflit de
+transition, même si le texte y ressemblait (mutation M6). Chaque test a été
+exécuté en échec sur la mutation qu'il vise puis vert après restauration.

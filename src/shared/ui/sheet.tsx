@@ -116,6 +116,17 @@ const SheetTitle = React.forwardRef<
 ));
 SheetTitle.displayName = SheetPrimitive.Title.displayName;
 
+/**
+ * Classe de base de `SheetDescription`, exportee (dette D3a, qa-review round
+ * 2, 2026-09-16) pour que les points d'appel qui doivent neutraliser un
+ * segment de cette classe (ex. `text-sm`, cf.
+ * src/modules/catalog/ui/storefront/ProductOverlay.helpers.ts) le prouvent
+ * par un test qui execute le vrai `cn()` contre la vraie valeur, plutot que
+ * de la recopier en dur (source de divergence silencieuse si ce fichier
+ * change). Le rendu de `SheetDescription` est inchange.
+ */
+export const SHEET_DESCRIPTION_BASE_CLASSNAME = "text-muted-foreground text-sm";
+
 const SheetDescription = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Description>,
   React.ComponentPropsWithoutRef<typeof SheetPrimitive.Description>
@@ -123,7 +134,7 @@ const SheetDescription = React.forwardRef<
   <SheetPrimitive.Description
     ref={ref}
     data-slot="sheet-description"
-    className={cn("text-muted-foreground text-sm", className)}
+    className={cn(SHEET_DESCRIPTION_BASE_CLASSNAME, className)}
     {...props}
   />
 ));
