@@ -51,4 +51,31 @@ describe('route API devis Clariprint', () => {
     expect(text).not.toContain('allResults');
     expect(text).not.toContain('faultyProcess');
   });
+
+  // Correctif sécurité 2026-09-15 (mutation M8 survivante) : le contrat de
+  // sortie de la route (`outputSchema: clariprintQuoteResultSchema`) délègue
+  // la forme de `costs` au sous-schéma `clariprintCostsSchema`. Si ce
+  // sous-schéma redevenait `.passthrough()`, un champ non documenté glissé
+  // dans `costs` par n importe quelle passerelle (simulée ici, la vraie ou
+  // une future) traverserait quand meme la barrière de sortie de la route,
+  // meme si `allResults`/`faultyProcess` au niveau racine restent bloqués.
+  it('ne laisse jamais passer un champ inconnu de costs vers le client, meme si la passerelle le construit', async () => {
+    const gateway: ClariprintQuoteGateway = {
+      async quote() {
+        return {
+          success: true,
+          priceHT: 99,
+          costs: {
+            paper: 1,
+            // @ts-expect-error — simule une passerelle qui glisse un champ non documente dans costs
+            printer: 'TEMOIN_M8',
+          },
+        };
+      },
+    };
+    const handler = createApiV1Application({ routes: createClariprintRoutes(new ClariprintService(gateway)), requestIdFactory: () => 'clariprint-costs-leak-guard' });
+    const response = await handler(new Request('http://localhost/api/v1/clariprint/quote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clariprint: { quantity: 500 } }) }));
+    const text = await response.text();
+    expect(text).not.toContain('TEMOIN_M8');
+  });
 });

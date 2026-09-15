@@ -13,7 +13,13 @@ describe('HttpClariprintQuoteGateway', () => {
       return new Response(JSON.stringify({ success: true, response: 123.45, costs: { paper: 20, total: -1 }, delais: 3, weight: 2.5, fournisseur: 'Atelier', total_process_duration: 12, all_process: [{ id: 1 }] }));
     });
     const gateway = new HttpClariprintQuoteGateway('lrdp.clariprint.com', 'login', 'password', fetchMock as unknown as typeof fetch);
-    await expect(gateway.quote({ clariprint: { reference: 'FLYER', quantity: 500 } })).resolves.toMatchObject({ success: true, priceHT: 123.45, costs: { paper: 20 }, delais: 3, fournisseur: 'Atelier' });
+    const result = await gateway.quote({ clariprint: { reference: 'FLYER', quantity: 500 } });
+    expect(result).toMatchObject({ success: true, priceHT: 123.45, costs: { paper: 20 }, delais: 3, fournisseur: 'Atelier' });
+    // Correctif sécurité 2026-09-15 (mutation M10 survivante) : `toMatchObject`
+    // ne verifie pas l absence de proprietes en trop ; sans le `delete
+    // costs.total` sur un total invalide, `costs.total: -1` (negatif)
+    // traverserait quand meme le `toMatchObject` ci-dessus.
+    expect(result.costs).not.toHaveProperty('total');
     expect(fetchMock).toHaveBeenCalledWith('https://lrdp.clariprint.com/optimproject/json.wcl', expect.any(Object));
   });
 
