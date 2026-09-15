@@ -32,8 +32,10 @@ import {
   orderExportDialogReducer,
   orderExportRegistryReducer,
   refreshOrderExportDownloadUrl,
+  resolveOrderExportDownloadRefreshErrorMessage,
   resolveOrderExportDownloadState,
   resolveOrderExportFailureMessage,
+  resolveOrderExportListLoadErrorMessage,
   resolveOrderExportUnreachableMessage,
   startOrderExportPolling,
   type OrderExportDialogState,
@@ -1009,6 +1011,42 @@ describe('resolveOrderExportUnreachableMessage — DEFAUT R3 (recette navigateur
   it('une valeur qui n est meme pas une Error recoit le message generique', () => {
     expect(resolveOrderExportUnreachableMessage('boom', options)).toBe('generique');
     expect(resolveOrderExportUnreachableMessage(undefined, options)).toBe('generique');
+  });
+});
+
+describe('resolveOrderExportListLoadErrorMessage — DEFAUT R3, qa-review round 4 (2026-09-15) : chargement initial du registre', () => {
+  it('une panne reseau (TypeError de fetch) donne un message FRANCAIS, jamais "Failed to fetch"', () => {
+    // AVANT ce correctif, `OrderExportPanel.tsx` dispatchait litteralement
+    // `cause.message` ("Failed to fetch") pour ce chemin.
+    expect(resolveOrderExportListLoadErrorMessage(new TypeError('Failed to fetch'))).toBe(
+      'Connexion impossible. Vérifiez votre réseau, puis réessayez.',
+    );
+  });
+
+  it('une ApiClientError garde SON message, INCHANGE', () => {
+    const cause = new ApiClientError({
+      type: 'about:blank', title: 'Erreur API Magrit', status: 500, code: 'api.internal_error',
+      detail: 'Panne serveur.', requestId: 'req-1',
+    });
+    expect(resolveOrderExportListLoadErrorMessage(cause)).toBe('Panne serveur.');
+  });
+});
+
+describe('resolveOrderExportDownloadRefreshErrorMessage — DEFAUT R3, qa-review round 4 (2026-09-15) : rafraichissement de l URL au clic', () => {
+  it('une panne reseau (TypeError de fetch) donne un message FRANCAIS, jamais "Failed to fetch"', () => {
+    // AVANT ce correctif, `handleDownloadClick` posait litteralement
+    // `cause.message` ("Failed to fetch") dans `downloadErrorsById`.
+    expect(resolveOrderExportDownloadRefreshErrorMessage(new TypeError('Failed to fetch'))).toBe(
+      'Connexion impossible. Vérifiez votre réseau, puis réessayez.',
+    );
+  });
+
+  it('une ApiClientError garde SON message, INCHANGE', () => {
+    const cause = new ApiClientError({
+      type: 'about:blank', title: 'Export introuvable', status: 404, code: 'order_export.not_found',
+      requestId: 'req-1',
+    });
+    expect(resolveOrderExportDownloadRefreshErrorMessage(cause)).toBe(cause.message);
   });
 });
 

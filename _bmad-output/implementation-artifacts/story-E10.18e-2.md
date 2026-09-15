@@ -925,6 +925,8 @@ dans un vrai navigateur, serveur de dev de **cette** copie de travail
 
 ## Recette navigateur — défauts R1 à R3 (CORRIGÉS, plus R4 ajouté en cours de lot, 2026-09-15)
 
+**Qa-review round 4 (2026-09-15)** : APPROUVE `e58d223c` sous réserve de deux compléments, tous deux livrés dans un nouveau commit — R1d (invariant de sécurité anti-exfiltration du jeton, prouvé et tué par mutation) et les deux derniers sites R3 (`OrderExportPanel.tsx` lignes 135/224, extraits en fonctions pures `resolveOrderExportListLoadErrorMessage`/`resolveOrderExportDownloadRefreshErrorMessage`, preuve par lecture de source faute d'outil de rendu) ; R1e (test pur de `publicSupabaseUrl`) signalé NON FAISABLE sans refactor (fonction enfermée dans `index.ts`, `Deno.serve` au chargement du module) — aucun refactor entrepris, hors mandat.
+
 La recette navigateur locale annoncée ci-dessus a été jouée par le
 coordinateur le 2026-09-15 et a trouvé trois défauts (R1 à R3), puis un
 quatrième (R4, mineur) signalé en cours de correctif. Les quatre sont

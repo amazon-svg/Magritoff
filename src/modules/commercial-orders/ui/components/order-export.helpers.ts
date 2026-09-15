@@ -116,6 +116,37 @@ export function resolveOrderExportUnreachableMessage(
   return cause instanceof Error ? cause.message : options.genericMessage;
 }
 
+/**
+ * DEFAUT R3, qa-review round 4 (2026-09-15) — DEUX AUTRES points, signales
+ * par la qa-review, affichaient encore `cause.message` TEL QUEL dans
+ * `OrderExportPanel.tsx` : l echec de CHARGEMENT initial du registre
+ * (`useEffect` de montage) et l echec de RAFRAICHISSEMENT de l URL au clic
+ * sur « Telecharger » (`handleDownloadClick`). Ni l un ni l autre ne vit
+ * dans du JSX — mais le composant qui les porte n est TESTABLE PAR AUCUN
+ * OUTIL DE RENDU (constat deja fait plusieurs fois dans ce fichier) :
+ * extraites ICI, en fonctions pures NOMMEES et EXPORTEES, exactement pour la
+ * meme raison que `resolveOrderExportFailureMessage`/`resolveOrderExport
+ * PollingTimeoutMessage` plus bas — le composant ne fait plus qu APPELER,
+ * jamais DECIDER. `tests/architecture/order-export-panel-network-
+ * messages.test.ts` verifie, par lecture du SOURCE de `OrderExportPanel.
+ * tsx`, que ces deux fonctions sont bien celles APPELEES (et que le motif
+ * BRUT `cause instanceof Error ? cause.message` a disparu du fichier) —
+ * seule preuve possible sans outil de rendu.
+ */
+export function resolveOrderExportListLoadErrorMessage(cause: unknown): string {
+  return resolveOrderExportUnreachableMessage(cause, {
+    genericMessage: 'Chargement des exports impossible.',
+    networkMessage: 'Connexion impossible. Vérifiez votre réseau, puis réessayez.',
+  });
+}
+
+export function resolveOrderExportDownloadRefreshErrorMessage(cause: unknown): string {
+  return resolveOrderExportUnreachableMessage(cause, {
+    genericMessage: 'Rafraîchissement du lien impossible.',
+    networkMessage: 'Connexion impossible. Vérifiez votre réseau, puis réessayez.',
+  });
+}
+
 // ---------------------------------------------------------------------------
 // 1. Parite des filtres — point 3 de la consigne
 // ---------------------------------------------------------------------------

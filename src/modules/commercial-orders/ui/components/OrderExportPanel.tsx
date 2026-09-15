@@ -57,6 +57,8 @@ import {
   ORDER_EXPORT_REGISTRY_PAGE_SIZE,
   orderExportRegistryReducer,
   refreshOrderExportDownloadUrl,
+  resolveOrderExportDownloadRefreshErrorMessage,
+  resolveOrderExportListLoadErrorMessage,
   startOrderExportPolling,
   type OrderExportPollingHandle,
 } from './order-export.helpers';
@@ -130,10 +132,10 @@ export function OrderExportPanel({ filters, selectedCustomerLabel, stepCatalog }
       },
       (cause) => {
         if (!cancelled) {
-          dispatch({
-            type: 'listLoadFailed',
-            message: cause instanceof Error ? cause.message : 'Chargement des exports impossible.',
-          });
+          // DEFAUT R3, qa-review round 4 (2026-09-15) : AVANT ce correctif,
+          // une panne reseau au chargement affichait litteralement "Failed
+          // to fetch" — voir `resolveOrderExportListLoadErrorMessage()`.
+          dispatch({ type: 'listLoadFailed', message: resolveOrderExportListLoadErrorMessage(cause) });
         }
       },
     );
@@ -219,9 +221,12 @@ export function OrderExportPanel({ filters, selectedCustomerLabel, stepCatalog }
         setDownloadErrorsById((current) => ({ ...current, [exportId]: "Ce fichier n'est plus disponible au téléchargement." }));
       }
     } catch (cause) {
+      // DEFAUT R3, qa-review round 4 (2026-09-15) : AVANT ce correctif, une
+      // panne reseau au rafraichissement affichait litteralement "Failed to
+      // fetch" — voir `resolveOrderExportDownloadRefreshErrorMessage()`.
       setDownloadErrorsById((current) => ({
         ...current,
-        [exportId]: cause instanceof Error ? cause.message : 'Rafraîchissement du lien impossible.',
+        [exportId]: resolveOrderExportDownloadRefreshErrorMessage(cause),
       }));
     }
   };

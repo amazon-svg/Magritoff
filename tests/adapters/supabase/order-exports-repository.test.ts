@@ -167,3 +167,42 @@ describe('SupabaseOrderExportsRepository.findById (toDto) — DEFAUT R1, recette
     expect(dto!.download_url).toBe(KONG_SIGNED_URL);
   });
 });
+
+/**
+ * DEFAUT R1d, qa-review round 4 (2026-09-15) — INVARIANT DE SECURITE non
+ * prouve par un test avant ce round : une URL signee HORS `kong` (donc, en
+ * particulier, celle du projet HEBERGE en production/staging) doit rester
+ * STRICTEMENT INCHANGEE quelle que soit la valeur de `publicBaseUrl` — y
+ * COMPRIS si elle pointe vers un domaine QUI N EST PAS celui de
+ * l application. Une reecriture SANS cette garde ouvrirait une EXFILTRATION
+ * DU JETON de telechargement : n importe quel domaine passe en
+ * `publicBaseUrl` (ex. par une variable d environnement mal configuree, ou
+ * un en-tete `x-forwarded-host` non maitrise cote `publicSupabaseUrl()`)
+ * recevrait alors l origine ET le jeton signe. `publicAssetUrl()`
+ * (`shops-repository.ts`) porte deja cette garde — `url.hostname !== 'kong'
+ * && !isIncompleteLocalUrl` fait sortir tot, SANS reecrire — mais AUCUN
+ * test de ce depot ne l exercait depuis `SupabaseOrderExportsRepository`
+ * avant ce test.
+ */
+describe('SupabaseOrderExportsRepository.findById (toDto) — DEFAUT R1d, invariant de securite (qa-review round 4)', () => {
+  const HOSTED_SIGNED_URL =
+    'https://ightkxebexuzfjdbpsdg.supabase.co/storage/v1/object/sign/order_exports/tenant-1/export-1.xlsx?token=abc123&download=commandes.xlsx';
+
+  it('une URL signee HORS kong (hebergee) reste IDENTIQUE, OCTET POUR OCTET, meme avec une base publique fournie vers un AUTRE domaine', async () => {
+    const { client, storageClient } = fakeClients(readyOwnedRow());
+    storageClient.storage.from = (_bucket: string) => ({
+      createSignedUrl: async () => ({ data: { signedUrl: HOSTED_SIGNED_URL }, error: null }),
+    });
+    const repository = new SupabaseOrderExportsRepository(
+      client as any,
+      storageClient as any,
+      'https://attaquant.example',
+    );
+
+    const dto = await repository.findById(TENANT, ACTOR, EXPORT_ID);
+
+    // Une reecriture ICI enverrait le jeton signe vers "attaquant.example" —
+    // c est EXACTEMENT ce que cette assertion interdit.
+    expect(dto!.download_url).toBe(HOSTED_SIGNED_URL);
+  });
+});
