@@ -2,14 +2,13 @@ import { Hono } from "npm:hono";
 import { cors } from "npm:hono/cors";
 import { logger } from "npm:hono/logger";
 import { streamSSE } from "npm:hono/streaming";
-import { createClient } from "npm:@supabase/supabase-js@2";
-import * as kv from "./kv_store.ts";
 import {
   anthropicComplete,
   anthropicStream,
   AnthropicClientError,
   isAnthropicBillingError,
 } from "../_shared/anthropicClient.ts";
+import { buildRouteGoneBody } from "./removed-route-responses.ts";
 
 // Story S-LLM-WRAPPER-ROBUSTNESS (AC2) : detection billing centralisee via
 // isAnthropicBillingError(). La regex locale /credit|billing|authentication|invalid/
@@ -724,7 +723,7 @@ app.post("/make-server-e3db71a4/claude-proxy", async (c) => {
     // Le wrapper gere automatiquement : recherche cle API multi-secrets, limite 25 params (FR43),
     // tracking llm_usage_events (NFR23). Pas de logLlmUsage manuel.
     console.log(`🤖 Appel Claude via wrapper (mode=${mode}, ctx=${messages.length} msgs)...`);
-    const MODEL = "claude-sonnet-4-5-20250929";
+    const MODEL = "claude-sonnet-5";
     let result;
     try {
       result = await anthropicComplete({
@@ -928,7 +927,7 @@ app.post("/make-server-e3db71a4/claude-proxy-stream", async (c) => {
   const userMessage = messages[messages.length - 1].content;
 
   // S1.5 review fix P4 : modele partage entre call site et fallback finalPromise.catch.
-  const STREAM_MODEL = "claude-sonnet-4-5-20250929";
+  const STREAM_MODEL = "claude-sonnet-5";
 
   return streamSSE(c, async (stream) => {
     // Helper : emet un event "done" en mode demo (preserve le contrat client SSE).
@@ -1063,472 +1062,50 @@ app.post("/make-server-e3db71a4/claude-proxy-stream", async (c) => {
 });
 
 // ============================================================================
-// CLARIPRINT QUOTE — Demande de prix via l'API Clariprint
+// CLARIPRINT QUOTE — RETIREE (410 Gone, decision Arnaud 2026-09-15)
 // ============================================================================
-app.post("/make-server-e3db71a4/clariprint-quote", async (c) => {
-  try {
-    const rawHost = Deno.env.get("CLARIPRINT_HOST") || "https://lrdp.clariprint.com";
-    const login = Deno.env.get("CLARIPRINT_LOGIN");
-    const password = Deno.env.get("CLARIPRINT_PASSWORD");
-
-    // Construire l'URL de manière robuste, quel que soit le format du secret CLARIPRINT_HOST
-    // Ex: "lrdp.clariprint.com", "https://lrdp.clariprint.com", "https://lrdp.clariprint.com/optimproject/json.wcl"
-    let normalizedHost = rawHost.trim().replace(/\/$/, "");
-    // Ajouter https:// si absent
-    if (!normalizedHost.startsWith("http://") && !normalizedHost.startsWith("https://")) {
-      normalizedHost = "https://" + normalizedHost;
-    }
-    // Construire l'URL finale — éviter la duplication du path
-    const apiUrl = normalizedHost.includes("/optimproject/json.wcl")
-      ? normalizedHost
-      : `${normalizedHost}/optimproject/json.wcl`;
-
-    console.log(`🌐 URL Clariprint construite: ${apiUrl}`);
-
-    // Credentials manquants → réponse gracieuse (pas d'erreur bloquante)
-    if (!login || !password) {
-      console.log("⚠️ CLARIPRINT_LOGIN ou CLARIPRINT_PASSWORD non configurés");
-      return c.json({
-        success: false,
-        credentialsMissing: true,
-        message:
-          "Configurez CLARIPRINT_LOGIN et CLARIPRINT_PASSWORD dans vos secrets Supabase pour obtenir les prix réels.",
-      });
-    }
-
-    const body = await c.req.json();
-    const clariprintProduct = body.clariprint;
-
-    if (!clariprintProduct) {
-      return c.json({ success: false, error: "Données produit Clariprint manquantes" }, 400);
-    }
-
-    // Forcer quantity en string (conformément à la doc Clariprint)
-    if (typeof clariprintProduct.quantity === "number") {
-      clariprintProduct.quantity = String(clariprintProduct.quantity);
-    }
-
-    // Ajouter deliveries par défaut si absent (obligatoire pour le calcul du coût de livraison)
-    if (!clariprintProduct.deliveries) {
-      clariprintProduct.deliveries = {
-        d_livraison: {
-          iso: "FR-75",
-          address: "",
-          quantity: clariprintProduct.quantity,
-        },
-      };
-      console.log("📍 deliveries absent → ajout par défaut FR-75");
-    }
-
-    console.log(`🖨️ Demande de prix Clariprint pour: ${clariprintProduct.reference}`);
-    console.log("📦 Config envoyée:", JSON.stringify(clariprintProduct));
-
-    const datas = { clariprint_product: clariprintProduct };
-    const params = new URLSearchParams();
-    params.append("login", login);
-    params.append("password", password);
-    params.append("action", "QuoteRequest");
-    params.append("datas", JSON.stringify(datas));
-
-    const apiResponse = await fetch(apiUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: params.toString(),
-    });
-
-    if (!apiResponse.ok) {
-      const errorText = await apiResponse.text();
-      console.error(`❌ Erreur HTTP Clariprint ${apiResponse.status}:`, errorText);
-      return c.json({
-        success: false,
-        error: `Clariprint API HTTP ${apiResponse.status}`,
-        details: errorText.substring(0, 500),
-      });
-    }
-
-    const responseText = await apiResponse.text();
-    console.log(`📩 Réponse Clariprint (status ${apiResponse.status}):`, responseText.substring(0, 800));
-
-    let result: any;
-    try {
-      result = JSON.parse(responseText);
-    } catch (e) {
-      console.error("❌ Réponse Clariprint non-JSON:", responseText.substring(0, 500));
-      return c.json({
-        success: false,
-        error: "Réponse Clariprint invalide (non-JSON)",
-        details: `URL appelée: ${apiUrl} | Status HTTP: ${apiResponse.status} | Réponse: ${responseText.substring(0, 300)}`,
-        rawResponse: responseText.substring(0, 300),
-      });
-    }
-
-    if (!result.success) {
-      console.error("❌ Clariprint a renvoyé success=false:", result);
-      return c.json({
-        success: false,
-        error: result.error || "Erreur de calcul Clariprint",
-        faultyProcess: result.all_faulty_process,
-        rawResponse: result,
-      });
-    }
-
-    console.log(`✅ Prix Clariprint obtenu : ${result.response} € — Délai : ${result.delais}j`);
-
-    // Sanitization défensive (S0.2 / Décision Arnaud 2026-05-09) :
-    // les anomalies Clariprint connues (-1,2 €, undefined, NaN) ne doivent
-    // jamais arriver au front. On retourne success=false avec un message
-    // explicite pour que le front puisse retomber sur estimatedPrice + badge.
-    const priceHT = result.response;
-    const isInvalidPrice =
-      priceHT == null ||
-      typeof priceHT !== "number" ||
-      !Number.isFinite(priceHT) ||
-      priceHT < 0;
-
-    if (isInvalidPrice) {
-      console.error(
-        `❌ Anomalie prix Clariprint détectée — priceHT=${JSON.stringify(priceHT)}. Bloqué côté serveur.`,
-      );
-      return c.json({
-        success: false,
-        error:
-          priceHT < 0
-            ? "Prix Clariprint invalide (négatif)"
-            : "Prix Clariprint invalide (absent, NaN ou non-numérique)",
-        details: `priceHT brut reçu: ${JSON.stringify(priceHT)}`,
-        rawResponse: result,
-      });
-    }
-
-    // costs.total : si présent et invalide, on le masque sans bloquer la réponse
-    let costs = result.costs;
-    if (costs && costs.total !== undefined) {
-      const totalInvalid =
-        typeof costs.total !== "number" ||
-        !Number.isFinite(costs.total) ||
-        costs.total < 0;
-      if (totalInvalid) {
-        console.warn(
-          `⚠️ costs.total Clariprint invalide (${JSON.stringify(costs.total)}), masqué.`,
-        );
-        costs = { ...costs, total: undefined };
-      }
-    }
-
-    return c.json({
-      success: true,
-      // Prix simplifié HT (validé)
-      priceHT,
-      // Détail des coûts (meilleure gamme, costs.total éventuellement masqué)
-      costs,
-      // Délai en jours
-      delais: result.delais,
-      // Poids en kg
-      weight: result.weight,
-      // Fournisseur sélectionné
-      fournisseur: result.fournisseur,
-      // Durée de fabrication (1/10e d'heure)
-      processDuration: result.total_process_duration,
-      // Toutes les gammes (multi-résultats)
-      allResults: result.all_process || [],
-      // Gammes en erreur
-      faultyProcess: result.all_faulty_process || {},
-    });
-  } catch (error) {
-    console.error("❌ Erreur dans clariprint-quote:", error);
-    return c.json(
-      { success: false, error: "Erreur serveur", message: String(error) },
-      500,
-    );
-  }
+// qa-review round 3 : 17 contournements survivaient encore a la garde
+// structurelle (dont `result.costs = result.all_process` et
+// `Response.json(result)`, chacun sur une seule ligne). Arnaud a tranche :
+// on arrete de durcir la garde, la route est retiree comme save-product et
+// send-invitation-email. Aucun appelant connu dans le depot. Voir
+// removed-route-responses.ts.
+app.post("/make-server-e3db71a4/clariprint-quote", (c) => {
+  return c.json(buildRouteGoneBody(), 410);
 });
 
 // ============================================================================
-// CLARIPRINT TEST — Vérification authentification (CheckAuth)
+// CLARIPRINT TEST — RETIREE (410 Gone, decision Arnaud 2026-09-15)
 // ============================================================================
-app.get("/make-server-e3db71a4/clariprint-test", async (c) => {
-  const host = Deno.env.get("CLARIPRINT_HOST") || "https://lrdp.clariprint.com";
-  const login = Deno.env.get("CLARIPRINT_LOGIN");
-  const password = Deno.env.get("CLARIPRINT_PASSWORD");
-
-  const result: any = {
-    timestamp: new Date().toISOString(),
-    environment: {
-      CLARIPRINT_HOST: host,
-      CLARIPRINT_LOGIN: login ? `✅ Configuré (${login.substring(0, 3)}***)` : "❌ Non configuré",
-      CLARIPRINT_PASSWORD: password ? "✅ Configuré" : "❌ Non configuré",
-    },
-  };
-
-  if (!login || !password) {
-    result.success = false;
-    result.error = "Credentials manquants dans les secrets Supabase.";
-    return c.json(result);
-  }
-
-  try {
-    console.log(`🔐 Test CheckAuth Clariprint vers ${host}...`);
-    const params = new URLSearchParams();
-    params.append("login", login);
-    params.append("password", password);
-    params.append("action", "CheckAuth");
-    params.append("datas", "{}");
-
-    const apiResponse = await fetch(`${host}/optimproject/json.wcl`, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: params.toString(),
-    });
-
-    const httpStatus = apiResponse.status;
-    const rawText = await apiResponse.text();
-    console.log(`📩 Réponse Clariprint CheckAuth (HTTP ${httpStatus}):`, rawText.substring(0, 500));
-
-    let parsed: any = null;
-    try {
-      parsed = JSON.parse(rawText);
-    } catch {
-      // réponse non-JSON
-    }
-
-    result.httpStatus = httpStatus;
-    result.rawResponse = rawText.substring(0, 500);
-    result.parsedResponse = parsed;
-    result.success = apiResponse.ok && (parsed?.success !== false);
-    result.message = result.success
-      ? "✅ Authentification Clariprint réussie !"
-      : `❌ Échec — HTTP ${httpStatus} — ${rawText.substring(0, 200)}`;
-
-  } catch (err) {
-    result.success = false;
-    result.error = `Erreur réseau : ${String(err)}`;
-    result.message = "❌ Impossible de joindre le serveur Clariprint.";
-  }
-
-  return c.json(result);
+// Meme decision que clariprint-quote ci-dessus.
+app.get("/make-server-e3db71a4/clariprint-test", (c) => {
+  return c.json(buildRouteGoneBody(), 410);
 });
 
 // ============================================================================
-// SAVE PRODUCT — Persistance KV Store
+// SAVE PRODUCT — RETIREE (410 Gone, decision Arnaud 2026-09-15)
 // ============================================================================
-app.post("/make-server-e3db71a4/save-product", async (c) => {
-  try {
-    const { product } = await c.req.json();
-
-    if (!product || !product.id) {
-      return c.json({ error: "Product data with id is required" }, 400);
-    }
-
-    console.log(`💾 Sauvegarde du produit ${product.id}...`);
-    await kv.set(product.id, product);
-
-    const listKey = `products_list`;
-    const existingList = (await kv.get(listKey)) || { products: [] };
-    const existingIndex = existingList.products.findIndex((p: any) => p.id === product.id);
-    if (existingIndex >= 0) {
-      existingList.products[existingIndex] = product;
-    } else {
-      existingList.products.push(product);
-    }
-    await kv.set(listKey, existingList);
-
-    console.log(`✅ Produit ${product.id} sauvegardé`);
-    return c.json({ success: true, productId: product.id });
-  } catch (error) {
-    console.error("❌ Erreur save-product:", error);
-    return c.json({ error: "Failed to save product", message: String(error) }, 500);
-  }
+// Ecriture arbitraire dans le KV store partage, appelable avec la seule cle
+// anonyme Supabase, sans verification d autorisation au-dela du JWT anon.
+// Aucun appelant connu (verifie par qa-review). Voir removed-route-responses.ts.
+app.post("/make-server-e3db71a4/save-product", (c) => {
+  return c.json(buildRouteGoneBody(), 410);
 });
 
 // ============================================================================
-// E9.5 — SEND-INVITATION-EMAIL
+// SEND INVITATION EMAIL — RETIREE (410 Gone, decision Arnaud 2026-09-15)
 // ============================================================================
-// Envoie l'email d'invitation a rejoindre un espace via Resend.
-//
-// Contrat front: POST { invitationId, baseUrl } ou baseUrl = window.location.origin.
-// L'email + tenant + token + expires sont relus en service_role depuis la DB
-// pour eviter qu'un appelant puisse envoyer des mails arbitraires.
-//
-// Reponse:
-//   { ok: true,  sent: true,  link }              -> email envoye
-//   { ok: true,  sent: false, link, reason }      -> Resend non configure ou
-//                                                    echec, le client doit
-//                                                    afficher le lien manuel
-//   { ok: false, error }                          -> erreur cote server (400/500)
-
-const ROLE_LABELS_FR: Record<string, string> = {
-  owner: "Propriétaire",
-  admin: "Administrateur",
-  member: "Membre",
-  partner: "Partenaire",
-};
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function getServiceClient() {
-  const url = Deno.env.get("SUPABASE_URL");
-  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!url || !key) return null;
-  return createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-}
-
-app.post("/make-server-e3db71a4/send-invitation-email", async (c) => {
-  try {
-    const { invitationId, baseUrl } = await c.req.json();
-    if (!invitationId || !baseUrl) {
-      return c.json({ ok: false, error: "invitationId et baseUrl requis" }, 400);
-    }
-
-    const supa = getServiceClient();
-    if (!supa) {
-      return c.json(
-        { ok: false, error: "SUPABASE_SERVICE_ROLE_KEY non configuree" },
-        500,
-      );
-    }
-
-    const { data: inv, error: invErr } = await supa
-      .from("tenant_invitations")
-      .select("id, email, role, token, expires_at, tenant_id, invited_by")
-      .eq("id", invitationId)
-      .maybeSingle();
-
-    if (invErr || !inv) {
-      return c.json(
-        { ok: false, error: invErr?.message || "Invitation introuvable" },
-        404,
-      );
-    }
-
-    const { data: tenant } = await supa
-      .from("tenants")
-      .select("name, slug")
-      .eq("id", inv.tenant_id)
-      .maybeSingle();
-
-    let inviterEmail: string | null = null;
-    if (inv.invited_by) {
-      const { data: inviter } = await supa.auth.admin.getUserById(inv.invited_by);
-      inviterEmail = inviter?.user?.email ?? null;
-    }
-
-    const cleanBase = String(baseUrl).replace(/\/+$/, "");
-    const link = `${cleanBase}/invitations/${inv.token}`;
-
-    const tenantName = tenant?.name || "votre espace Magrit";
-    const roleLabel = ROLE_LABELS_FR[inv.role] || inv.role;
-    const expiresFr = new Date(inv.expires_at).toLocaleDateString("fr-FR", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    });
-
-    const apiKey = Deno.env.get("RESEND_API_KEY");
-    if (!apiKey) {
-      return c.json({
-        ok: true,
-        sent: false,
-        link,
-        reason: "RESEND_API_KEY non configuree — affichez le lien manuellement",
-      });
-    }
-
-    const fromAddr =
-      Deno.env.get("MAGRIT_FROM_EMAIL") || "Magrit <onboarding@resend.dev>";
-    const subject = inviterEmail
-      ? `${inviterEmail} vous invite a rejoindre ${tenantName} sur Magrit`
-      : `Invitation a rejoindre ${tenantName} sur Magrit`;
-
-    const intro = inviterEmail
-      ? `${escapeHtml(inviterEmail)} vous a invite(e) a rejoindre l'espace <strong>${escapeHtml(tenantName)}</strong> sur Magrit.`
-      : `Vous avez ete invite(e) a rejoindre l'espace <strong>${escapeHtml(tenantName)}</strong> sur Magrit.`;
-
-    const html = `<!DOCTYPE html>
-<html lang="fr">
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px;">
-  <p style="font-size: 15px; line-height: 1.5;">Bonjour,</p>
-  <p style="font-size: 15px; line-height: 1.5;">${intro}</p>
-  <p style="font-size: 14px; line-height: 1.5; color: #555;">
-    Role : <strong>${escapeHtml(roleLabel)}</strong><br/>
-    Cette invitation expire le ${escapeHtml(expiresFr)}.
-  </p>
-  <p style="margin: 28px 0;">
-    <a href="${escapeHtml(link)}" style="display: inline-block; background: #1a1a1a; color: #fff; text-decoration: none; padding: 12px 20px; border-radius: 6px; font-size: 14px; font-weight: 500;">
-      Accepter l'invitation
-    </a>
-  </p>
-  <p style="font-size: 12px; color: #888; line-height: 1.5;">
-    Ou copiez ce lien : <br/>
-    <a href="${escapeHtml(link)}" style="color: #555; word-break: break-all;">${escapeHtml(link)}</a>
-  </p>
-  <p style="font-size: 12px; color: #888; line-height: 1.5; margin-top: 32px;">
-    Si vous n'attendiez pas cette invitation, ignorez simplement ce message.
-  </p>
-  <p style="font-size: 11px; color: #aaa; margin-top: 32px;">Magrit — copilote IA web-to-print</p>
-</body>
-</html>`;
-
-    const text = [
-      "Bonjour,",
-      "",
-      inviterEmail
-        ? `${inviterEmail} vous a invite(e) a rejoindre l'espace "${tenantName}" sur Magrit.`
-        : `Vous avez ete invite(e) a rejoindre l'espace "${tenantName}" sur Magrit.`,
-      "",
-      `Role : ${roleLabel}`,
-      `Cette invitation expire le ${expiresFr}.`,
-      "",
-      "Pour l'accepter, ouvrez ce lien :",
-      link,
-      "",
-      "Si vous n'attendiez pas cette invitation, ignorez simplement ce message.",
-      "",
-      "— Magrit, copilote IA web-to-print",
-    ].join("\n");
-
-    const resp = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: fromAddr,
-        to: [inv.email],
-        subject,
-        html,
-        text,
-      }),
-    });
-
-    if (!resp.ok) {
-      const detail = await resp.text();
-      console.error("[send-invitation-email] Resend error:", resp.status, detail);
-      return c.json({
-        ok: true,
-        sent: false,
-        link,
-        reason: `Resend ${resp.status}: ${detail.slice(0, 200)}`,
-      });
-    }
-
-    return c.json({ ok: true, sent: true, link });
-  } catch (error) {
-    console.error("❌ Erreur send-invitation-email:", error);
-    return c.json(
-      { ok: false, error: "Erreur serveur", message: String(error) },
-      500,
-    );
-  }
+// Le flux courant passe par `POST /api/v1/invitations` (magrit-api).
+// `invite-member` ne cite cette route legacy qu en commentaire : aucun
+// appelant reel (verifie par qa-review). Gravite HAUTE : en production
+// `mailer_autoconfirm = true`, et cette route renvoyait le lien/jeton
+// d invitation pour tout `invitationId` fourni, sans verifier que l appelant
+// est l invite -- un identifiant d invitation ayant fuite permettait de
+// creer un compte avec l e-mail de la cible et de rejoindre son espace.
+// `baseUrl` etant choisi par l appelant, la route se pretait aussi a
+// l hameconnage. Voir removed-route-responses.ts.
+app.post("/make-server-e3db71a4/send-invitation-email", (c) => {
+  return c.json(buildRouteGoneBody(), 410);
 });
 
 // ─── S2.20 — Contenu éditorial de landing catégorie (auto-généré) ────────────

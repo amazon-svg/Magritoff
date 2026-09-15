@@ -354,7 +354,10 @@ export async function anthropicComplete(
   }
 
   const data = await response.json();
-  const text: string = data?.content?.map?.((c: any) => c?.text ?? "").join("\n") ?? "";
+  const text: string = data?.content
+    ?.filter?.((c: any) => c?.type === "text")
+    ?.map?.((c: any) => c?.text ?? "")
+    .join("\n") ?? "";
   const usage = {
     input_tokens: data?.usage?.input_tokens ?? 0,
     output_tokens: data?.usage?.output_tokens ?? 0,
