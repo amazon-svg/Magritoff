@@ -44,6 +44,7 @@ import {
   resolveBrandBannerBackground,
   resolveHeroTagline,
   resolveCartLabel,
+  resolveAccountLabel,
 } from "@/modules/shops/ui/storefront/ShopLayout.helpers";
 
 interface GammePill {
@@ -343,7 +344,7 @@ export function ShopLayout({
           <button
             type="button"
             onClick={() => onView("account")}
-            aria-label={storefrontSession ? `Compte de ${storefrontSession.customer.fullName}` : "Compte boutique"}
+            aria-label={resolveAccountLabel(storefrontSession)}
             className={`inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13px] ${
               isDark ? "text-gray-300 hover:bg-gray-800" : "text-ink-2 hover:bg-bg"
             }`}
@@ -352,7 +353,7 @@ export function ShopLayout({
               <UserRound className="h-4 w-4" strokeWidth={1.5} />
             </span>
             <span className="hidden max-w-36 truncate sm:inline">
-              {storefrontSession?.customer.fullName ?? "Compte"}
+              {resolveAccountLabel(storefrontSession)}
             </span>
           </button>
         </div>

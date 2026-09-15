@@ -5,11 +5,16 @@ import { describe, expect, it } from 'vitest';
 const storefront = readFileSync(resolve(process.cwd(), 'src/modules/shops/ui/storefront/PublicShop.tsx'), 'utf8');
 const orderLifecycle = readFileSync(resolve(process.cwd(), 'src/modules/orders/ui/hooks/useStorefrontOrderLifecycle.ts'), 'utf8');
 const layout = readFileSync(resolve(process.cwd(), 'src/modules/shops/ui/storefront/ShopLayout.tsx'), 'utf8');
+const layoutHelpers = readFileSync(resolve(process.cwd(), 'src/modules/shops/ui/storefront/ShopLayout.helpers.ts'), 'utf8');
 const account = readFileSync(resolve(process.cwd(), 'src/modules/account/ui/customer-portal/AccountHub.tsx'), 'utf8');
 
 describe('identité du compte storefront', () => {
   it('affiche le client boutique sans réutiliser le menu Magrit', () => {
-    expect(layout).toContain('storefrontSession?.customer.fullName');
+    // BCP-9 (2026-09-15) : le libellé du bouton compte est calculé par le
+    // helper pur resolveAccountLabel, lui-même dérivé exclusivement de
+    // customer.fullName — jamais d email ni d identifiant technique.
+    expect(layout).toContain('resolveAccountLabel(storefrontSession)');
+    expect(layoutHelpers).toContain('session.customer?.fullName');
     expect(layout).not.toContain('AuthMenu');
     expect(account).toContain('session.customer.fullName');
     expect(account).toContain('session.customer.email');
