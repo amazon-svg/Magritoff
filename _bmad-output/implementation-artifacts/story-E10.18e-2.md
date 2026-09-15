@@ -1146,3 +1146,89 @@ après.
 Aucun fichier `openapi/` ni `docs/api/CONVENTIONS.md` modifié par cet agent.
 Aucune migration `supabase/migrations/` créée ou modifiée. Aucun navigateur
 ni serveur de dev lancé par cet agent.
+
+
+---
+
+# PV de recette navigateur — E10.18e-2 (export depuis la grille « Commandes atelier »)
+
+Date : 2026-09-15, 14:20 à 14:40 (heure de Paris).
+Environnement :
+- base locale, espace `recette-e10` (54 commandes) ;
+- `magrit-api` local et runner d'export déclenché à la main (le local n'a pas de cron) ;
+- Chrome 152, contextes isolés `recette-admin` et `recette-membre` ;
+- code au commit `3b6489e2` (branche `feat/gescom-e10-4-entite-client`).
+
+Rechargements Vite : 0 pendant la recette. Il y en a eu 19 d'un coup à 14:35:30, provoqués par la création d'un worktree : ce sont des fichiers `.html` sous `.claude/worktrees/`. Aucune observation n'a été faussée, puisque le rechargement tombe entre deux étapes.
+
+## Résultats
+
+| # | Cas (liste b2 de la qa, rounds 2 et 3) | Résultat | Preuve |
+|---|---|---|---|
+| 1 | Admin : bouton « Exporter » et panneau `orders-export-panel` visibles | OK | snapshot |
+| 1b | Membre sans droit : pas de grille (redirection vers `/dashboard/quotes`), pas de bouton, POST direct refusé | OK : 403 `identity.role_required` sur le POST et sur la liste | fetch, session locale |
+| 1c | Membre non admin porteur de `can_export_orders` | SANS OBJET aujourd'hui. Le verrou UM1 (`magrit_option_required`) interdit toute délégation de rôle, et §8.24 (f) réserve le droit à l'admin | trigger `restrict_magrit_assignments_to_options` |
+| 2 | Parité : le corps du POST reprend les filtres de la grille, jamais le tri | OK. Grille filtrée sur « Livré », triée en « sens inverse » (`sort=-production_step`). POST `{"format":"csv","granularity":"line","filters":{"current_production_step_id":"691eb018…"}}`, sans `sort` | reqid 1025, 1026 |
+| 2b | La modale affiche les filtres repris et l'ordre du fichier | OK : « Étape : Livré », suivi de « Le fichier est trié par date de commande puis par numéro — le tri de la grille n'est pas repris » | DOM |
+| 3a | Double-clic sur Exporter : un seul POST | OK : une seule demande en base (`1561203c`) | exports.sh |
+| 3b | Hors ligne, puis réessai à l'identique : même clé | OK : `1ebd89a1…` utilisée deux fois | reqid 1942, 1943 |
+| 3c | Hors ligne, changement de format, nouvel essai : nouvelle clé, pas de 409 | OK : `cdda062b…` | reqid 1944 |
+| 3d | Retour en ligne, envoi sans modification : même clé que le dernier échec | OK : 201 avec `cdda062b…` | reqid 1945 |
+| 4a | Suivi : un GET toutes les 2 s pour les seules demandes non terminées | OK | reqid 1027 à 1044 |
+| 4b | Plus aucun appel après un état terminal | OK : 0 GET en 6 s | resource timing |
+| 4c | 404 : un seul GET en erreur, arrêt, message | OK : `reqid=2843` en 404 et rien ensuite. La ligne affiche « Export introuvable » | liste réseau |
+| 4d | Erreur transitoire (coupure réseau) : le message apparaît, le suivi continue, puis le message disparaît | OK sur le comportement. DÉFAUT R3 : le texte affiché est « Failed to fetch » | DOM |
+| 4e | 403 par retrait de droit pendant le suivi | SANS OBJET : on ne peut pas retirer son droit à l'admin, et aucun membre ne peut le recevoir. Le cas reste couvert par les tests unitaires (qa round 3, sonde R2) | — |
+| 4f | Échéance de 10 min | Non jouée en navigateur. Couverte par les tests unitaires et la sonde de la qa | — |
+| 5a | Clic : GET frais, puis téléchargement | GET OK. DÉFAUT R1 (local seulement) : l'URL signée pointe vers `http://kong:8000/…`, hôte Docker que le navigateur ne résout pas, et l'onglet navigue vers une page d'erreur | reqid 1046 |
+| 5b | `Content-Disposition: attachment` sur l'URL signée | OK : `attachment; filename=commandes-line-…csv`, contrôlé par curl via `127.0.0.1:54321` | curl -D |
+| 5c | Contenu du fichier | OK : 14 lignes (en-tête et 13 lignes de commande pour 10 commandes « Livré »), BOM, séparateur `;` | curl |
+| 5d | Aucun lien dans le DOM, téléchargement porté par un bouton | OK : 0 `a[href]` dans le panneau | DOM |
+| 5e | « Demandé par un autre membre » | OK : aucun bouton (ligne insérée en base au nom du membre) | DOM |
+| 5f | « Expiré » | OK sur le fond (pas de bouton). DÉFAUT R4 : le mot s'affiche deux fois | DOM |
+| 5g | Libellé de ligne « format · granularité », dans cet ordre | OK | DOM |
+| 6a | `pending_limit_reached` affiché en clair | Le refus est OK (4e demande en 422). DÉFAUT R2 : le `detail` est l'exception SQL brute, « order_export.pending_limit_reached: trois demandes non terminees… » | reqid 1474 |
+| 6b | `row_limit_exceeded` : « resserrez la période », sans chiffre | OK. Lignes `failed` en `order_export.row_limit_exceeded` insérées en base : « Échec · Trop de commandes pour cette période : resserrez la période et relancez l'export », sans aucun chiffre | DOM |
+| 7 | Registre au-delà de 50 : mention « limité aux 50 plus récentes » | OK. 56 demandes en base, 50 lignes affichées, toutes avec `data-export-id` et `orders-export-status[data-status]`. Mention : « Registre limité aux 50 demandes les plus récentes — les demandes plus anciennes ne sont pas listées. » | DOM |
+| 8 | Téléchargement dans Safari | Non joué : pas de Safari piloté | — |
+
+## Écarts de conception constatés, conformes au cadrage
+- Entre `expires_at` et le passage de la purge quotidienne, soit au plus 24 h, un export `ready` reste téléchargeable. §8.24 prévoit que la purge fasse passer la demande de `ready` à `expired`.
+- La base rend le registre indélébile (trigger `commercial_order_exports_reject_mutation`) : ni suppression ni changement d'auteur. Pour le cas 4c, la suppression a été simulée en local avec `session_replication_role = replica`.
+
+## Défauts à corriger avant la fusion
+- R1 (local) : l'URL signée utilise l'hôte interne. Correction attendue : l'origine publique, comme `publicSupabaseUrl`.
+- R2 : le `detail` du 422 `pending_limit_reached` est brut. Correction attendue : une phrase française propre, portée par le serveur.
+- R3 : « Failed to fetch » s'affiche en anglais brut, dans la modale et sur la ligne. Correction attendue : un message français.
+- R4 : « Expiré » s'affiche deux fois.
+
+## Après correction
+
+Deuxième passage, le 2026-09-15 vers 15:30.
+
+Le code testé est au commit `8b23db6a` :
+- `7466bbd6` : corrections R1 à R4 ;
+- `8b23db6a` : complément R1d et R3.
+
+La qa round 4 a approuvé ce code. `magrit-api` est redéployé en v38 (prod), et la pile locale a été redémarrée pour prendre en compte les nouveaux montages de fichiers.
+
+| # | Geste | Résultat | Preuve |
+|---|---|---|---|
+| R2 / 6a | Créer une 4e demande sans lancer le runner | OK. La modale affiche « Vous avez déjà trois demandes d'export en cours. Attendez qu'une d'elles se termine avant d'en lancer une autre. », sans code ni `_` | DOM, reqid 4024 (422) |
+| R3 / modale | Hors ligne, « Exporter » | OK. Message : « Connexion impossible. Vérifiez votre réseau, puis réessayez. » | DOM, reqid 4094 |
+| R3 / 4d | Coupure réseau pendant le suivi, puis retour en ligne | OK. Pendant la coupure, les 3 lignes affichent « Connexion perdue. Nouvel essai automatique… » et le suivi continue (reqid 4065 à 4116). Au retour en ligne, le message disparaît au premier sondage réussi (4117 à 4119) et les statuts se mettent à jour | DOM, liste réseau |
+| R4 / 5f | Ligne expirée | OK. « Expiré » n'apparaît qu'une fois ; le téléchargement affiche « — » | DOM |
+| R1 / 5a | Clic sur « Télécharger » | OK. GET frais sur `/{id}` (reqid 4120), puis stockage sur `http://127.0.0.1:54321/storage/v1/object/sign/…?token=…&download=…` (reqid 4121). Réponse 200, `Content-Disposition: attachment; filename=commandes-order-…xlsx`, 8 182 octets. La navigation est convertie en téléchargement (`ERR_ABORTED`) et **l'onglet reste sur la grille** (même URL) | liste réseau, DOM |
+| 4b | Arrêt du suivi après un état terminal | OK. Plus aucun GET de suivi après 4119 : seul le GET frais du clic suit | liste réseau |
+
+Le fichier téléchargé n'est pas écrit sur le disque. C'est une limite de l'outillage : les contextes isolés du profil de débogage n'enregistrent pas les téléchargements. Le contenu, lui, a été contrôlé par curl au premier passage.
+
+Non joués :
+- 8, en production : vérifier que l'origine de `download_url` est celle du projet hébergé. Il faudrait un export demandé en prod avec le compte admin d'Arnaud. Cet invariant est couvert par le test R1d (URL hors `kong` inchangée à l'octet près) et par la lecture du code faite par la qa (`publicSupabaseUrl` rend l'URL interne telle quelle hors `kong`).
+- 7, dette connue : aucune, les deux derniers endroits de R3 étant corrigés dans `8b23db6a`.
+
+| 5e | Non-régression « Demandé par un autre membre » | OK : « Prêt · Demandé par un autre membre », sans bouton (ligne `859a1429` insérée au nom du membre) | DOM |
+
+Rechargements Vite pendant ce second passage : aucun. Le dernier date de 15:26:19 et correspond à l'intégration des commits, avant le passage.
+
+**VERDICT DE RECETTE : CONFORME.** Les défauts R1 à R4 sont corrigés et vérifiés dans le navigateur. Il reste deux cas sans objet aujourd'hui, à cause du verrou UM1 : un membre porteur de `can_export_orders`, et le 403 par retrait du droit. Il reste aussi trois cas non joués dans le navigateur mais couverts par les tests : l'échéance de 10 min, le téléchargement dans Safari, et l'origine de l'URL en prod.
