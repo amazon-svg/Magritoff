@@ -1,6 +1,6 @@
-import { useStorefrontApi, useStorefrontUiRuntime } from '@/platform/runtime/storefront-ui-runtime';
+import { useStorefrontApi } from '@/platform/runtime/storefront-ui-runtime';
 import { ShopsApiClient } from '@/modules/shops';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PublicShopCatalog, Shop, ShopProduct } from '@/modules/shops';
 import type { Gamme, ProductDefinition } from '@/modules/catalog/ui/helpers';
 import { DEFAULT_TAX_RATE, getTaxRate } from '@/modules/orders/ui/helpers';
@@ -64,6 +64,35 @@ export function mapPublicShopCatalog(catalog: PublicShopCatalog): PublicShopCata
   };
 }
 
+/**
+ * BCP-6b (CONVENTIONS.md §8.25 point 5.2) — le catalogue change par un geste
+ * rare de l'atelier. Un onglet laissé ouvert n'a donc pas à le revoir avant
+ * ce délai, même de retour au premier plan.
+ */
+export const PUBLIC_SHOP_CATALOG_REFRESH_MIN_INTERVAL_MS = 10 * 60_000;
+
+export type PublicShopCatalogRefreshEvent =
+  | { type: 'visible'; at: number }
+  | { type: 'focus'; at: number };
+
+/**
+ * Politique pure de rechargement du catalogue public au retour au premier
+ * plan (BCP-6b). `focus` ne déclenche jamais rien : seul `visibilitychange`
+ * → visible compte, et seulement si le dernier chargement connu date de plus
+ * de `PUBLIC_SHOP_CATALOG_REFRESH_MIN_INTERVAL_MS`. Un changement d'identité
+ * de session, un `retry` ou un rechargement de page ne passent pas par cette
+ * fonction : ce sont des changements de dépendances d'effet React, déjà
+ * couverts structurellement par `usePublicShopCatalog`.
+ */
+export function shouldReloadPublicShopCatalogOnVisible(
+  event: PublicShopCatalogRefreshEvent,
+  lastLoadedAt: number | null,
+): boolean {
+  if (event.type !== 'visible') return false;
+  if (lastLoadedAt === null) return true;
+  return event.at - lastLoadedAt >= PUBLIC_SHOP_CATALOG_REFRESH_MIN_INTERVAL_MS;
+}
+
 export function usePublicShopCatalog({
   slug,
   sessionLoading,
@@ -76,12 +105,21 @@ export function usePublicShopCatalog({
   const api = useStorefrontApi(ShopsApiClient);
   const [state, setState] = useState<PublicShopCatalogState>(() => emptyState('loading'));
   const [attempt, setAttempt] = useState(0);
+  // BCP-6b — bascule UNE SEULE FOIS, de false à true, à la première résolution
+  // de la session. Les revalidations silencieuses ultérieures de la session
+  // (cf. useStorefrontSession) ne la font plus jamais repasser à false, donc
+  // ne relancent plus cet effet : seul un changement d'identité (sessionShopId)
+  // ou un `retry` (attempt) le fait désormais.
+  const [sessionReady, setSessionReady] = useState(false);
+  const lastLoadedAtRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!slug || sessionLoading) return;
+    if (!sessionLoading) setSessionReady(true);
+  }, [sessionLoading]);
+
+  useEffect(() => {
+    if (!slug || !sessionReady) return;
     let cancelled = false;
-    let focusHandler: (() => void) | null = null;
-    let refreshTimer: number | null = null;
     setState(emptyState('loading'));
 
     void (async () => {
@@ -107,29 +145,41 @@ export function usePublicShopCatalog({
       try {
         const catalog = await api.publicCatalog(slug);
         if (cancelled) return;
+        lastLoadedAtRef.current = Date.now();
         setState(mapPublicShopCatalog(catalog));
       } catch (cause) {
         if (!cancelled) setState(emptyState(classifyShopLoadFailure(cause, 'catalog')));
-        return;
       }
-
-      focusHandler = () => {
-        void api.publicCatalog(slug)
-          .then((catalog) => { if (!cancelled) setState(mapPublicShopCatalog(catalog)); })
-          .catch(() => undefined);
-      };
-      window.addEventListener('focus', focusHandler);
-      refreshTimer = window.setInterval(() => {
-        if (document.visibilityState === 'visible') focusHandler?.();
-      }, 15_000);
     })();
 
     return () => {
       cancelled = true;
-      if (focusHandler) window.removeEventListener('focus', focusHandler);
-      if (refreshTimer !== null) window.clearInterval(refreshTimer);
     };
-  }, [api, attempt, sessionLoading, sessionShopId, slug]);
+  }, [api, attempt, sessionReady, sessionShopId, slug]);
+
+  // BCP-6b — plus aucun intervalle, plus aucun `focus` : seul le retour de
+  // l'onglet au premier plan peut recharger le catalogue, et seulement si le
+  // dernier chargement dépasse le seuil de fraîcheur (voir la politique pure
+  // ci-dessus).
+  useEffect(() => {
+    if (!slug || !sessionReady) return;
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') return;
+      const shouldReload = shouldReloadPublicShopCatalogOnVisible(
+        { type: 'visible', at: Date.now() },
+        lastLoadedAtRef.current,
+      );
+      if (!shouldReload) return;
+      void api.publicCatalog(slug)
+        .then((catalog) => {
+          lastLoadedAtRef.current = Date.now();
+          setState(mapPublicShopCatalog(catalog));
+        })
+        .catch(() => undefined);
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, [api, sessionReady, slug]);
 
   const retry = useCallback(() => setAttempt((current) => current + 1), []);
   return { ...state, retry } as const;

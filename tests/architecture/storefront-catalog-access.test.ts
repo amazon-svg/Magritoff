@@ -23,7 +23,13 @@ describe('accès catalogue par session storefront', () => {
   it('attend la résolution storefront avant de charger un catalogue privé', () => {
     expect(storefront).toContain('storefrontSessionLoading');
     expect(storefront).toContain('sessionShopId: storefrontSession?.identity.shopId ?? null');
-    expect(catalogLifecycle).toContain('if (!slug || sessionLoading) return');
+    // BCP-6b — la porte d'entrée du catalogue latche UNE FOIS que la session
+    // s'est résolue (`sessionReady`), plutôt que de dépendre directement de
+    // `sessionLoading` : une revalidation silencieuse ultérieure de la
+    // session ne doit plus jamais relancer le catalogue (CONVENTIONS.md
+    // §8.25 point 5.2).
+    expect(catalogLifecycle).toContain('if (!sessionLoading) setSessionReady(true)');
+    expect(catalogLifecycle).toContain('if (!slug || !sessionReady) return');
     expect(catalogLifecycle).toContain('storefrontShopId: sessionShopId');
     expect(storefront).not.toContain('resolveShopAccessFromMemberships');
     expect(storefront).not.toContain('useTenant');

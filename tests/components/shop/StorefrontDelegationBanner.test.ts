@@ -26,7 +26,10 @@ describe('bandeau de délégation storefront', () => {
     expect(shop).toContain('useStorefrontSession()');
     expect(sessionHook).toContain('await api.current()');
     expect(sessionHook).toContain('await api.end()');
-    expect(sessionHook).toContain("window.addEventListener('focus', revalidate)");
+    // BCP-6b (CONVENTIONS.md §8.25 point 5.2) — `focus` est retiré au profit
+    // de `visibilitychange`, seul déclencheur de revalidation au repos.
+    expect(sessionHook).toContain("document.addEventListener('visibilitychange'");
+    expect(sessionHook).not.toMatch(/addEventListener\(\s*['"]focus['"]/);
     expect(sessionHook).toContain('document.visibilityState');
     expect(shop).toContain('StorefrontDelegationBanner');
     expect(shop).not.toMatch(/supabase\s*\./);
