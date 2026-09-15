@@ -16,3 +16,9 @@ quality-reports/
 .env.quality
 .env.hopstudio.test
 .env.hopstudio.test.local*
+
+# BCP-1a (docs/api/CONVENTIONS.md §8.25 point 2.3, arbitrage architecte,
+# point (2)) : les textes d'erreur Clariprint (apres substitution des noms
+# d'imprimeurs) du banc de rejeu ne sont JAMAIS commites, contrairement a
+# `input.json`/`calls.json` du meme dossier `results/<date>-<objet>/`.
+*.local.json

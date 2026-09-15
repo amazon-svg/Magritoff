@@ -96,7 +96,7 @@ export function createClariprintRoutes(
         let caller: ClariprintQuoteCaller | undefined;
         try {
           caller = await resolveClariprintQuoteCaller(context, callerDependencies);
-          return { status: 200, body: await service.quote(command, caller) };
+          return { status: 200, body: await service.quote(command, caller, context.requestId) };
         } catch (error) {
           if (error instanceof ClariprintQuoteRateLimitedError) {
             if (caller) {

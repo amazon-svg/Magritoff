@@ -35,6 +35,8 @@ import { SupabaseAssistantAccessGateway } from '../../../src/adapters/supabase/a
 import { ClariprintService } from '../../../src/modules/clariprint/application/clariprint-service.ts';
 import { ClariprintQuoteBudgetUnavailableError, type ClariprintQuoteBudget } from '../../../src/modules/clariprint/application/clariprint-quote-budget.ts';
 import { HttpClariprintQuoteGateway } from '../../../src/adapters/clariprint/http-clariprint-quote-gateway.ts';
+import type { ClariprintQuoteLogEntry, ClariprintQuoteLogger } from '../../../src/modules/clariprint/application/clariprint-quote-logger.ts';
+import { logLevelForOutcome } from '../../../src/modules/clariprint/application/clariprint-quote-verdict.ts';
 import { SupabaseClariprintQuoteBudgetRepository } from '../../../src/adapters/supabase/clariprint-quote-budget-repository.ts';
 import { SupabaseClariprintQuoteMembershipGateway } from '../../../src/adapters/supabase/clariprint-quote-membership-gateway.ts';
 import { isMockupBinaryRequest, proxyMockupBinary } from '../../../src/adapters/supabase/mockup-binary-proxy.ts';
@@ -264,6 +266,8 @@ export async function handleRequest(request: Request): Promise<Response> {
       Deno.env.get('CLARIPRINT_HOST') ?? 'https://lrdp.clariprint.com',
       Deno.env.get('CLARIPRINT_LOGIN') ?? null,
       Deno.env.get('CLARIPRINT_PASSWORD') ?? null,
+      undefined,
+      consoleClariprintQuoteLogger(),
     ),
     clariprintQuoteBudget,
   );
@@ -722,6 +726,28 @@ function unavailableClariprintQuoteBudget(reason: string): ClariprintQuoteBudget
     async consume() {
       console.error(`[magrit-api] limiteur clariprint indisponible (${reason})`);
       throw new ClariprintQuoteBudgetUnavailableError(reason);
+    },
+  };
+}
+
+/**
+ * BCP-1a (docs/api/CONVENTIONS.md §8.25 point 2.3) — la version console du
+ * port de journalisation du verdict Clariprint. C'est la SEULE composition
+ * concrète : le port lui-meme (`ClariprintQuoteLogger`) est testable sans
+ * `console` (voir `tests/modules/clariprint/clariprint-quote-verdict.test.ts`
+ * et `tests/adapters/clariprint/http-clariprint-quote-gateway.test.ts`).
+ * `info` pour un succes, `warn` pour un refus (Clariprint a repondu sans
+ * prix exploitable), `error` pour une indisponibilite ou une configuration
+ * absente.
+ */
+function consoleClariprintQuoteLogger(): ClariprintQuoteLogger {
+  return {
+    log(entry: ClariprintQuoteLogEntry) {
+      const level = logLevelForOutcome(entry.outcome);
+      const line = JSON.stringify(entry);
+      if (level === 'info') console.info(line);
+      else if (level === 'warn') console.warn(line);
+      else console.error(line);
     },
   };
 }

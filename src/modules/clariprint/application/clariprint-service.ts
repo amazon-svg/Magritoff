@@ -14,9 +14,9 @@ export class ClariprintService {
    * refus lève `ClariprintQuoteRateLimitedError` et n'appelle JAMAIS
    * Clariprint (docs/api/CONVENTIONS.md §8.25 point 2.3bis (8)).
    */
-  async quote(command: ClariprintQuoteCommand, caller: ClariprintQuoteCaller): Promise<ClariprintQuoteResult> {
+  async quote(command: ClariprintQuoteCommand, caller: ClariprintQuoteCaller, requestId?: string): Promise<ClariprintQuoteResult> {
     const decision = await this.budget.consume(caller);
     if (!decision.allowed) throw new ClariprintQuoteRateLimitedError(decision.refusedScope);
-    return this.gateway.quote(command);
+    return this.gateway.quote(command, requestId);
   }
 }
