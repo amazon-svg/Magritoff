@@ -10,6 +10,16 @@ import {
   AnthropicClientError,
   isAnthropicBillingError,
 } from "../_shared/anthropicClient.ts";
+import {
+  buildAuthTestBody,
+  buildQuoteCalcErrorBody,
+  buildQuoteCredentialsMissingBody,
+  buildQuoteHttpErrorBody,
+  buildQuoteInvalidJsonBody,
+  buildQuoteInvalidPriceBody,
+  buildQuoteMissingProductBody,
+  buildQuoteSuccessBody,
+} from "./clariprint-responses.ts";
 
 // Story S-LLM-WRAPPER-ROBUSTNESS (AC2) : detection billing centralisee via
 // isAnthropicBillingError(). La regex locale /credit|billing|authentication|invalid/
@@ -1088,19 +1098,18 @@ app.post("/make-server-e3db71a4/clariprint-quote", async (c) => {
     // Credentials manquants → réponse gracieuse (pas d'erreur bloquante)
     if (!login || !password) {
       console.log("⚠️ CLARIPRINT_LOGIN ou CLARIPRINT_PASSWORD non configurés");
-      return c.json({
-        success: false,
-        credentialsMissing: true,
-        message:
+      return c.json(
+        buildQuoteCredentialsMissingBody(
           "Configurez CLARIPRINT_LOGIN et CLARIPRINT_PASSWORD dans vos secrets Supabase pour obtenir les prix réels.",
-      });
+        ),
+      );
     }
 
     const body = await c.req.json();
     const clariprintProduct = body.clariprint;
 
     if (!clariprintProduct) {
-      return c.json({ success: false, error: "Données produit Clariprint manquantes" }, 400);
+      return c.json(buildQuoteMissingProductBody(), 400);
     }
 
     // Forcer quantity en string (conformément à la doc Clariprint)
@@ -1138,12 +1147,8 @@ app.post("/make-server-e3db71a4/clariprint-quote", async (c) => {
 
     if (!apiResponse.ok) {
       const errorText = await apiResponse.text();
-      console.error(`❌ Erreur HTTP Clariprint ${apiResponse.status}:`, errorText);
-      return c.json({
-        success: false,
-        error: `Clariprint API HTTP ${apiResponse.status}`,
-        details: errorText.substring(0, 500),
-      });
+      console.error(`❌ Erreur HTTP Clariprint ${apiResponse.status} (URL: ${apiUrl}):`, errorText);
+      return c.json(buildQuoteHttpErrorBody());
     }
 
     const responseText = await apiResponse.text();
@@ -1153,23 +1158,16 @@ app.post("/make-server-e3db71a4/clariprint-quote", async (c) => {
     try {
       result = JSON.parse(responseText);
     } catch (e) {
-      console.error("❌ Réponse Clariprint non-JSON:", responseText.substring(0, 500));
-      return c.json({
-        success: false,
-        error: "Réponse Clariprint invalide (non-JSON)",
-        details: `URL appelée: ${apiUrl} | Status HTTP: ${apiResponse.status} | Réponse: ${responseText.substring(0, 300)}`,
-        rawResponse: responseText.substring(0, 300),
-      });
+      console.error(
+        `❌ Réponse Clariprint non-JSON (URL: ${apiUrl}, status ${apiResponse.status}):`,
+        responseText.substring(0, 500),
+      );
+      return c.json(buildQuoteInvalidJsonBody());
     }
 
     if (!result.success) {
       console.error("❌ Clariprint a renvoyé success=false:", result);
-      return c.json({
-        success: false,
-        error: result.error || "Erreur de calcul Clariprint",
-        faultyProcess: result.all_faulty_process,
-        rawResponse: result,
-      });
+      return c.json(buildQuoteCalcErrorBody());
     }
 
     console.log(`✅ Prix Clariprint obtenu : ${result.response} € — Délai : ${result.delais}j`);
@@ -1187,17 +1185,10 @@ app.post("/make-server-e3db71a4/clariprint-quote", async (c) => {
 
     if (isInvalidPrice) {
       console.error(
-        `❌ Anomalie prix Clariprint détectée — priceHT=${JSON.stringify(priceHT)}. Bloqué côté serveur.`,
+        `❌ Anomalie prix Clariprint détectée — priceHT=${JSON.stringify(priceHT)}. Bloqué côté serveur. Réponse Clariprint brute:`,
+        result,
       );
-      return c.json({
-        success: false,
-        error:
-          priceHT < 0
-            ? "Prix Clariprint invalide (négatif)"
-            : "Prix Clariprint invalide (absent, NaN ou non-numérique)",
-        details: `priceHT brut reçu: ${JSON.stringify(priceHT)}`,
-        rawResponse: result,
-      });
+      return c.json(buildQuoteInvalidPriceBody(priceHT));
     }
 
     // costs.total : si présent et invalide, on le masque sans bloquer la réponse
@@ -1215,25 +1206,19 @@ app.post("/make-server-e3db71a4/clariprint-quote", async (c) => {
       }
     }
 
-    return c.json({
-      success: true,
-      // Prix simplifié HT (validé)
-      priceHT,
-      // Détail des coûts (meilleure gamme, costs.total éventuellement masqué)
-      costs,
-      // Délai en jours
-      delais: result.delais,
-      // Poids en kg
-      weight: result.weight,
-      // Fournisseur sélectionné
-      fournisseur: result.fournisseur,
-      // Durée de fabrication (1/10e d'heure)
-      processDuration: result.total_process_duration,
-      // Toutes les gammes (multi-résultats)
-      allResults: result.all_process || [],
-      // Gammes en erreur
-      faultyProcess: result.all_faulty_process || {},
-    });
+    // Note securite (2026-09-15) : all_process / all_faulty_process ne sont
+    // plus renvoyes au client (route appelable avec la seule cle anonyme).
+    // buildQuoteSuccessBody() n accepte que les 6 champs metier ci-dessous.
+    return c.json(
+      buildQuoteSuccessBody({
+        priceHT,
+        costs,
+        delais: result.delais,
+        weight: result.weight,
+        fournisseur: result.fournisseur,
+        processDuration: result.total_process_duration,
+      }),
+    );
   } catch (error) {
     console.error("❌ Erreur dans clariprint-quote:", error);
     return c.json(
@@ -1251,19 +1236,17 @@ app.get("/make-server-e3db71a4/clariprint-test", async (c) => {
   const login = Deno.env.get("CLARIPRINT_LOGIN");
   const password = Deno.env.get("CLARIPRINT_PASSWORD");
 
-  const result: any = {
-    timestamp: new Date().toISOString(),
-    environment: {
-      CLARIPRINT_HOST: host,
-      CLARIPRINT_LOGIN: login ? `✅ Configuré (${login.substring(0, 3)}***)` : "❌ Non configuré",
-      CLARIPRINT_PASSWORD: password ? "✅ Configuré" : "❌ Non configuré",
-    },
-  };
-
+  // Correctif de securite (2026-09-15) : cette route est appelable avec la
+  // seule cle anonyme Supabase. Elle ne doit plus jamais renvoyer l hote
+  // Clariprint, le prefixe du login, ni la reponse brute/parsee du
+  // CheckAuth — voir clariprint-responses.ts::buildAuthTestBody().
   if (!login || !password) {
-    result.success = false;
-    result.error = "Credentials manquants dans les secrets Supabase.";
-    return c.json(result);
+    return c.json(
+      buildAuthTestBody({
+        success: false,
+        message: "Credentials manquants dans les secrets Supabase.",
+      }),
+    );
   }
 
   try {
@@ -1291,21 +1274,24 @@ app.get("/make-server-e3db71a4/clariprint-test", async (c) => {
       // réponse non-JSON
     }
 
-    result.httpStatus = httpStatus;
-    result.rawResponse = rawText.substring(0, 500);
-    result.parsedResponse = parsed;
-    result.success = apiResponse.ok && (parsed?.success !== false);
-    result.message = result.success
-      ? "✅ Authentification Clariprint réussie !"
-      : `❌ Échec — HTTP ${httpStatus} — ${rawText.substring(0, 200)}`;
-
+    const success = apiResponse.ok && (parsed?.success !== false);
+    return c.json(
+      buildAuthTestBody({
+        success,
+        message: success
+          ? "✅ Authentification Clariprint réussie !"
+          : `❌ Échec de l'authentification Clariprint (HTTP ${httpStatus}).`,
+      }),
+    );
   } catch (err) {
-    result.success = false;
-    result.error = `Erreur réseau : ${String(err)}`;
-    result.message = "❌ Impossible de joindre le serveur Clariprint.";
+    console.error("❌ Erreur réseau clariprint-test:", err);
+    return c.json(
+      buildAuthTestBody({
+        success: false,
+        message: "❌ Impossible de joindre le serveur Clariprint.",
+      }),
+    );
   }
-
-  return c.json(result);
 });
 
 // ============================================================================
