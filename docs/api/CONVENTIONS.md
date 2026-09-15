@@ -4905,7 +4905,53 @@ Moyens : la campagne du banc (phases B et C, point 2.3) et les pages `JsonVarnis
   - **Inventaire vérifié** (recherche sur `src/modules/*/ui/storefront/`) : **deux** fenêtres en manquent, le tiroir panier (ci-dessus) et **l'overlay de configuration produit** (`ProductOverlay.tsx:102`, qui n'a qu'un `SheetTitle`, l. 111). Les cinq autres en ont déjà une : `CancelOrderConfirmDialog`, `RejectOrderConfirmDialog`, `ValidateOrderConfirmDialog`, `OrderAuditTrailModal` et `PortalOrderEditor`.
   - **La description de `ProductOverlay` existe déjà à l'écran, et on la réutilise.** C'est le sous-titre visible placé sous le titre (`ProductOverlay.tsx:114-119`), dont le texte exact est **« Configurez puis ajoutez au panier »** : ce `<p>` **devient la `SheetDescription`**, avec le même texte et le même style. Elle est donc **visible, pas `sr-only`**, contrairement au panier, qui n'a aucun texte visible à promouvoir. Ajouter une description masquée à côté d'un sous-titre qui dit déjà la même chose ferait lire deux fois la même idée au lecteur d'écran, et laisserait le sous-titre visible hors de la relation d'accessibilité. **Le texte ne change pas** : ce n'est pas l'objet du lot.
   - **Le critère se tient par un test, pas par la seule recette.** Un test d'architecture parcourt `src/modules/*/ui/storefront/` et refuse tout fichier qui rend l'un de ces trois contenus sans `*Description` ni `aria-describedby`. Il échoue sur le code d'avant, par deux fichiers. **La recette le complète dans le navigateur** : console vide à l'ouverture de la fiche produit, comme à celle du panier.
-- **À mesurer, pas à corriger d'office** : la paire `session/current` + `catalog` relancée toutes les quelques secondes. Mesure sur 60 s d'inactivité sur le catalogue, **sans aucun agent qui écrive**, pour ne pas reproduire la fausse boucle du 15/09. On ne corrige que si une cause est trouvée dans le code.
+- ~~**À mesurer, pas à corriger d'office** : la paire `session/current` + `catalog` relancée toutes les quelques secondes.~~ **MESURÉ le 2026-09-16, et la cause est dans le code : on corrige, dans une story dédiée, BCP-6b.**
+  - **La mesure** (recette navigateur de BCP-5/6/9, en local, boutique `recette-boutique`) :
+    - un onglet d'acheteuse au repos, visible et actif, sans aucune action : des paires `GET /storefront/session/current` + `GET /public/shops/recette-boutique/catalog`, **environ une toutes les 5 s** ;
+    - **le catalogue rechargé EN ENTIER à chaque tour**, et **14 appels identiques au catalogue au chargement** ;
+    - la console reste vide, ce qui exclut une boucle d'erreur.
+
+    Le total relevé, 470 puis 476 requêtes en 15 à 16 s, compte vraisemblablement toutes les requêtes de l'onglet. **La recette de BCP-6b compte PAR point d'entrée**, jamais un total.
+  - **Ce que le code fait, vérifié** :
+    - `usePublicShopCatalog.ts:116-124` recharge le catalogue entier **à chaque événement `focus`** de la fenêtre, **et** toutes les 15 s tant que l'onglet est visible ;
+    - `useStorefrontSession.ts:47-61` revalide la session **à chaque `focus`**, **et** toutes les 15 s dès qu'une session existe ;
+    - l'effet du catalogue dépend en outre de `sessionLoading` (l. 132). Or `refresh()` bascule `loading`, et chaque bascule relance **tout** l'effet : sonde **et** catalogue.
+    - `useStorefrontApi` est mémoïsé sur `apiClient` (`storefront-ui-runtime.ts:38-41`) : le client ne change que si le runtime le recrée.
+  - **Ce qui n'est PAS établi, et que BCP-6b établit en premier, avant tout correctif :**
+    - la cadence mesurée (5 s) est trois fois plus rapide que les intervalles écrits (15 s) ;
+    - **les paires mesurées ne contiennent pas la sonde** `publicProbe`. Ce n'est donc pas l'effet qui se relance, sinon la sonde apparaîtrait. **L'hypothèse la plus probable est que les deux écouteurs `focus` se déclenchent ENSEMBLE** : l'outillage de recette (Chrome DevTools) ou la page elle-même peuvent émettre des `focus` répétés ;
+    - les 14 appels au chargement relèvent plutôt des relances de l'effet (bascules de `sessionLoading`, ou `apiClient` recréé).
+
+    **Aucune de ces trois causes n'est affirmée ici** : le correctif vise la cause trouvée, pas une supposition.
+- **(a) Rattachement : une story DÉDIÉE, BCP-6b, rattachée au lot 6** (console **et ressources** propres), mais distincte de BCP-6.
+  - **Pourquoi pas dans BCP-6** : il est déjà en recette. Le mécanisme n'a rien à voir avec les avertissements de la console, et les fichiers non plus.
+  - **Il touche la revalidation de session**, qui exige sa propre revue.
+  - **Fichiers** : `src/modules/shops/ui/hooks/usePublicShopCatalog.ts`, `src/modules/shop-customers/ui/hooks/useStorefrontSession.ts`, et le runtime boutique si `apiClient` s'y révèle instable.
+  - **Aucun fichier commun avec les autres lots**, `PublicShop.tsx` n'étant pas modifié. **BCP-6b peut donc passer avant BCP-7 et BCP-8.**
+- **(b) Le comportement cible, opposable :**
+
+  | | Aujourd'hui | Cible |
+  |---|---|---|
+  | **Au chargement** | 14 appels au catalogue | **exactement 1 `session/current`, 1 sonde, 1 catalogue** par couple (slug, identité) |
+  | **Catalogue, au repos** | rechargé en entier toutes les 15 s, et à chaque `focus` | **jamais rechargé tant que la page vit.** Il ne se recharge que sur : un nouveau chargement de la page, `retry`, un **changement d'identité de session** (`sessionShopId`, qui peut changer ce qui est visible), et le **retour de l'onglet au premier plan** (`visibilitychange` → `visible`, jamais `focus`), **si le dernier chargement a plus de 10 minutes** |
+  | **Session, au repos** | revalidée toutes les 15 s, et à chaque `focus` | **aucun intervalle.** Revalidation au **retour de l'onglet au premier plan** (`visibilitychange` → `visible`), au plus une fois par minute, et sur toute réponse 401 d'une action |
+  | **Bascules de `sessionLoading`** | relancent sonde et catalogue | une revalidation **silencieuse** (sans `loading`) ne relance pas le catalogue ; seul un changement d'identité le fait |
+
+  Les motifs :
+  - **Le catalogue d'une boutique change par un geste de l'atelier, rarement.** L'onglet laissé ouvert voit le changement au retour à l'onglet, au plus 10 minutes plus tard, ou au prochain chargement.
+  - **Le prix de la commande reste de toute façon révisé par l'imprimeur avant validation** (PRD FR49 : la commande naît `draft`).
+  - **La revalidation périodique de session ne protège rien.** La barrière est le serveur : une session expirée est refusée en 401 à la première action, ce qui ramène l'écran de connexion. L'intervalle ne servait qu'à tenir l'en-tête à jour, et coûtait deux requêtes toutes les 15 s par onglet ouvert.
+  - **`focus` est écarté** au profit de `visibilitychange` : il se déclenche à chaque retour du pointeur dans la fenêtre, et **c'est lui qui produit vraisemblablement les paires mesurées**.
+  - **Les seuils (10 min pour le catalogue, 1 min pour la session) sont des tolérances de fraîcheur de l'interface, pas des seuils métier.** Ils ne tombent donc pas sous la règle « audit de production d'abord ». Ce sont des constantes nommées, en un seul endroit.
+- **(c) La preuve exigée : les deux, et chacune tient ce que l'autre ne peut pas tenir.**
+  - **Automatique.** Le dépôt n'a aucun outil de rendu React (§8.24, E10.18e-1). La politique de rafraîchissement se livre donc en **fonction pure** : « cet événement, à cet instant, depuis ce dernier chargement, déclenche-t-il un appel ? ». Elle est testée **à horloge simulée**, et **compte les appels sur une fenêtre**. Le test simule 60 s au repos, onglet visible : **zéro** appel, et il échoue sur la politique d'avant, qui en donne 8. Il couvre aussi : un `focus` ne déclenche rien ; un retour au premier plan à 9 min ne déclenche pas le catalogue, à 11 min il le déclenche ; une revalidation silencieuse ne relance pas le catalogue. **Les hooks ne font que brancher les événements sur cette fonction** (principe (b1) d'E10.18e-1).
+  - **En recette.** Elle se joue dans Chrome DevTools, **sans aucun agent qui écrive dans la copie servie**, et compte **par point d'entrée** :
+    - au chargement : **1** `session/current`, **1** sonde, **1** catalogue ;
+    - **60 s au repos, onglet visible : 0 et 0** ;
+    - onglet masqué puis ré-affiché après plus d'une minute : **1** `session/current`, **0** catalogue ;
+    - clics dans la page, qui provoquent des `focus` : **0**.
+
+    La recette tient ce que le test ne voit pas : le branchement réel des événements, et le nombre d'effets au montage.
 
 ##### 5.3 BCP-7 — dimensions et finitions
 
@@ -4965,6 +5011,7 @@ Ce sont les cinq valeurs du prompt. **Les libellés sont une proposition**, vali
 | **BCP-4** | 4 — prix, plancher, suggestions, badge | BCP-3 (même fichier) ; données ERAM : geste humain, à tout moment | `ShopProductCard.tsx`, `gammeFloorPrices.ts`, `priceResolver.ts`, `GammeTile.tsx`, `PortalCatalog.tsx` |
 | **BCP-5** | 5 — table unique de statuts, textes | — (Q1 tranchée : oui) | helpers de `src/modules/orders/ui/`, `PortalThankYou.tsx`, `PortalCart.tsx` (textes) |
 | **BCP-6** | 6 — console | — | `src/shared/ui/`, `ShopLayout.tsx` (description) |
+| **BCP-6b** | 6 — rafraîchissements du catalogue et de la session (mesurés le 2026-09-16, point 5.2) : chargement unique, aucun intervalle, retour au premier plan au lieu de `focus` | — (aucun fichier commun ; peut passer avant BCP-7 et BCP-8) | `usePublicShopCatalog.ts`, `useStorefrontSession.ts`, runtime boutique si `apiClient` y est instable |
 | **BCP-7** | 7 — dimensions, finitions | BCP-2 (formateur unifié), BCP-1a (référentiel) | `productEnrichment.ts`, `PortalCart.tsx` (format) |
 | **BCP-8** | 8 — panier, budget | BCP-5 et BCP-7 (même fichier), Q5 pour la ligne livraison | `PortalCart.tsx`, `ShopLayout.tsx`, `PublicShop.tsx`, `PortalChrome.tsx` |
 | **BCP-9** | 9 — libellé acheteur | BCP-6 (même fichier) | `ShopLayout.tsx` (une ligne) |
