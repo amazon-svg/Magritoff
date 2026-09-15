@@ -150,7 +150,24 @@ Joué par le coordinateur dans Chrome DevTools, compte acheteur ERAM connecté p
 
   Validé par la qa et à ne pas retoucher : la portée du pub/sub (un seul abonné, `apiClient` mémoïsé, aucun effet côté atelier, désabonnement correct), l'absence de boucle 401 résiduelle par lecture du code (R7 s'arrête : 401, revalidation, 401 silencieux, identité `null`, sonde `authentication_required`, 0 catalogue), et les gates (129 tests ciblés, 278 d'architecture, 432 de contrat).
 
-  Dette relevée : `withHeaders()` crée une instance SANS reprendre les abonnés — aujourd'hui seuls l'atelier et `order-upload-links` l'utilisent, mais un client de la boutique qui y passerait perdrait silencieusement ses 401. Mutations survivantes acceptées au titre du choix (b1), faute d'outil de rendu dans le dépôt : A5, D1c, D2 et les variantes « texte gardé » de M7b, M8, M9, M10 et M12 ; elles sont couvertes par les gestes R12 à R15 du comptage navigateur. Ajouter une dépendance de rendu serait un arbitrage d'Arnaud.
+  **Round 3** (`ebee4eb1`, worktree) : `createSessionChecker({ api })`, fabrique pure exportée par `useStorefrontSession.ts`, encapsule l'appel et son drapeau `isInFlight()`. Une seule instance par montage (`checkerRef`), lue par `checkCurrent` ET par le gestionnaire de 401 : le drapeau du test ne peut plus diverger de celui du hook. Le test instancie ce checker réel sur un vrai `FetchApiClient` dont le faux `fetch` est BORNÉ (401 cinq fois puis 500), donc une boucle sans garde s'arrête d'elle-même et l'assertion `checkCalls === 1` échoue proprement. A2 → 4 assertions rouges en 0,9 s ; A1 → 3 assertions rouges en 0,9 s, sans blocage. `withHeaders()` reprend désormais les abonnés `onUnauthorized` (test dédié). Gates : typecheck, 278 tests d'architecture, 432 de contrat, suite complète à 2 975. **qa round 3 APPROUVÉE** : A1 et A2 tuées par assertion en 3,7 s et 4,7 s, sans blocage ; 7 mutations rejouées, dont 5 tuées ; le test borné assure bien sur le NOMBRE d'appels (`checkCalls === 1`), pas sur l'absence d'exception. **Fusionné** (`c165e751`).
+
+  Dette laissée par le round 3, non bloquante, couverte par les gestes R12 à R15 :
+  - **H4** (le plus sérieux) : si la ligne de branchement lisait une autre instance que `checkerRef`, le garde ne verrait rien et la tempête de requêtes reviendrait. Le test construit son propre gestionnaire au lieu d'exercer celui du hook ;
+  - **H1** : un `checkerRef` recréé perd le drapeau, conséquence bornée ;
+  - correctif suggéré : extraire aussi le branchement (`createSessionRuntime({ api })`, couple checker et gestionnaire déjà reliés), ce qui rendrait H1 et H4 testables sans outil de rendu ;
+  - **P1** : `withHeaders()` COPIE les abonnés au lieu de les partager, donc un désabonnement sur l'instance d'origine ne se propage pas à la dérivée. Sans conséquence aujourd'hui (la boutique n'utilise pas `withHeaders`, l'atelier n'a aucun abonné).
+
+  **Gates après la fusion des deux lots** (`c165e751`) : typecheck OK, `test:contract` 432/432, `test:architecture` 278/278, suite complète 3 080 tests passés. **Seul échec : `tests/storage/product_mockups_isolation.test.ts` (3 tests), sans lien avec la fusion.**
+
+  ⚠️ **À ARBITRER, Arnaud — ce test écrit dans la PRODUCTION.** Il lit `SUPABASE_URL`, qui vaut `https://ightkxebexuzfjdbpsdg.supabase.co` dans le `.env` local (et non `VITE_SUPABASE_URL`, qui pointe bien sur `127.0.0.1:54321`). Avec la clé `service_role`, il téléverse un fichier de 1 Ko dans le bucket `product_mockups`, le relit en public, puis le supprime — sur le projet de PROD. Il échoue aujourd'hui en `Bucket not found` : le bucket existe en local (public) mais pas en prod. Conséquences :
+  - `pnpm test` n'est pas hermétique : il attaque la prod dès que `.env` est chargé ;
+  - les agents en worktree ne le voient jamais (pas de `.env` recopié), d'où le « seul écart toléré, fichier ignoré » de leurs rapports ;
+  - la fusion est hors de cause : elle ne touche aucun fichier de stockage, et ce test n'importe que `@supabase/supabase-js` et des variables d'environnement.
+
+  Options : pointer ce test sur la pile locale (`VITE_SUPABASE_URL`), créer le bucket en prod, ou l'ignorer explicitement hors environnement dédié.
+
+  Dette relevée au round 2 : `withHeaders()` créait une instance SANS reprendre les abonnés (corrigé au round 3) — aujourd'hui seuls l'atelier et `order-upload-links` l'utilisent, mais un client de la boutique qui y passerait perdrait silencieusement ses 401. Mutations survivantes acceptées au titre du choix (b1), faute d'outil de rendu dans le dépôt : A5, D1c, D2 et les variantes « texte gardé » de M7b, M8, M9, M10 et M12 ; elles sont couvertes par les gestes R12 à R15 du comptage navigateur. Ajouter une dépendance de rendu serait un arbitrage d'Arnaud.
 - **Hors lot, relevés pour les lots 4, 7 et 8** :
   - dimensions « ?×? mm » ;
   - livraison « Siège social » et budget factice ;
