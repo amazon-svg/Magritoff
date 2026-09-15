@@ -27,4 +27,62 @@ describe('compatibilité React 18 des wrappers Radix', () => {
     expect(button).toContain('React.forwardRef<HTMLButtonElement, ButtonProps>');
     expect(button).toContain('ref={ref}');
   });
+
+  // BCP-6 (2026-09-15) — le tiroir panier (Sheet) déclenchait l'avertissement
+  // "Function components cannot be given refs" : Sheet enveloppe le même
+  // primitif Radix (@radix-ui/react-dialog) que Dialog/AlertDialog, mais sans
+  // forwardRef. Le correctif couvre toute la famille de composants qui
+  // enveloppent un Overlay ou un Content Radix de la même façon (CONVENTIONS
+  // §8.25 5.2) : un critère vérifié ici, pas une ligne isolée.
+  // B3 (qa-review round 1, 2026-09-15) : `forwardRef` + `displayName` seuls
+  // ne tuent pas la mutation qui retire `ref={ref}` du JSX (le composant
+  // resterait un forwardRef "coquille vide", sans jamais brancher la ref sur
+  // le primitif Radix — l'avertissement React reviendrait). Chaque assertion
+  // vérifie donc aussi que le primitif Radix reçoit `ref={ref}`.
+  it('transmet les refs des overlays et contenus du tiroir (Sheet)', () => {
+    const sheet = source('src/shared/ui/sheet.tsx');
+    expect(sheet).toContain('const SheetTrigger = React.forwardRef');
+    expect(sheet).toContain('const SheetClose = React.forwardRef');
+    expect(sheet).toContain('const SheetOverlay = React.forwardRef');
+    expect(sheet).toContain('const SheetContent = React.forwardRef');
+    expect(sheet).toContain('const SheetTitle = React.forwardRef');
+    expect(sheet).toContain('const SheetDescription = React.forwardRef');
+    expect(sheet).toMatch(/SheetPrimitive\.Trigger\s+ref=\{ref\}/);
+    expect(sheet).toMatch(/SheetPrimitive\.Close\s+ref=\{ref\}/);
+    expect(sheet).toMatch(/SheetPrimitive\.Overlay\s*\n?\s*ref=\{ref\}/);
+    expect(sheet).toMatch(/SheetPrimitive\.Content\s*\n?\s*ref=\{ref\}/);
+    expect(sheet).toMatch(/SheetPrimitive\.Title\s*\n?\s*ref=\{ref\}/);
+    expect(sheet).toMatch(/SheetPrimitive\.Description\s*\n?\s*ref=\{ref\}/);
+  });
+
+  it.each([
+    ['src/shared/ui/accordion.tsx', 'AccordionContent', 'AccordionPrimitive'],
+    ['src/shared/ui/context-menu.tsx', 'ContextMenuContent', 'ContextMenuPrimitive'],
+    ['src/shared/ui/context-menu.tsx', 'ContextMenuSubContent', 'ContextMenuPrimitive'],
+    ['src/shared/ui/dropdown-menu.tsx', 'DropdownMenuContent', 'DropdownMenuPrimitive'],
+    ['src/shared/ui/dropdown-menu.tsx', 'DropdownMenuSubContent', 'DropdownMenuPrimitive'],
+    ['src/shared/ui/hover-card.tsx', 'HoverCardContent', 'HoverCardPrimitive'],
+    ['src/shared/ui/popover.tsx', 'PopoverContent', 'PopoverPrimitive'],
+    ['src/shared/ui/menubar.tsx', 'MenubarContent', 'MenubarPrimitive'],
+    ['src/shared/ui/menubar.tsx', 'MenubarSubContent', 'MenubarPrimitive'],
+    ['src/shared/ui/navigation-menu.tsx', 'NavigationMenuContent', 'NavigationMenuPrimitive'],
+    ['src/shared/ui/select.tsx', 'SelectContent', 'SelectPrimitive'],
+    ['src/shared/ui/tabs.tsx', 'TabsContent', 'TabsPrimitive'],
+    ['src/shared/ui/tooltip.tsx', 'TooltipContent', 'TooltipPrimitive'],
+  ])(
+    'transmet la ref du wrapper %s (%s) — famille BCP-6',
+    (path, componentName, primitiveNamespace) => {
+      const content = source(path);
+      const primitiveMember = componentName.endsWith('SubContent') ? 'SubContent' : 'Content';
+      expect(content).toContain(`const ${componentName} = React.forwardRef`);
+      expect(content).toMatch(new RegExp(`${componentName}\\.displayName =`));
+      // B3 — la ref doit être branchée sur le JSX du primitif Radix, pas
+      // seulement déclarée dans le type du forwardRef. Retirer `ref={ref}`
+      // du JSX (ex. TooltipContent) fait échouer cette assertion alors que
+      // les deux précédentes passeraient encore.
+      expect(content).toMatch(
+        new RegExp(`${primitiveNamespace}\\.${primitiveMember}\\s*\\n?\\s*ref=\\{ref\\}`),
+      );
+    },
+  );
 });

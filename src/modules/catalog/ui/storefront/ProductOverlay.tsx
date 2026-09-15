@@ -24,7 +24,7 @@ import { useMemo } from "react";
 import { AlertTriangle, Loader2, RefreshCw } from "lucide-react";
 import type { Shop, ShopProduct } from '@/modules/shops';
 import { TEST_IDS } from "@/shared/presentation/testIds";
-import { Sheet, SheetContent, SheetTitle } from "@/shared/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/shared/ui/sheet";
 import { resolveCustomMockup, type MockupTemplateType } from '@/modules/mockups/ui/components';
 import { resolveProductImage } from "@/modules/catalog/ui/helpers/productImages";
 import { resolveMockupTemplate } from "@/modules/catalog/ui/storefront/ShopProductCard.helpers";
@@ -111,12 +111,12 @@ export function ProductOverlay({
               <SheetTitle className="text-[15px] font-medium text-ink m-0">
                 {product.name}
               </SheetTitle>
-              <p
+              <SheetDescription
                 className="text-ink-muted m-0 mt-1"
                 style={{ fontSize: "12px", fontWeight: 400 }}
               >
                 Configurez puis ajoutez au panier
-              </p>
+              </SheetDescription>
             </div>
 
             {/* Body scrollable */}

@@ -35,7 +35,7 @@ import { ShopHeaderSearch } from '@/modules/catalog/ui/storefront';
 import { ReassuranceStrip } from "@/modules/shops/ui/storefront/ReassuranceStrip";
 import type { TaxonomyFamily } from '@/modules/catalog/ui/helpers';
 import { TEST_IDS } from "@/shared/presentation/testIds";
-import { Sheet, SheetContent, SheetTitle } from "@/shared/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/shared/ui/sheet";
 import {
   resolveShopTheme,
   resolveShopBrandStyle,
@@ -44,6 +44,7 @@ import {
   resolveBrandBannerBackground,
   resolveHeroTagline,
   resolveCartLabel,
+  resolveAccountLabel,
 } from "@/modules/shops/ui/storefront/ShopLayout.helpers";
 
 interface GammePill {
@@ -343,7 +344,7 @@ export function ShopLayout({
           <button
             type="button"
             onClick={() => onView("account")}
-            aria-label={storefrontSession ? `Compte de ${storefrontSession.customer.fullName}` : "Compte boutique"}
+            aria-label={resolveAccountLabel(storefrontSession)}
             className={`inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13px] ${
               isDark ? "text-gray-300 hover:bg-gray-800" : "text-ink-2 hover:bg-bg"
             }`}
@@ -515,6 +516,9 @@ export function ShopLayout({
                 </span>
               )}
             </SheetTitle>
+            <SheetDescription className="sr-only">
+              Articles de votre panier et total de la commande.
+            </SheetDescription>
             <button
               type="button"
               onClick={() => setCartOpen(false)}

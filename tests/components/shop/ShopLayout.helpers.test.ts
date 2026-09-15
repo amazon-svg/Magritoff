@@ -14,6 +14,7 @@ import {
   shouldRenderBrandBanner,
   resolveBrandBannerBackground,
   resolveCartLabel,
+  resolveAccountLabel,
 } from "@/modules/shops/ui/storefront/ShopLayout.helpers";
 
 describe("resolveShopTheme — AC2 S2.1 dark par defaut", () => {
@@ -283,5 +284,50 @@ describe('resolveCartLabel (S7.7 — montant panier header, décision D3)', () =
   });
   it('valeurs non finies défensives', () => {
     expect(resolveCartLabel(Number.NaN, Number.POSITIVE_INFINITY)).toBe('Panier');
+  });
+});
+
+describe('resolveAccountLabel (BCP-9 — CONVENTIONS §8.25 5.5)', () => {
+  it('sans session -> "Compte boutique" (inchangé)', () => {
+    expect(resolveAccountLabel(null)).toBe('Compte boutique');
+    expect(resolveAccountLabel(undefined)).toBe('Compte boutique');
+  });
+
+  it('avec session -> "Mon compte (FullName)"', () => {
+    expect(resolveAccountLabel({ customer: { fullName: 'Camille Dupont' } })).toBe(
+      'Mon compte (Camille Dupont)',
+    );
+  });
+
+  it('corrige le défaut d élision pour tout nom commençant par une voyelle', () => {
+    // Ancien format : `Compte de ${fullName}` -> "Compte de Aline" (faute).
+    // Le nouveau format ne construit plus de "de" : le défaut disparaît.
+    expect(resolveAccountLabel({ customer: { fullName: 'Aline Petit' } })).toBe(
+      'Mon compte (Aline Petit)',
+    );
+    expect(resolveAccountLabel({ customer: { fullName: 'acheteur test' } })).toBe(
+      'Mon compte (acheteur test)',
+    );
+  });
+
+  it('n affiche jamais l email ni un identifiant, seulement fullName', () => {
+    const label = resolveAccountLabel({
+      customer: { fullName: 'Camille Dupont', email: 'camille@example.com', id: 'uuid-1' } as any,
+    });
+    expect(label).not.toContain('@');
+    expect(label).not.toContain('uuid-1');
+  });
+
+  it('session présente mais fullName vide/blanc -> repli "Mon compte" sans parenthèse vide', () => {
+    expect(resolveAccountLabel({ customer: { fullName: '' } })).toBe('Mon compte');
+    expect(resolveAccountLabel({ customer: { fullName: '   ' } })).toBe('Mon compte');
+    expect(resolveAccountLabel({ customer: { fullName: null } })).toBe('Mon compte');
+    expect(resolveAccountLabel({ customer: undefined })).toBe('Mon compte');
+  });
+
+  it('trim défensif des espaces superflus', () => {
+    expect(resolveAccountLabel({ customer: { fullName: '  Camille Dupont  ' } })).toBe(
+      'Mon compte (Camille Dupont)',
+    );
   });
 });
