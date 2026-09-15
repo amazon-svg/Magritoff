@@ -191,9 +191,20 @@ begin
     end if;
 
     if v_window_kind = 'civil_day' then
-      -- Jour civil du fuseau configure — formule opposable du cadrage
-      -- (point (2)) : `date_trunc('day', p_now at time zone <tz>)`.
-      v_window_start := date_trunc('day', p_now at time zone v_civil_tz);
+      -- Jour civil du fuseau configure. qa-review round 1 (défaut bas #6) :
+      -- `date_trunc('day', p_now at time zone v_civil_tz)` SEUL rend un
+      -- horodatage SANS fuseau (minuit Paris en heure locale), qui serait
+      -- ensuite réinterprété selon le `TimeZone` DE LA SESSION appelante au
+      -- moment de son affectation à `v_window_start` (`timestamptz`) — une
+      -- session en `UTC` et une session à `America/New_York` calculeraient
+      -- alors DEUX INSTANTS ABSOLUS DIFFÉRENTS pour le MÊME jour civil
+      -- Paris, donc DEUX LIGNES DE COMPTEUR au lieu d'une. La seconde
+      -- conversion, `at time zone v_civil_tz`, réinterprète EXPLICITEMENT
+      -- cet horodatage nu COMME du Paris local (peu importe le fuseau de la
+      -- session), et rend le VRAI instant UTC de minuit Paris — même patron
+      -- que `(v_created_from::timestamp at time zone 'Europe/Paris')`
+      -- (migration `20260913000000`, E10.18c).
+      v_window_start := (date_trunc('day', p_now at time zone v_civil_tz)) at time zone v_civil_tz;
     else
       -- Fenetre fixe, alignee sur les multiples de sa duree (epoch), DST-safe
       -- par construction (arithmetique UTC pure).

@@ -20,7 +20,32 @@ import { defineJsonRoute, type ApiRequestContext, type ApiRoute } from './routes
  */
 const CLIENT_IP_HEADER = 'cf-connecting-ip';
 
-export type ClariprintRateLimitEvent = 'client_ip_missing' | 'ip_hmac_secret_missing';
+/**
+ * qa-review round 1 — recette (11) : chaque refus, et chaque panne du
+ * limiteur, doit se journaliser. C'EST LE SEUL PORT DE JOURNALISATION de ce
+ * lot (celui déjà posé pour `client_ip_missing`/`ip_hmac_secret_missing`),
+ * élargi plutôt que doublé — la façade historique n'a pas d'autre
+ * mécanisme de journal structuré pour un refus INTENTIONNEL (429/503) :
+ * `onUnexpectedError` (`api-v1-handler.ts`) ne sert qu'aux erreurs NON
+ * gérées (500), jamais atteint ici puisque `ApiHttpError` est rattrapée
+ * avant lui.
+ *
+ * `key` est déjà la forme stockée (`ip:<hmac hex>`, `account:<uuid>`,
+ * `user:<uuid>` ou `shared`) : jamais une IP ni un identifiant en clair,
+ * au plus la clé déjà hachée/préfixée qui sert au budget lui-même.
+ */
+export type ClariprintRateLimitLogEvent =
+  | Readonly<{ event: 'client_ip_missing' }>
+  | Readonly<{ event: 'ip_hmac_secret_missing' }>
+  | Readonly<{
+      event: 'refused';
+      requestId: string;
+      /** L1 (`visitor`), L3 (`public`) ou l'étage atelier (`member`). */
+      scope: 'visitor' | 'member' | 'public';
+      callerKind: 'visitor' | 'member';
+      key: string;
+    }>
+  | Readonly<{ event: 'unavailable'; requestId: string; reason: string }>;
 
 export type ClariprintQuoteCallerDependencies = Readonly<{
   /**
@@ -39,7 +64,7 @@ export type ClariprintQuoteCallerDependencies = Readonly<{
    * anonymes, clé partagée, jamais l'IP en clair.
    */
   ipHmacSecret: string | null;
-  onRateLimitEvent: (event: ClariprintRateLimitEvent) => void;
+  onRateLimitEvent: (event: ClariprintRateLimitLogEvent) => void;
 }>;
 
 export function createClariprintRoutes(
@@ -54,12 +79,39 @@ export function createClariprintRoutes(
       inputSchema: clariprintQuoteCommandSchema,
       outputSchema: clariprintQuoteResultSchema,
       async handle(context, command) {
+        // Capturée pour le journal du `catch` (qa-review recette 11) : un
+        // refus doit journaliser QUI a été refusé (portée + type d'appelant
+        // + clé déjà hachée), pas seulement le fait du refus.
+        let caller: ClariprintQuoteCaller | undefined;
         try {
-          const caller = await resolveClariprintQuoteCaller(context, callerDependencies);
+          caller = await resolveClariprintQuoteCaller(context, callerDependencies);
           return { status: 200, body: await service.quote(command, caller) };
         } catch (error) {
-          if (error instanceof ClariprintQuoteRateLimitedError) throw toRateLimitHttpError(error);
-          if (error instanceof ClariprintQuoteBudgetUnavailableError) throw budgetUnavailableHttpError();
+          if (error instanceof ClariprintQuoteRateLimitedError) {
+            if (caller) {
+              callerDependencies.onRateLimitEvent({
+                event: 'refused',
+                requestId: context.requestId,
+                scope: error.refusedScope,
+                callerKind: caller.kind,
+                key: caller.key,
+              });
+            }
+            throw toRateLimitHttpError(error);
+          }
+          if (error instanceof ClariprintQuoteBudgetUnavailableError) {
+            // qa-review round 1 — recette (11) : AVANT ce correctif, cette
+            // cause était avalée (503 rendu, aucune ligne de journal). Sans
+            // elle, un déploiement de `magrit-api` AVANT la migration
+            // refuserait tous les chiffrages sans qu'aucun journal ne le
+            // montre.
+            callerDependencies.onRateLimitEvent({
+              event: 'unavailable',
+              requestId: context.requestId,
+              reason: error.message,
+            });
+            throw budgetUnavailableHttpError();
+          }
           throw error;
         }
       },
@@ -98,12 +150,12 @@ async function resolveClariprintQuoteCaller(
 
   const ipResolution = resolveClientIp(context.request.headers.get(CLIENT_IP_HEADER));
   if (!ipResolution.ok) {
-    deps.onRateLimitEvent('client_ip_missing');
+    deps.onRateLimitEvent({ event: 'client_ip_missing' });
     return { kind: 'visitor', key: 'shared' };
   }
 
   if (!deps.ipHmacSecret) {
-    deps.onRateLimitEvent('ip_hmac_secret_missing');
+    deps.onRateLimitEvent({ event: 'ip_hmac_secret_missing' });
     return { kind: 'visitor', key: 'shared' };
   }
 

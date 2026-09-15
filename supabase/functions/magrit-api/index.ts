@@ -626,8 +626,24 @@ export async function handleRequest(request: Request): Promise<Response> {
       clariprint: clariprintService,
       clariprintIsMember: (userId: string) => clariprintMembershipGateway.isMember(userId),
       clariprintIpHmacSecret: Deno.env.get('MAGRIT_RATE_LIMIT_IP_HMAC_SECRET') ?? null,
+      // qa-review round 1 (recette 11) : chaque refus (429/503 public) ET
+      // chaque panne du limiteur (503 clariprint.unavailable) sont
+      // desormais journalises ici, par le MEME port que
+      // client_ip_missing/ip_hmac_secret_missing — aucun second mecanisme
+      // de journal cree. Jamais d IP ni d identifiant en clair : `key` est
+      // deja la forme stockee (hachee/prefixee) que porte le budget.
       clariprintOnRateLimitEvent: (event) => {
-        console.error(`[magrit-api] rate_limit.${event}`);
+        if (event.event === 'refused') {
+          console.warn(
+            `[magrit-api] rate_limit.refused request_id=${event.requestId} scope=${event.scope} caller_kind=${event.callerKind} key=${event.key}`,
+          );
+          return;
+        }
+        if (event.event === 'unavailable') {
+          console.error(`[magrit-api] rate_limit.unavailable request_id=${event.requestId} reason=${event.reason}`);
+          return;
+        }
+        console.error(`[magrit-api] rate_limit.${event.event}`);
       },
       quoteTemplates: quoteTemplatesService,
       libraries: librariesService,

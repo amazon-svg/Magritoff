@@ -53,7 +53,7 @@ import { createAssistantRoutes, type StorefrontEditorialAuthorizer } from './ass
 import { createCatalogRoutes } from './catalog-routes.ts';
 import {
   createClariprintRoutes,
-  type ClariprintRateLimitEvent,
+  type ClariprintRateLimitLogEvent,
 } from './clariprint-routes.ts';
 import { createCommercialRoutes } from './commercial-routes.ts';
 import { createConversationsRoutes } from './conversations-routes.ts';
@@ -100,7 +100,7 @@ export type LegacyApiServices = Readonly<{
   /** BCP-0b (docs/api/CONVENTIONS.md §8.25 point 2.3bis) — dépendances du limiteur de débit de la route Clariprint historique. */
   clariprintIsMember: (userId: string) => Promise<boolean>;
   clariprintIpHmacSecret: string | null;
-  clariprintOnRateLimitEvent: (event: ClariprintRateLimitEvent) => void;
+  clariprintOnRateLimitEvent: (event: ClariprintRateLimitLogEvent) => void;
   quoteTemplates: QuoteTemplatesService;
   libraries: LibrariesService;
   libraryProducts: LibraryProductsService;
