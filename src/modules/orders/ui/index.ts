@@ -1,5 +1,6 @@
 export { CartButton } from './components/CartButton';
 export { DEFAULT_TAX_RATE, applyTax, extractTaxAmount, formatTaxLabel, getTaxRate } from './helpers/tax';
+export { getOrderStatusLegendLabels } from './helpers/orderStatus';
 export { useStorefrontOrderLifecycle } from './hooks/useStorefrontOrderLifecycle';
 export { CartProvider, useCart } from './runtime/CartContext';
 export type { CartProduct } from './runtime/CartContext';

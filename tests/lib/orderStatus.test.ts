@@ -12,6 +12,7 @@ import {
   ORDER_STATUSES_TERMINAL,
   ORDER_STATUSES_LEGACY,
   getStatusInfo,
+  getOrderStatusLegendLabels,
   labelToStatus,
   type OrderStatus,
 } from "@/modules/orders/ui/helpers/orderStatus";
@@ -97,5 +98,32 @@ describe("orderStatus / labelToStatus", () => {
   it("retourne null pour label inconnu", () => {
     expect(labelToStatus("Statut Inexistant")).toBeNull();
     expect(labelToStatus("")).toBeNull();
+  });
+});
+
+describe("orderStatus / getOrderStatusLegendLabels", () => {
+  // BCP-5 (docs/api/CONVENTIONS.md §8.25 point 5.1(c), arbitrage architecte
+  // 2026-09-15) : exactement les 7 statuts tenant_orders v1.1, dans l'ordre
+  // du flux puis des statuts terminaux, sans les statuts hérités
+  // shop_orders (`pending`, `approved`). C'est le motif exact qui a
+  // remplacé la phrase codée en dur d'OrderRolesPage.tsx (8 items, dont un
+  // fantôme).
+  it("retourne exactement les 7 libellés canoniques, dans l'ordre du flux puis des statuts terminaux", () => {
+    expect(getOrderStatusLegendLabels()).toEqual([
+      "En attente de validation",
+      "Validée",
+      "En production",
+      "Expédiée",
+      "Livrée",
+      "Facturée",
+      "Annulée",
+    ]);
+  });
+
+  it("ne contient ni les statuts hérités shop_orders ni de doublon", () => {
+    const labels = getOrderStatusLegendLabels();
+    expect(labels).toHaveLength(7);
+    expect(new Set(labels).size).toBe(7);
+    expect(labels).not.toContain(STATUS_LABELS.pending.label);
   });
 });

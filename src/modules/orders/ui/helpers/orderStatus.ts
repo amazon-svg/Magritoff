@@ -138,6 +138,23 @@ export function getStatusInfo(status: string): OrderStatusInfo {
 }
 
 /**
+ * Libellés de statut de commande dans l'ordre du flux puis des statuts
+ * terminaux, SANS les statuts hérités `shop_orders` (`pending`, `approved`).
+ *
+ * BCP-5 (docs/api/CONVENTIONS.md §8.25 point 5.1(c), arbitrage architecte
+ * 2026-09-15) : tout écran qui affiche « la liste des statuts » (ex.
+ * `OrderRolesPage`) la tire d'ici, jamais d'une phrase écrite en dur — c'est
+ * ce qui a laissé passer un huitième item fantôme (vestige du
+ * `pending_validation` de maquette, jamais créé par S-ORDER-ROLES) dans
+ * `OrderRolesPage.tsx`.
+ */
+export function getOrderStatusLegendLabels(): string[] {
+  return [...ORDER_STATUSES_WORKFLOW, ...ORDER_STATUSES_TERMINAL].map(
+    (status) => STATUS_LABELS[status].label,
+  );
+}
+
+/**
  * Mapping inverse label UI → status enum (pour parsing input filtre).
  * Si plusieurs statuts partagent le même label (ex: "Validée" → `validated`
  * ou `approved` legacy), retourne le premier match dans l'ordre déclaré.

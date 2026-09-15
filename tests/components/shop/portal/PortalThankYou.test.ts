@@ -20,6 +20,15 @@ describe('PortalThankYou — libellé de remerciement (BCP-5)', () => {
     expect(source).toContain("Commande transmise — en attente de validation par l'imprimeur");
     expect(source).not.toContain('Commande confirmée');
   });
+
+  // Écart remonté puis tranché par Arnaud : "Vous recevrez un email de
+  // confirmation" est FAUX partout où la phrase apparaît, pas seulement
+  // dans le panier (send-order-notification n'écrit qu'aux administrateurs
+  // du tenant). Supprimée ici aussi, pas reformulée.
+  it('ne promet plus un email de confirmation à l acheteur', () => {
+    expect(source).not.toContain('email de confirmation');
+    expect(source).not.toContain('sera envoyé prochainement');
+  });
 });
 
 describe('formatShortOrderId', () => {

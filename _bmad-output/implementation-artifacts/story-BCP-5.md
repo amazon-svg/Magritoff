@@ -21,11 +21,25 @@ Décisions d'Arnaud opposables, reprises telles quelles :
 - Écran de remerciement : « Commande transmise — en attente de validation par
   l'imprimeur » remplace « Commande confirmée ».
 - « Vous recevrez un email de confirmation. » est FAUX (`send-order-notification`
-  n'écrit qu'aux administrateurs du tenant) : SUPPRIMÉ, pas reformulé.
+  n'écrit qu'aux administrateurs du tenant) : SUPPRIMÉ, pas reformulé —
+  **partout où la phrase apparaît**, pas seulement dans le panier (décision
+  du coordinateur, suite à l'écart remonté sur `PortalThankYou.tsx:120`).
 - Textes du panier (`PortalCart.tsx:417,428`) et libellé du badge « Prix
   marché » (`PortalCart.tsx:349`) corrigés selon §8.25.
 - Hors périmètre : budget factice et « Livraison : Siège social » (lot 8,
   Q5 non tranchée), dimensions et finitions (lot 7).
+
+**Deux rounds de suite, après l'implémentation initiale :**
+1. Le coordinateur a demandé la suppression de la même fausse promesse
+   d'email dans `PortalThankYou.tsx:120` (hors du point 5.1 littéral, mais
+   sous la même règle), plus une recherche exhaustive de promesses
+   similaires dans `src/modules/orders/ui/storefront` et
+   `src/modules/shops/ui/storefront`.
+2. L'architecte a tranché l'écart remonté sur `OrderRolesPage.tsx:578` (voir
+   arbitrage cité au point 5.1, section « (a) »–« (c) ») : le huitième item
+   était un vestige sans statut réel, RETIRÉ, et l'écran lit désormais la
+   table unique via un helper pur (`getOrderStatusLegendLabels()`). La garde
+   d'architecture est étendue en conséquence.
 
 ## Critères d'acceptation — un par un
 
@@ -36,12 +50,15 @@ Décisions d'Arnaud opposables, reprises telles quelles :
 | 3 | `orderAuditTrail.helpers.ts` (STATUS_LABELS_FR) devient un import/dérivé | **Fait** | `formatAuditEventTitle` appelle `getStatusInfo(...).label` ; `tests/server/order_audit_trail.test.ts` (« Statut : En attente de validation → Validée ») |
 | 4 | `ResumeBanner.tsx` (STATUS_LABELS en ligne) reste une forme DÉRIVÉE, pas une seconde table | **Fait** | `statusLabel()` dérive `getStatusInfo(status).label` (minuscule initiale) ; `tests/components/shop/portal/resumeBanner.helpers.test.ts` (nouveau cas `draft` → contient « en attente de validation », pas « brouillon ») |
 | 5 | Un test échoue si une seconde table de libellés de statut réapparaît sous `src/modules/orders/` | **Fait** | `tests/architecture/order-status-single-source.test.ts` (nouveau). Preuve d'échec sur l'ancien code : rejoué contre les 3 anciennes versions des fichiers via `git show HEAD:...` — `ResumeBanner.tsx` (6 clés), `PortalOrders.helpers.ts` (7 clés), `orderAuditTrail.helpers.ts` (7 clés) étaient tous les trois en défaut |
-| 6 | Q1 : l'atelier voit le même mot que l'acheteur (`ValidateOrderConfirmDialog`, `orderValidation.helpers`, `orderCancellation.helpers`, `PortalOrderEditor`, infobulle `OrderHistoryTable`) | **Fait, sauf `OrderRolesPage.tsx:578` — voir « Écart remonté »** | Détail par fichier ci-dessous |
+| 6 | Q1 : l'atelier voit le même mot que l'acheteur (`ValidateOrderConfirmDialog`, `orderValidation.helpers`, `orderCancellation.helpers`, `PortalOrderEditor`, infobulle `OrderHistoryTable`) | **Fait** | Détail par fichier ci-dessous |
 | 7 | Écran de remerciement : « Commande transmise — en attente de validation par l'imprimeur » | **Fait** | `PortalThankYou.tsx:90` ; `tests/components/shop/portal/PortalThankYou.test.ts` (nouveau describe, `toContain`/`not.toContain`) |
 | 8 | Panier : « Vous recevrez un email de confirmation. » supprimé, pas reformulé | **Fait** | `PortalCart.tsx` (bloc retiré) ; `tests/components/shop/portal/PortalCart.text.test.ts` (nouveau) |
 | 9 | Panier : nouveau texte « Votre commande sera transmise à l'imprimeur, qui la validera. », infobulle N+1 retirée | **Fait** | `PortalCart.tsx:428` (ancien numéro de ligne) ; même test |
 | 10 | Panier : badge Prix marché reformulé, sans mention Clariprint | **Fait** | `PortalCart.tsx:349` (ancien numéro de ligne) ; même test |
 | 11 | Hors périmètre : budget factice, « Livraison : Siège social », dimensions/finitions | **Respecté — non touché** | Vérifié négativement : `budget`, `BudgetInfo`, `Livraison : Siège social`, `formatDimensionsMm` absents du diff |
+| 12 | Même fausse promesse d'email retirée partout où elle apparaît, pas seulement dans le panier | **Fait** | `PortalThankYou.tsx:120` (bandeau retiré) ; recherche `grep` exhaustive sur `src/modules/orders/ui/storefront` et `src/modules/shops/ui/storefront` (aucune autre occurrence buyer-facing, une seule trouvée et traitée) ; `tests/components/shop/portal/PortalThankYou.test.ts` (nouveau cas) |
+| 13 | `OrderRolesPage.tsx:578` : huitième item fantôme retiré, liste tirée de la table unique | **Fait (arbitrage architecte)** | `getOrderStatusLegendLabels()` dans `orderStatus.ts`, publié par `orders/ui/index.ts`, consommé par `OrderRolesPage.tsx` ; `tests/lib/orderStatus.test.ts` (2 nouveaux cas), `tests/modules/roles/OrderRolesPage.text.test.ts` (nouveau) |
+| 14 | Garde d'architecture étendue : refuse aussi un libellé de statut écrit en dur (forme légende/phrase), sous `src/modules/orders/` ET `src/modules/roles/` | **Fait** | `tests/architecture/order-status-single-source.test.ts` (2e `it`, nouveau) — preuve d'échec exécutée sur l'ancien `OrderRolesPage.tsx` (7 libellés détectés) |
 
 ## Ce qui est livré, fichier par fichier
 
@@ -58,6 +75,10 @@ Décisions d'Arnaud opposables, reprises telles quelles :
 | `src/modules/orders/ui/storefront/OrderHistoryTable.tsx:1121` | Infobulle bouton Éditer : « (statut brouillon uniquement) » → « (en attente de validation uniquement) ». |
 | `src/modules/orders/ui/storefront/PortalThankYou.tsx:90` | « Commande confirmée » → « Commande transmise — en attente de validation par l'imprimeur ». Vérifié (comme l'exige le cadrage) : seul l'admin du tenant fait passer `draft` → `validated` (`20260509000100_e1_orders_v1_1.sql:247`, PRD FR49) ; `PortalOrders.tsx:7` confirme que la validation reste interne. |
 | `src/modules/orders/ui/storefront/PortalCart.tsx` | (a) Badge Prix marché reformulé, mention Clariprint retirée. (b) Paragraphe « Vous recevrez un email de confirmation. » retiré entièrement (pas reformulé). (c) « Envoi direct atelier · Validation hiérarchique à venir. » + son infobulle retirés, remplacés par « Votre commande sera transmise à l'imprimeur, qui la validera. » sans infobulle. |
+| `src/modules/orders/ui/storefront/PortalThankYou.tsx:120` (2e round) | Bandeau « Un email de confirmation sera envoyé prochainement à {email}. » retiré entièrement (pas reformulé) — même défaut que `PortalCart.tsx:417`, décidé applicable partout où la phrase apparaît. `userEmail` reste dans `Props` (signature du caller `PublicShop.tsx` inchangée) mais n'est plus affiché. |
+| `src/modules/orders/ui/helpers/orderStatus.ts` (3e round) | Nouvel export `getOrderStatusLegendLabels()` : les 7 libellés canoniques (workflow + terminal, sans `pending`/`approved`), dans l'ordre du flux. |
+| `src/modules/orders/ui/index.ts` (3e round) | Publie `getOrderStatusLegendLabels` (même discipline que `helpers/tax`), pour un import inter-module conforme à `modular-ui-boundaries.test.ts`. |
+| `src/modules/roles/ui/workspace/OrderRolesPage.tsx:578` (3e round, arbitrage architecte) | Phrase en dur « Brouillon · En attente de validation · Validée · En production · Expédiée · Livrée · Facturée · Annulée » (8 items, dont un fantôme) → `{getOrderStatusLegendLabels().join(' · ')}` (7 items, tirés de la table unique). |
 
 ## Tests
 
@@ -66,53 +87,60 @@ Décisions d'Arnaud opposables, reprises telles quelles :
 - `tests/components/shop/portal/orderValidation.helpers.test.ts` et `orderCancellation.helpers.test.ts` — assertions de message d'erreur mises à jour.
 - `tests/components/shop/portal/resumeBanner.helpers.test.ts` — nouveau cas `draft` prouvant la dérivation depuis la table unique.
 - `tests/architecture/order-status-single-source.test.ts` (nouveau) — interdit toute seconde table de libellés de statut sous `src/modules/orders/ui/` (heuristique : ≥3 clés de statut canoniques comme clés d'objet littéral hors `orderStatus.ts`).
-- `tests/components/shop/portal/PortalThankYou.test.ts` (étendu), `PortalCart.text.test.ts`, `ValidateOrderConfirmDialog.text.test.ts`, `PortalOrderEditor.text.test.ts`, `OrderHistoryTable.text.test.ts` (nouveaux) — lecture de source (`readFileSync`), pattern déjà en usage dans ce dépôt pour les textes JSX (ex. `StorefrontUnavailable.test.ts`), puisque `@testing-library/react` est absent du dépôt et qu'aucun composant n'y est rendu en test.
+- `tests/components/shop/portal/PortalThankYou.test.ts` (étendu ×2), `PortalCart.text.test.ts`, `ValidateOrderConfirmDialog.text.test.ts`, `PortalOrderEditor.text.test.ts`, `OrderHistoryTable.text.test.ts` (nouveaux) — lecture de source (`readFileSync`), pattern déjà en usage dans ce dépôt pour les textes JSX (ex. `StorefrontUnavailable.test.ts`), puisque `@testing-library/react` est absent du dépôt et qu'aucun composant n'y est rendu en test.
+- `tests/modules/roles/OrderRolesPage.text.test.ts` (nouveau, 3e round) — même pattern, vérifie l'appel à `getOrderStatusLegendLabels()` et l'absence de la phrase en dur.
+- `tests/lib/orderStatus.test.ts` (étendu, 3e round) — `getOrderStatusLegendLabels()` retourne exactement les 7 libellés canoniques, dans l'ordre, sans doublon ni statut hérité.
+- `tests/architecture/order-status-single-source.test.ts` (étendu, 3e round) — 2e `it` : refuse toute énumération en dur de ≥3 libellés canoniques (VALEURS, pas seulement clés), sous `src/modules/orders/` ET `src/modules/roles/` (portée élargie ; le 1er `it` ne couvrait que `src/modules/orders/ui/` et la forme « table à clés »).
 
-**Preuve d'échec sur l'ancien code (exigée par la règle du mandat) :**
-- `tests/architecture/order-status-single-source.test.ts` : rejoué contre le contenu `git show HEAD:...` des 3 anciens fichiers (avant tout changement de cette story) — `ResumeBanner.tsx` (6 clés de statut en dur), `PortalOrders.helpers.ts` (7 clés), `orderAuditTrail.helpers.ts` (7 clés) déclenchaient tous les trois le seuil de détection (≥3). Après la story, 0 fichier hors `orderStatus.ts` ne déclenche le seuil.
-- **Exécution réelle, tous les fichiers source à la fois** : les 11 fichiers source modifiés ont été remis un par un au contenu `git show HEAD:<fichier>` (pré-story), puis les 12 fichiers de test concernés ont été rejoués ensemble. Résultat : **11 fichiers de test sur 12 échouent, 14 assertions en échec** (`orderStatus.test.ts` ×2, `order_audit_trail.test.ts`, `orderCancellation.helpers.test.ts`, `orderValidation.helpers.test.ts`, `resumeBanner.helpers.test.ts`, et les 5 tests de source neufs `PortalThankYou`, `PortalCart.text`, `ValidateOrderConfirmDialog.text`, `PortalOrderEditor.text`, `OrderHistoryTable.text` — seul `PortalOrders.helpers.test.ts` reste vert, car son assertion pré-existante ne fixait qu'un label non vide, pas le texte exact). Les 11 fichiers source ont ensuite été restaurés à leur contenu de cette story, et l'intégralité des gates (`typecheck`, `pnpm test`, `test:contract`, `test:architecture`) rejouée au vert (section suivante).
+**Preuve d'échec sur l'ancien code (exigée par la règle du mandat), en 3 vagues, chacune exécutée puis restaurée à l'identique (diff vérifié inchangé après restauration) :**
+- **1re vague (round initial)** : `tests/architecture/order-status-single-source.test.ts` (1er `it`) rejoué contre le contenu `git show HEAD:...` des 3 anciens fichiers — `ResumeBanner.tsx` (6 clés), `PortalOrders.helpers.ts` (7 clés), `orderAuditTrail.helpers.ts` (7 clés) déclenchaient tous les trois le seuil (≥3). Puis les 11 fichiers source de ce round remis ensemble au contenu pré-story et les 12 fichiers de test rejoués : **11 fichiers de test sur 12 échouent, 14 assertions en échec**.
+- **2e vague (retrait de `PortalThankYou.tsx:120`)** : `PortalThankYou.tsx` remis au contenu `git show HEAD:...` (post-1re-vague, donc avec le bandeau email encore présent) ; `tests/components/shop/portal/PortalThankYou.test.ts` rejoué : le nouveau cas (« ne promet plus un email de confirmation ») **échoue**, les autres passent.
+- **3e vague (`OrderRolesPage.tsx:578`)** : `OrderRolesPage.tsx` remis au contenu `git show HEAD:...` (phrase de 8 items) ; `tests/architecture/order-status-single-source.test.ts` (2e `it`, nouveau) **échoue** en détectant les 7 libellés canoniques dans la phrase.
+- Après chaque vague, le fichier a été restauré à son contenu de cette story (`git diff --stat` comparé avant/après pour confirmer l'identité), puis l'intégralité des gates rejouée au vert (section suivante, chiffres finaux).
 
-## Gates
+## Gates (chiffres finaux, après les 3 vagues)
 
 - `pnpm typecheck` : **vert**.
-- Vitest ciblé (tests listés ci-dessus, 13 fichiers) : **96 passed | 3 skipped**.
-- `pnpm test` (suite complète) : **2842 passed | 86 skipped**, 290 fichiers.
+- Vitest ciblé (17 fichiers listés ci-dessus) : **97 passed | 3 skipped**.
+- `pnpm test` (suite complète) : **2848 passed | 86 skipped**, 291 fichiers.
 - `pnpm test:contract` : **432 passed** (23 fichiers) — aucun contrat touché par cette story (aucun endpoint modifié), rejoué par prudence.
-- `pnpm test:architecture` : **194 passed** (43 fichiers), nouveau test inclus.
+- `pnpm test:architecture` : **195 passed** (43 fichiers), les 2 `it` du test étendu inclus.
 
-## Écart remonté — pas tranché en silence
+## Écarts remontés, puis résolus dans ce même worktree
 
-**`OrderRolesPage.tsx:578`** (bloc « Statuts personnalisés de commande »,
-placeholder V2, lecture seule) contient déjà, AVANT cette story, la
-séquence : « Brouillon · **En attente de validation** · Validée · En
-production · Expédiée · Livrée · Facturée · Annulée » (8 items pour 7
-statuts canoniques). Le cadrage cite ce fichier/ligne comme suivant le même
-renommage que les autres textes nommant « Brouillon ». Appliqué littéralement,
-le renommage produirait un doublon adjacent : « En attente de validation ·
-En attente de validation · Validée · … ».
+**`OrderRolesPage.tsx:578` — RÉSOLU par arbitrage architecte (§8.25 point 5.1,
+« Arbitrage de l'architecte »).** Le huitième item (« Brouillon » +
+« En attente de validation » adjacents) ne représentait AUCUN statut réel :
+vestige du `pending_validation` de la maquette de Sally, jamais créé par
+S-ORDER-ROLES (migration `20260609000200`, l. 20-21). Retiré, pas renommé.
+L'écran lit désormais la table unique via `getOrderStatusLegendLabels()`
+(nouveau, `orderStatus.ts`, publié par `orders/ui/index.ts`) — la liste
+rendue est maintenant : « En attente de validation · Validée · En
+production · Expédiée · Livrée · Facturée · Annulée » (7 items, 0 doublon).
+La garde d'architecture est étendue pour refuser toute future récidive de ce
+type (une énumération de labels écrite en dur), sous `src/modules/orders/`
+ET `src/modules/roles/`.
 
-Hypothèse la plus probable : le second item anticipait déjà, depuis la
-création de la page (`S-ORDER-ROLES-3-UI`, Sprint 6, statut d'approbation
-N+1), un futur statut distinct (`pending_approval_n1`) sous le même
-intitulé français que celui que Q1 réutilise aujourd'hui pour `draft` — pure
-coïncidence de vocabulaire entre deux statuts différents, pas une erreur de
-saisie évidente à corriger sans arbitrage.
+**`PortalThankYou.tsx:120` — RÉSOLU par décision du coordinateur.** Même
+défaut que `PortalCart.tsx:417` (`send-order-notification` n'écrit qu'aux
+administrateurs du tenant, jamais à l'acheteur). Le bandeau « Un email de
+confirmation sera envoyé prochainement à {email}. » est retiré entièrement,
+pas reformulé — la règle vaut partout où la phrase apparaît, pas seulement
+dans le point 5.1 littéral (qui ne citait que la ligne 90 du même fichier).
+Recherche `grep` exhaustive menée sur `src/modules/orders/ui/storefront` et
+`src/modules/shops/ui/storefront` (variantes « recevrez », « email/e-mail
+de confirmation », « sera envoyé », « courriel », « notifi… ») : aucune
+autre occurrence buyer-facing trouvée.
 
-**Décision prise : ne pas toucher ce fichier.** Un doublon visible dans un
-placeholder « lecture seule — édition à venir » est un défaut mineur, mais
-il est facilement identifiable a posteriori et sa correction dépend d'un
-fait que je n'ai pas (le second item désigne-t-il vraiment un état futur
-distinct, ou est-ce une redite à supprimer ?). Remonté à l'architecte /
-Arnaud pour arbitrage avant toute édition de ce fichier.
-
-**Constat additionnel, également remonté :** `PortalThankYou.tsx:120`
-affiche « Un email de confirmation sera envoyé prochainement à {email}. »
-— la même promesse fausse que celle retirée de `PortalCart.tsx:417`
-(`send-order-notification` n'écrit qu'aux administrateurs du tenant,
-constat 1(6) du cadrage). Cette ligne n'est PAS citée par le point 5.1 du
-cadrage (qui ne nomme que `PortalThankYou.tsx:90`), donc non touchée par
-cette story — mais elle porte le même défaut et mérite un arbitrage
-explicite (probable BCP-5 bis, ou ajout au point 5.1).
+**Point signalé, non modifié (doute assumé, pas tranché en silence) :**
+`RejectOrderConfirmDialog.tsx:9` (commentaire) et son texte visible
+(« l'auteur sera prévenu de votre refus ») évoquent une « Notification
+Resend déclenchée vers l'auteur (notify_policy du rôle) ». C'est un
+mécanisme distinct de `send-order-notification` (workflow N+1 refus,
+Sprint 6+, hors panier/remerciement), et « l'auteur » d'une commande n'est
+pas nécessairement l'acheteur boutique — peut être un utilisateur atelier.
+Sans certitude sur l'exactitude de cette promesse ni sur son destinataire
+réel, elle n'a PAS été modifiée ; à vérifier séparément si jugé pertinent.
 
 ## Ce qui n'est PAS dans le périmètre
 
@@ -142,6 +170,9 @@ explicite (probable BCP-5 bis, ou ajout au point 5.1).
 3. Sur l'écran de remerciement (`data-testid="shop-thank-you-page"`) :
    - Vérifier le titre « Commande transmise — en attente de validation par
      l'imprimeur » (et l'absence de « Commande confirmée »).
+   - Vérifier l'ABSENCE totale du bandeau « Un email de confirmation sera
+     envoyé prochainement à … » (retiré en 2e round, pas reformulé) : rien
+     ne doit promettre un email à l'acheteur nulle part sur cet écran.
 4. Aller sur « Mes commandes » (`PortalOrders`) :
    - Vérifier que la commande qui vient d'être créée affiche le badge
      « En attente de validation » (et non « Brouillon »).
@@ -167,10 +198,12 @@ explicite (probable BCP-5 bis, ou ajout au point 5.1).
 9. Ouvrir l'historique d'audit de la commande (`orderAuditTrail`) : vérifier
    la ligne « Statut : En attente de validation → Validée » après
    validation.
-10. Sur la page des rôles de commande (`OrderRolesPage`) : noter, sans agir
-    (écart remonté ci-dessus), que le bloc « Statuts personnalisés de
-    commande » affiche toujours « Brouillon · En attente de validation ·
-    … » — signaler à l'architecte si ce doublon visible gêne la recette.
+10. Sur la page des rôles de commande (`/t/:tenantSlug/dashboard/order-roles`,
+    `OrderRolesPage`, bloc « Statuts personnalisés de commande — Lecture
+    seule ») : vérifier que la liste affiche EXACTEMENT « En attente de
+    validation · Validée · En production · Expédiée · Livrée · Facturée ·
+    Annulée » (7 items) — sans « Brouillon », et sans « En attente de
+    validation » en double.
 
 Chaque geste ci-dessus crée ou modifie une vraie commande de recette ; son
 sort (conservation ou nettoyage) appartient à Arnaud, comme pour le smoke
