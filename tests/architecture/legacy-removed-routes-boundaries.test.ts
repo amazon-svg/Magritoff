@@ -5,14 +5,33 @@
  * flux d invitation courant passe par `POST /api/v1/invitations`
  * (magrit-api).
  *
- * Ce garde AST verifie que CHACUN des deux handlers :
- *  (i)  ne contient qu une seule instruction, un `return c.json(<appel
- *       build*>, 410)` ;
- *  (ii) ne reference nulle part `c.req`, `kv.`, `Deno.env`, ni un appel a
- *       `fetch` -- aucune lecture du corps de requete, aucun acces au KV
- *       store, a une variable d environnement ou au reseau.
+ * v1 de ce garde (rejetee, qa-review round 2) laissait passer 4
+ * contournements :
+ *  - R3 : le nom du parametre de contexte etait code en dur ('c') dans la
+ *    recherche de `c.req` -- renommer le parametre (`(ctx) => ctx.req...`)
+ *    rendait la reference invisible.
+ *  - R4 : `buildRouteGoneBody(...)` etait autorise avec un argument, alors
+ *    qu il ne doit RIEN recevoir.
+ *  - R5 : `app.post(path, middleware, handler)` (3 arguments au lieu de 2)
+ *    n etait pas detecte : le garde ne verifiait que le premier et le
+ *    dernier argument, jamais leur nombre.
+ *  - R5b : une inscription concurrente via `app.use`/`app.on` sur le meme
+ *    chemin n etait jamais recherchee.
  *
- * Preuve d echec sur le commit precedent (avant ce correctif, `ae14eab0`) :
+ * v2 (ce fichier) verifie que CHACUN des deux handlers :
+ *  (i)   ne contient qu une seule instruction, un `return <contexte>.json(
+ *        <appel build*>, 410)`, ou `<contexte>` est le VRAI nom du parametre
+ *        de la fonction geree (pas suppose 'c') ;
+ *  (ii)  l appel build* ne recoit AUCUN argument ;
+ *  (iii) ne reference nulle part `<contexte>.req`, `kv.`, `Deno.env`, ni un
+ *        appel a `fetch` -- aucune lecture du corps de requete, aucun acces
+ *        au KV store, a une variable d environnement ou au reseau ;
+ *  (iv)  l appel `app.post(...)` qui enregistre la route recoit EXACTEMENT
+ *        2 arguments (chemin, handler) -- pas de middleware intercale ;
+ *  (v)   aucun `app.use(...)`/`app.on(...)` ailleurs dans le fichier ne
+ *        cible le chemin d une des deux routes retirees.
+ *
+ * Preuve d echec sur le commit precedent (avant le correctif 410, `ae14eab0`) :
  * voir le rapport de fin de tache -- ce test, pointe sur ce commit, remonte
  * des violations sur les deux routes (lecture de `c.req.json()`, acces
  * `kv.set`/`kv.get`, `Deno.env.get(...)`, `fetch(...)`).
@@ -54,8 +73,10 @@ function importedBuilderNames(source: ts.SourceFile, moduleSuffix: string): Set<
   return names;
 }
 
-function findRouteHandlers(source: ts.SourceFile): Array<{ route: string; handler: ts.ArrowFunction | ts.FunctionExpression }> {
-  const handlers: Array<{ route: string; handler: ts.ArrowFunction | ts.FunctionExpression }> = [];
+function findRouteHandlers(
+  source: ts.SourceFile,
+): Array<{ route: string; handler: ts.ArrowFunction | ts.FunctionExpression; registration: ts.CallExpression }> {
+  const handlers: Array<{ route: string; handler: ts.ArrowFunction | ts.FunctionExpression; registration: ts.CallExpression }> = [];
   function visit(node: ts.Node): void {
     if (
       ts.isCallExpression(node) &&
@@ -66,15 +87,71 @@ function findRouteHandlers(source: ts.SourceFile): Array<{ route: string; handle
       const method = node.expression.name.text;
       const firstArg = node.arguments[0];
       const lastArg = node.arguments[node.arguments.length - 1];
-      if (ts.isStringLiteral(firstArg) && (ts.isArrowFunction(lastArg) || ts.isFunctionExpression(lastArg))) {
+      // Chemin en chaine simple OU en gabarit sans substitution : les deux
+      // exposent `.text` sur l AST TypeScript (evite un garde vacant si la
+      // syntaxe du chemin change).
+      if (firstArg && ts.isStringLiteralLike(firstArg) && lastArg && (ts.isArrowFunction(lastArg) || ts.isFunctionExpression(lastArg))) {
         const match = TARGET_ROUTES.find((r) => r.method === method && r.path === firstArg.text);
-        if (match) handlers.push({ route: `${match.method.toUpperCase()} ${match.path}`, handler: lastArg });
+        if (match) handlers.push({ route: `${match.method.toUpperCase()} ${match.path}`, handler: lastArg, registration: node });
       }
     }
     ts.forEachChild(node, visit);
   }
   visit(source);
   return handlers;
+}
+
+/** (v) R5b : aucune inscription concurrente (`app.use`/`app.on`) ne doit
+ * cibler le chemin d une des deux routes retirees, ailleurs dans le
+ * fichier. Ne s applique qu aux chemins EXACTEMENT egaux a une route cible
+ * (une chaine simple, un gabarit sans substitution, ou un element d un
+ * tableau de chemins) -- pas aux middlewares globaux legitimes existants
+ * (`app.use('*', ...)`, `app.use("/*", cors(...))`). */
+function findCompetingRegistrations(source: ts.SourceFile): Violation[] {
+  const violations: Violation[] = [];
+  const targetPaths = new Set(TARGET_ROUTES.map((r) => r.path));
+
+  function pathMatchesTarget(expr: ts.Expression): string | undefined {
+    if (ts.isStringLiteralLike(expr) && targetPaths.has(expr.text)) return expr.text;
+    return undefined;
+  }
+
+  function visit(node: ts.Node): void {
+    if (
+      ts.isCallExpression(node) &&
+      ts.isPropertyAccessExpression(node.expression) &&
+      ts.isIdentifier(node.expression.expression) &&
+      node.expression.expression.text === 'app' &&
+      (node.expression.name.text === 'use' || node.expression.name.text === 'on')
+    ) {
+      for (const arg of node.arguments) {
+        const direct = pathMatchesTarget(arg);
+        if (direct) {
+          violations.push({
+            route: `app.${node.expression.name.text}(...) -> ${direct}`,
+            line: lineOf(source, node),
+            reason: `inscription concurrente app.${node.expression.name.text} sur une route retiree interdite`,
+          });
+          continue;
+        }
+        if (ts.isArrayLiteralExpression(arg)) {
+          for (const el of arg.elements) {
+            const match = pathMatchesTarget(el);
+            if (match) {
+              violations.push({
+                route: `app.${node.expression.name.text}(...) -> ${match}`,
+                line: lineOf(source, node),
+                reason: `inscription concurrente app.${node.expression.name.text} sur une route retiree interdite`,
+              });
+            }
+          }
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(source);
+  return violations;
 }
 
 /** Le "corps logique" d un handler : soit l unique instruction d un bloc
@@ -99,11 +176,22 @@ function contextParamName(handler: ts.ArrowFunction | ts.FunctionExpression): st
 
 function checkShape(
   handler: ts.ArrowFunction | ts.FunctionExpression,
+  registration: ts.CallExpression,
   route: string,
   source: ts.SourceFile,
   allowedBuilders: Set<string>,
   violations: Violation[],
 ): void {
+  // (iv) R5 : l inscription elle-meme ne doit recevoir QUE le chemin et le
+  // handler -- aucun middleware intercale entre les deux.
+  if (registration.arguments.length !== 2) {
+    violations.push({
+      route,
+      line: lineOf(source, registration),
+      reason: `app.post(...) doit recevoir exactement 2 arguments (chemin, handler), pas ${registration.arguments.length}`,
+    });
+  }
+
   const expr = logicalBody(handler);
   const cParam = contextParamName(handler);
   const isCJsonCall =
@@ -128,6 +216,9 @@ function checkShape(
   const isBuilderCall = arg0 && ts.isCallExpression(arg0) && ts.isIdentifier(arg0.expression) && allowedBuilders.has(arg0.expression.text);
   if (!isBuilderCall) {
     violations.push({ route, line: lineOf(source, call), reason: 'le premier argument doit etre un appel a une fonction build* importee' });
+  } else if (ts.isCallExpression(arg0) && arg0.arguments.length !== 0) {
+    // (ii) R4 : buildRouteGoneBody() ne doit RIEN recevoir.
+    violations.push({ route, line: lineOf(source, arg0), reason: 'l appel build* ne doit recevoir aucun argument' });
   }
   const is410 = arg1 && ts.isNumericLiteral(arg1) && arg1.text === '410';
   if (!is410) {
@@ -135,28 +226,34 @@ function checkShape(
   }
 }
 
-const FORBIDDEN_DESCRIPTIONS: Array<(node: ts.Node) => string | undefined> = [
-  (n) =>
-    ts.isPropertyAccessExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === 'c' && n.name.text === 'req'
-      ? 'reference a c.req interdite (aucune lecture du corps de requete)'
-      : undefined,
-  (n) =>
-    ts.isPropertyAccessExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === 'kv'
-      ? 'reference a kv. interdite (aucun acces au KV store)'
-      : undefined,
-  (n) =>
-    ts.isPropertyAccessExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === 'Deno' && n.name.text === 'env'
-      ? 'reference a Deno.env interdite (aucune variable d environnement)'
-      : undefined,
-  (n) =>
-    ts.isCallExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === 'fetch'
-      ? 'appel a fetch interdit (aucun acces reseau)'
-      : undefined,
-];
+/** (iii) R3 : la reference a `<contexte>.req` utilise le VRAI nom du
+ * parametre (`cParam`), jamais 'c' code en dur -- sinon un renommage du
+ * parametre (`(ctx) => ctx.req...`) rend la reference invisible. */
+function forbiddenDescriptions(cParam: string): Array<(node: ts.Node) => string | undefined> {
+  return [
+    (n) =>
+      ts.isPropertyAccessExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === cParam && n.name.text === 'req'
+        ? `reference a ${cParam}.req interdite (aucune lecture du corps de requete)`
+        : undefined,
+    (n) =>
+      ts.isPropertyAccessExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === 'kv'
+        ? 'reference a kv. interdite (aucun acces au KV store)'
+        : undefined,
+    (n) =>
+      ts.isPropertyAccessExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === 'Deno' && n.name.text === 'env'
+        ? 'reference a Deno.env interdite (aucune variable d environnement)'
+        : undefined,
+    (n) =>
+      ts.isCallExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === 'fetch'
+        ? 'appel a fetch interdit (aucun acces reseau)'
+        : undefined,
+  ];
+}
 
-function checkForbiddenReferences(handler: ts.Node, route: string, source: ts.SourceFile, violations: Violation[]): void {
+function checkForbiddenReferences(handler: ts.Node, cParam: string, route: string, source: ts.SourceFile, violations: Violation[]): void {
+  const checks = forbiddenDescriptions(cParam);
   function visit(node: ts.Node): void {
-    for (const check of FORBIDDEN_DESCRIPTIONS) {
+    for (const check of checks) {
       const reason = check(node);
       if (reason) violations.push({ route, line: lineOf(source, node), reason });
     }
@@ -174,10 +271,13 @@ export function findRemovedRouteViolations(fileName: string, sourceText: string)
   const allowedBuilders = importedBuilderNames(source, 'removed-route-responses');
   const violations: Violation[] = [];
 
-  for (const { route, handler } of findRouteHandlers(source)) {
-    checkShape(handler, route, source, allowedBuilders, violations);
-    checkForbiddenReferences(handler, route, source, violations);
+  for (const { route, handler, registration } of findRouteHandlers(source)) {
+    const cParam = contextParamName(handler);
+    checkShape(handler, registration, route, source, allowedBuilders, violations);
+    checkForbiddenReferences(handler, cParam, route, source, violations);
   }
+
+  violations.push(...findCompetingRegistrations(source));
 
   return violations;
 }

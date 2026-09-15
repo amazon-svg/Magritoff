@@ -1,14 +1,15 @@
 /**
- * Preuves de mutation pour le garde AST de
+ * Preuves de mutation pour le garde AST structurel de
  * `legacy-clariprint-response-boundaries.test.ts` (qa-review 2026-09-15,
- * rejet du premier filet de tests -- 12/14 mutations survivaient au garde
- * v1, qui ne cherchait que 4 identifiants litteraux).
+ * rejet du garde v2 -- 25 contournements survivaient encore, y compris ceux
+ * qui avaient motive le garde v2 : liste noire d identifiants, resolution
+ * d alias "triviaux". Le garde v3 abandonne la liste noire pour une liste
+ * blanche structurelle -- voir l en-tete de legacy-clariprint-response-boundaries.test.ts).
  *
  * Chaque `it` ci-dessous projette UNE mutation dans un mini fichier source
  * autonome (meme squelette `app.post`/`app.get` + import des `build*`) et
- * verifie que `findLegacyClariprintResponseViolations` la detecte. Un test
- * qui ne detecterait pas sa mutation serait lui-meme rouge : chaque test
- * "tue" sa mutation en la faisant echouer.
+ * verifie que `findLegacyClariprintResponseViolations` la detecte. Chaque
+ * test "tue" sa mutation en la faisant echouer si le garde ne la voit pas.
  */
 import { describe, expect, it } from 'vitest';
 import { findLegacyClariprintResponseViolations } from './legacy-clariprint-response-boundaries.test.ts';
@@ -46,138 +47,178 @@ app.get("/make-server-e3db71a4/clariprint-test", async (c) => {
   const host = "x";
   const login = "x";
   let rawText = "{}";
+  const httpStatus = 200;
 ${body}
 });
 `;
 }
 
+const VALID_SUCCESS_ARG = `{ priceHT: result.response, costs: result.costs, delais: result.delais, weight: result.weight, fournisseur: result.fournisseur, processDuration: result.total_process_duration }`;
+
 function violations(source: string) {
   return findLegacyClariprintResponseViolations('mutation.ts', source);
 }
 
-describe('mutations qui doivent faire echouer le garde (survivaient au garde v1)', () => {
-  it('mutation 1 - destructuration renommee : const { all_process: gammes } = result', () => {
+describe('les 5 indirections (garde v2 rejete -- une liste noire d identifiants ne suffit pas)', () => {
+  it('indirection 1 - alias a deux niveaux : const a = result; const b = a', () => {
     const source = quoteHandler(`
-  const { all_process: gammes } = result;
-  return c.json(buildQuoteCalcErrorBody(gammes));
+  const a = result;
+  const b = a;
+  return c.json(buildQuoteCalcErrorBody(b));
 `);
     expect(violations(source).length).toBeGreaterThan(0);
   });
 
-  it('mutation 2 - cle calculee : result["all" + "_process"]', () => {
+  it('indirection 2 - fonction locale flechee : const getX = () => result.error', () => {
     const source = quoteHandler(`
-  return c.json(buildQuoteCalcErrorBody(result["all" + "_process"]));
+  const getX = () => result.error;
+  return c.json(buildQuoteCalcErrorBody(getX()));
 `);
     expect(violations(source).length).toBeGreaterThan(0);
   });
 
-  it('mutation 3 - error: responseText.substring(0,300)', () => {
+  it('indirection 3 - fonction locale declaree : function getX() { return result.error; }', () => {
     const source = quoteHandler(`
-  return c.json(buildQuoteHttpErrorBody(responseText.substring(0, 300)));
+  function getX() { return result.error; }
+  return c.json(buildQuoteCalcErrorBody(getX()));
 `);
     expect(violations(source).length).toBeGreaterThan(0);
   });
 
-  it('mutation 4 - errorText.substring(0,500)', () => {
+  it('indirection 4 - Object.assign via une variable', () => {
     const source = quoteHandler(`
-  return c.json(buildQuoteHttpErrorBody(errorText.substring(0, 500)));
+  const merged = Object.assign({}, result);
+  return c.json(buildQuoteCalcErrorBody(merged));
 `);
     expect(violations(source).length).toBeGreaterThan(0);
   });
 
-  it('mutation 5 - clariprint-test : ${login.substring(0,3)}*** dans le message', () => {
+  it('indirection 5 - JSON.parse(JSON.stringify(result)) via une variable', () => {
+    const source = quoteHandler(`
+  const clone = JSON.parse(JSON.stringify(result));
+  return c.json(buildQuoteCalcErrorBody(clone));
+`);
+    expect(violations(source).length).toBeGreaterThan(0);
+  });
+});
+
+describe('N6 a N15 (rejet garde v2, 25 contournements survivants)', () => {
+  it('N6 - costs: result.all_process (mapping errone dans le corps succes)', () => {
+    const source = quoteHandler(`
+  return c.json(buildQuoteSuccessBody({ priceHT: result.response, costs: result.all_process, delais: result.delais, weight: result.weight, fournisseur: result.fournisseur, processDuration: result.total_process_duration }));
+`);
+    expect(violations(source).length).toBeGreaterThan(0);
+  });
+
+  it('N7 - priceHT: result.error (mapping errone, mauvaise propriete source)', () => {
+    const source = quoteHandler(`
+  return c.json(buildQuoteSuccessBody({ priceHT: result.error, costs: result.costs, delais: result.delais, weight: result.weight, fournisseur: result.fournisseur, processDuration: result.total_process_duration }));
+`);
+    expect(violations(source).length).toBeGreaterThan(0);
+  });
+
+  it('N8 - cle non autorisee ajoutee au corps succes (allResults)', () => {
+    const source = quoteHandler(`
+  return c.json(buildQuoteSuccessBody({ priceHT: result.response, costs: result.costs, delais: result.delais, weight: result.weight, fournisseur: result.fournisseur, processDuration: result.total_process_duration, allResults: result.all_process }));
+`);
+    expect(violations(source).length).toBeGreaterThan(0);
+  });
+
+  it('N9 - cle manquante dans le corps succes (weight omis)', () => {
+    const source = quoteHandler(`
+  return c.json(buildQuoteSuccessBody({ priceHT: result.response, costs: result.costs, delais: result.delais, fournisseur: result.fournisseur, processDuration: result.total_process_duration }));
+`);
+    expect(violations(source).length).toBeGreaterThan(0);
+  });
+
+  it('N10 - identifiant parsed passe a un constructeur non exempte', () => {
     const source = testHandler(`
-  return c.json(buildAuthTestBody({ success: false, message: \`\${login.substring(0, 3)}***\` }));
+  let parsed: any = { success: true };
+  return c.json(buildAuthTestBody({ success: true, message: parsed }));
 `);
     expect(violations(source).length).toBeGreaterThan(0);
   });
 
-  it('mutation 6 - clariprint-test : ${host} dans le message', () => {
-    const source = testHandler(`
-  return c.json(buildAuthTestBody({ success: false, message: \`\${host}\` }));
-`);
-    expect(violations(source).length).toBeGreaterThan(0);
-  });
-
-  it('mutation 7 - clariprint-test : rawText.substring dans le message', () => {
-    const source = testHandler(`
-  return c.json(buildAuthTestBody({ success: false, message: rawText.substring(0, 200) }));
-`);
-    expect(violations(source).length).toBeGreaterThan(0);
-  });
-
-  it('mutation 8 - c.json(result) en direct', () => {
+  it('N11 - variable de catch (err) passee a buildQuoteServerErrorBody', () => {
     const source = quoteHandler(`
+  try {
+    JSON.parse(responseText);
+  } catch (err) {
+    return c.json(buildQuoteServerErrorBody(err as any));
+  }
+  return c.json(buildQuoteServerErrorBody());
+`);
+    expect(violations(source).length).toBeGreaterThan(0);
+  });
+
+  it('N12 - fuite par en-tete : c.header avant le c.json conforme', () => {
+    const source = quoteHandler(`
+  c.header("X-Debug-Raw", JSON.stringify(result));
+  return c.json(buildQuoteCalcErrorBody());
+`);
+    expect(violations(source).length).toBeGreaterThan(0);
+  });
+
+  it('N13 - sortie via new Response au lieu de c.json', () => {
+    const source = quoteHandler(`
+  return new Response(JSON.stringify(result), { headers: { "Content-Type": "application/json" } });
+`);
+    expect(violations(source).length).toBeGreaterThan(0);
+  });
+
+  it('N14 - chemin de route en gabarit template literal (garde rendu vacant)', () => {
+    const source = `${IMPORTS}
+app.post(\`/make-server-e3db71a4/clariprint-quote\`, async (c) => {
   return c.json(result);
-`);
+});
+`;
+    // Le garde doit TROUVER ce handler (sinon 0 violation par vacuite) ET y
+    // relever le c.json(result) direct.
     expect(violations(source).length).toBeGreaterThan(0);
   });
 
-  it('mutation 9 - spread {...result, ...buildQuoteSuccessBody()}', () => {
+  it('N15 - 2e argument de c.json non litteral (statut dynamique)', () => {
     const source = quoteHandler(`
-  return c.json({ ...result, ...buildQuoteSuccessBody({ priceHT: result.response, costs: result.costs, delais: result.delais, weight: result.weight, fournisseur: result.fournisseur, processDuration: result.total_process_duration }) });
-`);
-    expect(violations(source).length).toBeGreaterThan(0);
-  });
-
-  it('mutation 10 - variable intermediaire : const payload = result', () => {
-    const source = quoteHandler(`
-  const payload = result;
-  return c.json(buildQuoteCalcErrorBody(payload));
-`);
-    expect(violations(source).length).toBeGreaterThan(0);
-  });
-
-  it('mutation 11 - buildQuoteSuccessBody avec une cle non autorisee', () => {
-    const source = quoteHandler(`
-  return c.json(buildQuoteSuccessBody({ priceHT: result.response, allResults: result.all_process }));
-`);
-    expect(violations(source).length).toBeGreaterThan(0);
-  });
-
-  it('mutation 12 - buildQuoteSuccessBody avec une valeur non lue directement sur result (double indirection)', () => {
-    const source = quoteHandler(`
-  const priceHT = result.response;
-  return c.json(buildQuoteSuccessBody({ priceHT }));
-`);
-    expect(violations(source).length).toBeGreaterThan(0);
-  });
-
-  it('mutation 13 - objet litteral direct au lieu d un appel build*', () => {
-    const source = quoteHandler(`
-  return c.json({ success: false, error: "Erreur de calcul Clariprint" });
-`);
-    expect(violations(source).length).toBeGreaterThan(0);
-  });
-
-  it('mutation 14 - identifiant nu autre que result (ex. une variable renommee sans alias trivial detecte doit au moins etre couverte par la regle i quand ce n est pas un appel build*)', () => {
-    const source = quoteHandler(`
-  const notABuilder = buildQuoteCalcErrorBody();
-  return c.json(notABuilder);
+  const status = 500;
+  return c.json(buildQuoteCalcErrorBody(), status);
 `);
     expect(violations(source).length).toBeGreaterThan(0);
   });
 });
 
 describe('non-regression : code conforme, zero violation', () => {
-  it('un appel build* sans argument tainte ne declenche rien', () => {
+  it('un appel build* sans argument est conforme', () => {
     const source = quoteHandler(`
   return c.json(buildQuoteCalcErrorBody());
 `);
     expect(violations(source)).toEqual([]);
   });
 
-  it('buildQuoteSuccessBody avec les 6 cles lues simplement sur result est conforme', () => {
+  it('un appel build* avec un unique argument litteral est conforme', () => {
     const source = quoteHandler(`
-  return c.json(buildQuoteSuccessBody({ priceHT: result.response, costs: result.costs, delais: result.delais, weight: result.weight, fournisseur: result.fournisseur, processDuration: result.total_process_duration }));
+  return c.json(buildQuoteCredentialsMissingBody("Configurez les secrets."), 200);
 `);
     expect(violations(source)).toEqual([]);
   });
 
-  it('un booleen calcule (non alias trivial) passe a buildAuthTestBody n est pas un faux positif', () => {
+  it('buildQuoteSuccessBody avec le mapping exact des 6 cles est conforme', () => {
+    const source = quoteHandler(`
+  return c.json(buildQuoteSuccessBody(${VALID_SUCCESS_ARG}));
+`);
+    expect(violations(source)).toEqual([]);
+  });
+
+  it('buildAuthTestBody avec success/httpStatus est conforme (pas de faux positif)', () => {
     const source = testHandler(`
   const success = true;
-  return c.json(buildAuthTestBody({ success, message: "ok" }));
+  return c.json(buildAuthTestBody({ success, message: success ? "ok" : \`echec HTTP \${httpStatus}\` }));
+`);
+    expect(violations(source)).toEqual([]);
+  });
+
+  it('un statut HTTP litteral en 2e argument de c.json est conforme', () => {
+    const source = quoteHandler(`
+  return c.json(buildQuoteMissingProductBody(), 400);
 `);
     expect(violations(source)).toEqual([]);
   });

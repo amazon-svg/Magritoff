@@ -4,62 +4,77 @@
  * cle anonyme publique du projet Supabase (`verify_jwt = true` accepte un
  * JWT anon, sans verifier une autorisation d utilisateur).
  *
- * v1 de ce test (rejetee par qa-review) ne cherchait que 4 identifiants
- * litteraux (`all_process`, `all_faulty_process`, `rawResponse`,
- * `parsedResponse`) directement en cle ou en acces de propriete. 12 des 14
- * mutations soumises par qa-review y survivaient (destructuration renommee,
- * cle calculee, variable intermediaire, spread, gabarits de chaine, etc.).
+ * v1 (rejetee) : liste noire de 4 identifiants litteraux. 12/14 mutations
+ * survivaient.
+ * v2 (rejetee) : liste noire elargie a 8 identifiants + resolution d alias
+ * "triviaux". 25 contournements survivaient encore (indirections a 2 niveaux,
+ * fonctions locales, Object.assign, JSON.parse/stringify, fuite par en-tete
+ * ou via `new Response`, chemin en template literal, mapping de cle errone
+ * dans le corps succes, etc.) : une liste noire d identifiants ne peut
+ * jamais couvrir toutes les facons de faire circuler une valeur.
  *
- * v2 (ce fichier) impose une regle structurelle beaucoup plus stricte sur
- * les DEUX handlers `clariprint-quote` et `clariprint-test` :
+ * v3 (ce fichier) abandonne toute liste noire au profit de regles
+ * STRUCTURELLES (liste blanche) sur les DEUX handlers `clariprint-quote` et
+ * `clariprint-test` :
  *
- *  (i)  le premier argument de CHAQUE `c.json(` doit etre un APPEL a une
- *       fonction `build*` importee de `./clariprint-responses.ts` -- jamais
- *       un objet litteral, un identifiant nu, ou un spread.
- *  (ii) aucun argument passe a un `build*` ne peut deriver de l un des
- *       identifiants sources `result`, `responseText`, `errorText`,
- *       `rawText`, `login`, `host`, `apiUrl`, `error` -- ni directement
- *       (acces de propriete, cle calculee, gabarit de chaine, spread), ni
- *       indirectement via un alias trivial (`const payload = result`,
- *       destructuration `const { x } = result`). Seule exception : l objet
- *       passe a `buildQuoteSuccessBody`, strictement limite a ses 6 cles
- *       metier (`priceHT`, `costs`, `delais`, `weight`, `fournisseur`,
- *       `processDuration`), chacune lue par un acces simple `result.xxx`.
+ *  (i)   le premier argument de CHAQUE `<contexte>.json(` doit etre un APPEL
+ *        a une fonction `build*` importee de `./clariprint-responses.ts`.
+ *  (ii)  pour tout `build*` AUTRE que `buildQuoteSuccessBody` et
+ *        `buildAuthTestBody` : chaque argument doit etre un LITTERAL pur
+ *        (chaine, gabarit sans substitution, nombre, booleen, null, ou
+ *        litteral d objet/tableau compose uniquement de litteraux). Aucune
+ *        variable, aucun acces de propriete, aucun appel de fonction,
+ *        aucune concatenation.
+ *  (iii) pour `buildAuthTestBody` : seul l objet litteral est accepte, et
+ *        SEULS les identifiants `success` et `httpStatus` peuvent y
+ *        apparaitre (shorthand, condition de ternaire, substitution de
+ *        gabarit) -- tout le reste doit etre litteral.
+ *  (iv)  pour `buildQuoteSuccessBody` : l argument doit etre un objet
+ *        litteral avec EXACTEMENT les 6 cles metier, chacune correspondant a
+ *        LA propriete de meme nom sur `result` (sauf `priceHT` ->
+ *        `result.response` et `processDuration` ->
+ *        `result.total_process_duration`), lue par un acces simple, sans
+ *        chainage optionnel.
+ *  (v)   dans ces deux handlers, aucune reference a `<contexte>.text`,
+ *        `<contexte>.body`, `<contexte>.html`, `<contexte>.header`, ni a
+ *        `new Response` -- la seule sortie HTTP possible est
+ *        `<contexte>.json(...)`, et cet appel ne prend au plus que 2
+ *        arguments, le second etant obligatoirement un litteral numerique.
+ *  (vi)  le chemin de route peut etre exprime en chaine simple OU en gabarit
+ *        sans substitution (`` `...` ``) -- les deux sont reconnus, pour ne
+ *        pas laisser un changement de syntaxe rendre le garde vacant. Un
+ *        test dedie verifie que les deux handlers sont bien trouves.
  *
- * La resolution d alias est volontairement bornee a des formes "triviales"
- * (identifiant nu, chaine d acces de propriete/element, spread d objet) et
- * ne remonte PAS a travers une expression logique/calculee (`a && b`,
- * `a ?? b`, un appel de fonction, etc.) : sinon, quasiment toute variable de
- * ces handlers finirait par etre jugee "derivee" de `host`/`login`/`result`
- * par transitivite (ex. `apiResponse` vient d un `fetch` qui utilise `host`),
- * ce qui rendrait le garde inutilisable (faux positifs sur du code legitime
- * comme `success = apiResponse.ok && parsed?.success !== false`).
+ * Une regle structurelle (liste blanche) est plus robuste qu une liste
+ * noire d identifiants : elle ne demande pas d enumerer a l avance toutes
+ * les facons de faire fuiter une donnee, seulement de decrire la forme
+ * etroite que le code legitime doit prendre.
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
-export const BANNED_SOURCE_IDENTIFIERS = [
-  'result',
-  'responseText',
-  'errorText',
-  'rawText',
-  'login',
-  'host',
-  'apiUrl',
-  'error',
-] as const;
-
 export const SUCCESS_BODY_BUILDER = 'buildQuoteSuccessBody';
-export const SUCCESS_BODY_ALLOWED_KEYS = [
-  'priceHT',
-  'costs',
-  'delais',
-  'weight',
-  'fournisseur',
-  'processDuration',
-] as const;
+export const AUTH_TEST_BODY_BUILDER = 'buildAuthTestBody';
+
+/** cle du corps succes -> propriete correspondante sur `result`. */
+export const SUCCESS_KEY_TO_RESULT_PROP: Readonly<Record<string, string>> = {
+  priceHT: 'response',
+  costs: 'costs',
+  delais: 'delais',
+  weight: 'weight',
+  fournisseur: 'fournisseur',
+  processDuration: 'total_process_duration',
+};
+
+/** Identifiants autorises (en plus des litteraux) dans l argument de
+ * `buildAuthTestBody`. */
+export const AUTH_TEST_BODY_WHITELIST = ['success', 'httpStatus'] as const;
+
+/** Methodes de sortie HTTP interdites sur le contexte Hono, en plus de
+ * `<contexte>.json`. */
+const FORBIDDEN_CONTEXT_METHODS = ['text', 'body', 'html', 'header'] as const;
 
 export const TARGET_ROUTES: ReadonlyArray<{ method: 'post' | 'get'; path: string }> = [
   { method: 'post', path: '/make-server-e3db71a4/clariprint-quote' },
@@ -89,173 +104,138 @@ function importedBuilderNames(source: ts.SourceFile, moduleSuffix = 'clariprint-
     ) {
       const clause = statement.importClause;
       if (clause?.namedBindings && ts.isNamedImports(clause.namedBindings)) {
-        for (const element of clause.namedBindings.elements) {
-          names.add(element.name.text);
-        }
+        for (const element of clause.namedBindings.elements) names.add(element.name.text);
       }
     }
   }
   return names;
 }
 
-/** Un identifiant est une "reference" (lecture de variable) s il n est pas
- * lui-meme un nom de declaration ou une cle non-calculee d objet/pattern. */
-function isReferenceIdentifier(id: ts.Identifier): boolean {
-  const p = id.parent;
-  if (!p) return true;
-  if (ts.isPropertyAccessExpression(p) && p.name === id) return false;
-  if (ts.isPropertyAssignment(p) && p.name === id) return false;
-  if (ts.isBindingElement(p) && (p.name === id || p.propertyName === id)) return false;
-  if (ts.isVariableDeclaration(p) && p.name === id) return false;
-  if (ts.isParameter(p) && p.name === id) return false;
-  if (ts.isImportSpecifier(p) && (p.name === id || p.propertyName === id)) return false;
-  if (ts.isFunctionDeclaration(p) && p.name === id) return false;
-  if (ts.isLabeledStatement(p) && p.label === id) return false;
-  if (ts.isMethodDeclaration(p) && p.name === id) return false;
-  return true;
-}
-
-/** Recherche, dans `scope`, une VariableDeclaration dont un des noms lies
- * (identifiant simple ou element d un pattern de destructuration) vaut
- * `name`, et retourne son initialiseur. Toutes les branches d un pattern
- * partagent le meme initialiseur : `const { a, b } = result` taint "a" ET
- * "b" via `result`, qu on lise ou non la propriete effectivement dangereuse. */
-function findLocalInitializer(name: string, scope: ts.Node): ts.Expression | undefined {
-  let found: ts.Expression | undefined;
-
-  function bindingNames(bindingName: ts.BindingName, out: string[]): void {
-    if (ts.isIdentifier(bindingName)) {
-      out.push(bindingName.text);
-      return;
-    }
-    for (const element of bindingName.elements) {
-      if (ts.isOmittedExpression(element)) continue;
-      bindingNames(element.name, out);
-    }
+/** Vrai si `expr` est un litteral pur au sens strict : aucune variable,
+ * aucun acces de propriete, aucun appel, aucune concatenation -- juste une
+ * valeur ecrite en dur dans le code source. Recursif pour les litteraux
+ * d objet/tableau, dont chaque membre doit lui-meme etre un litteral pur. */
+function isPureLiteral(expr: ts.Expression): boolean {
+  if (ts.isParenthesizedExpression(expr)) return isPureLiteral(expr.expression);
+  if (ts.isStringLiteralLike(expr)) return true; // StringLiteral ou NoSubstitutionTemplateLiteral
+  if (ts.isNumericLiteral(expr)) return true;
+  if (expr.kind === ts.SyntaxKind.TrueKeyword || expr.kind === ts.SyntaxKind.FalseKeyword) return true;
+  if (expr.kind === ts.SyntaxKind.NullKeyword) return true;
+  if (
+    ts.isPrefixUnaryExpression(expr) &&
+    (expr.operator === ts.SyntaxKind.MinusToken || expr.operator === ts.SyntaxKind.PlusToken) &&
+    ts.isNumericLiteral(expr.operand)
+  ) {
+    return true;
   }
-
-  function visit(node: ts.Node): void {
-    if (found) return;
-    if (ts.isVariableDeclaration(node) && node.initializer) {
-      const names: string[] = [];
-      bindingNames(node.name, names);
-      if (names.includes(name)) {
-        found = node.initializer;
-        return;
-      }
-    }
-    ts.forEachChild(node, visit);
-  }
-
-  visit(scope);
-  return found;
-}
-
-/** Determine si `expr` est un alias TRIVIAL (identifiant nu, chaine d acces
- * de propriete/element, ou spread d objet) d un identifiant banni -- sans
- * jamais suivre une expression logique/conditionnelle/un appel de fonction.
- * C est cette restriction qui evite l explosion de faux positifs. */
-function isTrivialBannedExpression(expr: ts.Expression): boolean {
-  if (ts.isParenthesizedExpression(expr)) return isTrivialBannedExpression(expr.expression);
-  if (ts.isAsExpression(expr) || ts.isNonNullExpression(expr)) {
-    return isTrivialBannedExpression(expr.expression);
-  }
-  if (ts.isIdentifier(expr)) {
-    return (BANNED_SOURCE_IDENTIFIERS as readonly string[]).includes(expr.text);
-  }
-  if (ts.isPropertyAccessExpression(expr) || ts.isElementAccessExpression(expr)) {
-    return isTrivialBannedExpression(expr.expression);
+  if (ts.isArrayLiteralExpression(expr)) {
+    return expr.elements.every((el) => !ts.isSpreadElement(el) && isPureLiteral(el));
   }
   if (ts.isObjectLiteralExpression(expr)) {
-    return expr.properties.some((p) => ts.isSpreadAssignment(p) && isTrivialBannedExpression(p.expression));
+    return expr.properties.every(
+      (p) => ts.isPropertyAssignment(p) && !ts.isComputedPropertyName(p.name) && isPureLiteral(p.initializer),
+    );
+  }
+  // TemplateExpression (gabarit AVEC substitution), Identifier, appel de
+  // fonction, acces de propriete/element, `await`, spread, etc. : rejetes.
+  return false;
+}
+
+/** Comme `isPureLiteral`, mais autorise en plus une reference (nue, dans une
+ * ternaire, ou en substitution de gabarit) a un identifiant de `whitelist`.
+ * Utilise UNIQUEMENT pour `buildAuthTestBody`. */
+function isLiteralOrWhitelisted(expr: ts.Expression, whitelist: readonly string[]): boolean {
+  if (isPureLiteral(expr)) return true;
+  if (ts.isParenthesizedExpression(expr)) return isLiteralOrWhitelisted(expr.expression, whitelist);
+  if (ts.isIdentifier(expr)) return whitelist.includes(expr.text);
+  if (ts.isConditionalExpression(expr)) {
+    return (
+      isLiteralOrWhitelisted(expr.condition, whitelist) &&
+      isLiteralOrWhitelisted(expr.whenTrue, whitelist) &&
+      isLiteralOrWhitelisted(expr.whenFalse, whitelist)
+    );
+  }
+  if (ts.isTemplateExpression(expr)) {
+    return expr.templateSpans.every((span) => isLiteralOrWhitelisted(span.expression, whitelist));
   }
   return false;
 }
 
-function isTrivialAliasOfBanned(name: string, scope: ts.Node): boolean {
-  const initializer = findLocalInitializer(name, scope);
-  if (!initializer) return false;
-  return isTrivialBannedExpression(initializer);
-}
-
-/** Vrai si `expr` (un argument passe a un `build*`) contient, n importe ou
- * dans son arbre syntaxique, une reference directe a un identifiant banni,
- * ou une reference a un alias trivial d un identifiant banni. */
-function argumentIsTainted(expr: ts.Node, scope: ts.Node): boolean {
-  let tainted = false;
-  function walk(node: ts.Node): void {
-    if (tainted) return;
-    if (ts.isIdentifier(node) && isReferenceIdentifier(node)) {
-      if ((BANNED_SOURCE_IDENTIFIERS as readonly string[]).includes(node.text)) {
-        tainted = true;
-        return;
-      }
-      if (isTrivialAliasOfBanned(node.text, scope)) {
-        tainted = true;
-        return;
-      }
-    }
-    ts.forEachChild(node, walk);
-  }
-  walk(expr);
-  return tainted;
-}
-
-/** Verifie que l objet passe a `buildQuoteSuccessBody` respecte l exception
- * exacte de la regle (ii) : uniquement les 6 cles metier, chacune une
- * PropertyAssignment dont la valeur est un acces simple `result.<prop>`. */
-function successBodyArgumentViolations(call: ts.CallExpression, source: ts.SourceFile, route: string): Violation[] {
+function authTestBodyArgumentViolations(call: ts.CallExpression, source: ts.SourceFile, route: string): Violation[] {
   const violations: Violation[] = [];
   const arg = call.arguments[0];
-  if (!arg || !ts.isObjectLiteralExpression(arg)) {
-    violations.push({
-      route,
-      line: lineOf(source, call),
-      reason: 'buildQuoteSuccessBody doit recevoir un unique objet litteral',
-    });
+  if (!arg || !ts.isObjectLiteralExpression(arg) || call.arguments.length !== 1) {
+    violations.push({ route, line: lineOf(source, call), reason: 'buildAuthTestBody doit recevoir un unique objet litteral' });
     return violations;
   }
   for (const prop of arg.properties) {
-    if (!ts.isPropertyAssignment(prop) || !ts.isIdentifier(prop.name)) {
+    if (ts.isShorthandPropertyAssignment(prop)) {
+      if (!(AUTH_TEST_BODY_WHITELIST as readonly string[]).includes(prop.name.text)) {
+        violations.push({ route, line: lineOf(source, prop), reason: `buildAuthTestBody: identifiant "${prop.name.text}" non autorise` });
+      }
+      continue;
+    }
+    if (!ts.isPropertyAssignment(prop) || ts.isComputedPropertyName(prop.name)) {
+      violations.push({ route, line: lineOf(source, prop), reason: 'buildAuthTestBody: seules des cles nommees simples sont autorisees' });
+      continue;
+    }
+    if (!isLiteralOrWhitelisted(prop.initializer, AUTH_TEST_BODY_WHITELIST)) {
       violations.push({
         route,
         line: lineOf(source, prop),
-        reason: 'buildQuoteSuccessBody: seules des cles nommees simples sont autorisees (pas de spread/calcule/shorthand)',
-      });
-      continue;
-    }
-    const key = prop.name.text;
-    if (!(SUCCESS_BODY_ALLOWED_KEYS as readonly string[]).includes(key)) {
-      violations.push({ route, line: lineOf(source, prop), reason: `buildQuoteSuccessBody: cle non autorisee "${key}"` });
-      continue;
-    }
-    const value = prop.initializer;
-    const isSimpleResultAccess =
-      ts.isPropertyAccessExpression(value) &&
-      !value.questionDotToken &&
-      ts.isIdentifier(value.expression) &&
-      value.expression.text === 'result';
-    if (!isSimpleResultAccess) {
-      violations.push({
-        route,
-        line: lineOf(source, prop),
-        reason: `buildQuoteSuccessBody: la cle "${key}" doit etre lue par un acces simple result.xxx`,
+        reason: `buildAuthTestBody: la cle "${prop.name.getText(source)}" doit etre litterale ou limitee a success/httpStatus`,
       });
     }
   }
   return violations;
 }
 
-function findEnclosingFunction(node: ts.Node): ts.Node {
-  let current: ts.Node | undefined = node.parent;
-  while (current && !ts.isArrowFunction(current) && !ts.isFunctionExpression(current) && !ts.isFunctionDeclaration(current)) {
-    current = current.parent;
+function successBodyArgumentViolations(call: ts.CallExpression, source: ts.SourceFile, route: string): Violation[] {
+  const violations: Violation[] = [];
+  const arg = call.arguments[0];
+  if (!arg || !ts.isObjectLiteralExpression(arg) || call.arguments.length !== 1) {
+    violations.push({ route, line: lineOf(source, call), reason: 'buildQuoteSuccessBody doit recevoir un unique objet litteral' });
+    return violations;
   }
-  return current ?? node.getSourceFile();
+  const expectedKeys = Object.keys(SUCCESS_KEY_TO_RESULT_PROP);
+  const seenKeys = new Set<string>();
+  for (const prop of arg.properties) {
+    if (!ts.isPropertyAssignment(prop) || !ts.isIdentifier(prop.name)) {
+      violations.push({ route, line: lineOf(source, prop), reason: 'buildQuoteSuccessBody: seules des cles nommees simples sont autorisees (pas de spread/calcule/shorthand)' });
+      continue;
+    }
+    const key = prop.name.text;
+    seenKeys.add(key);
+    const expectedProp = SUCCESS_KEY_TO_RESULT_PROP[key];
+    if (!expectedProp) {
+      violations.push({ route, line: lineOf(source, prop), reason: `buildQuoteSuccessBody: cle non autorisee "${key}"` });
+      continue;
+    }
+    const value = prop.initializer;
+    const isExactResultAccess =
+      ts.isPropertyAccessExpression(value) &&
+      !value.questionDotToken &&
+      ts.isIdentifier(value.expression) &&
+      value.expression.text === 'result' &&
+      value.name.text === expectedProp;
+    if (!isExactResultAccess) {
+      violations.push({
+        route,
+        line: lineOf(source, prop),
+        reason: `buildQuoteSuccessBody: la cle "${key}" doit etre exactement result.${expectedProp}`,
+      });
+    }
+  }
+  for (const missing of expectedKeys) {
+    if (!seenKeys.has(missing)) {
+      violations.push({ route, line: lineOf(source, call), reason: `buildQuoteSuccessBody: cle manquante "${missing}"` });
+    }
+  }
+  return violations;
 }
 
-function findRouteHandlers(source: ts.SourceFile): Array<{ route: string; handler: ts.Node }> {
-  const handlers: Array<{ route: string; handler: ts.Node }> = [];
+function findRouteHandlers(source: ts.SourceFile): Array<{ route: string; handler: ts.ArrowFunction | ts.FunctionExpression }> {
+  const handlers: Array<{ route: string; handler: ts.ArrowFunction | ts.FunctionExpression }> = [];
   function visit(node: ts.Node): void {
     if (
       ts.isCallExpression(node) &&
@@ -266,10 +246,9 @@ function findRouteHandlers(source: ts.SourceFile): Array<{ route: string; handle
       const method = node.expression.name.text;
       const firstArg = node.arguments[0];
       const lastArg = node.arguments[node.arguments.length - 1];
-      if (
-        ts.isStringLiteral(firstArg) &&
-        (ts.isArrowFunction(lastArg) || ts.isFunctionExpression(lastArg))
-      ) {
+      // (vi) le chemin peut etre une chaine simple OU un gabarit sans
+      // substitution -- les deux exposent `.text` sur l AST TypeScript.
+      if (firstArg && ts.isStringLiteralLike(firstArg) && (ts.isArrowFunction(lastArg) || ts.isFunctionExpression(lastArg))) {
         const match = TARGET_ROUTES.find((r) => r.method === method && r.path === firstArg.text);
         if (match) handlers.push({ route: `${match.method.toUpperCase()} ${match.path}`, handler: lastArg });
       }
@@ -280,9 +259,14 @@ function findRouteHandlers(source: ts.SourceFile): Array<{ route: string; handle
   return handlers;
 }
 
+function contextParamName(handler: ts.ArrowFunction | ts.FunctionExpression): string {
+  const p = handler.parameters[0];
+  return p && ts.isIdentifier(p.name) ? p.name.text : 'c';
+}
+
 /**
  * Verifie les deux handlers cibles d un fichier source contre les regles
- * (i) et (ii). Fonction exportee pour reutilisation par les tests de
+ * (i) a (vi). Fonction exportee pour reutilisation par les tests de
  * mutation ci-dessous (chaque mutation est projetee dans un petit fichier
  * source autonome qui redeclare le meme squelette `app.post`/`app.get`).
  */
@@ -292,44 +276,58 @@ export function findLegacyClariprintResponseViolations(fileName: string, sourceT
   const violations: Violation[] = [];
 
   for (const { route, handler } of findRouteHandlers(source)) {
-    const contextParamName =
-      (ts.isArrowFunction(handler) || ts.isFunctionExpression(handler)) &&
-      handler.parameters[0] &&
-      ts.isIdentifier(handler.parameters[0].name)
-        ? (handler.parameters[0].name as ts.Identifier).text
-        : 'c';
+    const cParam = contextParamName(handler);
 
     function visit(node: ts.Node): void {
-      // Ne cible QUE `<contexte>.json(...)` (la reponse HTTP), jamais un
-      // appel homonyme comme `c.req.json()` (lecture du corps de requete).
+      // (v) aucune autre sortie HTTP que <contexte>.json(...).
+      if (ts.isPropertyAccessExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === cParam) {
+        if ((FORBIDDEN_CONTEXT_METHODS as readonly string[]).includes(node.name.text)) {
+          violations.push({ route, line: lineOf(source, node), reason: `reference a ${cParam}.${node.name.text} interdite (seule sortie autorisee : ${cParam}.json)` });
+        }
+      }
+      if (ts.isNewExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'Response') {
+        violations.push({ route, line: lineOf(source, node), reason: 'new Response(...) interdit (seule sortie autorisee : ' + cParam + '.json)' });
+      }
+
+      // (i) <contexte>.json( doit recevoir un appel build*, jamais un appel
+      // homonyme comme `c.req.json()` (lecture du corps de requete).
       if (
         ts.isCallExpression(node) &&
         ts.isPropertyAccessExpression(node.expression) &&
         node.expression.name.text === 'json' &&
         ts.isIdentifier(node.expression.expression) &&
-        node.expression.expression.text === contextParamName
+        node.expression.expression.text === cParam
       ) {
+        // (v) au plus 2 arguments, le 2e etant un litteral numerique.
+        if (node.arguments.length > 2) {
+          violations.push({ route, line: lineOf(source, node), reason: `${cParam}.json ne peut prendre plus de 2 arguments` });
+        }
+        if (node.arguments.length === 2 && !ts.isNumericLiteral(node.arguments[1])) {
+          violations.push({ route, line: lineOf(source, node), reason: `${cParam}.json: le 2e argument doit etre un litteral numerique` });
+        }
+
         const arg = node.arguments[0];
-        const isBuilderCall =
-          arg && ts.isCallExpression(arg) && ts.isIdentifier(arg.expression) && allowedBuilders.has(arg.expression.text);
+        const isBuilderCall = arg && ts.isCallExpression(arg) && ts.isIdentifier(arg.expression) && allowedBuilders.has(arg.expression.text);
 
         if (!isBuilderCall) {
           violations.push({
             route,
             line: lineOf(source, node),
-            reason: 'le premier argument de c.json( doit etre un appel a une fonction build* importee de clariprint-responses.ts',
+            reason: `le premier argument de ${cParam}.json( doit etre un appel a une fonction build* importee de clariprint-responses.ts`,
           });
         } else if (ts.isCallExpression(arg) && ts.isIdentifier(arg.expression)) {
           const builderName = arg.expression.text;
           if (builderName === SUCCESS_BODY_BUILDER) {
             violations.push(...successBodyArgumentViolations(arg, source, route));
+          } else if (builderName === AUTH_TEST_BODY_BUILDER) {
+            violations.push(...authTestBodyArgumentViolations(arg, source, route));
           } else {
             for (const builderArg of arg.arguments) {
-              if (argumentIsTainted(builderArg, findEnclosingFunction(node))) {
+              if (!isPureLiteral(builderArg)) {
                 violations.push({
                   route,
                   line: lineOf(source, builderArg),
-                  reason: `${builderName}: un argument derive de ${BANNED_SOURCE_IDENTIFIERS.join('/')}`,
+                  reason: `${builderName}: seuls des arguments litteraux sont autorises`,
                 });
               }
             }
@@ -345,9 +343,17 @@ export function findLegacyClariprintResponseViolations(fileName: string, sourceT
 }
 
 describe('clariprint-quote / clariprint-test : reponses strictement construites par les build*', () => {
-  it('index.ts est conforme aux regles (i) et (ii)', () => {
+  it('index.ts est conforme aux regles structurelles (i) a (vi)', () => {
     const path = resolve(process.cwd(), 'supabase/functions/make-server-e3db71a4/index.ts');
     const violations = findLegacyClariprintResponseViolations(path, readFileSync(path, 'utf8'));
     expect(violations, JSON.stringify(violations, null, 2)).toEqual([]);
+  });
+
+  it('(d) garde non-vacant : les deux handlers sont bien trouves dans index.ts', () => {
+    const path = resolve(process.cwd(), 'supabase/functions/make-server-e3db71a4/index.ts');
+    const source = ts.createSourceFile(path, readFileSync(path, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+    expect(findRouteHandlers(source).map((h) => h.route).sort()).toEqual(
+      TARGET_ROUTES.map((r) => `${r.method.toUpperCase()} ${r.path}`).sort(),
+    );
   });
 });
