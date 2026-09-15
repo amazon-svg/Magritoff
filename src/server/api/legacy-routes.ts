@@ -51,7 +51,10 @@ import {
 import { assertNoFacadeCollision } from './api-facade-router.ts';
 import { createAssistantRoutes, type StorefrontEditorialAuthorizer } from './assistant-routes.ts';
 import { createCatalogRoutes } from './catalog-routes.ts';
-import { createClariprintRoutes } from './clariprint-routes.ts';
+import {
+  createClariprintRoutes,
+  type ClariprintRateLimitLogEvent,
+} from './clariprint-routes.ts';
 import { createCommercialRoutes } from './commercial-routes.ts';
 import { createConversationsRoutes } from './conversations-routes.ts';
 import { createDiagnosticsRoutes } from './diagnostics-routes.ts';
@@ -94,6 +97,10 @@ export type LegacyApiServices = Readonly<{
   diagnostics: DiagnosticsService;
   assistant: AssistantService;
   clariprint: ClariprintService;
+  /** BCP-0b (docs/api/CONVENTIONS.md §8.25 point 2.3bis) — dépendances du limiteur de débit de la route Clariprint historique. */
+  clariprintIsMember: (userId: string) => Promise<boolean>;
+  clariprintIpHmacSecret: string | null;
+  clariprintOnRateLimitEvent: (event: ClariprintRateLimitLogEvent) => void;
   quoteTemplates: QuoteTemplatesService;
   libraries: LibrariesService;
   libraryProducts: LibraryProductsService;
@@ -130,7 +137,13 @@ export function createLegacyApiRoutes(services: LegacyApiServices): readonly Api
     ...createConversationsRoutes(services.conversations),
     ...createDiagnosticsRoutes(services.diagnostics),
     ...createAssistantRoutes(services.assistant, services.authorizeStorefrontEditorial),
-    ...createClariprintRoutes(services.clariprint),
+    ...createClariprintRoutes(services.clariprint, {
+      isMember: services.clariprintIsMember,
+      storefrontSessions,
+      storefrontCookiePolicy,
+      ipHmacSecret: services.clariprintIpHmacSecret,
+      onRateLimitEvent: services.clariprintOnRateLimitEvent,
+    }),
     ...createQuoteTemplatesRoutes(services.quoteTemplates),
     ...createLibrariesRoutes(services.libraries),
     ...createLibraryProductsRoutes(services.libraryProducts),
@@ -175,6 +188,13 @@ function definitionOnlyServices(): LegacyApiServices {
         // valeur pure, sans effet sur les chemins declares.
         if (property === 'storefrontCookiePolicy') return storefrontSessionCookiePolicy(true);
         if (property === 'authorizeStorefrontEditorial') return async () => null;
+        // BCP-0b : valeurs pures captees par createClariprintRoutes AVANT
+        // toute requete (fermees dans le handler) — memes raisons que les
+        // deux lignes ci-dessus, sinon la seule ENUMERATION des chemins
+        // (LEGACY_ROUTE_DEFINITIONS) leverait au chargement du module.
+        if (property === 'clariprintIsMember') return async () => false;
+        if (property === 'clariprintIpHmacSecret') return null;
+        if (property === 'clariprintOnRateLimitEvent') return () => {};
         return service;
       },
     },
