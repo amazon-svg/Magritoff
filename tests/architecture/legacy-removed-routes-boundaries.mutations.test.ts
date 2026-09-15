@@ -1,9 +1,17 @@
 /**
  * Preuves de mutation pour le garde AST de
- * `legacy-removed-routes-boundaries.test.ts` (qa-review round 2, 2026-09-15) :
- * R3 (nom de parametre code en dur), R4 (argument accepte par
- * `buildRouteGoneBody`), R5 (middleware intercale dans `app.post`) et R5b
- * (inscription concurrente `app.use`/`app.on`).
+ * `legacy-removed-routes-boundaries.test.ts`.
+ *
+ * qa-review round 2, 2026-09-15 : R3 (nom de parametre code en dur), R4
+ * (argument accepte par `buildRouteGoneBody`), R5 (middleware intercale
+ * dans `app.post`) et R5b (inscription concurrente `app.use`/`app.on`).
+ *
+ * qa-review round 3, 2026-09-15 : `clariprint-quote`/`clariprint-test`
+ * rejoignent ce garde (410 Gone, decision Arnaud) apres l echec de la garde
+ * structurelle dediee. Deux mutations supplementaires : Q2 (`Response.json`
+ * au lieu de `<contexte>.json`, contournement qui avait survecu a la garde
+ * precedente) et une route Clariprint retablie (le handler redevient actif
+ * au lieu du stub 410).
  *
  * Chaque `it` projette UNE mutation dans un mini fichier source autonome
  * (import du module `removed-route-responses.ts` + squelette `app.post`) et
@@ -89,8 +97,48 @@ app.post("/make-server-e3db71a4/send-invitation-email", (c) => {
   });
 });
 
+describe('Q2 et route Clariprint retablie (rejet qa-review round 3, 17 contournements)', () => {
+  it('Q2 - Response.json(...) au lieu de <contexte>.json(...)', () => {
+    const source = `${IMPORTS}
+app.post("/make-server-e3db71a4/clariprint-quote", (c) => {
+  return Response.json(buildRouteGoneBody(), { status: 410 });
+});
+app.get("/make-server-e3db71a4/clariprint-test", (c) => {
+  return c.json(buildRouteGoneBody(), 410);
+});
+app.post("/make-server-e3db71a4/save-product", (c) => {
+  return c.json(buildRouteGoneBody(), 410);
+});
+app.post("/make-server-e3db71a4/send-invitation-email", (c) => {
+  return c.json(buildRouteGoneBody(), 410);
+});
+`;
+    expect(violations(source).length).toBeGreaterThan(0);
+  });
+
+  it('route Clariprint retablie - clariprint-quote redevient un handler actif au lieu du stub 410', () => {
+    const source = `${IMPORTS}
+app.post("/make-server-e3db71a4/clariprint-quote", async (c) => {
+  const body = await c.req.json();
+  const result = await fetch("https://lrdp.clariprint.com/optimproject/json.wcl", { method: "POST", body: JSON.stringify(body) });
+  return c.json(await result.json());
+});
+app.get("/make-server-e3db71a4/clariprint-test", (c) => {
+  return c.json(buildRouteGoneBody(), 410);
+});
+app.post("/make-server-e3db71a4/save-product", (c) => {
+  return c.json(buildRouteGoneBody(), 410);
+});
+app.post("/make-server-e3db71a4/send-invitation-email", (c) => {
+  return c.json(buildRouteGoneBody(), 410);
+});
+`;
+    expect(violations(source).length).toBeGreaterThan(0);
+  });
+});
+
 describe('non-regression : code conforme, zero violation', () => {
-  it('les deux routes conformes ne declenchent rien, et le middleware global legitime (app.use("*", ...)) n est pas un faux positif', () => {
+  it('les quatre routes conformes ne declenchent rien, et le middleware global legitime (app.use("*", ...)) n est pas un faux positif', () => {
     const source = `${IMPORTS}
 app.use("*", (c: any, next: any) => next());
 app.use("/*", (c: any, next: any) => next());
@@ -98,6 +146,12 @@ app.post("/make-server-e3db71a4/save-product", (c) => {
   return c.json(buildRouteGoneBody(), 410);
 });
 app.post("/make-server-e3db71a4/send-invitation-email", (c) => {
+  return c.json(buildRouteGoneBody(), 410);
+});
+app.post("/make-server-e3db71a4/clariprint-quote", (c) => {
+  return c.json(buildRouteGoneBody(), 410);
+});
+app.get("/make-server-e3db71a4/clariprint-test", (c) => {
   return c.json(buildRouteGoneBody(), 410);
 });
 `;

@@ -1,12 +1,19 @@
 /**
- * Correctif de securite (decision Arnaud, 2026-09-15) : `save-product` et
- * `send-invitation-email`, deux routes legacy de `make-server-e3db71a4` sans
- * appelant connu (verifie par qa-review), repondent desormais 410 Gone. Le
- * flux d invitation courant passe par `POST /api/v1/invitations`
- * (magrit-api).
+ * Correctif de securite (decision Arnaud, 2026-09-15) : `save-product`,
+ * `send-invitation-email`, `clariprint-quote` et `clariprint-test`, quatre
+ * routes legacy de `make-server-e3db71a4` sans appelant connu (verifie par
+ * qa-review), repondent desormais 410 Gone. Le flux d invitation courant
+ * passe par `POST /api/v1/invitations` (magrit-api).
  *
- * v1 de ce garde (rejetee, qa-review round 2) laissait passer 4
- * contournements :
+ * `clariprint-quote`/`clariprint-test` rejoignent ce garde apres l echec de
+ * la garde structurelle dediee (qa-review round 3 : 17 contournements
+ * survivaient encore, dont `result.costs = result.all_process` et
+ * `Response.json(result)`, chacun sur une seule ligne). Arnaud a tranche :
+ * on arrete de durcir une garde sur du code qui peut etre retire -- la
+ * garde la plus sure est celle qui n a plus de logique a garder.
+ *
+ * v1 de ce garde (rejetee, qa-review round 2, sur les 2 premieres routes)
+ * laissait passer 4 contournements :
  *  - R3 : le nom du parametre de contexte etait code en dur ('c') dans la
  *    recherche de `c.req` -- renommer le parametre (`(ctx) => ctx.req...`)
  *    rendait la reference invisible.
@@ -18,7 +25,7 @@
  *  - R5b : une inscription concurrente via `app.use`/`app.on` sur le meme
  *    chemin n etait jamais recherchee.
  *
- * v2 (ce fichier) verifie que CHACUN des deux handlers :
+ * v2 (ce fichier) verifie que CHACUN des quatre handlers :
  *  (i)   ne contient qu une seule instruction, un `return <contexte>.json(
  *        <appel build*>, 410)`, ou `<contexte>` est le VRAI nom du parametre
  *        de la fonction geree (pas suppose 'c') ;
@@ -26,15 +33,18 @@
  *  (iii) ne reference nulle part `<contexte>.req`, `kv.`, `Deno.env`, ni un
  *        appel a `fetch` -- aucune lecture du corps de requete, aucun acces
  *        au KV store, a une variable d environnement ou au reseau ;
- *  (iv)  l appel `app.post(...)` qui enregistre la route recoit EXACTEMENT
- *        2 arguments (chemin, handler) -- pas de middleware intercale ;
+ *  (iv)  l appel `app.post(...)`/`app.get(...)` qui enregistre la route
+ *        recoit EXACTEMENT 2 arguments (chemin, handler) -- pas de
+ *        middleware intercale ;
  *  (v)   aucun `app.use(...)`/`app.on(...)` ailleurs dans le fichier ne
- *        cible le chemin d une des deux routes retirees.
+ *        cible le chemin d une des quatre routes retirees ;
+ *  (vi)  le FICHIER ENTIER ne contient aucun identifiant `Response` (tue
+ *        `new Response(...)` ET `Response.json(...)`, qui contournaient la
+ *        garde structurelle precedente en evitant `<contexte>.json`).
  *
- * Preuve d echec sur le commit precedent (avant le correctif 410, `ae14eab0`) :
+ * Preuve d echec sur le commit precedent (avant ce correctif, `8d617348`) :
  * voir le rapport de fin de tache -- ce test, pointe sur ce commit, remonte
- * des violations sur les deux routes (lecture de `c.req.json()`, acces
- * `kv.set`/`kv.get`, `Deno.env.get(...)`, `fetch(...)`).
+ * des violations sur les deux routes Clariprint, toujours actives.
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -44,6 +54,8 @@ import { describe, expect, it } from 'vitest';
 export const TARGET_ROUTES: ReadonlyArray<{ method: 'post' | 'get'; path: string }> = [
   { method: 'post', path: '/make-server-e3db71a4/save-product' },
   { method: 'post', path: '/make-server-e3db71a4/send-invitation-email' },
+  { method: 'post', path: '/make-server-e3db71a4/clariprint-quote' },
+  { method: 'get', path: '/make-server-e3db71a4/clariprint-test' },
 ];
 
 export interface Violation {
@@ -185,10 +197,11 @@ function checkShape(
   // (iv) R5 : l inscription elle-meme ne doit recevoir QUE le chemin et le
   // handler -- aucun middleware intercale entre les deux.
   if (registration.arguments.length !== 2) {
+    const method = ts.isPropertyAccessExpression(registration.expression) ? registration.expression.name.text : 'post';
     violations.push({
       route,
       line: lineOf(source, registration),
-      reason: `app.post(...) doit recevoir exactement 2 arguments (chemin, handler), pas ${registration.arguments.length}`,
+      reason: `app.${method}(...) doit recevoir exactement 2 arguments (chemin, handler), pas ${registration.arguments.length}`,
     });
   }
 
@@ -262,8 +275,23 @@ function checkForbiddenReferences(handler: ts.Node, cParam: string, route: strin
   visit(handler);
 }
 
+/** (vi) aucun identifiant `Response` nulle part dans le fichier -- tue
+ * `new Response(...)` ET la variante statique `Response.json(...)`, qui
+ * contournent toutes les deux `<contexte>.json` sans passer par lui. */
+function findResponseIdentifierUsages(source: ts.SourceFile): Violation[] {
+  const violations: Violation[] = [];
+  function visit(node: ts.Node): void {
+    if (ts.isIdentifier(node) && node.text === 'Response') {
+      violations.push({ route: '(fichier entier)', line: lineOf(source, node), reason: 'identifiant Response interdit dans index.ts' });
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(source);
+  return violations;
+}
+
 /**
- * Verifie les deux routes retirees d un fichier source. Exportee pour
+ * Verifie les quatre routes retirees d un fichier source. Exportee pour
  * reutilisation par un eventuel test de mutation ou de preuve d echec.
  */
 export function findRemovedRouteViolations(fileName: string, sourceText: string): Violation[] {
@@ -278,18 +306,19 @@ export function findRemovedRouteViolations(fileName: string, sourceText: string)
   }
 
   violations.push(...findCompetingRegistrations(source));
+  violations.push(...findResponseIdentifierUsages(source));
 
   return violations;
 }
 
-describe('save-product / send-invitation-email : 410 Gone strict, sans effet de bord', () => {
-  it('index.ts est conforme : corps unique return c.json(build*, 410), aucune reference interdite', () => {
+describe('save-product / send-invitation-email / clariprint-quote / clariprint-test : 410 Gone strict, sans effet de bord', () => {
+  it('index.ts est conforme : corps unique return c.json(build*, 410), aucune reference interdite, aucun identifiant Response', () => {
     const path = resolve(process.cwd(), 'supabase/functions/make-server-e3db71a4/index.ts');
     const violations = findRemovedRouteViolations(path, readFileSync(path, 'utf8'));
     expect(violations, JSON.stringify(violations, null, 2)).toEqual([]);
   });
 
-  it('les deux routes cibles sont bien presentes dans le fichier (garde non-vacant)', () => {
+  it('les quatre routes cibles sont bien presentes dans le fichier (garde non-vacant)', () => {
     const path = resolve(process.cwd(), 'supabase/functions/make-server-e3db71a4/index.ts');
     const source = ts.createSourceFile(path, readFileSync(path, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
     expect(findRouteHandlers(source).map((h) => h.route).sort()).toEqual(
