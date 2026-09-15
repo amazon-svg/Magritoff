@@ -155,6 +155,22 @@ export function getOrderStatusLegendLabels(): string[] {
 }
 
 /**
+ * Libellé de statut avec la première lettre en minuscule, pour une
+ * insertion en fin ou milieu de phrase (« ... n'est plus en attente de
+ * validation », « Suivre ma commande (validée) »).
+ *
+ * BCP-5 (docs/api/CONVENTIONS.md §8.25 point 5.1(c), qa-review de BCP-5) :
+ * la règle veut que « les messages d'erreur qui nomment un statut le
+ * tirent eux aussi de la table ». Cette fonction est la forme DÉRIVÉE
+ * autorisée — jamais une seconde table, jamais une phrase recopiée à la
+ * main avec une capitale changée.
+ */
+export function getStatusLabelLowerFirst(status: string): string {
+  const label = getStatusInfo(status).label;
+  return label.length > 0 ? label.charAt(0).toLowerCase() + label.slice(1) : label;
+}
+
+/**
  * Mapping inverse label UI → status enum (pour parsing input filtre).
  * Si plusieurs statuts partagent le même label (ex: "Validée" → `validated`
  * ou `approved` legacy), retourne le premier match dans l'ordre déclaré.

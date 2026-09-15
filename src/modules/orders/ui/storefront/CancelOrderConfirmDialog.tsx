@@ -25,6 +25,7 @@ import {
   AlertDialogTitle,
 } from '@/shared/ui/alert-dialog';
 import { TEST_IDS } from '@/shared/presentation/testIds';
+import { getStatusInfo } from '@/modules/orders/ui/helpers/orderStatus';
 
 export interface CancelOrderConfirmDialogProps {
   /** UUID de la commande à annuler, ou null si modal fermé. */
@@ -80,7 +81,7 @@ export function CancelOrderConfirmDialog({
                 Commande <span className="font-mono">#{orderShortId}</span>.{' '}
               </>
             )}
-            Cette action passera la commande en statut <strong>Annulée</strong> et tracera
+            Cette action passera la commande en statut <strong>{getStatusInfo('cancelled').label}</strong> et tracera
             l'événement dans l'historique. L'opération est irréversible.
           </AlertDialogDescription>
         </AlertDialogHeader>

@@ -10,7 +10,7 @@
 import { History, RotateCcw, ShoppingCart } from 'lucide-react';
 import { TEST_IDS } from '@/shared/presentation/testIds';
 import { formatEuro } from '@/modules/catalog/ui/storefront';
-import { getStatusInfo } from '@/modules/orders/ui/helpers/orderStatus';
+import { getStatusLabelLowerFirst } from '@/modules/orders/ui/helpers/orderStatus';
 
 /** Dernière commande de l'acheteur sur la boutique (fetch PublicShop). */
 export interface ResumeLastOrder {
@@ -52,7 +52,7 @@ export function buildResumeChips(args: {
     }
     chips.push({
       key: 'track',
-      label: `Suivre ma dernière commande (${statusLabel(args.lastOrder.status)})`,
+      label: `Suivre ma dernière commande (${getStatusLabelLowerFirst(args.lastOrder.status)})`,
     });
   }
   return chips;
@@ -62,17 +62,6 @@ function formatOrderDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
   return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
-}
-
-/**
- * Libellé de statut en minuscule pour une insertion en fin de phrase
- * (« Suivre ma dernière commande (validée) »). DÉRIVÉ de la table UNIQUE
- * `STATUS_LABELS` de `orderStatus.ts` — ce n'est pas une seconde table
- * (BCP-5, docs/api/CONVENTIONS.md §8.25 point 5.1).
- */
-function statusLabel(status: string): string {
-  const label = getStatusInfo(status).label;
-  return label.length > 0 ? label.charAt(0).toLowerCase() + label.slice(1) : label;
 }
 
 const CHIP_ICONS = {

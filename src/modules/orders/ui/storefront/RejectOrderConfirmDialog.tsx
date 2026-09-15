@@ -27,6 +27,7 @@ import {
   AlertDialogTitle,
 } from '@/shared/ui/alert-dialog';
 import { TEST_IDS } from '@/shared/presentation/testIds';
+import { getStatusInfo } from '@/modules/orders/ui/helpers/orderStatus';
 
 export interface RejectOrderConfirmDialogProps {
   orderId: string | null;
@@ -90,7 +91,7 @@ export function RejectOrderConfirmDialog({
                 Commande <span className="font-mono">#{orderShortId}</span>.{' '}
               </>
             )}
-            La commande passera en statut <strong>Annulée</strong> et l'auteur sera prévenu
+            La commande passera en statut <strong>{getStatusInfo('cancelled').label}</strong> et l'auteur sera prévenu
             de votre refus avec la raison ci-dessous. L'opération est irréversible.
           </AlertDialogDescription>
         </AlertDialogHeader>

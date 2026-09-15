@@ -3,23 +3,35 @@
  * de statut de commande, une seule, sous `src/modules/orders/` et
  * `src/modules/roles/`.
  *
- * Avant BCP-5, l'architecte a relevé QUATRE tables sous `src/modules/orders/ui/` :
- * `orderStatus.ts` (canonique), `ResumeBanner.tsx`, `PortalOrders.helpers.ts`
- * et `orderAuditTrail.helpers.ts`. Un premier test a échoué sur ces quatre
- * fichiers (≥3 statuts canoniques recopiés comme CLÉS d'objet en dur).
+ * Historique du durcissement, chaque étape ayant échoué sur du code réel
+ * avant d'être corrigée :
+ *  1. L'architecte a relevé QUATRE tables sous `src/modules/orders/ui/` :
+ *     `orderStatus.ts` (canonique), `ResumeBanner.tsx`, `PortalOrders.helpers.ts`
+ *     et `orderAuditTrail.helpers.ts` (≥3 statuts canoniques recopiés comme
+ *     CLÉS d'objet en dur).
+ *  2. Sur un constat du dev-story de BCP-5 : `OrderRolesPage.tsx:578`, une
+ *     PHRASE écrite en dur énumérant les libellés (VALEURS, pas clés), avec
+ *     un huitième item fantôme. Le test a été étendu à cette forme et à
+ *     `src/modules/roles/`.
+ *  3. **qa-review de BCP-5 (2026-09-15), rejet bloquant** : le seuil à 3
+ *     n'implémentait pas la règle opposable du point 5.1(c) — « refuse
+ *     TOUT littéral de libellé de statut de commande hors de `orderStatus.ts` ».
+ *     Un seuil ≥3 laissait passer UN SEUL littéral recopié (le cas réel :
+ *     `ValidateOrderConfirmDialog.tsx` n'en portait que 2). **Seuil ramené à 1**,
+ *     et la liste des libellés couvre désormais TOUTE la table (legacy
+ *     `pending`/`approved` compris), plus `"Brouillon"` — le libellé
+ *     superseded qu'une régression pourrait réintroduire.
  *
- * Arbitrage architecte du 2026-09-15, sur un constat du dev-story de BCP-5 :
- * ce premier test laissait passer une CINQUIÈME forme de duplication —
- * `OrderRolesPage.tsx:578`, une PHRASE écrite en dur qui énumérait les
- * libellés (VALEURS, pas clés) avec un huitième item fantôme
- * ("Brouillon" + "En attente de validation" pour le même statut `draft`).
- * Le test est étendu à cette forme, et à `src/modules/roles/`.
- *
- * Il échoue sur le code d'avant :
+ * Il échoue sur le code d'avant chaque étape (rejoué et vérifié à chaque
+ * fois, cf. story doc) :
  *  - `ResumeBanner.tsx`, `PortalOrders.helpers.ts`, `orderAuditTrail.helpers.ts`
  *    (≥3 clés de statut en dur, forme table) ;
  *  - `OrderRolesPage.tsx:578` (8 libellés de statut en dur dans une seule
- *    phrase, forme légende/énumération).
+ *    phrase, forme légende/énumération) ;
+ *  - deux mutations adversariales de la qa-review (seuil 1 exigé pour les
+ *    tuer) : `OrderHistoryTable.tsx` (`label: 'Brouillon'` conditionnel sur
+ *    `o.status === 'draft'`) et une mini-table à 2 clés dans
+ *    `PortalOrderEditor.tsx` (`draft: 'Brouillon', validated: 'Validée'`).
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { extname, join, relative, resolve } from 'node:path';
@@ -31,7 +43,8 @@ const SCAN_ROOTS = [
 ];
 const CANONICAL_FILE = resolve(process.cwd(), 'src/modules/orders/ui/helpers/orderStatus.ts');
 
-// Les 7 statuts `tenant_order_status` canoniques (clés de STATUS_LABELS).
+// Les 9 statuts `OrderStatus` (clés de `STATUS_LABELS`, `tenant_orders`
+// canoniques + `shop_orders` hérités).
 const STATUS_KEYS = [
   'draft',
   'validated',
@@ -40,14 +53,18 @@ const STATUS_KEYS = [
   'delivered',
   'invoiced',
   'cancelled',
+  'pending',
+  'approved',
 ];
 
-// Les libellés (VALEURS) de ces mêmes 7 statuts, tels que rendus par la
-// table unique — cf. `getOrderStatusLegendLabels()`. `pending`/`approved`
-// (hérités `shop_orders`) sont volontairement exclus : leurs libellés
-// ("En attente", "Validée") chevauchent trop les autres pour un seuil fiable,
-// et ce ne sont pas des statuts `tenant_orders`.
+// TOUS les libellés (VALEURS) de la table unique — `tenant_orders` ET les
+// statuts hérités `shop_orders` (`pending` → "En attente", `approved` →
+// "Validée") — plus "Brouillon", le libellé SUPERSEDED de `draft` qu'une
+// régression pourrait réintroduire. qa-review du 2026-09-15 : « la liste
+// doit contenir TOUS les libellés de la table, plus "Brouillon" ».
 const STATUS_LABELS_VALUES = [
+  'Brouillon',
+  'En attente',
   'En attente de validation',
   'Validée',
   'En production',
@@ -79,7 +96,7 @@ function stripComments(source: string): string {
 }
 
 describe('architecture — une seule table de libellés de statut sous src/modules/orders/ et src/modules/roles/', () => {
-  it('aucun fichier hors orderStatus.ts ne recopie une table de libellés de statut (clés en dur)', () => {
+  it('aucun fichier hors orderStatus.ts ne recopie UNE SEULE entrée de statut comme clé d objet en dur', () => {
     const offenders: string[] = [];
     for (const root of SCAN_ROOTS) {
       for (const file of collectSourceFiles(root)) {
@@ -89,7 +106,7 @@ describe('architecture — une seule table de libellés de statut sous src/modul
         const hits = STATUS_KEYS.filter((key) =>
           new RegExp(`['"\`]?\\b${key}\\b['"\`]?\\s*:\\s*['"\`{]`).test(content),
         );
-        if (hits.length >= 3) {
+        if (hits.length >= 1) {
           offenders.push(`${relative(process.cwd(), file)} (${hits.join(', ')})`);
         }
       }
@@ -97,14 +114,14 @@ describe('architecture — une seule table de libellés de statut sous src/modul
     expect(offenders).toEqual([]);
   });
 
-  it('aucun fichier hors orderStatus.ts n énumère les libellés de statut en dur (forme légende/phrase)', () => {
+  it('aucun fichier hors orderStatus.ts ne recopie UN SEUL libellé de statut en dur (texte, phrase ou légende)', () => {
     const offenders: string[] = [];
     for (const root of SCAN_ROOTS) {
       for (const file of collectSourceFiles(root)) {
         if (file === CANONICAL_FILE) continue;
         const content = stripComments(readFileSync(file, 'utf8'));
         const hits = STATUS_LABELS_VALUES.filter((label) => content.includes(label));
-        if (hits.length >= 3) {
+        if (hits.length >= 1) {
           offenders.push(`${relative(process.cwd(), file)} (${hits.join(', ')})`);
         }
       }

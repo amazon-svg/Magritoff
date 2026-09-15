@@ -41,6 +41,34 @@ Décisions d'Arnaud opposables, reprises telles quelles :
    table unique via un helper pur (`getOrderStatusLegendLabels()`). La garde
    d'architecture est étendue en conséquence.
 
+**Troisième round — REJET bloquant de la qa-review distincte (2026-09-15).**
+Le code appliquait toutes les décisions d'Arnaud, mais la garde d'architecture
+n'implémentait pas la règle opposable du point 5.1(c) : « refuse **tout**
+littéral de libellé de statut de commande hors de `orderStatus.ts` ». Un
+seuil à 3 laissait passer un fichier n'en portant que 2
+(`ValidateOrderConfirmDialog.tsx`). Corrections apportées, chacune prouvée
+par une mutation EXÉCUTÉE (injectée, testée, puis retirée) :
+- Seuil de la garde ramené à **1**, liste des libellés étendue à TOUTE la
+  table (legacy `pending`/`approved` compris) + `"Brouillon"`.
+- `ValidateOrderConfirmDialog.tsx`, `orderValidation.helpers.ts`,
+  `orderCancellation.helpers.ts` : les libellés sont désormais **tirés de la
+  table** (`getStatusInfo(...)`, `getStatusLabelLowerFirst(...)`), pas
+  recopiés à la main.
+- Conséquence mécanique du seuil à 1 (non explicitement listée par la
+  qa-review, mais nécessaire pour que la garde reste verte) :
+  `CancelOrderConfirmDialog.tsx` et `RejectOrderConfirmDialog.tsx`
+  recopiaient aussi « Annulée » en dur — même correction appliquée, SANS
+  toucher à la fausse promesse de `RejectOrderConfirmDialog` (explicitement
+  laissée en dette par le coordinateur).
+- `ResumeBanner.tsx` : sa dérivation locale (minuscule initiale) est
+  remontée dans `orderStatus.ts` sous `getStatusLabelLowerFirst()`, réutilisée
+  par les helpers d'erreur — une seule implémentation de la dérivation,
+  pas une troisième copie.
+- Recommandation 3 (dette qa-review) : assertion `not.toMatch(/e-?mail|courriel/i)`
+  sur le texte AFFICHÉ (hors commentaires, hors identifiant `userEmail`) de
+  `PortalCart.tsx` et `PortalThankYou.tsx`, pour empêcher toute reformulation
+  future de la promesse d'email retirée.
+
 ## Critères d'acceptation — un par un
 
 | # | Critère (cadrage §8.25 point 5.1) | Statut | Preuve |
@@ -59,6 +87,9 @@ Décisions d'Arnaud opposables, reprises telles quelles :
 | 12 | Même fausse promesse d'email retirée partout où elle apparaît, pas seulement dans le panier | **Fait** | `PortalThankYou.tsx:120` (bandeau retiré) ; recherche `grep` exhaustive sur `src/modules/orders/ui/storefront` et `src/modules/shops/ui/storefront` (aucune autre occurrence buyer-facing, une seule trouvée et traitée) ; `tests/components/shop/portal/PortalThankYou.test.ts` (nouveau cas) |
 | 13 | `OrderRolesPage.tsx:578` : huitième item fantôme retiré, liste tirée de la table unique | **Fait (arbitrage architecte)** | `getOrderStatusLegendLabels()` dans `orderStatus.ts`, publié par `orders/ui/index.ts`, consommé par `OrderRolesPage.tsx` ; `tests/lib/orderStatus.test.ts` (2 nouveaux cas), `tests/modules/roles/OrderRolesPage.text.test.ts` (nouveau) |
 | 14 | Garde d'architecture étendue : refuse aussi un libellé de statut écrit en dur (forme légende/phrase), sous `src/modules/orders/` ET `src/modules/roles/` | **Fait** | `tests/architecture/order-status-single-source.test.ts` (2e `it`, nouveau) — preuve d'échec exécutée sur l'ancien `OrderRolesPage.tsx` (7 libellés détectés) |
+| 15 | qa-review 5.1(c) : la garde refuse **tout** littéral (seuil 1), liste = TOUS les libellés de la table + « Brouillon » | **Fait** | `order-status-single-source.test.ts` (seuil 1) ; mutations 2c et 1b exécutées et tuées (tableau dédié) |
+| 16 | `ValidateOrderConfirmDialog.tsx`, `orderValidation.helpers.ts`, `orderCancellation.helpers.ts` tirent le statut de la table | **Fait** | `getStatusInfo(...)` / `getStatusLabelLowerFirst(...)` ; tests inchangés (texte rendu identique) + `ValidateOrderConfirmDialog.text.test.ts` réécrit |
+| 17 | Assertion anti-régression email/courriel sur le texte affiché de `PortalCart.tsx` et `PortalThankYou.tsx` | **Fait** | mutations 4b et 4d exécutées et tuées (tableau dédié) |
 
 ## Ce qui est livré, fichier par fichier
 
@@ -79,6 +110,16 @@ Décisions d'Arnaud opposables, reprises telles quelles :
 | `src/modules/orders/ui/helpers/orderStatus.ts` (3e round) | Nouvel export `getOrderStatusLegendLabels()` : les 7 libellés canoniques (workflow + terminal, sans `pending`/`approved`), dans l'ordre du flux. |
 | `src/modules/orders/ui/index.ts` (3e round) | Publie `getOrderStatusLegendLabels` (même discipline que `helpers/tax`), pour un import inter-module conforme à `modular-ui-boundaries.test.ts`. |
 | `src/modules/roles/ui/workspace/OrderRolesPage.tsx:578` (3e round, arbitrage architecte) | Phrase en dur « Brouillon · En attente de validation · Validée · En production · Expédiée · Livrée · Facturée · Annulée » (8 items, dont un fantôme) → `{getOrderStatusLegendLabels().join(' · ')}` (7 items, tirés de la table unique). |
+| `src/modules/orders/ui/helpers/orderStatus.ts` (4e round, qa-review) | Nouvel export `getStatusLabelLowerFirst(status)` : dérivation « minuscule initiale » centralisée (remontée depuis `ResumeBanner.tsx`, réutilisée par les 2 helpers d'erreur). |
+| `src/modules/orders/ui/storefront/ResumeBanner.tsx` (4e round) | `statusLabel()` local supprimé, remplacé par l'appel à `getStatusLabelLowerFirst()` de `orderStatus.ts` — une seule implémentation de la dérivation. |
+| `src/modules/orders/ui/storefront/ValidateOrderConfirmDialog.tsx:76-77` (4e round) | « En attente de validation » et « Validée » recopiés en dur → `{getStatusInfo('draft').label}` / `{getStatusInfo('validated').label}`. |
+| `src/modules/orders/ui/storefront/orderValidation.helpers.ts:37` (4e round) | Message d'erreur : texte en dur → `` `...${getStatusLabelLowerFirst('draft')}...` ``, texte rendu identique. |
+| `src/modules/orders/ui/storefront/orderCancellation.helpers.ts:38` (4e round) | Idem. |
+| `src/modules/orders/ui/storefront/CancelOrderConfirmDialog.tsx` (4e round, conséquence du seuil 1, non explicitement demandé) | « Annulée » en dur → `{getStatusInfo('cancelled').label}`. |
+| `src/modules/orders/ui/storefront/RejectOrderConfirmDialog.tsx` (4e round, idem) | « Annulée » en dur → `{getStatusInfo('cancelled').label}` — SEUL ce libellé est touché, la fausse promesse de notification (dette explicite) ne l'est pas. |
+| `tests/architecture/order-status-single-source.test.ts` (4e round) | Seuil ramené à 1 (les 2 `it`), liste des libellés étendue à TOUTE la table (`pending`, `approved` compris) + `"Brouillon"`. |
+| `tests/components/shop/portal/PortalCart.text.test.ts`, `PortalThankYou.test.ts` (4e round) | Nouveau `it` : `not.toMatch(/e-?mail\|courriel/i)` sur le texte affiché (commentaires retirés, `userEmail` exclu pour `PortalThankYou`). |
+| `tests/components/shop/portal/ValidateOrderConfirmDialog.text.test.ts` (4e round) | Réécrit : vérifie l'appel à `getStatusInfo(...)`, plus l'absence de littéral recopié. |
 
 ## Tests
 
@@ -98,13 +139,31 @@ Décisions d'Arnaud opposables, reprises telles quelles :
 - **3e vague (`OrderRolesPage.tsx:578`)** : `OrderRolesPage.tsx` remis au contenu `git show HEAD:...` (phrase de 8 items) ; `tests/architecture/order-status-single-source.test.ts` (2e `it`, nouveau) **échoue** en détectant les 7 libellés canoniques dans la phrase.
 - Après chaque vague, le fichier a été restauré à son contenu de cette story (`git diff --stat` comparé avant/après pour confirmer l'identité), puis l'intégralité des gates rejouée au vert (section suivante, chiffres finaux).
 
-## Gates (chiffres finaux, après les 3 vagues)
+## Troisième round (rejet qa-review) — tableau mutation → test, chaque mutation EXÉCUTÉE
+
+| # | Mutation (injectée, testée, retirée) | Fichier muté | Test qui la tue | Résultat exécuté |
+|---|---|---|---|---|
+| **2c** | `o.status === 'draft' ? { ...getStatusInfo(o.status), label: 'Brouillon' } : getStatusInfo(o.status)` | `OrderHistoryTable.tsx:972` | `order-status-single-source.test.ts`, 2e `it` (valeurs, seuil 1) | **Tuée** : 1 offender détecté (`Brouillon`) ; fichier restauré, test revert au vert |
+| **1b** | `const MUTATION_1B_PROBE: Record<string, string> = { draft: 'Brouillon', validated: 'Validée' };` | `PortalOrderEditor.tsx` | `order-status-single-source.test.ts`, les 2 `it` (clés ET valeurs, seuil 1) | **Tuée par les 2 checks** : clé (`draft, validated`) et valeur (`Brouillon, Validée`) ; fichier restauré, test revert au vert |
+| **texte** | `ValidateOrderConfirmDialog.tsx:76-77`, `orderValidation.helpers.ts:37`, `orderCancellation.helpers.ts:38` recopiaient les libellés à la main | ces 3 fichiers | `ValidateOrderConfirmDialog.text.test.ts` (réécrit), `orderValidation.helpers.test.ts`, `orderCancellation.helpers.test.ts` (assertions inchangées, texte rendu identique) | Refactor vers `getStatusInfo`/`getStatusLabelLowerFirst` — comportement observable identique, source ne recopie plus rien |
+| **4b** | `Votre commande sera transmise à l'imprimeur, qui la validera. Un e-mail récapitulatif vous sera adressé.` | `PortalCart.tsx` | `PortalCart.text.test.ts`, nouveau `it` (`not.toMatch(/e-?mail\|courriel/i)`) | **Tuée** : échoue sur le texte muté ; fichier restauré, test revert au vert |
+| **4d** | `<p>Vous recevrez un e-mail récapitulatif à {userEmail}.</p>` ajouté après la référence | `PortalThankYou.tsx` | `PortalThankYou.test.ts`, nouveau `it` (idem, `userEmail` exclu) | **Tuée** : échoue sur le texte muté ; fichier restauré, test revert au vert |
+
+Conséquence mécanique du seuil à 1, constatée en relançant la garde après son
+durcissement (ni demandée explicitement ni un choix propre — nécessaire pour
+que `pnpm test:architecture` reste vert) : `CancelOrderConfirmDialog.tsx` et
+`RejectOrderConfirmDialog.tsx` recopiaient chacun `"Annulée"` en dur. Corrigés
+de la même façon (`getStatusInfo('cancelled').label`), sans toucher à la
+fausse promesse de `RejectOrderConfirmDialog` (dette explicitement laissée
+par le coordinateur).
+
+## Gates (chiffres finaux, après le troisième round)
 
 - `pnpm typecheck` : **vert**.
-- Vitest ciblé (17 fichiers listés ci-dessus) : **97 passed | 3 skipped**.
-- `pnpm test` (suite complète) : **2848 passed | 86 skipped**, 291 fichiers.
+- Vitest ciblé (15 fichiers listés ci-dessus) : **100 passed | 3 skipped**.
+- `pnpm test` (suite complète) : **2851 passed | 86 skipped**, 291 fichiers.
 - `pnpm test:contract` : **432 passed** (23 fichiers) — aucun contrat touché par cette story (aucun endpoint modifié), rejoué par prudence.
-- `pnpm test:architecture` : **195 passed** (43 fichiers), les 2 `it` du test étendu inclus.
+- `pnpm test:architecture` : **195 passed** (43 fichiers), garde durcie (seuil 1) incluse.
 
 ## Écarts remontés, puis résolus dans ce même worktree
 
@@ -141,6 +200,23 @@ Sprint 6+, hors panier/remerciement), et « l'auteur » d'une commande n'est
 pas nécessairement l'acheteur boutique — peut être un utilisateur atelier.
 Sans certitude sur l'exactitude de cette promesse ni sur son destinataire
 réel, elle n'a PAS été modifiée ; à vérifier séparément si jugé pertinent.
+Seul son libellé de statut (`"Annulée"` en dur) a été corrigé au troisième
+round, comme conséquence mécanique du durcissement de la garde — la phrase
+de promesse elle-même n'a pas été touchée.
+
+## En dette, explicitement non traité dans ce lot (le coordinateur les trace de son côté)
+
+- `RejectOrderConfirmDialog` : fausse promesse de notification (voir
+  ci-dessus) — code mort (aucun appelant), la promesse reste fausse.
+- `OrderRolesPage.tsx:420-421` (zone notify policy, hors du bloc statuts
+  traité par ce lot) : une politique de notification affichée sans aucun
+  mécanisme derrière.
+- `getOrderStatusLegendLabels()` exclut délibérément les libellés hérités
+  `shop_orders` (`pending`, `approved`) — comportement voulu (point (c) de
+  l'arbitrage architecte), mais noté comme une exclusion à documenter/tracer.
+- Le périmètre `src/app` n'a pas été audité pour une éventuelle sixième
+  table de libellés de statut — la garde ne couvre que `src/modules/orders/`
+  et `src/modules/roles/`, conformément au périmètre demandé.
 
 ## Ce qui n'est PAS dans le périmètre
 

@@ -21,6 +21,11 @@ const source = readFileSync(
   'utf8',
 );
 
+/** Retire les commentaires — seul le texte réellement affiché compte ici. */
+function displayedText(src: string): string {
+  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+}
+
 describe('PortalCart — textes corrigés (BCP-5)', () => {
   it('ne promet plus un email de confirmation à l acheteur', () => {
     expect(source).not.toContain('Vous recevrez un email de confirmation');
@@ -38,5 +43,13 @@ describe('PortalCart — textes corrigés (BCP-5)', () => {
       "Prix marché</strong> — au moins une ligne est une estimation Magrit. Le prix définitif sera confirmé par l&apos;imprimeur à la validation de la commande.",
     );
     expect(source).not.toContain('Clariprint pas encore intégré');
+  });
+
+  // qa-review de BCP-5 (2026-09-15), recommandation 3 : la décision d'Arnaud
+  // dit « supprimée, pas reformulée » — aucune reformulation de la promesse
+  // d'email (ex. « Un e-mail récapitulatif vous sera adressé. ») ne doit
+  // pouvoir se réintroduire silencieusement dans le texte affiché.
+  it('ne mentionne ni email ni courriel dans son texte affiché (qa-review)', () => {
+    expect(displayedText(source)).not.toMatch(/e-?mail|courriel/i);
   });
 });
