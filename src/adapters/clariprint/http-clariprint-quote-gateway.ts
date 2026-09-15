@@ -41,9 +41,22 @@ export class HttpClariprintQuoteGateway implements ClariprintQuoteGateway {
 
 function apiUrl(host: string): string { const normalized = host.trim().replace(/\/+$/, ''); const absolute = /^https?:\/\//.test(normalized) ? normalized : `https://${normalized}`; return absolute.includes('/optimproject/json.wcl') ? absolute : `${absolute}/optimproject/json.wcl`; }
 function number(value: unknown): number | undefined { return typeof value === 'number' && Number.isFinite(value) ? value : undefined; }
+// Correctif sécurité BCP-0 (complément 2026-09-15) : ne recopier que les six
+// clés documentées de `costs` (JsonApi.txt) — jamais les clés brutes reçues
+// de Clariprint. `payload.costs` peut porter `printer`/`external_id` (détail
+// interne du compte Clariprint de la plateforme) ; les recopier ici les
+// exposait à l'appelant anonyme de cette route publique même si
+// `clariprintCostsSchema` filtrait ensuite (défense en profondeur : ce
+// gateway ne doit produire que la forme autorisée, pas s'en remettre au seul
+// schéma en aval).
+const ALLOWED_COST_KEYS = ['paper', 'print', 'makeready', 'packaging', 'delivery', 'total'] as const;
 function validCosts(value: unknown): Record<string, unknown> | undefined {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
-  const costs = { ...(value as Record<string, unknown>) };
+  const source = value as Record<string, unknown>;
+  const costs: Record<string, unknown> = {};
+  for (const key of ALLOWED_COST_KEYS) {
+    if (source[key] !== undefined) costs[key] = source[key];
+  }
   if (costs.total !== undefined && (typeof costs.total !== 'number' || !Number.isFinite(costs.total) || costs.total < 0)) delete costs.total;
   return costs;
 }
