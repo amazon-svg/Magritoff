@@ -4265,6 +4265,13 @@ La fiche propose `src/services/exports/orders.ts`. **Il n'existe aucun dossier `
 > - **Q9 : L3 vaut 500 appels Clariprint par jour pour toute la plateforme**, ajustable par configuration quand le prix d'un appel sera connu. Le risque bloquant du point 2.4 est levé.
 > - **Q10 : le limiteur passe EN PREMIER**, sur la route actuelle, juste après BCP-0 et avant BCP-1a. C'est **BCP-0b** (point 2.3bis), et BCP-1b le reprend tel quel.
 > - **Deux constats ajoutés en cadrant BCP-0b** : la seconde porte, bien que neutralisée, **appelle toujours Clariprint sans aucune limite** (point 2.3bis (7)) ; et l'exemption de l'atelier **se contourne**, parce que l'inscription et la création d'un espace sont en libre-service (point 2.3bis (4), Q11).
+>
+> **QUATRIÈME ROUND — décision d'Arnaud du 2026-09-15, opposable : la seconde porte est RETIRÉE en 410 Gone, et plus seulement neutralisée.**
+> - `clariprint-quote` et `clariprint-test` rejoignent `save-product` et `send-invitation-email`, déjà en 410 dans `make-server-e3db71a4`.
+> - Le motif : la version neutralisée (v28, déployée) ne fuit plus, mais sa garde de tests a été rejetée **trois fois** par la qa-review, avec 17 contournements au dernier tour, et aucun appelant n'existe dans le dépôt. Le coordinateur vérifie les journaux de production avant de déployer.
+> - **BCP-0 se ferme avec ce déploiement** (point 2.3).
+> - **BCP-0b n'a plus à limiter cette porte**, et le premier constat du troisième round est levé : l'ancienne fonction ne peut plus appeler Clariprint (point 2.3bis (7)).
+> - **La fonction continue de tourner** : `claude-proxy` et `claude-proxy-stream` restent actifs, puisque `/assistant/chat` passe par eux.
 
 #### 1. Ce que le dépôt montre en plus des diagnostics — onze constats
 
@@ -4296,7 +4303,7 @@ La fiche propose `src/services/exports/orders.ts`. **Il n'existe aucun dossier `
 - Sur un échec, il rend `rawResponse`, c'est-à-dire la réponse brute de Clariprint entière (l. 1150, 1170-1171, 1199).
 - Aucun appelant dans `src/` (vérifié).
 
-La fonction n'est pas déclarée `verify_jwt = false` dans `supabase/config.toml` : elle exige donc un JWT. Mais **la clé anon publique du front en est un**. Elle est déployée et vivante, puisque `/assistant/chat` relaie vers elle (`assistant-stream-proxy.ts:36`). **Retirer les deux champs de la seule passerelle de `magrit-api` laisserait donc la fuite ouverte à côté.** Cette seconde porte est traitée dans BCP-0 : elle est neutralisée, et sa suppression est reportée au retrait de la fonction (point 2.3).
+La fonction n'est pas déclarée `verify_jwt = false` dans `supabase/config.toml` : elle exige donc un JWT. Mais **la clé anon publique du front en est un**. Elle est déployée et vivante, puisque `/assistant/chat` relaie vers elle (`assistant-stream-proxy.ts:36`). **Retirer les deux champs de la seule passerelle de `magrit-api` laisserait donc la fuite ouverte à côté.** Cette seconde porte est traitée dans BCP-0 : d'abord neutralisée, elle est **retirée en 410 Gone** depuis la décision d'Arnaud du quatrième round (point 2.3). La fonction elle-même continue de servir `claude-proxy` et `claude-proxy-stream`.
 
 #### 2. Lot 1 — le diagnostic Clariprint côté serveur
 
@@ -4360,13 +4367,20 @@ Aucune table, donc aucune rétention à arbitrer. **Réserve à lever avant de p
    - **`.passthrough()` est retiré de `clariprintQuoteResultSchema`** (commit `461a1cca`). Le schéma devient une liste autorisée : `allResults`, `faultyProcess` et tout champ futur non déclaré ne sortent plus, même si la passerelle les pose encore. Ce qu'un schéma Zod fait des clés non déclarées est à confirmer via Context7 sur la version 4 du dépôt, pas de mémoire.
    - La passerelle cesse aussi de les poser (`http-clariprint-quote-gateway.ts:31`).
    - **`clariprintCostsSchema` perd AUSSI son `.passthrough()`, et `validCosts` ne recopie plus que les six clés documentées** (`paper`, `print`, `makeready`, `packaging`, `delivery`, `total`). C'est le complément de BCP-0 sur la base `461a1cca`, demandé par la qa-review distincte de ce commit, qui s'appuyait sur la lettre de cette consigne : « les deux schémas ». **C'est de la défense en profondeur, pas une fuite constatée.** Selon la doc (`JsonApi.txt`, bloc `costs`), `costs` ne porte que ces six clés : le passthrough n'ajoutait aucun champ connu, mais laissait passer tout champ que Clariprint y ajouterait demain. Ce n'est pas vérifié sur une réponse réelle, et la phase A du banc le montrera. Le complément ajoute aussi le test du champ inconnu venu de Clariprint (consigne 3), et tue la mutation survivante M4e. **L'exposition réelle reste ailleurs** : les six clés déclarées sont elles-mêmes la structure de coût de l'imprimeur, servie publiquement jusqu'à BCP-1b, dont la réponse publique n'en porte aucune (point 2.4).
-2. **La seconde porte relève aussi de BCP-0, en correctif séparé, décidé par Arnaud** (point 1 (11)). Elle est **NEUTRALISÉE, PAS SUPPRIMÉE** :
+2. **La seconde porte relève aussi de BCP-0, en correctif séparé, décidé par Arnaud** (point 1 (11)). Elle a d'abord été **NEUTRALISÉE** (v28, déployée), puis **RETIRÉE en 410 Gone** (voir la fin de ce point) :
    - dans `make-server-e3db71a4/index.ts`, `clariprint-quote` (l. 1068) ne rend plus rien de tiré de `all_process` ni de `all_faulty_process`, ni `rawResponse`, ni aucun extrait brut ;
    - `clariprint-test` (l. 1249) est réduit à `{timestamp, success, message}`.
 
    **Pourquoi pas la suppression** : un ancien front encore déployé pourrait appeler ces routes. La neutralisation ferme la fuite sans rien casser. **La suppression est reportée au retrait de la fonction.**
 
    La base du correctif est `chore/chat-sonnet-5`, identique octet pour octet au code en production (v27, Sonnet 5). Cette fonction **porte aussi le relais de l'assistant** : après son redéploiement, on rejoue un `/assistant/chat`.
+
+   **DÉCISION D'ARNAUD DU 2026-09-15 (quatrième round) : `clariprint-quote` et `clariprint-test` passent en 410 Gone**, comme `save-product` et `send-invitation-email`, qui y sont déjà. **Elle remplace le report de la suppression écrit ci-dessus.** Trois motifs :
+   - la version neutralisée ne fuyait plus, mais **sa garde de tests n'a pas pu être tenue** : trois rejets de la qa-review, dont 17 contournements au dernier tour ;
+   - aucun appelant n'existe dans le dépôt ;
+   - un 410 ne demande **aucune** garde de contenu, puisque rien n'est rendu ni appelé.
+
+   Le risque qui justifiait la neutralisation, un ancien front encore déployé qui appellerait ces routes, est vérifié dans les journaux de production par le coordinateur avant le déploiement. S'il se matérialisait, cet ancien front recevrait un 410 et retomberait sur le prix marché, par le même chemin qu'une erreur réseau. **La fonction reste en service** pour `claude-proxy` et `claude-proxy-stream`, par lesquels passe `/assistant/chat`. **BCP-0 se ferme avec ce déploiement.**
 3. **Tests.**
    - `http-clariprint-quote-gateway.test.ts:13` fournit déjà `all_process` : il doit affirmer son **absence**.
    - Un second cas pose un champ amont inconnu et affirme qu'il ne sort pas.
@@ -4546,10 +4560,7 @@ L'Edge Runtime Supabase n'est d'ailleurs pas indexé par Context7. **Et aucune l
 
   **Le repli fonctionne, mais le message est faux** : « Erreur réseau — Prix marché estimé (réessayez) ». Il invite à réessayer une requête qui sera refusée jusqu'à la fin de la fenêtre. C'est accepté dans ce lot, puisque seul un usage anormal atteint la limite. La correction appartient à BCP-1b, qui migre l'adaptateur.
 
-**(7) La seconde porte appelle AUSSI Clariprint.** Une fois neutralisé, `make-server-e3db71a4/clariprint-quote` ne renvoie plus rien d'interne, mais **il appelle toujours Clariprint, sans aucune limite, pour quiconque présente la clé anon publique**. La facture a donc deux portes, comme la fuite.
-- **BCP-0b applique le même budget à ce gestionnaire** : même fonction SQL, par un client `service_role`, même règle de clé, même refus. Il n'a aucun appelant connu : aucun risque de régression.
-- Si le coordinateur préfère le laisser hors du lot, il faut le remonter à Arnaud : **L3 ne bornerait alors plus la facture.**
-- `clariprint-test` fait un `CheckAuth`, dont on ne sait pas s'il est facturé : même traitement, par prudence.
+**(7) La seconde porte — SANS OBJET depuis le quatrième round.** Neutralisé, `make-server-e3db71a4/clariprint-quote` appelait encore Clariprint sans limite, pour quiconque présentait la clé anon publique ; la facture avait donc deux portes, comme la fuite. Ce cadrage prévoyait d'y appliquer le même budget. **La décision d'Arnaud de retirer `clariprint-quote` et `clariprint-test` en 410 Gone rend cette application inutile** : l'ancienne fonction ne peut plus appeler Clariprint (point 2.3, BCP-0). **BCP-0b ne limite donc que la route de `magrit-api`, et L3 borne à lui seul toute la facture publique.** Si l'une de ces deux routes était un jour rouverte, elle devrait passer par le budget de BCP-0b avant tout appel à Clariprint.
 
 **(8) Le domicile du code — BCP-1b le reprend tel quel.**
 - Un port `ClariprintQuoteBudget` vit dans `src/modules/clariprint/application/`. `ClariprintService.quote` le consulte **après** la validation du corps et **avant** la passerelle : un corps invalide ne consomme rien, et un refus n'appelle jamais Clariprint.
@@ -4574,14 +4585,14 @@ L'Edge Runtime Supabase n'est d'ailleurs pas indexé par Context7. **Et aucune l
   - **la passerelle n'est jamais appelée** quand le budget refuse, ni quand la base est en erreur (espion) ;
   - un corps invalide ne consomme rien ;
   - chaque refus donne le bon statut (429 ou 503) et le bon code ;
-  - le gestionnaire de `make-server` consomme le même budget.
+  - *(le test « le gestionnaire de `make-server` consomme le même budget » est retiré : la route répond 410 depuis BCP-0, point (7))*.
 - **Gates** : `pnpm typecheck`, les tests unitaires, `test:contract` (inchangé : aucune route E10 n'est touchée), `test:architecture`, `test:storefront:sql` (Supabase local), un `supabase functions deploy` réel des deux fonctions (seul révélateur d'un import sans `.ts`), et **aucune ligne d'`openapi/`**.
 
 **(10) Le déploiement, dans cet ordre :**
-1. la mesure du point (5) sur l'hébergé ;
+1. la mesure du point (5) sur l'hébergé : **FAITE le 2026-09-15**, règle (i) retenue ;
 2. la pose du secret `MAGRIT_RATE_LIMIT_IP_HMAC_SECRET` ;
 3. `supabase db push` : tables, fonctions et job de purge ;
-4. le déploiement de `magrit-api` et de `make-server-e3db71a4`.
+4. le déploiement de `magrit-api` seul. `make-server-e3db71a4` n'est plus concerné, puisque ses routes Clariprint sont en 410 depuis BCP-0.
 
 Vérifications après déploiement : le job figure dans `cron.job`, et une consommation réelle apparaît dans `api_rate_limit_counters`, sans IP en clair.
 
@@ -4649,7 +4660,7 @@ Vérifications après déploiement : le job figure dans `cron.job`, et une conso
 1. **Levé par la décision Q9 : L3 vaut 500 appels par jour**, et cette valeur vit dans une table de réglage (point 2.3bis (2)). Sans L3, une attaque répartie sur de nombreuses IP viderait le compte. Avec L3, la facture publique est bornée à 500 appels par jour, quel que soit le nombre d'IP.
 2. **Accepté avec L3 : un abus peut épuiser le quota public d'une journée.** Tous les visiteurs, connectés ou non, retombent alors sur le prix marché jusqu'à minuit. C'est une dégradation, pas une panne : le panier reste actif (FR49), et l'atelier n'est pas touché.
 3. **Accepté : le compte devient une calculette Clariprint pour n'importe quelle configuration**, pas seulement celles du catalogue. On ne peut pas restreindre au catalogue, puisque les suggestions de Magrit sont des configurations libres. Le schéma strict des champs canoniques (point 3.2) est la première défense ; L1 à L3 bornent le reste.
-4. **Traité par BCP-0b (décision Q10).** La route actuelle, publique et jusque-là sans aucune limite, reçoit le limiteur avant tout autre lot, et le gestionnaire neutralisé de `make-server` le reçoit aussi (point 2.3bis (7)). Ce qui reste de ce risque est la voie atelier (Q11).
+4. **Traité par BCP-0b (décision Q10).** La route actuelle, publique et jusque-là sans aucune limite, reçoit le limiteur avant tout autre lot, et l'ancienne fonction ne peut plus appeler Clariprint, puisque ses deux routes sont retirées en 410 (point 2.3). Ce qui reste de ce risque est la voie atelier (Q11).
 
 **Ce qui ne change pas par rapport au premier jet :**
 - Le nom `clariprint-quotes`. La description dira que c'est un **chiffrage**, pas un devis (`/quotes`). Aucun recouvrement avec `/clariprint/quote` : `assertNoFacadeCollision` le vérifie.
@@ -4827,8 +4838,8 @@ Ce sont les cinq valeurs du prompt. **Les libellés sont une proposition**, vali
 
 | Story (proposée) | Lot | Dépend de | Fichiers qu'elle possède |
 |---|---|---|---|
-| **BCP-0** | 1 — correctif immédiat de la fuite sur ses deux portes (décision d'Arnaud) : la passerelle de `magrit-api` (worktree isolé, commit `461a1cca`), et `make-server-e3db71a4` **neutralisé** (correctif séparé, base `chore/chat-sonnet-5`) | — | `src/adapters/clariprint/http-clariprint-quote-gateway.ts`, `src/modules/clariprint/api/contracts.ts` ; `clariprint-quote` et `clariprint-test` de `make-server-e3db71a4` |
-| **BCP-0b** | 1 — limite de débit sur la route actuelle (décisions d'Arnaud Q9 et Q10) : L1 visiteur, étage membre, L3 à 500 par jour ; appliquée aussi au gestionnaire neutralisé de `make-server` | BCP-0 ; la mesure de la source d'IP (point 2.3bis (5)) | migration (tables, fonctions, job de purge), port `ClariprintQuoteBudget`, `src/adapters/supabase/clariprint-quote-budget-repository.ts`, `clariprint-routes.ts`, composition `magrit-api`, gestionnaire `clariprint-quote` de `make-server-e3db71a4` |
+| **BCP-0** | 1 — correctif immédiat de la fuite sur ses deux portes (décision d'Arnaud) : la passerelle de `magrit-api` (worktree isolé, commit `461a1cca`), et `make-server-e3db71a4`, dont `clariprint-quote` et `clariprint-test` sont d'abord neutralisés (v28), puis **retirés en 410 Gone** (décision du quatrième round ; correctif séparé, base `chore/chat-sonnet-5`). **BCP-0 se ferme avec ce déploiement** | — | `src/adapters/clariprint/http-clariprint-quote-gateway.ts`, `src/modules/clariprint/api/contracts.ts` ; `clariprint-quote` et `clariprint-test` de `make-server-e3db71a4` |
+| **BCP-0b** | 1 — limite de débit sur la route actuelle (décisions d'Arnaud Q9 et Q10) : L1 visiteur (clé IP lue dans `cf-connecting-ip`), étage membre, L3 à 500 par jour ; sur la seule route de `magrit-api`, l'ancienne fonction étant en 410 | BCP-0 ; la mesure de la source d'IP, faite le 2026-09-15 (point 2.3bis (5)) | migration (tables, fonctions, job de purge), port `ClariprintQuoteBudget`, `src/adapters/supabase/clariprint-quote-budget-repository.ts`, `clariprint-routes.ts`, composition `magrit-api` |
 | **BCP-1a** | 1 — verdict, journal, expurgation, banc, référentiel des finitions | BCP-0, BCP-0b | `src/adapters/clariprint/`, `src/modules/clariprint/application/`, `scripts/diagnostics/clariprint-variants/`, composition `magrit-api` |
 | *(campagne)* | banc joué **en mode sec, puis réellement sous un plafond de 18 appels** (point 2.3) | BCP-1a | `scripts/diagnostics/clariprint-variants/results/` |
 | *(architecte)* | écriture du contrat, **après la campagne archivée** | la campagne | `openapi/magrit-core.v1.yaml`, ce document |
@@ -4853,8 +4864,8 @@ Ce sont les cinq valeurs du prompt. **Les libellés sont une proposition**, vali
 **Parallélisable sans conflit** : la piste « commande et affichage » (5, 6, 9) peut avancer pendant le seul temps mort de la piste « chiffrage », c'est-à-dire la campagne de banc puis l'écriture du contrat. Cela **déroge à l'ordre fixé par Arnaud** et ne se fait qu'avec son accord (Q6). Chaque piste dans son propre worktree, avec son propre serveur Vite sur un port distinct.
 
 **Déploiements** :
-- BCP-0 : `magrit-api` ; puis `make-server-e3db71a4` après sa qa-review distincte, avec un `/assistant/chat` rejoué après ;
-- BCP-0b : la mesure de la source d'IP, le secret de fonction, `supabase db push`, puis `magrit-api` et `make-server-e3db71a4` (point 2.3bis (10)) ;
+- BCP-0 : `magrit-api` ; puis `make-server-e3db71a4`, avec ses routes Clariprint en 410, après sa qa-review distincte et la lecture des journaux de production, et un `/assistant/chat` rejoué après ;
+- BCP-0b : le secret de fonction, `supabase db push`, puis `magrit-api` seul (point 2.3bis (10)). La mesure de la source d'IP est faite ;
 - BCP-1a : `magrit-api` ;
 - BCP-1b : une migration additive (portée L2), et `magrit-api` deux fois, dans l'ordre du point 2.4 ;
 - tous les autres lots : **front seul, aucun déploiement Supabase**.
@@ -4871,7 +4882,7 @@ Ce sont les cinq valeurs du prompt. **Les libellés sont une proposition**, vali
   - dans l'anomalie 5, « `PELLIC_ACETATE_BRILLANT` brut » est traité par BCP-7, et « brouillon éditable » est répondu par la décision sur le statut.
 
   Les mentions `ClariprintAdapter` de `:74`, `:80`, `:231` et `:238` sont des noms de stories historiques : on n'y touche pas.
-- **`SPRINT_HANDOFF.md`**, bloc smoke : « la passerelle JETTE `all_faulty_process` » est à préciser. Elle ne le jette qu'en échec, et en succès elle **rend `all_process` publiquement** (point 1 (1)). Une seconde porte existe en outre dans `make-server-e3db71a4` (point 1 (11)).
+- **`SPRINT_HANDOFF.md`**, bloc smoke : « la passerelle JETTE `all_faulty_process` » est à préciser. Elle ne le jette qu'en échec, et en succès elle **rend `all_process` publiquement** (point 1 (1)). Une seconde porte existait en outre dans `make-server-e3db71a4` (point 1 (11)) : elle est retirée en 410 depuis BCP-0.
 - **`orderStatus.ts`** se dit « référence centrale » alors que trois autres tables existent : son en-tête devient vrai en BCP-5.
 - **Ce document, §8.17**, décrit l'intégration comme « une route » : c'est vrai jusqu'à BCP-1b, puis à amender.
 
@@ -4926,6 +4937,8 @@ Ce sont les cinq valeurs du prompt. **Les libellés sont une proposition**, vali
 **Second round (arbitrages du 2026-09-15)** : toujours aucune modification de `openapi/` ni de `src/`. Seul ce document change, et `pnpm gen:api:check` a été rejoué, vert.
 
 **Troisième round (seconde porte, Q9, Q10, cadrage de BCP-0b)** : même état. Aucune ligne d'`openapi/` ni de `src/`, et `pnpm gen:api:check` rejoué.
+
+**Quatrième round (mesure de l'IP, retrait en 410 de la seconde porte)** : même état. Seul ce document change.
 
 ## 9. Commandes
 
