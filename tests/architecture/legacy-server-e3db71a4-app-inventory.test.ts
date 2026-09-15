@@ -21,12 +21,16 @@
  * simple inegalite de tableau -- sans qu il soit necessaire d enumerer a
  * l avance tous les contournements possibles.
  *
- * Au 2026-09-15 : 2 `app.use` (middlewares globaux) + 5 routes actives
- * (health, claude-test, claude-proxy, claude-proxy-stream,
- * category-editorial) + 4 routes retirees en 410 Gone (save-product,
- * send-invitation-email, clariprint-quote, clariprint-test) = 11 entrees.
- * Aucun `app.onError`, aucun `app.all`, aucune route a parametre, aucun
- * chemin en template literal avec substitution.
+ * Au 2026-09-15 : 2 `app.use` (middlewares globaux) + 4 routes actives
+ * (health, claude-proxy, claude-proxy-stream, category-editorial) + 5
+ * routes retirees en 410 Gone (save-product, send-invitation-email,
+ * clariprint-quote, clariprint-test, claude-test) = 11 entrees. `claude-test`
+ * rejoint les routes retirees le meme jour (correctif securite qa-review) --
+ * sa signature d inscription (methode, chemin, nombre d arguments) ne
+ * change pas, seul le corps du handler change ; l entree correspondante ci-
+ * dessous n a donc pas besoin d etre deplacee ni modifiee. Aucun
+ * `app.onError`, aucun `app.all`, aucune route a parametre, aucun chemin en
+ * template literal avec substitution.
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';

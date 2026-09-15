@@ -593,85 +593,18 @@ app.get("/make-server-e3db71a4/health", (c) => {
   return c.json({ status: "ok" });
 });
 
-// Test de connexion Claude
-app.get("/make-server-e3db71a4/claude-test", async (c) => {
-  try {
-    const diagnostics: any = {
-      timestamp: new Date().toISOString(),
-      checks: [],
-      environment: {},
-    };
-
-    const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY");
-    const magritKey = Deno.env.get("Magrit3");
-
-    diagnostics.environment = {
-      ANTHROPIC_API_KEY: anthropicApiKey ? "✅ Configurée" : "❌ Non configurée",
-      Magrit3: magritKey ? "✅ Configurée" : "❌ Non configurée",
-      CLARIPRINT_HOST: Deno.env.get("CLARIPRINT_HOST") ? "✅ Configurée" : "❌ Non configurée",
-      CLARIPRINT_LOGIN: Deno.env.get("CLARIPRINT_LOGIN") ? "✅ Configurée" : "❌ Non configurée",
-      CLARIPRINT_PASSWORD: Deno.env.get("CLARIPRINT_PASSWORD") ? "✅ Configurée" : "❌ Non configurée",
-    };
-
-    const apiKey = anthropicApiKey || magritKey;
-    diagnostics.checks.push({
-      name: "API Key présente",
-      status: apiKey ? "✅ OK" : "❌ MANQUANTE",
-      details: apiKey
-        ? `Clé trouvée (${apiKey.substring(0, 7)}...)`
-        : "Aucune clé API Claude trouvée",
-    });
-
-    if (!apiKey) {
-      diagnostics.summary = "❌ Configuration incomplète - Clé API manquante";
-      return c.json(diagnostics);
-    }
-
-    try {
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: "claude-haiku-4-5-20251001",
-          max_tokens: 50,
-          messages: [{ role: "user", content: "Réponds simplement: OK" }],
-        }),
-      });
-
-      const responseText = await response.text();
-      diagnostics.checks.push({
-        name: "Test API Claude",
-        status: response.ok ? "✅ SUCCÈS" : "❌ ÉCHEC",
-        httpStatus: response.status,
-        details: response.ok
-          ? "Claude a répondu avec succès"
-          : `Erreur ${response.status}: ${responseText.substring(0, 300)}`,
-      });
-
-      if (response.ok) {
-        const data = JSON.parse(responseText);
-        diagnostics.claudeResponse = data.content?.[0]?.text || "Réponse reçue";
-        diagnostics.summary = "✅ Connexion Claude fonctionnelle !";
-      } else {
-        diagnostics.summary = "❌ Erreur lors de l'appel à Claude";
-      }
-    } catch (error) {
-      diagnostics.checks.push({
-        name: "Test API Claude",
-        status: "❌ ERREUR RÉSEAU",
-        details: error instanceof Error ? error.message : String(error),
-      });
-      diagnostics.summary = "❌ Erreur réseau lors de la connexion à Claude";
-    }
-
-    return c.json(diagnostics);
-  } catch (error) {
-    return c.json({ summary: "❌ Erreur critique", error: String(error) }, 500);
-  }
+// ============================================================================
+// CLAUDE TEST — RETIREE (410 Gone, decision Arnaud 2026-09-15)
+// ============================================================================
+// qa-review du 2026-09-15 : ce diagnostic faisait un vrai appel facture a
+// Anthropic (`claude-haiku-4-5-20251001`, `max_tokens: 50`), renvoyait les 7
+// premiers caracteres de la cle API Anthropic et la presence des secrets
+// Clariprint, et etait appelable avec la seule cle anon publique
+// (`verify_jwt` par defaut, sans compte). Aucun appelant dans `src/` ni dans
+// les autres fonctions, aucun appel en production sur les 24 h de journaux
+// disponibles (verifie par qa-review). Voir removed-route-responses.ts.
+app.get("/make-server-e3db71a4/claude-test", (c) => {
+  return c.json(buildRouteGoneBody(), 410);
 });
 
 // ============================================================================

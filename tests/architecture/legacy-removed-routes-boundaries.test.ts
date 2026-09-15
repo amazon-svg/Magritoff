@@ -1,9 +1,9 @@
 /**
  * Correctif de securite (decision Arnaud, 2026-09-15) : `save-product`,
- * `send-invitation-email`, `clariprint-quote` et `clariprint-test`, quatre
- * routes legacy de `make-server-e3db71a4` sans appelant connu (verifie par
- * qa-review), repondent desormais 410 Gone. Le flux d invitation courant
- * passe par `POST /api/v1/invitations` (magrit-api).
+ * `send-invitation-email`, `clariprint-quote`, `clariprint-test` et
+ * `claude-test`, cinq routes legacy de `make-server-e3db71a4` sans appelant
+ * connu (verifie par qa-review), repondent desormais 410 Gone. Le flux
+ * d invitation courant passe par `POST /api/v1/invitations` (magrit-api).
  *
  * `clariprint-quote`/`clariprint-test` rejoignent ce garde apres l echec de
  * la garde structurelle dediee (qa-review round 3 : 17 contournements
@@ -11,6 +11,15 @@
  * `Response.json(result)`, chacun sur une seule ligne). Arnaud a tranche :
  * on arrete de durcir une garde sur du code qui peut etre retire -- la
  * garde la plus sure est celle qui n a plus de logique a garder.
+ *
+ * `claude-test` rejoint ce garde le meme jour (qa-review du 2026-09-15) :
+ * ce diagnostic faisait un vrai appel facture a Anthropic
+ * (`claude-haiku-4-5-20251001`, `max_tokens: 50`), renvoyait les 7 premiers
+ * caracteres de la cle API Anthropic et la presence des secrets Clariprint,
+ * et etait appelable avec la seule cle anon publique (`verify_jwt` par
+ * defaut, sans compte). Aucun appelant dans `src/` ni dans les autres
+ * fonctions, aucun appel en production sur les 24 h de journaux
+ * disponibles.
  *
  * v1 de ce garde (rejetee, qa-review round 2, sur les 2 premieres routes)
  * laissait passer 4 contournements :
@@ -25,7 +34,7 @@
  *  - R5b : une inscription concurrente via `app.use`/`app.on` sur le meme
  *    chemin n etait jamais recherchee.
  *
- * v2 (ce fichier) verifie que CHACUN des quatre handlers :
+ * v2 (ce fichier) verifie que CHACUN des cinq handlers :
  *  (i)   ne contient qu une seule instruction, un `return <contexte>.json(
  *        <appel build*>, 410)`, ou `<contexte>` est le VRAI nom du parametre
  *        de la fonction geree (pas suppose 'c') ;
@@ -37,7 +46,7 @@
  *        recoit EXACTEMENT 2 arguments (chemin, handler) -- pas de
  *        middleware intercale ;
  *  (v)   aucun `app.use(...)`/`app.on(...)` ailleurs dans le fichier ne
- *        cible le chemin d une des quatre routes retirees ;
+ *        cible le chemin d une des cinq routes retirees ;
  *  (vi)  le FICHIER ENTIER ne contient aucun identifiant `Response` (tue
  *        `new Response(...)` ET `Response.json(...)`, qui contournaient la
  *        garde structurelle precedente en evitant `<contexte>.json`).
@@ -45,6 +54,11 @@
  * Preuve d echec sur le commit precedent (avant ce correctif, `8d617348`) :
  * voir le rapport de fin de tache -- ce test, pointe sur ce commit, remonte
  * des violations sur les deux routes Clariprint, toujours actives.
+ *
+ * Preuve d echec sur `f1f2b293` (avant l ajout de `claude-test` au correctif
+ * du 2026-09-15) : voir le rapport de fin de tache -- la garde etendue avec
+ * `claude-test` dans `TARGET_ROUTES` remonte une violation sur ce handler,
+ * encore actif a ce commit.
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -56,6 +70,7 @@ export const TARGET_ROUTES: ReadonlyArray<{ method: 'post' | 'get'; path: string
   { method: 'post', path: '/make-server-e3db71a4/send-invitation-email' },
   { method: 'post', path: '/make-server-e3db71a4/clariprint-quote' },
   { method: 'get', path: '/make-server-e3db71a4/clariprint-test' },
+  { method: 'get', path: '/make-server-e3db71a4/claude-test' },
 ];
 
 export interface Violation {
@@ -291,7 +306,7 @@ function findResponseIdentifierUsages(source: ts.SourceFile): Violation[] {
 }
 
 /**
- * Verifie les quatre routes retirees d un fichier source. Exportee pour
+ * Verifie les cinq routes retirees d un fichier source. Exportee pour
  * reutilisation par un eventuel test de mutation ou de preuve d echec.
  */
 export function findRemovedRouteViolations(fileName: string, sourceText: string): Violation[] {
@@ -311,14 +326,14 @@ export function findRemovedRouteViolations(fileName: string, sourceText: string)
   return violations;
 }
 
-describe('save-product / send-invitation-email / clariprint-quote / clariprint-test : 410 Gone strict, sans effet de bord', () => {
+describe('save-product / send-invitation-email / clariprint-quote / clariprint-test / claude-test : 410 Gone strict, sans effet de bord', () => {
   it('index.ts est conforme : corps unique return c.json(build*, 410), aucune reference interdite, aucun identifiant Response', () => {
     const path = resolve(process.cwd(), 'supabase/functions/make-server-e3db71a4/index.ts');
     const violations = findRemovedRouteViolations(path, readFileSync(path, 'utf8'));
     expect(violations, JSON.stringify(violations, null, 2)).toEqual([]);
   });
 
-  it('les quatre routes cibles sont bien presentes dans le fichier (garde non-vacant)', () => {
+  it('les cinq routes cibles sont bien presentes dans le fichier (garde non-vacant)', () => {
     const path = resolve(process.cwd(), 'supabase/functions/make-server-e3db71a4/index.ts');
     const source = ts.createSourceFile(path, readFileSync(path, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
     expect(findRouteHandlers(source).map((h) => h.route).sort()).toEqual(

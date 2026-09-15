@@ -13,6 +13,12 @@
  * precedente) et une route Clariprint retablie (le handler redevient actif
  * au lieu du stub 410).
  *
+ * qa-review du 2026-09-15 (meme jour) : `claude-test` rejoint aussi ce garde
+ * -- appel reel facture a Anthropic, fuite partielle de la cle API et des
+ * secrets Clariprint, accessible avec la seule cle anon. Une mutation
+ * supplementaire : route `claude-test` retablie (le handler redevient actif
+ * au lieu du stub 410).
+ *
  * Chaque `it` projette UNE mutation dans un mini fichier source autonome
  * (import du module `removed-route-responses.ts` + squelette `app.post`) et
  * verifie que `findRemovedRouteViolations` la detecte.
@@ -112,6 +118,9 @@ app.post("/make-server-e3db71a4/save-product", (c) => {
 app.post("/make-server-e3db71a4/send-invitation-email", (c) => {
   return c.json(buildRouteGoneBody(), 410);
 });
+app.get("/make-server-e3db71a4/claude-test", (c) => {
+  return c.json(buildRouteGoneBody(), 410);
+});
 `;
     expect(violations(source).length).toBeGreaterThan(0);
   });
@@ -132,13 +141,45 @@ app.post("/make-server-e3db71a4/save-product", (c) => {
 app.post("/make-server-e3db71a4/send-invitation-email", (c) => {
   return c.json(buildRouteGoneBody(), 410);
 });
+app.get("/make-server-e3db71a4/claude-test", (c) => {
+  return c.json(buildRouteGoneBody(), 410);
+});
+`;
+    expect(violations(source).length).toBeGreaterThan(0);
+  });
+});
+
+describe('route claude-test retablie (correctif securite, 2026-09-15)', () => {
+  it('route claude-test retablie - le handler redevient actif (appel Anthropic + fuite de secrets) au lieu du stub 410', () => {
+    const source = `${IMPORTS}
+app.get("/make-server-e3db71a4/claude-test", async (c) => {
+  const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "x-api-key": apiKey },
+    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 50, messages: [] }),
+  });
+  return c.json({ key: apiKey?.substring(0, 7) });
+});
+app.post("/make-server-e3db71a4/clariprint-quote", (c) => {
+  return c.json(buildRouteGoneBody(), 410);
+});
+app.get("/make-server-e3db71a4/clariprint-test", (c) => {
+  return c.json(buildRouteGoneBody(), 410);
+});
+app.post("/make-server-e3db71a4/save-product", (c) => {
+  return c.json(buildRouteGoneBody(), 410);
+});
+app.post("/make-server-e3db71a4/send-invitation-email", (c) => {
+  return c.json(buildRouteGoneBody(), 410);
+});
 `;
     expect(violations(source).length).toBeGreaterThan(0);
   });
 });
 
 describe('non-regression : code conforme, zero violation', () => {
-  it('les quatre routes conformes ne declenchent rien, et le middleware global legitime (app.use("*", ...)) n est pas un faux positif', () => {
+  it('les cinq routes conformes ne declenchent rien, et le middleware global legitime (app.use("*", ...)) n est pas un faux positif', () => {
     const source = `${IMPORTS}
 app.use("*", (c: any, next: any) => next());
 app.use("/*", (c: any, next: any) => next());
@@ -152,6 +193,9 @@ app.post("/make-server-e3db71a4/clariprint-quote", (c) => {
   return c.json(buildRouteGoneBody(), 410);
 });
 app.get("/make-server-e3db71a4/clariprint-test", (c) => {
+  return c.json(buildRouteGoneBody(), 410);
+});
+app.get("/make-server-e3db71a4/claude-test", (c) => {
   return c.json(buildRouteGoneBody(), 410);
 });
 `;
