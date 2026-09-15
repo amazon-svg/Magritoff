@@ -922,3 +922,225 @@ dans un vrai navigateur, serveur de dev de **cette** copie de travail
 6. Le suivi périodique est visible dans l'onglet réseau (un `GET
    .../{id}` toutes les 2 s, espacé au-delà d'une minute), et s'arrête à
    l'état terminal.
+
+## Recette navigateur — défauts R1 à R3 (CORRIGÉS, plus R4 ajouté en cours de lot, 2026-09-15)
+
+La recette navigateur locale annoncée ci-dessus a été jouée par le
+coordinateur le 2026-09-15 et a trouvé trois défauts (R1 à R3), puis un
+quatrième (R4, mineur) signalé en cours de correctif. Les quatre sont
+CORRIGÉS dans ce lot, worktree isolé (HEAD de départ `c9603433`), sans
+navigateur ni serveur de dev lancés par cet agent.
+
+### R1 — `download_url` pointait vers l'hôte interne Docker (`kong`), un navigateur ne le résout pas
+
+**Le défaut.** En local, `SupabaseOrderExportsRepository.toDto()`
+(`createSignedUrl`, déjà porteuse de `{ download: row.file_name }` depuis le
+MOYEN M2 de la qa-review round 2 — ce paramètre-là n'était pas en cause)
+rendait l'URL signée TELLE QUE le client Storage `service_role` (construit
+sur `SUPABASE_URL`, `http://kong:8000` sous Docker local) la produit. Le
+clic sur « Télécharger » faisait donc naviguer l'onglet vers un hôte que le
+navigateur ne résout jamais.
+
+**Relevé avant de corriger, comme demandé.** `SupabaseQuoteDocumentsRepository`
+et `SupabaseOrderDocumentsRepository` (`quote-documents-repository.ts` l.143,
+`order-documents-repository.ts` l.150) signent leur URL de la MÊME façon,
+SANS AUCUNE réécriture d'origine — **le même défaut existe chez eux en
+local**, non corrigé par ce lot (hors périmètre E10.18e-2 : ces deux
+adaptateurs ne sont touchés par aucun de ses fichiers). `SupabaseOrderFiles
+Repository.toDetailDto()` (`order-files-repository.ts` l.345) est dans le
+même cas. Le SEUL mécanisme de réécriture d'origine déjà présent dans le
+dépôt est `publicAssetUrl()`/`publicSupabaseUrl()`
+(`src/adapters/supabase/shops-repository.ts` + `supabase/functions/magrit-
+api/index.ts`), déjà câblé pour `SupabaseShopsRepository` (logos, fonds de
+boutique, mockups) — **jamais encore réutilisé ailleurs** avant ce
+correctif.
+
+**Corrigé, en réutilisant CE mécanisme, sans en inventer un second.**
+`SupabaseOrderExportsRepository` reçoit un troisième paramètre de
+constructeur optionnel, `publicBaseUrl?: string`, et `toDto()` applique
+`publicAssetUrl(signed.signedUrl, this.publicBaseUrl)` — fonction PURE déjà
+existante, qui ne réécrit QUE l'origine (protocole/hôte/port) quand elle
+vaut `kong` en environnement loopback, conserve TOUJOURS le chemin, le
+jeton et `download=`, et rend l'URL INCHANGÉE si `publicBaseUrl` est absent
+ou si l'origine n'est pas `kong` (donc INERTE en production/staging, où
+`SUPABASE_URL` est déjà public). `supabase/functions/magrit-api/index.ts`
+câble `publicSupabaseUrl(request, supabaseUrl)` en troisième argument,
+exactement comme il le fait déjà pour `SupabaseShopsRepository` (l.192).
+
+**Redéploiement de `magrit-api` requis : OUI**, pour que la correction
+prenne effet en local (Docker) comme en tout environnement où `SUPABASE_URL`
+serait un jour interne. Aucune migration SQL, aucun autre Edge Function
+concerné.
+
+**Cette correction ne touche PAS** `SupabaseQuoteDocumentsRepository`,
+`SupabaseOrderDocumentsRepository` ni `SupabaseOrderFilesRepository` : ils
+partagent le même défaut potentiel en local (voir ci-dessus), signalé mais
+laissé en dette, hors périmètre de cette story (aucun de leurs fichiers n'a
+été touché par E10.18e-2). Chemin de mise en conformité, s'il est retenu :
+même patron exact (troisième paramètre `publicBaseUrl`, `publicAssetUrl()`
+dans leur `toDto`/`toDetailDto`), câblé dans `index.ts` au même endroit que
+`documentTemplatesStorageClient` est construit.
+
+**Test** (`tests/adapters/supabase/order-exports-repository.test.ts`,
+describe « DEFAUT R1 ») : avec une base publique fournie, une URL signée
+dont l'hôte vaut `kong` est réécrite (origine remplacée, chemin/jeton/
+`download` conservés à l'identique) ; sans base publique, l'URL reste
+inchangée. RED confirmé contre le code d'avant ce correctif (`AssertionError:
+expected 'http://kong:8000/...' to be 'http://127.0.0.1:54321/...'`), GREEN
+après.
+
+### R2 — le `detail` du 422 `order_export.pending_limit_reached` recopiait le message SQL brut
+
+**Le défaut.** `mapRequestOrderExportError()` (`src/adapters/supabase/order-
+exports-repository.ts`) passait le message d'exception SQL BRUT (`order_
+export.pending_limit_reached: trois demandes non terminees deja en file
+pour cet acteur`, migration `20260913000000` l.516) directement au
+constructeur d'`OrderExportPendingLimitReachedError`, écrasant ainsi son
+message par défaut — déjà propre — par le code technique. La route
+(`order-exports-routes.ts`) recopie ensuite `error.message` tel quel dans
+`detail` (comportement correct et voulu par §8.24 point 8 : « le "trois"
+vient du serveur, via `detail` » — ce n'est PAS la route qu'il fallait
+changer, mais ce qu'elle reçoit).
+
+**Corrigé.** `OrderExportPendingLimitReachedError` porte désormais un
+message par défaut entièrement français, sans code ni `_` : « Vous avez
+déjà trois demandes d'export en cours. Attendez qu'une d'elles se termine
+avant d'en lancer une autre. ». `mapRequestOrderExportError()` journalise le
+message SQL brut côté serveur (`console.error`, diagnostic) puis construit
+l'erreur SANS ARGUMENT, pour que ce message par défaut soit celui qui
+atteint `detail`. Le titre (« Trop de demandes en file ») et le code
+(`order_export.pending_limit_reached`) sont INCHANGÉS.
+
+**Vérifié avant de corriger** : ni l'OpenAPI (`OrderExport`/le 422 de
+`requestCommercialOrderExport`) ni §8.24 ne fixent un texte précis pour ce
+`detail` — seule la présence du nombre est exigée (« le "trois" vient du
+serveur »). Aucune contradiction, aucune remontée à l'architecte
+nécessaire.
+
+**Test**, nouveau fichier `tests/server/api/order-exports-routes.test.ts` —
+exerce la ROUTE RÉELLE au-dessus du REPOSITORY RÉEL
+(`SupabaseOrderExportsRepository`), avec un faux client Supabase qui rend
+l'EXACTE erreur SQL de la migration (pas une erreur fabriquée). RED
+confirmé contre le code d'avant ce correctif (`detail` contenait `order_
+export.` et `_`), GREEN après : le `detail` ne contient ni `order_export.`
+ni `_`, et contient « trois ».
+
+### R3 — une panne réseau s'affichait en anglais brut (« Failed to fetch »)
+
+**Le défaut.** `FetchApiClient.send()` ne capture jamais le rejet de
+`fetch()` lui-même (seul un échec HTTP DÉJÀ RÉPONDU devient une
+`ApiClientError`) : une panne réseau (mise hors ligne, coupure) rejette
+avec une `TypeError` du NAVIGATEUR, dont le texte (« Failed to fetch » sous
+Chromium, variantes sous Firefox/Safari) n'est fixé par AUCUNE norme —
+seul le TYPE (`TypeError`) l'est. Deux endroits affichaient ce texte tel
+quel : le catch de `createOrderExportSubmitController()` (modale, après un
+envoi hors ligne) et la branche d'échec de `tick()` dans
+`startOrderExportPolling()` (ligne du registre, pendant une coupure
+passagère du suivi).
+
+**Recherché d'abord** (`grep -rn "Failed to fetch\|isNetworkError\|Network
+Error"`) : aucun utilitaire commun n'existait dans le dépôt. Un seul créé,
+réutilisé aux deux endroits.
+
+**Corrigé.** Nouvelle fonction pure, `resolveOrderExportUnreachableMessage
+(cause, { genericMessage, networkMessage })` (`order-export.helpers.ts`) :
+une `ApiClientError` garde SON message (déjà français, posé par le
+serveur), INCHANGÉ ; une `TypeError` (panne réseau, quel que soit son texte
+exact) reçoit `networkMessage`, fourni par l'appelant ; toute autre `Error`
+garde SON message (comportement INCHANGÉ pour ce cas, déjà couvert par des
+tests existants avec un message métier arbitraire) ; une valeur qui n'est
+même pas une `Error` reçoit `genericMessage`. Les deux appelants fournissent
+CHACUN son propre texte : la modale, « Connexion impossible. Vérifiez votre
+réseau, puis réessayez. » ; le registre, « Connexion perdue. Nouvel essai
+automatique… » (le suivi reprend réellement — `scheduleNext()` n'est pas
+concerné par ce correctif). Une `ApiClientError` continue d'afficher
+`problem.detail ?? problem.title` sans aucun changement.
+
+**Tests** : describe dédié sur la fonction pure (TypeError avec plusieurs
+textes de navigateur, `ApiClientError`, `Error` quelconque, valeur non-
+`Error`) ; un test à chaque point d'appel réel (`createOrderExportSubmit
+Controller` avec une `TypeError('Failed to fetch')`, `startOrderExportPolling`
+avec la même). RED confirmé contre le code d'avant ce correctif (le
+contrôleur dispatchait littéralement « Failed to fetch », le suivi
+notifiait littéralement « Failed to fetch »), GREEN après. Les tests
+existants qui attendaient un message `Error` quelconque TEL QUEL (`new
+Error('reseau')`, `new Error('order_export.pending_limit_reached: 3
+demandes en cours')`) restent verts SANS MODIFICATION : ce ne sont pas des
+`TypeError`, la branche « comportement inchangé » les couvre.
+
+**Dette signalée, non corrigée dans ce lot** (hors périmètre exact du
+signalement du coordinateur, « en deux endroits ») : `OrderExportPanel.tsx`
+porte deux AUTRES points qui lisent `cause instanceof Error ? cause.message
+: ...` de la même façon (l'échec de CHARGEMENT du registre au montage, et
+l'échec de RAFRAÎCHISSEMENT de l'URL au clic sur « Télécharger ») — non
+mentionnés par le défaut relevé en recette, non corrigés ici. Chemin de mise
+en conformité : même fonction `resolveOrderExportUnreachableMessage()`,
+déjà exportée, à appeler aux deux endroits avec un texte dédié.
+
+### R4 — la ligne d'un export `expired` affichait « Expiré » deux fois (trouvé en cours de correctif des trois défauts ci-dessus)
+
+**Le défaut.** `describeOrderExportStatus()` (colonne Statut) ET
+`ORDER_EXPORT_DOWNLOAD_LABELS` (colonne Téléchargement, via `describe
+OrderExportDownload()`) rendaient chacune « Expiré » pour le MÊME statut —
+le panneau affichait les deux, sur la même ligne (« Excel (XLSX) · Une
+ligne par commande recette.admin@magrit.local Expiré Expiré », relevé en
+recette).
+
+**Corrigé.** `ORDER_EXPORT_DOWNLOAD_LABELS.expired` vaut désormais `'—'`,
+comme `not_ready`/`failed` : le statut suffit, la colonne Téléchargement
+reste vide pour les trois cas non téléchargeables. Le cas `not_requester`
+(« Prêt » au statut, « Demandé par un autre membre » au téléchargement)
+est explicitement PRÉSERVÉ : ce sont deux informations DIFFÉRENTES, pas une
+répétition, conformément à la consigne.
+
+**Tests** : la table `it.each` de `describeOrderExportDownload` (déjà
+existante, mutée : `expired` attend désormais `'—'`) et un test dédié sur
+`describeOrExportRow` qui vérifie `row.status.label === 'Expiré'` ET
+`row.download.label !== 'Expiré'` (`=== '—'`) pour un export `expired`, plus
+un test de non-régression explicite sur le cas `not_requester` (« Prêt »
+puis « Demandé par un autre membre », inchangé). RED confirmé contre le
+code d'avant ce correctif (`row.download.label` valait `'Expiré'`), GREEN
+après.
+
+### Gates rejouées après R1 à R4
+
+- RED confirmé, un par un, contre le code d'avant chaque correctif
+  (édition manuelle via `git stash push -u` sur les seuls fichiers
+  source concernés, restauration par `git stash apply` puis `git stash
+  drop`, jamais de `pop`) : voir chaque section ci-dessus pour la preuve
+  d'exécution.
+- `pnpm typecheck` : **0 erreur**.
+- `pnpm exec vitest run tests/modules/commercial-orders tests/modules/order-exports tests/adapters tests/server tests/platform/api` :
+  **tous verts** (642 cas, 39 ignorés — inchangé, aucun rapport avec ce lot).
+- `pnpm test:contract` : **23 fichiers, 432/432**, inchangé.
+- `pnpm test:architecture` : **35 fichiers, 153/153**, inchangé.
+- `pnpm gen:api:check` : **aligné**, aucune dérive — aucun fichier
+  `openapi/` touché par ces quatre correctifs.
+- `deno check --no-lock supabase/functions/magrit-api/index.ts` : **0
+  erreur**.
+- `pnpm test` (suite complète) : **267 fichiers passés, 2593 cas passés,
+  86 ignorés, 0 échec.**
+
+### Fichiers modifiés (R1 à R4)
+
+- `src/adapters/supabase/order-exports-repository.ts` — R1 (troisième
+  paramètre `publicBaseUrl`, `publicAssetUrl()` dans `toDto()`) ; R2
+  (`mapRequestOrderExportError` ne recopie plus le message SQL brut).
+- `src/modules/order-exports/application/order-exports-repository.ts` — R2
+  (message par défaut français de `OrderExportPendingLimitReachedError`).
+- `supabase/functions/magrit-api/index.ts` — R1 (`publicSupabaseUrl(request,
+  supabaseUrl)` câblé en troisième argument de `SupabaseOrderExportsRepository`).
+- `src/modules/commercial-orders/ui/components/order-export.helpers.ts` —
+  R3 (`resolveOrderExportUnreachableMessage()`, nouvelle fonction pure,
+  câblée dans `createOrderExportSubmitController()` et
+  `startOrderExportPolling()`) ; R4 (`ORDER_EXPORT_DOWNLOAD_LABELS.expired`).
+- `tests/adapters/supabase/order-exports-repository.test.ts` — +2 cas (R1).
+- `tests/server/api/order-exports-routes.test.ts` — **NOUVEAU FICHIER**, 1
+  cas (R2).
+- `tests/modules/commercial-orders/order-export.helpers.test.ts` — +9 cas
+  (R3 : describe dédié + 2 cas aux points d'appel réels ; R4 : 1 cas muté
+  + 2 cas nouveaux), aucun test existant supprimé.
+
+Aucun fichier `openapi/` ni `docs/api/CONVENTIONS.md` modifié par cet agent.
+Aucune migration `supabase/migrations/` créée ou modifiée. Aucun navigateur
+ni serveur de dev lancé par cet agent.

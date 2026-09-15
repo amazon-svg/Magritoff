@@ -34,6 +34,7 @@ import {
   refreshOrderExportDownloadUrl,
   resolveOrderExportDownloadState,
   resolveOrderExportFailureMessage,
+  resolveOrderExportUnreachableMessage,
   startOrderExportPolling,
   type OrderExportDialogState,
   type OrderExportRegistryState,
@@ -331,6 +332,22 @@ describe('createOrderExportSubmitController — double-clic (point 1)', () => {
     expect(dispatch).toHaveBeenCalledWith({
       type: 'submitFailed',
       message: 'order_export.pending_limit_reached: 3 demandes en cours',
+    });
+  });
+
+  it('DEFAUT R3 (recette navigateur, 2026-09-15) : un envoi HORS LIGNE (TypeError de fetch) dispatche un message FRANCAIS, jamais "Failed to fetch"', async () => {
+    // AVANT ce correctif : `message: cause instanceof Error ? cause.message
+    // : ...` dispatchait LITTERALEMENT le texte anglais du navigateur.
+    const api = { request: vi.fn().mockRejectedValue(new TypeError('Failed to fetch')) };
+    const dispatch = vi.fn();
+    const controller = createOrderExportSubmitController(api, dispatch);
+
+    const result = await controller.submit(openState, {});
+
+    expect(result).toBeNull();
+    expect(dispatch).toHaveBeenCalledWith({
+      type: 'submitFailed',
+      message: 'Connexion impossible. Vérifiez votre réseau, puis réessayez.',
     });
   });
 
@@ -662,6 +679,26 @@ describe('startOrderExportPolling — orchestration a horloge simulee (point 5)'
       }
     });
 
+    it('DEFAUT R3 (recette navigateur, 2026-09-15) : une COUPURE du suivi (TypeError de fetch) notifie un message FRANCAIS qui dit que la reprise est automatique', async () => {
+      // AVANT ce correctif : `onError(cause instanceof Error ? cause.message
+      // : ...)` aurait notifie LITTERALEMENT "Failed to fetch".
+      vi.useFakeTimers();
+      try {
+        const api = {
+          get: vi.fn().mockRejectedValueOnce(new TypeError('Failed to fetch')).mockResolvedValue(fixtureExport({ status: 'running' })),
+        };
+        const onError = vi.fn();
+        const handle = startOrderExportPolling('e1', api, vi.fn(), onError);
+
+        await vi.advanceTimersByTimeAsync(ORDER_EXPORT_POLL_INTERVAL_MS);
+        expect(onError).toHaveBeenCalledWith('Connexion perdue. Nouvel essai automatique…');
+
+        handle.stop();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it('respecte la MEME cadence apres un echec (2 s, pas un reessai immediat)', async () => {
       vi.useFakeTimers();
       try {
@@ -933,6 +970,48 @@ describe('resolveOrderExportFailureMessage — les deux messages d echec (point 
   });
 });
 
+describe('resolveOrderExportUnreachableMessage — DEFAUT R3 (recette navigateur, 2026-09-15) : panne reseau vs echec HTTP deja repondu', () => {
+  const options = { genericMessage: 'generique', networkMessage: 'reseau-fr' };
+
+  it('une TypeError (rejet de fetch(), ex. "Failed to fetch") donne le texte FRANCAIS fourni par l appelant', () => {
+    // AVANT ce correctif : le texte ANGLAIS du navigateur (`cause.message`)
+    // etait affiche tel quel — ce test tombe sur l ancien code
+    // (`cause instanceof Error ? cause.message : ...`), qui aurait rendu
+    // "Failed to fetch" au lieu de "reseau-fr".
+    const cause = new TypeError('Failed to fetch');
+    expect(resolveOrderExportUnreachableMessage(cause, options)).toBe('reseau-fr');
+  });
+
+  it('une TypeError avec un AUTRE texte de navigateur (Firefox/Safari) recoit AUSSI le texte francais : seul le TYPE compte, jamais le texte', () => {
+    const firefox = new TypeError('NetworkError when attempting to fetch resource.');
+    const safari = new TypeError('Load failed');
+    expect(resolveOrderExportUnreachableMessage(firefox, options)).toBe('reseau-fr');
+    expect(resolveOrderExportUnreachableMessage(safari, options)).toBe('reseau-fr');
+  });
+
+  it('une ApiClientError garde SON message (deja francais, pose par le serveur), INCHANGE', () => {
+    const cause = new ApiClientError({
+      type: 'about:blank',
+      title: 'Trop de demandes en file',
+      status: 422,
+      code: 'order_export.pending_limit_reached',
+      detail: "Vous avez déjà trois demandes d'export en cours.",
+      requestId: 'req-1',
+    });
+    expect(resolveOrderExportUnreachableMessage(cause, options)).toBe(cause.message);
+    expect(resolveOrderExportUnreachableMessage(cause, options)).not.toBe(options.networkMessage);
+  });
+
+  it('une Error QUELCONQUE (ni ApiClientError ni TypeError) garde SON message, comportement INCHANGE', () => {
+    expect(resolveOrderExportUnreachableMessage(new Error('reseau'), options)).toBe('reseau');
+  });
+
+  it('une valeur qui n est meme pas une Error recoit le message generique', () => {
+    expect(resolveOrderExportUnreachableMessage('boom', options)).toBe('generique');
+    expect(resolveOrderExportUnreachableMessage(undefined, options)).toBe('generique');
+  });
+});
+
 describe('describeOrderExportStatus — table STATUT -> AFFICHAGE (point 2)', () => {
   it.each([
     ['pending', 'En attente', 'pending'],
@@ -1028,11 +1107,17 @@ describe('describeOrderExportDownload — BLOQUANT B2 (qa-review round 1) : tabl
     ['pending' as const, null, 'not_ready', '—', false],
     ['running' as const, null, 'not_ready', '—', false],
     ['failed' as const, null, 'failed', '—', false],
-    ['expired' as const, null, 'expired', 'Expiré', false],
+    // DEFAUT R4, recette navigateur (2026-09-15) : AVANT ce correctif, ce cas
+    // valait `'Expiré'` — DOUBLON avec le libelle de STATUT (« Expiré ») deja
+    // rendu par `describeOrderExportStatus()` pour la MEME ligne : la colonne
+    // Statut ET la colonne Telechargement affichaient toutes les deux
+    // « Expiré » (« ... Expiré Expiré » releve en recette). Desormais un
+    // tiret, comme les deux autres cas non telechargeables ci-dessus.
+    ['expired' as const, null, 'expired', '—', false],
     ['ready' as const, null, 'not_requester', 'Demandé par un autre membre', false],
     ['ready' as const, 'https://storage.test/f.xlsx', 'available', 'Télécharger', true],
   ])('status=%s, download_url=%s -> kind=%s, label=%s, downloadable=%s', (status, downloadUrl, kind, label, downloadable) => {
-    // Mutation qui ferait tomber ce test : permuter les libelles "Expiré"/
+    // Mutation qui ferait tomber ce test : permuter les libelles "—"/
     // "Demandé par un autre membre" dans `ORDER_EXPORT_DOWNLOAD_LABELS`
     // (D04), ou exposer une url via ce descripteur.
     const display = describeOrderExportDownload(fixtureExport({ status, download_url: downloadUrl }));
@@ -1073,5 +1158,27 @@ describe('describeOrderExportRow — BLOQUANT B2 (qa-review round 1) : descripte
     const row = describeOrderExportRow(fixtureExport({ status: 'ready', download_url: 'https://storage.test/f.xlsx' }));
     expect(row.status.label).toBe('Prêt');
     expect(row.download.downloadable).toBe(true);
+  });
+
+  describe('DEFAUT R4 (recette navigateur, 2026-09-15) — le mot du statut ne se repete pas dans la colonne telechargement', () => {
+    it('un export EXPIRE affiche "Expiré" une seule fois (statut), pas dans la colonne telechargement', () => {
+      // AVANT ce correctif : `row.download.label` valait AUSSI 'Expiré' —
+      // la ligne affichait "... Expiré Expiré" (releve en recette
+      // navigateur : « Excel (XLSX) · Une ligne par commande
+      // recette.admin@magrit.local Expiré Expiré »).
+      const row = describeOrderExportRow(fixtureExport({ status: 'expired', download_url: null }));
+      expect(row.status.label).toBe('Expiré');
+      expect(row.download.label).not.toBe('Expiré');
+      expect(row.download.label).toBe('—');
+    });
+
+    it('un export PRET demande par un AUTRE membre reste INCHANGE : "Prêt" (statut) puis "Demandé par un autre membre" (telechargement)', () => {
+      // Cas EXPLICITEMENT preserve par la consigne : ce n est PAS une
+      // repetition (deux informations distinctes), ne pas le confondre avec
+      // le cas `expired` ci-dessus.
+      const row = describeOrderExportRow(fixtureExport({ status: 'ready', download_url: null }));
+      expect(row.status.label).toBe('Prêt');
+      expect(row.download.label).toBe('Demandé par un autre membre');
+    });
   });
 });

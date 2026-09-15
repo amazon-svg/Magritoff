@@ -82,6 +82,41 @@ import {
 export const CAN_EXPORT_ORDERS = 'can_export_orders';
 
 // ---------------------------------------------------------------------------
+// 0bis. Messages d echec — panne RESEAU vs echec HTTP DEJA REPONDU (DEFAUT R3)
+// ---------------------------------------------------------------------------
+
+/**
+ * DEFAUT R3, recette navigateur (2026-09-15) — une panne reseau (mise hors
+ * ligne pendant l envoi, coupure du suivi) s affichait en ANGLAIS BRUT :
+ * `FetchApiClient.send()` (`src/platform/api/fetch-api-client.ts`) ne
+ * capture JAMAIS le rejet de `fetch()` lui-meme — seul un echec HTTP DEJA
+ * REPONDU devient une `ApiClientError`. La norme Fetch garantit uniquement
+ * le TYPE de ce rejet (`TypeError`), jamais son texte : « Failed to fetch »
+ * sous Chromium, « NetworkError when attempting to fetch resource. » sous
+ * Firefox, « Load failed » sous Safari — trois textes, tous en anglais,
+ * aucun ecrit pour un utilisateur.
+ *
+ * SEUL endroit qui tranche entre les deux cas :
+ * - `ApiClientError` — message DEJA francais, POSE PAR LE SERVEUR
+ *   (`problem.detail ?? problem.title`) : rendu TEL QUEL, INCHANGE ;
+ * - `TypeError` (panne reseau, quel que soit son texte exact) — remplace
+ *   par `networkMessage`, fourni par l appelant (le texte differe entre la
+ *   modale et le registre, voir `OrderExportDialog.tsx`/`OrderExportPanel.tsx`) ;
+ * - tout le reste (une autre exception `Error`, deja rare sur ce chemin) —
+ *   comportement INCHANGE, `cause.message` tel quel (ex. un message de
+ *   test) ; une valeur qui n est meme pas une `Error` recoit
+ *   `genericMessage`.
+ */
+export function resolveOrderExportUnreachableMessage(
+  cause: unknown,
+  options: Readonly<{ genericMessage: string; networkMessage: string }>,
+): string {
+  if (cause instanceof ApiClientError) return cause.message;
+  if (cause instanceof TypeError) return options.networkMessage;
+  return cause instanceof Error ? cause.message : options.genericMessage;
+}
+
+// ---------------------------------------------------------------------------
 // 1. Parite des filtres — point 3 de la consigne
 // ---------------------------------------------------------------------------
 
@@ -320,10 +355,17 @@ export function createOrderExportSubmitController(
       } catch (cause) {
         dispatch({
           type: 'submitFailed',
-          // TELLE QUELLE (point 8) : `ApiClientError.message` vaut deja
-          // `problem.detail ?? problem.title` — aucune reecriture ici, y
-          // compris pour `order_export.pending_limit_reached`.
-          message: cause instanceof Error ? cause.message : 'Demande d’export impossible.',
+          // TELLE QUELLE (point 8) pour une `ApiClientError` : son message
+          // vaut deja `problem.detail ?? problem.title` — aucune reecriture,
+          // y compris pour `order_export.pending_limit_reached`. DEFAUT R3 :
+          // une panne reseau (envoi hors ligne) ne doit plus afficher le
+          // texte ANGLAIS brut du navigateur (`TypeError`, voir l en-tete de
+          // fichier) — `resolveOrderExportUnreachableMessage()` est le SEUL
+          // endroit qui tranche.
+          message: resolveOrderExportUnreachableMessage(cause, {
+            genericMessage: 'Demande d’export impossible.',
+            networkMessage: 'Connexion impossible. Vérifiez votre réseau, puis réessayez.',
+          }),
         });
         return null;
       } finally {
@@ -550,7 +592,17 @@ export function startOrderExportPolling(
       },
       (cause: unknown) => {
         if (stopped) return;
-        onError(cause instanceof Error ? cause.message : 'Suivi de l’export impossible.');
+        // DEFAUT R3, recette navigateur (2026-09-15) : une coupure PASSAGERE
+        // du suivi affichait le texte ANGLAIS brut du navigateur (`TypeError`
+        // de `fetch`, voir l en-tete de fichier) — remplace par un message
+        // qui dit que la reprise est automatique, puisque `scheduleNext()`
+        // (plus bas) la relance reellement.
+        onError(
+          resolveOrderExportUnreachableMessage(cause, {
+            genericMessage: 'Suivi de l’export impossible.',
+            networkMessage: 'Connexion perdue. Nouvel essai automatique…',
+          }),
+        );
         // BLOQUANT M1, qa-review round 2 (2026-09-15) : un 401/403/404 est
         // PERMANENT — la session, le droit ou la ressource elle-meme ont
         // disparu, et aucun nombre de tentatives supplementaires ne change
@@ -671,11 +723,26 @@ export function resolveOrderExportDownloadState(
   }
 }
 
-/** Libelle affiche, un par `OrderExportDownloadState['kind']` — table PURE, SOURCE UNIQUE (qa-review round 1, B2 : avant ce correctif, ces libelles etaient ecrits a la main dans le JSX du panneau, et permutables sans qu aucun test ne le remarque, D04). */
+/**
+ * Libelle affiche, un par `OrderExportDownloadState['kind']` — table PURE,
+ * SOURCE UNIQUE (qa-review round 1, B2 : avant ce correctif, ces libelles
+ * etaient ecrits a la main dans le JSX du panneau, et permutables sans
+ * qu aucun test ne le remarque, D04).
+ *
+ * DEFAUT R4, recette navigateur (2026-09-15) — `expired` valait « Expiré »
+ * ICI, alors que `describeOrderExportStatus()` rend DEJA « Expiré » pour ce
+ * MEME statut (colonne Statut) : le panneau affichait le mot DEUX FOIS sur
+ * une meme ligne (« Excel (XLSX) ... Expiré Expiré »). `not_requester` ne
+ * porte pas ce defaut : son statut (colonne Statut) reste « Prêt », son
+ * libelle de telechargement (« Demande par un autre membre ») est une
+ * information DIFFERENTE, pas une repetition — INCHANGE. `expired` rejoint
+ * `not_ready`/`failed` : le statut suffit, la colonne telechargement reste
+ * vide (tiret).
+ */
 const ORDER_EXPORT_DOWNLOAD_LABELS: Readonly<Record<OrderExportDownloadState['kind'], string>> = {
   not_ready: '—',
   failed: '—',
-  expired: 'Expiré',
+  expired: '—',
   not_requester: 'Demandé par un autre membre',
   available: 'Télécharger',
 };

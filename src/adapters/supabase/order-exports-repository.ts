@@ -37,6 +37,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { TenantId, UserId } from '../../kernel/ids/index.ts';
 import { toIsoTimestamp, toIsoTimestampOrNull } from '../../modules/_shared/application/index.ts';
 import type { OrderExportDto, OrderExportFiltersDto } from '../../modules/order-exports/api/contracts.ts';
+import { publicAssetUrl } from './shops-repository.ts';
 import type { OrderExportRawRow } from '../../modules/order-exports/application/order-export-columns.ts';
 import {
   OrderExportAccessDeniedError,
@@ -72,6 +73,21 @@ export class SupabaseOrderExportsRepository implements OrderExportsRepository {
     private readonly client: SupabaseClient<any>,
     /** `service_role` — URL signee UNIQUEMENT, jamais la table. */
     private readonly storageClient: SupabaseClient<any>,
+    /**
+     * DEFAUT R1, recette navigateur (2026-09-15) — l URL rendue par
+     * `createSignedUrl()` porte l ORIGINE INTERNE du client Storage
+     * (`SUPABASE_URL`, ex. `http://kong:8000` en local Docker) : un
+     * navigateur ne resout jamais `kong`. MEME MECANISME que
+     * `SupabaseShopsRepository` (`publicBaseUrl`/`publicAssetUrl()`,
+     * reutilises TELS QUELS, aucune convention nouvelle) : ce parametre
+     * recoit `publicSupabaseUrl(request, supabaseUrl)`
+     * (`supabase/functions/magrit-api/index.ts`), qui vaut deja
+     * `SUPABASE_URL` en production/staging (donc INERTE, voir
+     * `publicAssetUrl` : hostname different de `kong` -> URL inchangee).
+     * Optionnel pour ne pas casser les appelants (tests, autres) qui
+     * construisent ce repository sans troisieme argument.
+     */
+    private readonly publicBaseUrl?: string,
   ) {}
 
   async actorHasCapability(tenantId: TenantId, actorId: UserId, capability: string): Promise<boolean> {
@@ -171,7 +187,12 @@ export class SupabaseOrderExportsRepository implements OrderExportsRepository {
         .from(BUCKET)
         .createSignedUrl(row.storage_path, DOWNLOAD_URL_TTL_SECONDS, { download: row.file_name as string });
       if (!error && signed) {
-        downloadUrl = signed.signedUrl;
+        // DEFAUT R1 : reecrit UNIQUEMENT l origine (`kong` -> l origine
+        // publique), conserve le chemin, le jeton et `download` — MEME
+        // fonction que `SupabaseShopsRepository` (voir le constructeur).
+        // Sans `publicBaseUrl` (aucun troisieme argument), `publicAssetUrl`
+        // rend `signed.signedUrl` INCHANGEE.
+        downloadUrl = publicAssetUrl(signed.signedUrl, this.publicBaseUrl);
         downloadUrlExpiresAt = new Date(Date.now() + DOWNLOAD_URL_TTL_SECONDS * 1000).toISOString();
       }
       // Une signature en echec ne doit pas casser la lecture de l export :
@@ -209,7 +230,15 @@ export class SupabaseOrderExportsRepository implements OrderExportsRepository {
 /** ORDRE identique a la fonction SQL (authentication_required -> permission_denied -> pending_limit_reached), meme discipline que `mapRegisterOrderDocumentError`. */
 function mapRequestOrderExportError(message: string): Error {
   if (message.includes('order_export.pending_limit_reached')) {
-    return new OrderExportPendingLimitReachedError(message);
+    // DEFAUT R2, recette navigateur (2026-09-15) — le message SQL BRUT
+    // (`order_export.pending_limit_reached: trois demandes non terminees
+    // deja en file pour cet acteur`) NE DOIT JAMAIS atteindre l ecran : il
+    // porte le code technique et un `_`. Il est journalise ici, cote
+    // serveur, a titre de diagnostic — le constructeur SANS ARGUMENT utilise
+    // le message par defaut FRANCAIS de l erreur (voir son en-tete), seul
+    // texte que la route (`order-exports-routes.ts`) recopie dans `detail`.
+    console.error('[order-exports] plafond de demandes en file atteint', message);
+    return new OrderExportPendingLimitReachedError();
   }
   if (message.includes('permission_denied')) {
     return new OrderExportAccessDeniedError(message);

@@ -33,9 +33,25 @@ export class OrderExportNotFoundError extends Error {
   }
 }
 
-/** L acteur porte deja trois demandes non terminees (422 `order_export.pending_limit_reached`). */
+/**
+ * L acteur porte deja trois demandes non terminees (422
+ * `order_export.pending_limit_reached`).
+ *
+ * DEFAUT R2, recette navigateur (2026-09-15) — le message PAR DEFAUT
+ * ci-dessous est le SEUL texte que doit jamais voir un utilisateur : il ne
+ * porte NI le code technique (`order_export.pending_limit_reached`) NI aucun
+ * caractere `_`, et NOMME le nombre (« trois ») en clair, conformement au
+ * contrat (§8.24 point 8 : « le "trois" vient du serveur, via `detail` »).
+ * `mapRequestOrderExportError()` (`src/adapters/supabase/order-exports-
+ * repository.ts`) NE DOIT JAMAIS passer le message SQL brut a ce
+ * constructeur — avant ce correctif, il le faisait, et l ecran affichait
+ * litteralement « order_export.pending_limit_reached: trois demandes non
+ * terminees deja en file pour cet acteur ».
+ */
 export class OrderExportPendingLimitReachedError extends Error {
-  constructor(message = 'Trois demandes non terminees sont deja en file pour cet acteur.') {
+  constructor(
+    message = "Vous avez déjà trois demandes d'export en cours. Attendez qu'une d'elles se termine avant d'en lancer une autre.",
+  ) {
     super(message);
     this.name = 'OrderExportPendingLimitReachedError';
   }

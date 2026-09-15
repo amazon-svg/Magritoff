@@ -118,3 +118,52 @@ describe('SupabaseOrderExportsRepository.findById (toDto) — MOYEN M2, qa-revie
     expect(createSignedUrlCalls).toHaveLength(0);
   });
 });
+
+/**
+ * DEFAUT R1, recette navigateur (2026-09-15). En local, `createSignedUrl()`
+ * rend une URL portant l ORIGINE INTERNE du client Storage (`SUPABASE_URL`,
+ * `http://kong:8000` sous Docker) — un navigateur ne resout jamais `kong`.
+ * Constate sur `download_url` : le parametre `download=` est bien present
+ * (MOYEN M2 ci-dessus, deja corrige), mais l hote ne l est pas. Correction :
+ * un troisieme argument de constructeur, `publicBaseUrl`, MEME MECANISME que
+ * `SupabaseShopsRepository`/`publicAssetUrl()` (reutilise tel quel, aucune
+ * convention nouvelle) — reecrit UNIQUEMENT l origine, jamais le chemin, le
+ * jeton ni `download`.
+ */
+describe('SupabaseOrderExportsRepository.findById (toDto) — DEFAUT R1, recette navigateur 2026-09-15', () => {
+  const KONG_SIGNED_URL =
+    'http://kong:8000/storage/v1/object/sign/order_exports/tenant-1/export-1.xlsx?token=abc123&download=commandes.xlsx';
+
+  it('reecrit l origine de l URL signee avec la base publique fournie, en conservant chemin/jeton/download', async () => {
+    const { client, storageClient } = fakeClients(readyOwnedRow());
+    storageClient.storage.from = (_bucket: string) => ({
+      createSignedUrl: async () => ({ data: { signedUrl: KONG_SIGNED_URL }, error: null }),
+    });
+    const repository = new SupabaseOrderExportsRepository(
+      client as any,
+      storageClient as any,
+      'http://127.0.0.1:54321',
+    );
+
+    const dto = await repository.findById(TENANT, ACTOR, EXPORT_ID);
+
+    // AVANT ce correctif : `downloadUrl = signed.signedUrl` sans reecriture —
+    // `dto.download_url` valait KONG_SIGNED_URL, hote que le navigateur ne
+    // resout jamais.
+    expect(dto!.download_url).toBe(
+      'http://127.0.0.1:54321/storage/v1/object/sign/order_exports/tenant-1/export-1.xlsx?token=abc123&download=commandes.xlsx',
+    );
+  });
+
+  it('sans base publique (aucun troisieme argument), l URL signee reste INCHANGEE', async () => {
+    const { client, storageClient } = fakeClients(readyOwnedRow());
+    storageClient.storage.from = (_bucket: string) => ({
+      createSignedUrl: async () => ({ data: { signedUrl: KONG_SIGNED_URL }, error: null }),
+    });
+    const repository = new SupabaseOrderExportsRepository(client as any, storageClient as any);
+
+    const dto = await repository.findById(TENANT, ACTOR, EXPORT_ID);
+
+    expect(dto!.download_url).toBe(KONG_SIGNED_URL);
+  });
+});

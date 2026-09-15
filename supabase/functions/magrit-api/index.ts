@@ -533,8 +533,18 @@ export async function handleRequest(request: Request): Promise<Response> {
   // (`service_role`) REUTILISE tel quel pour signer l URL de telechargement
   // du bucket prive `order_exports` (aucune specificite de bucket sur ce
   // client, le reconstruire serait une ressource de plus sans aucun gain).
+  // DEFAUT R1, recette navigateur (2026-09-15) : `publicSupabaseUrl(request,
+  // supabaseUrl)` en troisieme argument, MEME MECANISME deja en place pour
+  // `SupabaseShopsRepository` ci-dessus — sans lui, l URL signee portait
+  // l origine INTERNE Docker (`kong`), que le navigateur ne resout jamais.
+  // En production/staging, `supabaseUrl` est deja public : `publicSupabaseUrl`
+  // le rend TEL QUEL, ce cablage est donc INERTE hors local.
   const orderExportsService = new OrderExportsService({
-    repository: new SupabaseOrderExportsRepository(client, documentTemplatesStorageClient),
+    repository: new SupabaseOrderExportsRepository(
+      client,
+      documentTemplatesStorageClient,
+      publicSupabaseUrl(request, supabaseUrl),
+    ),
   });
 
   const handler = createMagritApiApplication({
