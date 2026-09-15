@@ -35,7 +35,7 @@ import { ShopHeaderSearch } from '@/modules/catalog/ui/storefront';
 import { ReassuranceStrip } from "@/modules/shops/ui/storefront/ReassuranceStrip";
 import type { TaxonomyFamily } from '@/modules/catalog/ui/helpers';
 import { TEST_IDS } from "@/shared/presentation/testIds";
-import { Sheet, SheetContent, SheetTitle } from "@/shared/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/shared/ui/sheet";
 import {
   resolveShopTheme,
   resolveShopBrandStyle,
@@ -515,6 +515,9 @@ export function ShopLayout({
                 </span>
               )}
             </SheetTitle>
+            <SheetDescription className="sr-only">
+              Articles de votre panier et total de la commande.
+            </SheetDescription>
             <button
               type="button"
               onClick={() => setCartOpen(false)}
