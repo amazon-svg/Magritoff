@@ -10,6 +10,7 @@
 import { History, RotateCcw, ShoppingCart } from 'lucide-react';
 import { TEST_IDS } from '@/shared/presentation/testIds';
 import { formatEuro } from '@/modules/catalog/ui/storefront';
+import { getStatusLabelLowerFirst } from '@/modules/orders/ui/helpers/orderStatus';
 
 /** Dernière commande de l'acheteur sur la boutique (fetch PublicShop). */
 export interface ResumeLastOrder {
@@ -51,7 +52,7 @@ export function buildResumeChips(args: {
     }
     chips.push({
       key: 'track',
-      label: `Suivre ma dernière commande (${statusLabel(args.lastOrder.status)})`,
+      label: `Suivre ma dernière commande (${getStatusLabelLowerFirst(args.lastOrder.status)})`,
     });
   }
   return chips;
@@ -61,19 +62,6 @@ function formatOrderDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
   return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
-}
-
-const STATUS_LABELS: Record<string, string> = {
-  draft: 'brouillon',
-  validated: 'validée',
-  in_production: 'en production',
-  shipped: 'expédiée',
-  delivered: 'livrée',
-  cancelled: 'annulée',
-};
-
-function statusLabel(status: string): string {
-  return STATUS_LABELS[status] ?? status;
 }
 
 const CHIP_ICONS = {

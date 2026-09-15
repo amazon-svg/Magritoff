@@ -1118,7 +1118,7 @@ export function OrderHistoryTable({
                               data-testid={TEST_IDS.shop.orderEditBtn}
                               data-order-id={o.id}
                               aria-label={`Éditer la commande draft ${o.id}`}
-                              title="Modifier cette commande (statut brouillon uniquement)"
+                              title="Modifier cette commande (en attente de validation uniquement)"
                               className="inline-flex items-center gap-1 px-2 py-1 rounded border border-line bg-paper text-ink-muted hover:text-ink hover:border-ink-mute-2 transition-colors"
                               style={{ fontSize: '11.5px' }}
                             >

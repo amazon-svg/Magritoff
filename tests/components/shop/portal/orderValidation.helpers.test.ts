@@ -31,7 +31,7 @@ describe('formatValidateErrorMessage', () => {
   it("pattern 'Transition draft -> validated not allowed' → message status non draft", () => {
     expect(formatValidateErrorMessage({
       message: 'Transition draft -> validated not allowed in v1.1',
-    })).toContain("plus en statut Brouillon");
+    })).toContain("plus en attente de validation");
   });
 
   it("message inconnu non-vide → fallback avec message brut", () => {

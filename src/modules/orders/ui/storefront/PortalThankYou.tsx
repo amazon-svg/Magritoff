@@ -87,7 +87,7 @@ export function PortalThankYou({ orderId, taxRate, userEmail, onBackToCatalog, o
           className="mt-5 text-ink m-0 outline-none focus:outline-none"
           style={{ fontSize: "28px", fontWeight: 300, letterSpacing: "-0.025em" }}
         >
-          Commande confirmée
+          Commande transmise — en attente de validation par l'imprimeur
         </h1>
         <p
           className="mt-2 text-ink-muted font-mono"
@@ -112,14 +112,12 @@ export function PortalThankYou({ orderId, taxRate, userEmail, onBackToCatalog, o
 
       {!loading && !error && order && (
         <>
-          {/* Bandeau info email confirmation */}
-          <div
-            className="mt-8 px-4 py-3 rounded-lg bg-bg border border-line text-ink-2 text-center"
-            style={{ fontSize: "13px", fontWeight: 400 }}
-          >
-            Un email de confirmation sera envoyé prochainement à{" "}
-            <span className="font-mono text-ink">{userEmail || "—"}</span>.
-          </div>
+          {/* BCP-5 (docs/api/CONVENTIONS.md §8.25 point 5.1, decision Arnaud
+              suite a l ecart remonte) : le bandeau qui promettait un
+              courriel de suivi a l'acheteur est SUPPRIME, pas reformule -
+              send-order-notification n'ecrit qu'aux administrateurs du
+              tenant, jamais a l'acheteur. La regle vaut partout ou cette
+              promesse apparaissait, pas seulement dans le panier. */}
 
           {/* Recap commande */}
           <div className="mt-8 border-t border-line pt-6">

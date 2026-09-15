@@ -33,6 +33,7 @@ import { Link, Navigate } from 'react-router';
 import { Archive, Copy, Edit, MoreHorizontal, MoveDown, MoveUp, Plus } from 'lucide-react';
 import { useTenant } from '@/modules/tenants/ui/runtime';
 import { useShops } from '@/modules/shops/ui/runtime';
+import { getOrderStatusLegendLabels } from '@/modules/orders/ui';
 import { useUserCapability } from '@/modules/roles/ui/hooks/useUserCapability';
 import { TEST_IDS } from '@/shared/presentation/testIds';
 import { useRoleCatalogManagement } from '@/modules/roles/ui/hooks/useRoleCatalogManagement';
@@ -575,8 +576,12 @@ export function OrderRoleAdminPage() {
           className="text-ink-muted m-0"
           style={{ fontSize: '12.5px', lineHeight: 1.55 }}
         >
-          Brouillon · En attente de validation · Validée · En production · Expédiée
-          · Livrée · Facturée · Annulée
+          {/* BCP-5 (docs/api/CONVENTIONS.md §8.25 point 5.1(c), arbitrage
+              architecte 2026-09-15) : la liste se lit dans la table UNIQUE
+              de orderStatus.ts, plus aucun libellé écrit en dur ici. Le
+              huitième item fantôme ("Brouillon" + "En attente de
+              validation" pour le même statut draft) est retiré. */}
+          {getOrderStatusLegendLabels().join(' · ')}
         </p>
       </section>
 

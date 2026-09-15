@@ -23,6 +23,7 @@ import {
   AlertDialogTitle,
 } from '@/shared/ui/alert-dialog';
 import { TEST_IDS } from '@/shared/presentation/testIds';
+import { getStatusInfo } from '@/modules/orders/ui/helpers/orderStatus';
 
 export interface ValidateOrderConfirmDialogProps {
   orderId: string | null;
@@ -73,8 +74,8 @@ export function ValidateOrderConfirmDialog({
                 Commande <span className="font-mono">#{orderShortId}</span>.{' '}
               </>
             )}
-            La commande passera du statut <strong>Brouillon</strong> à{' '}
-            <strong>Validée</strong>. Elle pourra alors être renouvelée par l'acheteur
+            La commande passera de <strong>{getStatusInfo('draft').label}</strong> à{' '}
+            <strong>{getStatusInfo('validated').label}</strong>. Elle pourra alors être renouvelée par l'acheteur
             et entrera dans le pipeline de production. L'événement est tracé dans
             l'historique.
           </AlertDialogDescription>

@@ -54,8 +54,13 @@ export const STATUS_LABELS: Record<OrderStatus, OrderStatusInfo> = {
     group: "legacy",
   },
   // tenant_orders v1.1 workflow
+  // BCP-5 (docs/api/CONVENTIONS.md §8.25 point 5.1, decision Arnaud Q1
+  // 2026-09-15) : "draft" reste conforme au PRD (FR18/FR49), seul le
+  // libelle change. Cette table est la SEULE source de libelles de statut
+  // sous src/modules/orders/ - gardee par
+  // tests/architecture/order-status-single-source.test.ts.
   draft: {
-    label: "Brouillon",
+    label: "En attente de validation",
     className: "bg-warn-bg text-warn-fg border-warn-fg/20",
     group: "workflow",
   },
@@ -130,6 +135,39 @@ export function getStatusInfo(status: string): OrderStatusInfo {
     className: "bg-line text-ink-2 border-line",
     group: "workflow", // fallback safe — pas terminal/legacy
   };
+}
+
+/**
+ * Libellés de statut de commande dans l'ordre du flux puis des statuts
+ * terminaux, SANS les statuts hérités `shop_orders` (`pending`, `approved`).
+ *
+ * BCP-5 (docs/api/CONVENTIONS.md §8.25 point 5.1(c), arbitrage architecte
+ * 2026-09-15) : tout écran qui affiche « la liste des statuts » (ex.
+ * `OrderRolesPage`) la tire d'ici, jamais d'une phrase écrite en dur — c'est
+ * ce qui a laissé passer un huitième item fantôme (vestige du
+ * `pending_validation` de maquette, jamais créé par S-ORDER-ROLES) dans
+ * `OrderRolesPage.tsx`.
+ */
+export function getOrderStatusLegendLabels(): string[] {
+  return [...ORDER_STATUSES_WORKFLOW, ...ORDER_STATUSES_TERMINAL].map(
+    (status) => STATUS_LABELS[status].label,
+  );
+}
+
+/**
+ * Libellé de statut avec la première lettre en minuscule, pour une
+ * insertion en fin ou milieu de phrase (« ... n'est plus en attente de
+ * validation », « Suivre ma commande (validée) »).
+ *
+ * BCP-5 (docs/api/CONVENTIONS.md §8.25 point 5.1(c), qa-review de BCP-5) :
+ * la règle veut que « les messages d'erreur qui nomment un statut le
+ * tirent eux aussi de la table ». Cette fonction est la forme DÉRIVÉE
+ * autorisée — jamais une seconde table, jamais une phrase recopiée à la
+ * main avec une capitale changée.
+ */
+export function getStatusLabelLowerFirst(status: string): string {
+  const label = getStatusInfo(status).label;
+  return label.length > 0 ? label.charAt(0).toLowerCase() + label.slice(1) : label;
 }
 
 /**

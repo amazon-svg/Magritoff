@@ -12,6 +12,7 @@ import {
   ORDER_STATUSES_TERMINAL,
   ORDER_STATUSES_LEGACY,
   getStatusInfo,
+  getOrderStatusLegendLabels,
   labelToStatus,
   type OrderStatus,
 } from "@/modules/orders/ui/helpers/orderStatus";
@@ -54,7 +55,9 @@ describe("orderStatus / STATUS_LABELS", () => {
 
 describe("orderStatus / getStatusInfo", () => {
   it("retourne le mapping correct pour chaque statut canonique", () => {
-    expect(getStatusInfo("draft").label).toBe("Brouillon");
+    // BCP-5 (docs/api/CONVENTIONS.md §8.25 point 5.1, Q1 2026-09-15) :
+    // le cycle de vie reste draft, seul le libelle change.
+    expect(getStatusInfo("draft").label).toBe("En attente de validation");
     expect(getStatusInfo("draft").group).toBe("workflow");
 
     expect(getStatusInfo("delivered").label).toBe("Livrée");
@@ -80,7 +83,7 @@ describe("orderStatus / getStatusInfo", () => {
 
 describe("orderStatus / labelToStatus", () => {
   it("inverse correctement les labels canoniques", () => {
-    expect(labelToStatus("Brouillon")).toBe("draft");
+    expect(labelToStatus("En attente de validation")).toBe("draft");
     expect(labelToStatus("En production")).toBe("in_production");
     expect(labelToStatus("Annulée")).toBe("cancelled");
     expect(labelToStatus("En attente")).toBe("pending");
@@ -95,5 +98,32 @@ describe("orderStatus / labelToStatus", () => {
   it("retourne null pour label inconnu", () => {
     expect(labelToStatus("Statut Inexistant")).toBeNull();
     expect(labelToStatus("")).toBeNull();
+  });
+});
+
+describe("orderStatus / getOrderStatusLegendLabels", () => {
+  // BCP-5 (docs/api/CONVENTIONS.md §8.25 point 5.1(c), arbitrage architecte
+  // 2026-09-15) : exactement les 7 statuts tenant_orders v1.1, dans l'ordre
+  // du flux puis des statuts terminaux, sans les statuts hérités
+  // shop_orders (`pending`, `approved`). C'est le motif exact qui a
+  // remplacé la phrase codée en dur d'OrderRolesPage.tsx (8 items, dont un
+  // fantôme).
+  it("retourne exactement les 7 libellés canoniques, dans l'ordre du flux puis des statuts terminaux", () => {
+    expect(getOrderStatusLegendLabels()).toEqual([
+      "En attente de validation",
+      "Validée",
+      "En production",
+      "Expédiée",
+      "Livrée",
+      "Facturée",
+      "Annulée",
+    ]);
+  });
+
+  it("ne contient ni les statuts hérités shop_orders ni de doublon", () => {
+    const labels = getOrderStatusLegendLabels();
+    expect(labels).toHaveLength(7);
+    expect(new Set(labels).size).toBe(7);
+    expect(labels).not.toContain(STATUS_LABELS.pending.label);
   });
 });

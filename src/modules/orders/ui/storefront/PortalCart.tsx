@@ -346,7 +346,7 @@ export function PortalCart({
               className="mt-3 px-3 py-2 bg-orange-50 border border-orange-200 rounded text-orange-800"
               style={{ fontSize: '12px', lineHeight: '1.4' }}
             >
-              ⚠️ <strong>Prix marché</strong> — au moins une ligne utilise une estimation Magrit (Clariprint pas encore intégré). Le prix réel sera confirmé à la validation par l&apos;imprimeur.
+              ⚠️ <strong>Prix marché</strong> — au moins une ligne est une estimation Magrit. Le prix définitif sera confirmé par l&apos;imprimeur à la validation de la commande.
             </div>
           )}
         </div>
@@ -409,23 +409,21 @@ export function PortalCart({
             {createOrderBlockedMessage}
           </p>
         )}
-        {canCreateOrder && (
-          <p
-            className="m-0 mt-2.5 text-ink-muted text-center"
-            style={{ fontSize: '12px', fontWeight: 400, lineHeight: 1.5 }}
-          >
-            Vous recevrez un email de confirmation.
-          </p>
-        )}
+        {/* BCP-5 (docs/api/CONVENTIONS.md §8.25 point 5.1) : "Vous recevrez
+            un email de confirmation." est SUPPRIME, pas reformule -
+            send-order-notification n'ecrit qu'aux administrateurs du
+            tenant, jamais a l'acheteur (constat 1(6) du cadrage). */}
         {/* S-CONSO-6 (Sprint 4 Phase 2, UX Sally Option A) : microcopy
             transparente sur l absence de workflow d approbation N+1 en v1.1.
-            Story future S-N1-APPROVAL pour le backend workflow. */}
+            Story future S-N1-APPROVAL pour le backend workflow.
+            BCP-5 : le texte et l'infobulle qui promettaient un circuit N+1
+            "dans une prochaine version" sont retires - seule la
+            transmission a l'imprimeur pour validation est un fait etabli. */}
         <p
           className="m-0 mt-1 text-ink-mute-2 text-center"
           style={{ fontSize: '11px', fontWeight: 400, lineHeight: 1.5 }}
-          title="Le workflow d'approbation hierarchique N+1 sera disponible dans une prochaine version. Pour l'instant, votre commande est envoyee directement a l'imprimeur."
         >
-          Envoi direct atelier · Validation hiérarchique à venir.
+          Votre commande sera transmise à l'imprimeur, qui la validera.
         </p>
       </aside>
     </div>
