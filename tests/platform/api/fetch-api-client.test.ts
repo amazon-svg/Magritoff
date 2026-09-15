@@ -265,6 +265,25 @@ describe('client fetch API Magrit', () => {
       expect(a).toBe(2);
       expect(b).toBe(2);
     });
+
+    // BCP-6b (correction qa-review round 3, point non bloquant) — un client
+    // derive par withHeaders() (ex. le contexte tenant en atelier,
+    // order-upload-links) reste abonnable/notifiable comme l original.
+    it("withHeaders() reprend les abonnes onUnauthorized de l instance d origine", async () => {
+      const client = new FetchApiClient('https://magrit.test', async () =>
+        new Response(
+          JSON.stringify({ type: 'about:blank', title: 'x', status: 401, code: 'x', request_id: 'r' }),
+          { status: 401 },
+        ),
+      );
+      let notifications = 0;
+      client.onUnauthorized(() => { notifications += 1; });
+      const derived = client.withHeaders({ 'X-Magrit-Tenant': 'tenant-1' });
+
+      await derived.request({ path: '/api/v1/customers', responseSchema: z.unknown() }).catch(() => undefined);
+
+      expect(notifications).toBe(1);
+    });
   });
 });
 

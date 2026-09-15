@@ -24,7 +24,10 @@ describe('bandeau de délégation storefront', () => {
 
   it('lit et ferme la session via la façade anonyme', () => {
     expect(shop).toContain('useStorefrontSession()');
-    expect(sessionHook).toContain('await api.current()');
+    // BCP-6b (correction qa-review round 2) — la lecture de session est
+    // désormais portée par `createSessionChecker` (`params.api.current()`),
+    // pas directement par `checkCurrent` du hook.
+    expect(sessionHook).toContain('await params.api.current()');
     expect(sessionHook).toContain('await api.end()');
     // BCP-6b (CONVENTIONS.md §8.25 point 5.2) — `focus` est retiré au profit
     // de `visibilitychange`, seul déclencheur de revalidation au repos.

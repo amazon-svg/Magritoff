@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { describe, expect, it, vi } from 'vitest';
 import { ApiClientError, FetchApiClient } from '@/platform/api';
 import {
+  createSessionChecker,
   createStorefrontUnauthorizedHandler,
   isMissingStorefrontSession,
   shouldRevalidateStorefrontSession,
@@ -182,33 +183,100 @@ describe('createStorefrontUnauthorizedHandler (BCP-6b, correction qa-review roun
   });
 });
 
-// BCP-6b (correction qa-review round 1, point BLOQUANT) — preuve d'intégration
-// SANS React ni DOM : un vrai `FetchApiClient`, branché sur
-// `createStorefrontUnauthorizedHandler` exactement comme le fait le hook
-// (`apiClient.onUnauthorized(handler)`), pour prouver le câblage réel, pas
-// seulement la politique.
-describe('câblage FetchApiClient.onUnauthorized -> revalidation (BCP-6b, correction qa-review round 1)', () => {
+// BCP-6b (correction qa-review round 2, point BLOQUANT A1/A2) —
+// `createSessionChecker` est pure : testée en isolation, sans FetchApiClient
+// ni React. C'est la SEULE source de vérité d'`isInFlight()`, partagée par
+// `checkCurrent` et par le gestionnaire de 401 (round 1 les dupliquait dans
+// deux drapeaux distincts, susceptibles de diverger — voir le round 3).
+describe('createSessionChecker (BCP-6b, correction qa-review round 2)', () => {
+  it("n'est jamais en vol avant le premier appel", () => {
+    const checker = createSessionChecker({ api: { current: () => Promise.resolve({} as never) } });
+    expect(checker.isInFlight()).toBe(false);
+  });
+
+  it('est en vol PENDANT check(), plus après sa résolution', async () => {
+    let resolveCurrent!: (value: never) => void;
+    const pending = new Promise<never>((resolve) => { resolveCurrent = resolve; });
+    const checker = createSessionChecker({ api: { current: () => pending } });
+
+    const checkPromise = checker.check();
+    expect(checker.isInFlight()).toBe(true);
+    resolveCurrent({ identity: { kind: 'shop_customer' } } as never);
+    await checkPromise;
+    expect(checker.isInFlight()).toBe(false);
+  });
+
+  it('rend un résultat "resolved" sur un succès', async () => {
+    const session = { identity: { kind: 'shop_customer', shopId: 's1' } } as never;
+    const checker = createSessionChecker({ api: { current: () => Promise.resolve(session) } });
+
+    await expect(checker.check()).resolves.toEqual({ outcome: 'resolved', session });
+  });
+
+  it('rend "missing" sur un 401, "unavailable" sur toute autre panne, sans jamais rejeter', async () => {
+    const checkerMissing = createSessionChecker({
+      api: { current: () => Promise.reject(apiError(401, 'storefront.session_required')) },
+    });
+    const checkerDown = createSessionChecker({
+      api: { current: () => Promise.reject(new TypeError('network failed')) },
+    });
+
+    await expect(checkerMissing.check()).resolves.toEqual({ outcome: 'missing' });
+    const downResult = await checkerDown.check();
+    expect(downResult.outcome).toBe('unavailable');
+  });
+
+  it("reste en vol pendant l'échec aussi (redevient false dans le finally)", async () => {
+    const checker = createSessionChecker({
+      api: { current: () => Promise.reject(apiError(401, 'storefront.session_required')) },
+    });
+
+    const checkPromise = checker.check();
+    expect(checker.isInFlight()).toBe(true);
+    await checkPromise;
+    expect(checker.isInFlight()).toBe(false);
+  });
+});
+
+/**
+ * BCP-6b (correction qa-review round 3, point BLOQUANT A1/A2) — le round 1
+ * dupliquait le drapeau anti-boucle dans une variable locale du test
+ * (`let checkInFlight = false`), au lieu d'exercer celui posé par le vrai
+ * `checkCurrent`/`createSessionChecker` du hook : retirer la garde du VRAI
+ * code n'y changeait rien, et le test restait vert (A2). De plus, retirer
+ * la garde du GESTIONNAIRE bloquait le worker par récursion de micro-tâches
+ * sans jamais lever d'assertion propre (A1).
+ *
+ * Correction : `createSessionChecker` est la fabrique RÉELLEMENT exportée
+ * par `useStorefrontSession.ts`, construite ici sur un vrai `FetchApiClient`
+ * dont le faux `fetch` est BORNÉ (`createBoundedUnauthorizedFetch`) — au-delà
+ * de N réponses 401, il rend un 500, qui ne notifie plus rien. Si la garde
+ * manque (A1 ou A2), la boucle s'arrête donc d'elle-même après N tours, et
+ * l'assertion `checkCalls === 1` échoue PROPREMENT (jamais par délai
+ * d'attente, jamais par épuisement CPU) — vérifié en secondes, pas en
+ * minutes (voir le rapport de fin de story pour la durée mesurée).
+ */
+function createBoundedUnauthorizedFetch(maxUnauthorizedResponses: number): typeof fetch {
+  let calls = 0;
+  return (async () => {
+    calls += 1;
+    return calls <= maxUnauthorizedResponses ? problemResponse(401) : problemResponse(500);
+  }) as typeof fetch;
+}
+
+describe('câblage FetchApiClient.onUnauthorized -> createSessionChecker (BCP-6b, correction qa-review round 3)', () => {
   it('un 401 d\'une action quelconque déclenche exactement une revalidation de session', async () => {
-    const client = new FetchApiClient('https://magrit.test', async () => problemResponse(401));
+    const client = new FetchApiClient('https://magrit.test', createBoundedUnauthorizedFetch(5));
+    const checker = createSessionChecker({
+      api: { current: () => client.request({ path: '/api/v1/storefront/session/current', responseSchema }) },
+    });
     let checkCalls = 0;
-    let checkInFlight = false;
-    const checkCurrent = async (blocking: boolean) => {
-      checkInFlight = true;
-      try {
-        checkCalls += 1;
-        await client
-          .request({ path: '/api/v1/storefront/session/current', responseSchema })
-          .catch(() => undefined);
-      } finally {
-        checkInFlight = false;
-      }
-    };
     const handler = createStorefrontUnauthorizedHandler({
       isEnding: () => false,
-      isCheckInFlight: () => checkInFlight,
+      isCheckInFlight: () => checker.isInFlight(),
       getLastRevalidatedAt: () => null,
       now: () => Date.now(),
-      checkCurrent: (blocking) => void checkCurrent(blocking),
+      checkCurrent: () => { checkCalls += 1; void checker.check(); },
     });
     const unsubscribe = client.onUnauthorized(handler);
 
@@ -222,16 +290,16 @@ describe('câblage FetchApiClient.onUnauthorized -> revalidation (BCP-6b, correc
 
   it('un autre statut (500) ne déclenche aucune revalidation', async () => {
     const client = new FetchApiClient('https://magrit.test', async () => problemResponse(500));
+    const checker = createSessionChecker({
+      api: { current: () => client.request({ path: '/api/v1/storefront/session/current', responseSchema }) },
+    });
     let checkCalls = 0;
-    const checkCurrent = () => {
-      checkCalls += 1;
-    };
     const handler = createStorefrontUnauthorizedHandler({
       isEnding: () => false,
-      isCheckInFlight: () => false,
+      isCheckInFlight: () => checker.isInFlight(),
       getLastRevalidatedAt: () => null,
       now: () => Date.now(),
-      checkCurrent,
+      checkCurrent: () => { checkCalls += 1; },
     });
     const unsubscribe = client.onUnauthorized(handler);
 
@@ -243,28 +311,20 @@ describe('câblage FetchApiClient.onUnauthorized -> revalidation (BCP-6b, correc
   });
 
   it('pas de boucle si la revalidation elle-même renvoie 401 (session réellement expirée)', async () => {
-    // TOUTE requête sur ce client répond 401, y compris session/current :
-    // c'est le pire cas (session réellement absente).
-    const client = new FetchApiClient('https://magrit.test', async () => problemResponse(401));
+    // TOUTES les réponses sont 401 jusqu'à la borne (5), puis 500 : si la
+    // garde manque, la boucle s'arrête donc à `checkCalls` proche de 5, pas
+    // à l'infini — l'assertion `toBe(1)` échoue proprement dans ce cas.
+    const client = new FetchApiClient('https://magrit.test', createBoundedUnauthorizedFetch(5));
+    const checker = createSessionChecker({
+      api: { current: () => client.request({ path: '/api/v1/storefront/session/current', responseSchema }) },
+    });
     let checkCalls = 0;
-    let checkInFlight = false;
-    const checkCurrent = async (blocking: boolean) => {
-      checkInFlight = true;
-      try {
-        checkCalls += 1;
-        await client
-          .request({ path: '/api/v1/storefront/session/current', responseSchema })
-          .catch(() => undefined);
-      } finally {
-        checkInFlight = false;
-      }
-    };
     const handler = createStorefrontUnauthorizedHandler({
       isEnding: () => false,
-      isCheckInFlight: () => checkInFlight,
+      isCheckInFlight: () => checker.isInFlight(),
       getLastRevalidatedAt: () => null,
       now: () => Date.now(),
-      checkCurrent: (blocking) => void checkCurrent(blocking),
+      checkCurrent: () => { checkCalls += 1; void checker.check(); },
     });
     const unsubscribe = client.onUnauthorized(handler);
 
@@ -273,10 +333,10 @@ describe('câblage FetchApiClient.onUnauthorized -> revalidation (BCP-6b, correc
     await flush();
 
     // Le 401 de l'action métier déclenche 1 checkCurrent. Le 401 que
-    // checkCurrent reçoit ensuite de session/current, LUI-MÊME, ne doit PAS
-    // en déclencher un second : `isCheckInFlight()` vaut `true` au moment où
-    // ce second 401 est notifié (il l'est de façon synchrone, à l'intérieur
-    // du `await` de la requête déclenchée par checkCurrent).
+    // checker.check() reçoit ensuite de session/current, LUI-MÊME, ne doit
+    // PAS en déclencher un second : `checker.isInFlight()` vaut `true` au
+    // moment où ce second 401 est notifié (il l'est de façon synchrone, à
+    // l'intérieur de l'`await` que `checker.check()` a lui-même engagé).
     expect(checkCalls).toBe(1);
     unsubscribe();
   });

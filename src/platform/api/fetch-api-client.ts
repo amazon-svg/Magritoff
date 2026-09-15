@@ -73,12 +73,20 @@ export class FetchApiClient {
    * Permet a la surface applicative d attacher le contexte d appel sans que
    * les clients de module (`CustomersApiClient`, ...) aient a le transporter
    * dans chaque methode — ils continuent de ne connaitre que leur ressource.
+   *
+   * BCP-6b (correction qa-review round 3, point non bloquant) — les abonnes
+   * `onUnauthorized` sont repris sur la copie : un abonnement pose sur
+   * l instance d origine reste actif sur le client derive, qui partage donc
+   * silencieusement le meme canal de notification 401 plutot que d en perdre
+   * la trace.
    */
   withHeaders(headers: Readonly<Record<string, string>>): FetchApiClient {
-    return new FetchApiClient(this.baseUrl, this.fetchImplementation, this.accessTokenProvider, {
+    const derived = new FetchApiClient(this.baseUrl, this.fetchImplementation, this.accessTokenProvider, {
       ...this.defaultHeaders,
       ...headers,
     });
+    for (const listener of this.unauthorizedListeners) derived.unauthorizedListeners.add(listener);
+    return derived;
   }
 
   /**

@@ -1,7 +1,7 @@
 ---
 id: BCP-6b
 epic: E10 (hors E10, chantier boutique) — "chaine des prix Magrit -> panier et qualite d affichage"
-status: round 2 (correction qa-review round 1) — qa-review distincte requise avant merge
+status: round 3 (correction qa-review round 2, garde-fou anti-boucle preuve) — qa-review distincte requise avant merge
 branch: worktree-agent-ad85f6c400202ba79 (worktree isole, depuis feat/gescom-e10-4-entite-client @ 57d909b5)
 commit: (voir rapport de fin de story)
 depends_on: []
@@ -351,3 +351,133 @@ comptage navigateur (gestes ci-dessus) tranchera ce qui reste incertain.
   local, seul écart toléré), 2969 tests passés, 86 skips, OK.
 - `pnpm test:contract` — 23 fichiers, 432 tests, OK (vérifie l'absence de
   régression sur `FetchApiClient`, partagé avec le reste de l'API).
+
+## Round 3 — correction qa-review round 2 (rejet ciblé sur un seul point bloquant)
+
+La qa-review distincte a **validé** l'essentiel du round 2 (portée du
+pub/sub, absence de boucle résiduelle par lecture du code, gates) et
+**rejeté** `d04e2204` sur un seul point **bloquant** : le garde-fou
+anti-boucle n'était prouvé par aucun test recevable.
+
+### Le défaut exact (A1 et A2)
+
+Le test d'intégration du round 2 (« pas de boucle si la revalidation
+elle-même renvoie 401 ») maintenait sa PROPRE variable locale
+`let checkInFlight = false` dans le corps du test, distincte du
+`checkInFlightRef` réellement posé dans `useStorefrontSession.ts`. Deux
+conséquences :
+
+- **A2 — retirer `checkInFlightRef.current = true` du VRAI `checkCurrent`
+  ne faisait échouer AUCUN test.** Le test exerçait sa propre copie du
+  drapeau, jamais celle du hook : il ne prouvait donc rien sur le code de
+  production. En cas de session réellement expirée, cette régression aurait
+  fait boucler indéfiniment 401 → revalidation → 401 → ... en production.
+- **A1 — retirer la garde du GESTIONNAIRE** (`createStorefrontUnauthorizedHandler`)
+  ne faisait pas non plus échouer une assertion : elle bloquait le WORKER
+  vitest en récursion synchrone de micro-tâches, que la qa a dû tuer après
+  120 s malgré `--testTimeout=5000` (le délai ne peut pas se déclencher tant
+  que la boucle de micro-tâches ne rend jamais la main à la boucle
+  d'événements). Un test qui « échoue » en épuisant le CPU n'est pas une
+  preuve — exactement le défaut relevé.
+
+### Correctif : `createSessionChecker`, source unique du drapeau
+
+`useStorefrontSession.ts` exporte désormais `createSessionChecker({ api })`,
+une fabrique PURE (aucun React) qui encapsule l'appel réseau ET son drapeau
+`isInFlight()` :
+
+```ts
+export interface SessionChecker {
+  isInFlight(): boolean;
+  check(): Promise<SessionCheckResult>; // 'resolved' | 'missing' | 'unavailable' — ne rejette jamais
+}
+```
+
+Le hook crée **une seule instance** par montage (`checkerRef`, lazy-init via
+ref — jamais recréée par un rendu), et **`checkCurrent` ET le gestionnaire
+de 401 lisent tous deux CETTE MÊME instance** (`checkerRef.current!.check()`
+/ `checkerRef.current!.isInFlight()`). Il n'existe donc plus deux copies du
+drapeau susceptibles de diverger : le test peut désormais exercer le VRAI
+mécanisme en instanciant `createSessionChecker` directement.
+
+### Le test, borné pour échouer par assertion, jamais par délai ni CPU
+
+Le nouveau test construit un vrai `FetchApiClient` dont le faux `fetch` est
+**borné** (`createBoundedUnauthorizedFetch(5)`) : les 5 premières réponses
+sont des 401, la 6ᵉ et les suivantes sont des 500 (qui ne notifient plus
+rien). Si la garde manque (A1 ou A2), la chaîne 401 → revalidation → 401 →
+... s'arrête donc d'elle-même après 5 tours au lieu de tourner à l'infini,
+et l'assertion `expect(checkCalls).toBe(1)` échoue **proprement**, avec un
+message lisible (`expected 5 to be 1`), jamais par timeout ni par
+épuisement CPU.
+
+**Vérifié par revert contrôlé, comme demandé, et chronométré :**
+
+| Mutation | Ce qui casse | Résultat observé | Durée totale du fichier de test |
+|---|---|---|---|
+| A2 | Retrait de `inFlight = true;` dans `createSessionChecker.check()` | 4 tests échouent par assertion (`isInFlight()` reste `false` pendant l'appel ; `checkCalls` vaut 5 sur les deux tests d'intégration concernés) | **0,925 s** (`pnpm vitest run tests/hooks/useStorefrontSession.test.ts`, durée interne du fichier : 247 ms) |
+| A1 | Retrait de `params.isCheckInFlight()` dans le corps de `createStorefrontUnauthorizedHandler` | 3 tests échouent par assertion (le test pur « anti-boucle » constate un appel au lieu de zéro ; `checkCalls` vaut 5 sur les deux tests d'intégration concernés) | **0,947 s** (durée interne du fichier : 282 ms), avec `--testTimeout=5000` — **aucun hang, aucun kill de worker nécessaire** |
+
+Les deux mutations ont été **restaurées** ensuite (comparaison de diff
+vérifiée identique à l'état livré), suite complète revérifiée verte.
+
+### Non bloquant, traité : `withHeaders()` reprend les abonnés
+
+`FetchApiClient.withHeaders()` copie désormais les abonnés
+`onUnauthorized` existants sur l'instance dérivée (`derived.unauthorizedListeners`,
+accessible en `private` au sein de la même classe). Un futur client
+storefront qui passerait par `withHeaders()` ne perdrait plus silencieusement
+sa revalidation sur 401. Test dédié dans
+`tests/platform/api/fetch-api-client.test.ts` (« withHeaders() reprend les
+abonnés onUnauthorized »).
+
+### Mutations résiduelles acceptées (limite du choix (b1), pas de dépendance de rendu ajoutée)
+
+Sur instruction explicite du coordinateur, **aucune dépendance de rendu
+n'est ajoutée** (ce serait un arbitrage d'Arnaud). Les mutations suivantes
+survivent donc à la suite automatisée et restent couvertes uniquement par
+le comptage navigateur (gestes de recette ci-dessus) :
+
+- **A5** — un désabonnement `onUnauthorized` perdu (ex. l'effet ne rend
+  plus sa fonction de nettoyage) ;
+- **D1c** — un statut forcé à `'ready'` au point d'appel plutôt que lu
+  depuis l'état réel du hook ;
+- **D2** — la vérification de génération (`generationRef`) non exercée au
+  retour d'onglet (la réponse obsolète pourrait écraser un nouveau
+  catalogue) ;
+- les variantes « texte gardé, câblage retiré » de **M7b, M8, M9, M10 et
+  M12** — un mutant qui garderait les chaînes attendues quelque part dans
+  le fichier tout en cassant le branchement réel de l'effet React.
+
+Ces cinq points partagent la même racine : ils portent sur le **rendu**
+réel de l'effet React (montage, nettoyage, lecture de state), que seule une
+exécution de composant peut observer. Le dépôt n'a pas cet outil
+(`@testing-library/react` absent, environnement vitest `node` sans DOM) et
+cette story n'en introduit pas.
+
+### Fichiers modifiés en plus (round 3)
+
+- `src/modules/shop-customers/ui/hooks/useStorefrontSession.ts` —
+  `createSessionChecker` (nouvelle fabrique pure, `SessionChecker`,
+  `SessionCheckResult`), `checkerRef` (remplace `checkInFlightRef`),
+  `checkCurrent` réécrit pour déléguer à `checkerRef.current!.check()`.
+- `src/platform/api/fetch-api-client.ts` — `withHeaders()` reprend les
+  abonnés `onUnauthorized`.
+- `tests/hooks/useStorefrontSession.test.ts` — describe `createSessionChecker`
+  (5 `it` purs), describe « câblage » réécrit sur `createSessionChecker` +
+  fetch borné (4 `it`, dont le test anti-boucle).
+- `tests/platform/api/fetch-api-client.test.ts` — 1 `it` sur `withHeaders()`.
+- `tests/components/shop/StorefrontDelegationBanner.test.ts` — assertion
+  mise à jour (`await params.api.current()`, le code source ayant changé de
+  place, même intention).
+- `_bmad-output/implementation-artifacts/story-BCP-6b.md` — cette section.
+
+### Gates rejouées (round 3)
+
+- `pnpm typecheck` — OK, aucune erreur.
+- `pnpm vitest run tests/hooks/useStorefrontSession.test.ts` — 21 tests, OK.
+- `pnpm test:architecture` — 45 fichiers, 278 tests, OK.
+- `pnpm test:contract` — 23 fichiers, 432 tests, OK.
+- `pnpm test` (suite complète) — 293 fichiers passés, 11 skippés (dont
+  `tests/storage/product_mockups_isolation.test.ts`, préexistant/environnement
+  local, seul écart toléré), 2975 tests passés, 86 skips, OK.
