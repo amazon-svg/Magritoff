@@ -13,6 +13,17 @@ export const clariprintCostsSchema = z.object({
   total: z.number().optional(),
 }).passthrough();
 
+// Correctif sécurité 2026-09-15 : ce schéma NE DOIT PAS être `.passthrough()`.
+// Cette route est publique (`authentication: 'public'` sur
+// `POST /api/v1/clariprint/quote`) ; `.passthrough()` laissait passer
+// silencieusement tout champ non déclaré ici — c'est ainsi que
+// `allResults`/`faultyProcess` (détail interne du compte Clariprint de la
+// plateforme : imprimeurs, identifiants externes, coûts, gammes de
+// fabrication) ont fui vers n'importe quel appelant anonyme. Le comportement
+// par défaut de `z.object` (ni `.strict()` ni `.passthrough()`) SUPPRIME les
+// champs non déclarés au lieu de les laisser passer ou de faire échouer la
+// requête : c'est la barrière voulue ici, dernière ligne avant le client
+// même si une passerelle construit encore un champ non déclaré.
 export const clariprintQuoteResultSchema = z.object({
   success: z.boolean(),
   credentialsMissing: z.boolean().optional(),
@@ -25,7 +36,7 @@ export const clariprintQuoteResultSchema = z.object({
   fournisseur: z.string().optional(),
   processDuration: z.number().optional(),
   details: z.string().optional(),
-}).passthrough();
+});
 
 export type ClariprintQuoteCommand = z.infer<typeof clariprintQuoteCommandSchema>;
 export type ClariprintQuoteResult = z.infer<typeof clariprintQuoteResultSchema>;

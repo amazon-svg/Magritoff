@@ -26,5 +26,42 @@ describe('HttpClariprintQuoteGateway', () => {
     const fetchMock = vi.fn(async () => Response.json({ success: true, response: -1.2 }));
     const result = await new HttpClariprintQuoteGateway('https://clariprint.test/optimproject/json.wcl', 'l', 'p', fetchMock as unknown as typeof fetch).quote({ clariprint: {} });
     expect(result).toMatchObject({ success: false, error: 'Prix Clariprint invalide (négatif)' });
+    expect(JSON.stringify(result)).not.toContain('all_process');
+    expect(JSON.stringify(result)).not.toContain('all_faulty_process');
+  });
+
+  // Correctif sécurité 2026-09-15 : `all_process`/`all_faulty_process` portent le
+  // détail interne du compte Clariprint de la plateforme (imprimeurs, identifiants
+  // externes, coûts, gammes de fabrication) et ne doivent jamais atteindre le
+  // client de la route publique `POST /api/v1/clariprint/quote`.
+  it('ne transmet jamais le detail interne des gammes (all_process/all_faulty_process) en cas de succes', async () => {
+    const fetchMock = vi.fn(async () => Response.json({
+      success: true,
+      response: 123.45,
+      all_process: [{ imprimeur: 'ImprimeurSecretXYZ', external_id: 'INT-999', cost: 12.3 }],
+      all_faulty_process: { gamme_offset: 'FaultySecretABC' },
+    }));
+    const gateway = new HttpClariprintQuoteGateway('https://clariprint.test/optimproject/json.wcl', 'l', 'p', fetchMock as unknown as typeof fetch);
+    const result = await gateway.quote({ clariprint: {} });
+    const serialized = JSON.stringify(result);
+    expect(serialized).not.toContain('ImprimeurSecretXYZ');
+    expect(serialized).not.toContain('INT-999');
+    expect(serialized).not.toContain('FaultySecretABC');
+    expect(result).not.toHaveProperty('allResults');
+    expect(result).not.toHaveProperty('faultyProcess');
+  });
+
+  it('ne transmet jamais le detail interne des gammes en cas d echec fournisseur', async () => {
+    const fetchMock = vi.fn(async () => Response.json({
+      success: false,
+      error: 'Configuration produit refusee',
+      all_faulty_process: { gamme_offset: 'FaultySecretDEF' },
+    }));
+    const gateway = new HttpClariprintQuoteGateway('https://clariprint.test/optimproject/json.wcl', 'l', 'p', fetchMock as unknown as typeof fetch);
+    const result = await gateway.quote({ clariprint: {} });
+    const serialized = JSON.stringify(result);
+    expect(serialized).not.toContain('FaultySecretDEF');
+    expect(result).not.toHaveProperty('allResults');
+    expect(result).not.toHaveProperty('faultyProcess');
   });
 });

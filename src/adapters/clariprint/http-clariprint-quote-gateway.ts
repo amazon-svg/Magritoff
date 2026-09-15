@@ -29,7 +29,13 @@ export class HttpClariprintQuoteGateway implements ClariprintQuoteGateway {
     const priceHT = payload.response;
     if (typeof priceHT !== 'number' || !Number.isFinite(priceHT) || priceHT < 0) return { success: false, error: priceHT < 0 ? 'Prix Clariprint invalide (négatif)' : 'Prix Clariprint invalide (absent, NaN ou non-numérique)', details: `priceHT brut reçu: ${JSON.stringify(priceHT)}` };
     const costs = validCosts(payload.costs);
-    return clariprintQuoteResultSchema.parse({ success: true, priceHT, ...(costs ? { costs } : {}), ...(number(payload.delais) === undefined ? {} : { delais: number(payload.delais) }), ...(number(payload.weight) === undefined ? {} : { weight: number(payload.weight) }), ...(typeof payload.fournisseur === 'string' ? { fournisseur: payload.fournisseur } : {}), ...(number(payload.total_process_duration) === undefined ? {} : { processDuration: number(payload.total_process_duration) }), allResults: payload.all_process ?? [], faultyProcess: payload.all_faulty_process ?? {} });
+    // Correctif sécurité 2026-09-15 : `payload.all_process`/`payload.all_faulty_process`
+    // portent le détail interne du compte Clariprint de la plateforme (imprimeurs,
+    // identifiants externes, coûts, gammes de fabrication) ; cette route est publique
+    // (authentication: 'public') et aucun écran ne lit ces champs. Ne JAMAIS les
+    // reporter dans le résultat — voir docs/api/CONVENTIONS.md (dette suivie, lot
+    // BCP-1a à venir pour le journal diagnostic et l'expurgation).
+    return clariprintQuoteResultSchema.parse({ success: true, priceHT, ...(costs ? { costs } : {}), ...(number(payload.delais) === undefined ? {} : { delais: number(payload.delais) }), ...(number(payload.weight) === undefined ? {} : { weight: number(payload.weight) }), ...(typeof payload.fournisseur === 'string' ? { fournisseur: payload.fournisseur } : {}), ...(number(payload.total_process_duration) === undefined ? {} : { processDuration: number(payload.total_process_duration) }) });
   }
 }
 

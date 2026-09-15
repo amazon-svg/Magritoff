@@ -23,4 +23,32 @@ describe('route API devis Clariprint', () => {
     expect(response.status).toBe(422);
     expect(called).toBe(false);
   });
+
+  // Correctif sécurité 2026-09-15 : même si une passerelle (celle en place ou
+  // une future) construit encore `allResults`/`faultyProcess`, le contrat de
+  // sortie de la route est la dernière barrière avant le client. Ce test porte
+  // sur cette barrière elle-même (le schéma), pas sur l'implémentation
+  // HTTP actuelle de la passerelle.
+  it('ne laisse jamais passer allResults/faultyProcess vers le client, meme si la passerelle les construit encore', async () => {
+    const gateway: ClariprintQuoteGateway = {
+      async quote() {
+        return {
+          success: true,
+          priceHT: 99,
+          // @ts-expect-error — simule une passerelle non conforme, exactement le cas corrige
+          allResults: [{ imprimeur: 'ImprimeurSecretGHI', external_id: 'INT-777' }],
+          // @ts-expect-error — idem
+          faultyProcess: { gamme_offset: 'FaultySecretJKL' },
+        };
+      },
+    };
+    const handler = createApiV1Application({ routes: createClariprintRoutes(new ClariprintService(gateway)), requestIdFactory: () => 'clariprint-leak-guard' });
+    const response = await handler(new Request('http://localhost/api/v1/clariprint/quote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clariprint: { quantity: 500 } }) }));
+    const text = await response.text();
+    expect(text).not.toContain('ImprimeurSecretGHI');
+    expect(text).not.toContain('INT-777');
+    expect(text).not.toContain('FaultySecretJKL');
+    expect(text).not.toContain('allResults');
+    expect(text).not.toContain('faultyProcess');
+  });
 });
