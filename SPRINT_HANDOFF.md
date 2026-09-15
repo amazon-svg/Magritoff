@@ -143,10 +143,14 @@ Joué par le coordinateur dans Chrome DevTools, compte acheteur ERAM connecté p
   - **D1** : pas de rechargement tant que le statut n'est pas `ready` ;
   - **tests** : M7b/M8 à M12, suite complète verte (2 969 tests), 432 tests de contrat au vert.
 
-  qa round 2 en cours. Points vérifiés :
-  - la portée du pub/sub hors boutique ;
-  - les boucles 401 résiduelles (boutique privée sans session) ;
-  - la solidité des tests qui comparent le texte source.
+  **qa round 2 REJETÉE**, sur un seul point bloquant : le garde-fou anti-boucle n'est prouvé par aucun test.
+  - **A2 survit** : retirer `checkInFlightRef.current = true` du vrai `checkCurrent` laisse toute la suite verte. Une session réellement expirée boucle alors sans fin (401 → revalidation → 401). Le test d'intégration reproduit le drapeau dans une variable locale au lieu d'exercer celui du hook ;
+  - **A1 n'échoue pas proprement** : la mutation bloque le worker, tué au bout de 120 s malgré `--testTimeout=5000`. Un test qui épuise le CPU n'est pas une preuve ;
+  - correction demandée : extraire la vérification en fonction pure (`createSessionChecker`), la tester avec un vrai `FetchApiClient` répondant 401, et BORNER la boucle dans le test (compteur, échec par assertion).
+
+  Validé par la qa et à ne pas retoucher : la portée du pub/sub (un seul abonné, `apiClient` mémoïsé, aucun effet côté atelier, désabonnement correct), l'absence de boucle 401 résiduelle par lecture du code (R7 s'arrête : 401, revalidation, 401 silencieux, identité `null`, sonde `authentication_required`, 0 catalogue), et les gates (129 tests ciblés, 278 d'architecture, 432 de contrat).
+
+  Dette relevée : `withHeaders()` crée une instance SANS reprendre les abonnés — aujourd'hui seuls l'atelier et `order-upload-links` l'utilisent, mais un client de la boutique qui y passerait perdrait silencieusement ses 401. Mutations survivantes acceptées au titre du choix (b1), faute d'outil de rendu dans le dépôt : A5, D1c, D2 et les variantes « texte gardé » de M7b, M8, M9, M10 et M12 ; elles sont couvertes par les gestes R12 à R15 du comptage navigateur. Ajouter une dépendance de rendu serait un arbitrage d'Arnaud.
 - **Hors lot, relevés pour les lots 4, 7 et 8** :
   - dimensions « ?×? mm » ;
   - livraison « Siège social » et budget factice ;
