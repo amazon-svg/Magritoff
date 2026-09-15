@@ -1,9 +1,9 @@
 ---
 id: BCP-6
 epic: E10 (hors E10, chantier boutique) — "chaine des prix Magrit -> panier et qualite d affichage"
-status: round 2 (corrections qa-review round 1 + arbitrage architecte 2026-09-15) — qa-review distincte requise avant merge
+status: round 3 (garde de description reecrite en AST, qa-review round 2) — qa-review distincte requise avant merge
 branch: worktree-agent-a5eb7f43d11a5f513 (worktree isole, depuis feat/gescom-e10-4-entite-client @ efc52207)
-commit: 6377ab04 (round 1), ef125da4 (round 2 — corrections)
+commit: 6377ab04 (round 1), ef125da4 (round 2 — corrections), 8d4348ee (round 3 — garde AST)
 depends_on: []
 parallelisable_avec: [BCP-5, BCP-9 (meme fichier ShopLayout.tsx, ordre 6 -> 9 impose)]
 ---
@@ -102,6 +102,15 @@ panier boutique :
   preexistants, OK.
 - `pnpm test:contract` — 23 fichiers, 432 tests, OK.
 
+### Round 3 (commit 8d4348ee, garde de description reecrite en AST)
+- `pnpm typecheck` — OK, aucune erreur.
+- `pnpm exec vitest run tests/components/shop tests/architecture` — 67
+  fichiers, 613 tests, OK.
+- `pnpm test:architecture` — 43 fichiers, 257 tests, OK.
+- `pnpm test` (suite complete) — 286 fichiers, 2903 tests passes, 86 skips
+  preexistants, OK.
+- `pnpm test:contract` — 23 fichiers, 432 tests, OK.
+
 ## Round 2 — corrections qa-review round 1 (rejet ciblé) + arbitrage architecte
 
 La qa-review distincte a validé les `forwardRef` (comparaison AST : JSX
@@ -171,6 +180,81 @@ dessus sans modification, comme prévu par l'inventaire de l'architecte.
 | B6 | Rendre la description du panier visible (retirer `sr-only`) ou par un autre mécanisme | `storefront-dialog-description.test.ts` — regex exacte sur `<SheetDescription className="sr-only">...` |
 | B7 | Ne pas promouvoir le sous-titre de `ProductOverlay`, ou dupliquer un `sr-only` à côté | `storefront-dialog-description.test.ts` — bloc « configurateur produit », 3 assertions (texte, style/pas de sr-only, ancien `<p>` disparu) |
 | (critère général) | Ajouter une nouvelle fenêtre `SheetContent`/`DialogContent`/`AlertDialogContent` dans `storefront/` sans description | `storefront-dialog-description.test.ts` — `it.each` sur tout l'inventaire, générique |
+
+## Round 3 — qa-review round 2 : garde de description réécrite en AST
+
+**Rejet ciblé.** La qa-review round 2 a validé tout le round 2 (B1 à B13,
+P1 à P5 tués) et n'a rejeté qu'un seul point : `tests/architecture/storefront-dialog-description.test.ts`
+était fondée sur une recherche regex plein-texte, contournable. La qa a
+testé 4 contournements sur `CancelOrderConfirmDialog.tsx`, en retirant à
+chaque fois la vraie description : les 4 survivaient.
+
+| Réf. | Contournement | Pourquoi la regex le laissait passer |
+|---|---|---|
+| G1 | `import { AlertDialogContent as ConfirmPanel } ...` puis `<ConfirmPanel>` | La regex cherchait le nom littéral `AlertDialogContent` dans le JSX — un alias change ce nom sans changer le composant réellement rendu |
+| G2 | `<AlertDialogDescription></AlertDialogDescription>` | Le nom `AlertDialogDescription` apparaît bien dans le fichier — la regex ne regarde jamais si l'élément a un contenu |
+| G3 | `aria-describedby={undefined}` | Le motif `/aria-describedby=/` matche la présence de l'attribut, pas sa valeur — c'est exactement l'idiome qui fait taire Radix sans rien annoncer, interdit par §8.25 5.2 (« on ne se contente pas de faire taire l'avertissement ») |
+| G4 | Une `AlertDialogDescription` valide, mais placée ailleurs dans le même fichier (hors de la fenêtre) | Une regex plein-fichier ne borne pas sa recherche au sous-arbre JSX de la fenêtre |
+
+**Correction : garde fondée sur l'AST, commit `8d4348ee`.**
+
+Nouveau `tests/architecture/storefront-dialog-description-guard.ts` :
+résout les composants via le compilateur TypeScript (`ts.createSourceFile`
++ parcours de `ts.forEachChild`), sur le même patron que les gardes AST
+déjà présentes dans `tests/architecture/` (`storefront-runtime-import-graph.test.ts`).
+
+- **Résolution des imports** : `import { X }`, `import { X as Y }` (alias
+  résolu vers le nom réellement exporté) et `import * as NS` (résolu via
+  l'accès `NS.X`), pour les trois modules `@/shared/ui/sheet`,
+  `@/shared/ui/dialog`, `@/shared/ui/alert-dialog`. Un identifiant JSX
+  n'est reconnu comme `*Content`/`*Description` que si son binding d'import
+  pointe vers le bon module ET le bon export d'origine — **ferme G1**.
+- **Recherche de description bornée au sous-arbre** : pour chaque `*Content`
+  trouvé, la recherche d'un `*Description` descendant parcourt uniquement
+  les enfants JSX de CET élément (`ts.forEachChild` démarré sur le nœud du
+  `*Content`, jamais sur le fichier entier) — **ferme G4**.
+- **Contenu non vide exigé** : un `*Description` sans enfants
+  (`<X></X>` ou `<X />`) est considéré vide et rejeté — **ferme G2**.
+- **`aria-describedby` évalué, pas juste détecté** : valeur `undefined`
+  (identifiant ou mot-clé), `{undefined}`, ou chaîne vide → rejeté ; toute
+  autre valeur (chaîne non vide, expression réelle) → accepté — **ferme
+  G3**.
+
+`tests/architecture/storefront-dialog-description.test.ts` réécrit pour
+consommer cette garde : même parcours de `src/modules/*/ui/storefront/`
+(garde anti-faux-négatif ≥ 7 fichiers conservée), B5/B6/B7 inchangés
+(assertions texte exact sur les deux fichiers connus), et un nouveau bloc
+« contournements G1-G4 » qui **exécute** chaque mutation contre un extrait
+`.tsx` minimal calqué sur `CancelOrderConfirmDialog.tsx` (import réel,
+alias ou non, JSX réel) et vérifie `hasDescription === false`. Deux témoins
+positifs (alias + vraie description ; `aria-describedby` réel) vérifient
+que la garde n'est pas « toujours rouge ».
+
+**Non-régression** : la nouvelle garde reste verte sur les 5 dialogues de
+commande, le panier (`ShopLayout.tsx`) et `ProductOverlay.tsx` — vérifié
+par le même `it.each` sur l'inventaire réel (aucune régression). Vérifié
+séparément (script jetable, non commité, supprimé après usage) que la
+garde échoue toujours sur les versions `efc52207` de `ShopLayout.tsx` et
+`ProductOverlay.tsx` (avant BCP-6).
+
+**Hors périmètre, sur instruction explicite du coordinateur** :
+- Le `text-sm` que `SheetDescription` ajoute par défaut dans
+  `ProductOverlay` (via `cn("text-muted-foreground text-sm", className)`,
+  écrasé partiellement par le `className`/`style` explicites) n'est pas
+  touché — un éventuel écart de hauteur de ligne se mesure en recette.
+- `StorefrontQuoteDecisionConfirmDialog` (`src/modules/storefront-quotes/ui/`,
+  pas sous `ui/storefront/`) reste hors du critère de l'architecte —
+  tracé en dette par le coordinateur, non traité ici.
+
+### Tableau mutation → test (round 3, complète le tableau round 2)
+
+| Réf. | Mutation visée | Test qui la tue | Exécutée |
+|---|---|---|---|
+| G1 | Alias d'import sur `*Content` (`AlertDialogContent as ConfirmPanel`) | `storefront-dialog-description.test.ts` — bloc G1, résolution AST | Oui — assertion `hasDescription === false` sur le snippet |
+| G2 | `*Description` vide (`<X></X>`) | idem — bloc G2 | Oui |
+| G3 | `aria-describedby={undefined}` | idem — bloc G3 | Oui |
+| G4 | `*Description` valide mais hors du sous-arbre `*Content` | idem — bloc G4 | Oui |
+| (non-régression) | — | `it.each` sur l'inventaire réel (7 fichiers) | Oui — 43/43 vert |
 
 ## Ce qui n est PAS dans le perimetre
 

@@ -1,7 +1,7 @@
 ---
 id: BCP-9
 epic: E10 (hors E10, chantier boutique) — "chaine des prix Magrit -> panier et qualite d affichage"
-status: round 2 (correction qa-review round 1 — debordement de cadrage) — qa-review distincte requise avant merge
+status: round 2 (correction qa-review round 1 — debordement de cadrage), non affectee par le round 3 de BCP-6 — qa-review distincte requise avant merge
 branch: worktree-agent-a5eb7f43d11a5f513 (worktree isole, depuis feat/gescom-e10-4-entite-client @ efc52207)
 commit: 4f3d70cc (round 1), ef125da4 (round 2 — correction perimetre)
 depends_on: [BCP-6 (meme fichier ShopLayout.tsx, ordre 6 -> 9 impose par le cadrage)]
@@ -125,6 +125,14 @@ constate, fichier restaure (aucune trace dans le diff final).
 - `pnpm test` (suite complete) — 286 fichiers, 2897 tests passes, 86 skips
   preexistants, OK.
 - `pnpm test:contract` — 23 fichiers, 432 tests, OK.
+
+### Round 3 de BCP-6 (commit 8d4348ee) — aucun fichier BCP-9 touche
+Le round 3 ne corrige que `tests/architecture/storefront-dialog-description*`
+(garde AST, BCP-6). Aucun fichier de BCP-9 (`ShopLayout.tsx` pour l
+aria-label, `ShopLayout.helpers.ts`, `storefront-account-identity.test.ts`,
+`ShopLayout.helpers.test.ts`) n a ete modifie. B11/B12 restent verts :
+`pnpm test:architecture` (round 3) — 257 tests, dont les 6 de
+`storefront-account-identity.test.ts` (B11, B12 compris).
 
 ## Ce qui n est PAS dans le perimetre
 
