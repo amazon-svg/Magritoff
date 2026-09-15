@@ -1,6 +1,7 @@
 import { useWorkspaceApi, useWorkspaceUiRuntime } from '@/platform/runtime/workspace-ui-runtime';
 import { DiagnosticsApiClient } from '@/modules/diagnostics';
 import { useEffect, useRef, useState } from 'react';
+import { ApiClientError } from '@/platform/api';
 import type {
   AiProviderDiagnostic,
   ClariprintDiagnostic,
@@ -16,7 +17,20 @@ export function emptyDiagnosticResult<T>(): DiagnosticTestResult<T> {
   return { loading: false, data: null, error: null };
 }
 
+/**
+ * BCP-0c (docs/api/CONVENTIONS.md §8.25, point 2.3ter) — le masquage du
+ * bouton dans `Header.tsx` n est que de l ergonomie : un acteur qui atteint
+ * quand meme la route (jeton perime, course avec le chargement du profil)
+ * recoit un vrai 403 `identity.role_required` du serveur. Le message clair
+ * remplace alors `String(cause)`, meme discipline que
+ * `describeOrderFileUploadFailure` (`order-files.helpers.ts`) :
+ * `error instanceof ApiClientError` puis `problem.code`, jamais une
+ * inspection de message texte.
+ */
 export function diagnosticRequestError(cause: unknown): string {
+  if (cause instanceof ApiClientError && cause.problem.code === 'identity.role_required') {
+    return 'Réservé à l’administrateur de la plateforme.';
+  }
   return String(cause);
 }
 

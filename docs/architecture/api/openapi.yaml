@@ -59,6 +59,12 @@ paths:
                 $ref: '#/components/schemas/AiProviderDiagnostic'
         '401':
           $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          description: >-
+            réservé à l'administrateur de la plateforme (`is_super_admin()`)
+            — BCP-0c, docs/api/CONVENTIONS.md §8.25 point 2.3ter. Cet appel
+            est facturé (Anthropic) : aucun appel sortant n'est fait sur ce
+            refus.
   /diagnostics/clariprint:
     get:
       operationId: testClariprint
@@ -74,6 +80,12 @@ paths:
                 $ref: '#/components/schemas/ClariprintDiagnostic'
         '401':
           $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          description: >-
+            réservé à l'administrateur de la plateforme (`is_super_admin()`)
+            — BCP-0c, docs/api/CONVENTIONS.md §8.25 point 2.3ter. Cet appel
+            est peut-être facturé (Clariprint `CheckAuth`) : aucun appel
+            sortant n'est fait sur ce refus.
   /tenants/{tenantId}/quotes/drafts:
     post:
       operationId: createQuoteDraft

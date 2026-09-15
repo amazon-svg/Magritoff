@@ -20,6 +20,7 @@ import { SupabaseConversationsRepository } from '../../../src/adapters/supabase/
 import { DiagnosticsService } from '../../../src/modules/diagnostics/application/diagnostics-service.ts';
 import { ConfiguredAiDiagnosticsGateway, aiProviderConfigurationFromEnvironment } from '../../../src/adapters/ai/configured-ai-diagnostics-gateway.ts';
 import { HttpClariprintDiagnosticsGateway } from '../../../src/adapters/clariprint/clariprint-diagnostics-gateway.ts';
+import { SupabasePlatformAdminGateway } from '../../../src/adapters/supabase/platform-admin-gateway.ts';
 import { QuoteTemplatesService } from '../../../src/modules/quote-templates/application/quote-templates-service.ts';
 import { SupabaseQuoteTemplatesRepository } from '../../../src/adapters/supabase/quote-templates-repository.ts';
 import { LibrariesService } from '../../../src/modules/libraries/application/libraries-service.ts';
@@ -218,7 +219,7 @@ export async function handleRequest(request: Request): Promise<Response> {
     Deno.env.get('CLARIPRINT_HOST') ?? 'https://lrdp.clariprint.com',
     Deno.env.get('CLARIPRINT_LOGIN') ?? null,
     Deno.env.get('CLARIPRINT_PASSWORD') ?? null,
-  ));
+  ), new SupabasePlatformAdminGateway(client));
   const quoteTemplatesService = new QuoteTemplatesService(new SupabaseQuoteTemplatesRepository(client));
   const librariesService = new LibrariesService(new SupabaseLibrariesRepository(client));
   const libraryProductsService = new LibraryProductsService(new SupabaseLibraryProductsRepository(client));
