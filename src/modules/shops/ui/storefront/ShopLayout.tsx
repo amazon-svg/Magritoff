@@ -353,7 +353,7 @@ export function ShopLayout({
               <UserRound className="h-4 w-4" strokeWidth={1.5} />
             </span>
             <span className="hidden max-w-36 truncate sm:inline">
-              {resolveAccountLabel(storefrontSession)}
+              {storefrontSession?.customer.fullName ?? "Compte"}
             </span>
           </button>
         </div>

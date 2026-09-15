@@ -197,18 +197,26 @@ export function resolveBrandBannerBackground(
  * (décision D3 spec UX gabarit v2). Panier vide → « Panier » simple.
  */
 /**
- * BCP-9 — libellé du bouton « Mon compte » (header boutique, CONVENTIONS
- * §8.25 5.5). L'ancien format `Compte de ${fullName}` cassait l'élision
- * française pour tout nom commençant par une voyelle (« Compte de Aline »,
- * « Compte de acheteur »…). Le nouveau format n'utilise plus « de » : le
- * défaut disparaît pour tout nom, pas seulement le cas signalé.
+ * BCP-9 — libellé ACCESSIBLE (`aria-label`) du bouton « Mon compte » (header
+ * boutique, CONVENTIONS §8.25 5.5, une seule ligne visée : `ShopLayout.tsx`
+ * porteuse de l'`aria-label`). L'ancien format `Compte de ${fullName}`
+ * cassait l'élision française pour tout nom commençant par une voyelle
+ * (« Compte de Aline », « Compte de acheteur »…). Le nouveau format n'utilise
+ * plus « de » : le défaut disparaît pour tout nom, pas seulement le cas
+ * signalé.
  *
- * - Avec session : « Mon compte (FullName) ». Champ affiché : exclusivement
+ * - Avec session : « Mon compte (FullName) ». Champ lu : exclusivement
  *   `customer.fullName` — jamais l'email ni un identifiant technique.
  * - Sans session : « Compte boutique » (inchangé).
  * - Session présente mais nom vide/blanc (défensif — le contrat API impose
  *   `fullName` non vide, cf. `storefrontCustomerProfileSchema`) : repli sur
  *   « Mon compte » nu, jamais une parenthèse vide.
+ *
+ * IMPORTANT — périmètre étroit (qa-review round 1) : ce helper alimente
+ * UNIQUEMENT l'`aria-label` du bouton compte. Le texte VISIBLE du bouton
+ * (le `<span>` à côté de l'icône) reste `storefrontSession?.customer.fullName
+ * ?? "Compte"`, sa forme d'origine — le cadrage ne vise que la ligne de
+ * l'`aria-label`. Ne pas réutiliser ce helper pour le texte visible.
  */
 export function resolveAccountLabel(
   session: { customer?: { fullName?: string | null } | null } | null | undefined,
