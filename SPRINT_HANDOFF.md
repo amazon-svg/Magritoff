@@ -116,7 +116,7 @@ Joué par le coordinateur dans Chrome DevTools, compte acheteur ERAM connecté p
 - **Sans objet** :
   - `OrderRolesPage` n'est montée nulle part **par décision** : sa route `order-roles` (`roles.manage`) a été retirée par le commit UM1 `838e8c90` du 2026-08-24, avec le verrou de délégation des rôles. Ce n'est pas une régression ;
   - badge prix marché (produits à prix fixe).
-- **Boucle mesurée** : environ une paire `session/current` + `catalog` complet toutes les 5 s, onglet au repos (§8.25 5.2). Lot à trancher par l'architecte.
+- **Boucle mesurée** : environ une paire `session/current` + `catalog` complet toutes les 5 s, onglet au repos (§8.25 5.2). **Architecte (commit `57d909b5`) : story dédiée BCP-6b**, rattachée au lot 6 (`usePublicShopCatalog.ts`, `useStorefrontSession.ts`). Au chargement, 1 appel de chaque. Plus aucun intervalle, et `visibilitychange` remplace `focus`. Le catalogue n'est rechargé qu'au besoin ou après 10 min d'absence ; la session est revalidée au plus une fois par minute, ou sur un 401. Preuves : fonction pure à horloge simulée (0 appel sur 60 s au repos) et comptage par point d'entrée en recette. Dev-story lancé en worktree, en parallèle du correctif des lots 5 et 6.
 - **Hors lot, relevés pour les lots 4, 7 et 8** :
   - dimensions « ?×? mm » ;
   - livraison « Siège social » et budget factice ;
