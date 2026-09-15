@@ -75,22 +75,35 @@ export type PublicShopCatalogRefreshEvent =
   | { type: 'visible'; at: number }
   | { type: 'focus'; at: number };
 
+export interface PublicShopCatalogRefreshState {
+  status: PublicShopCatalogStatus;
+  lastLoadedAt: number | null;
+}
+
 /**
  * Politique pure de rechargement du catalogue public au retour au premier
  * plan (BCP-6b). `focus` ne déclenche jamais rien : seul `visibilitychange`
- * → visible compte, et seulement si le dernier chargement connu date de plus
- * de `PUBLIC_SHOP_CATALOG_REFRESH_MIN_INTERVAL_MS`. Un changement d'identité
- * de session, un `retry` ou un rechargement de page ne passent pas par cette
- * fonction : ce sont des changements de dépendances d'effet React, déjà
- * couverts structurellement par `usePublicShopCatalog`.
+ * → visible compte. Deux conditions cumulatives (correction qa-review
+ * round 1, D1) :
+ * - le statut connu doit être `ready` — sinon (chargement en cours, boutique
+ *   privée sans session, échec de chargement, boutique introuvable), rien ne
+ *   se passe : un premier chargement en échec se rejoue par `retry`, jamais
+ *   par un simple retour d'onglet ;
+ * - le dernier chargement réussi doit dater de plus de
+ *   `PUBLIC_SHOP_CATALOG_REFRESH_MIN_INTERVAL_MS`.
+ *
+ * Un changement d'identité de session, un `retry` ou un rechargement de page
+ * ne passent pas par cette fonction : ce sont des changements de dépendances
+ * d'effet React, déjà couverts structurellement par `usePublicShopCatalog`.
  */
 export function shouldReloadPublicShopCatalogOnVisible(
   event: PublicShopCatalogRefreshEvent,
-  lastLoadedAt: number | null,
+  state: PublicShopCatalogRefreshState,
 ): boolean {
   if (event.type !== 'visible') return false;
-  if (lastLoadedAt === null) return true;
-  return event.at - lastLoadedAt >= PUBLIC_SHOP_CATALOG_REFRESH_MIN_INTERVAL_MS;
+  if (state.status !== 'ready') return false;
+  if (state.lastLoadedAt === null) return false;
+  return event.at - state.lastLoadedAt >= PUBLIC_SHOP_CATALOG_REFRESH_MIN_INTERVAL_MS;
 }
 
 export function usePublicShopCatalog({
@@ -112,6 +125,22 @@ export function usePublicShopCatalog({
   // ou un `retry` (attempt) le fait désormais.
   const [sessionReady, setSessionReady] = useState(false);
   const lastLoadedAtRef = useRef<number | null>(null);
+  // BCP-6b (correction qa-review round 1, D2) — incrémenté à chaque
+  // (re)lancement ET à chaque nettoyage de l'effet principal (identité,
+  // retry, démontage). Une réponse de rechargement déclenchée par le retour
+  // au premier plan capture la génération courante à son départ ; si elle
+  // change avant que la réponse n'arrive (nouvelle identité en cours), la
+  // réponse obsolète est jetée au lieu d'écraser le catalogue de la nouvelle
+  // identité.
+  const generationRef = useRef(0);
+  // BCP-6b (correction qa-review round 1, D1) — lu par l'écouteur
+  // `visibilitychange`, qui ne dépend pas du rendu (pas de resouscription à
+  // chaque changement d'état).
+  const stateRef = useRef(state);
+
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   useEffect(() => {
     if (!sessionLoading) setSessionReady(true);
@@ -119,7 +148,7 @@ export function usePublicShopCatalog({
 
   useEffect(() => {
     if (!slug || !sessionReady) return;
-    let cancelled = false;
+    const generation = ++generationRef.current;
     setState(emptyState('loading'));
 
     void (async () => {
@@ -127,10 +156,10 @@ export function usePublicShopCatalog({
       try {
         gate = await api.publicProbe(slug);
       } catch (cause) {
-        if (!cancelled) setState(emptyState(classifyShopLoadFailure(cause, 'probe')));
+        if (generation === generationRef.current) setState(emptyState(classifyShopLoadFailure(cause, 'probe')));
         return;
       }
-      if (cancelled) return;
+      if (generation !== generationRef.current) return;
 
       const access = resolveShopAccess({
         accessMode: gate.accessMode,
@@ -144,34 +173,36 @@ export function usePublicShopCatalog({
 
       try {
         const catalog = await api.publicCatalog(slug);
-        if (cancelled) return;
+        if (generation !== generationRef.current) return;
         lastLoadedAtRef.current = Date.now();
         setState(mapPublicShopCatalog(catalog));
       } catch (cause) {
-        if (!cancelled) setState(emptyState(classifyShopLoadFailure(cause, 'catalog')));
+        if (generation === generationRef.current) setState(emptyState(classifyShopLoadFailure(cause, 'catalog')));
       }
     })();
 
     return () => {
-      cancelled = true;
+      generationRef.current += 1;
     };
   }, [api, attempt, sessionReady, sessionShopId, slug]);
 
   // BCP-6b — plus aucun intervalle, plus aucun `focus` : seul le retour de
   // l'onglet au premier plan peut recharger le catalogue, et seulement si le
-  // dernier chargement dépasse le seuil de fraîcheur (voir la politique pure
-  // ci-dessus).
+  // statut connu est `ready` et que le dernier chargement dépasse le seuil
+  // de fraîcheur (voir la politique pure ci-dessus).
   useEffect(() => {
     if (!slug || !sessionReady) return;
     const onVisibilityChange = () => {
       if (document.visibilityState !== 'visible') return;
       const shouldReload = shouldReloadPublicShopCatalogOnVisible(
         { type: 'visible', at: Date.now() },
-        lastLoadedAtRef.current,
+        { status: stateRef.current.status, lastLoadedAt: lastLoadedAtRef.current },
       );
       if (!shouldReload) return;
+      const generation = generationRef.current;
       void api.publicCatalog(slug)
         .then((catalog) => {
+          if (generation !== generationRef.current) return;
           lastLoadedAtRef.current = Date.now();
           setState(mapPublicShopCatalog(catalog));
         })

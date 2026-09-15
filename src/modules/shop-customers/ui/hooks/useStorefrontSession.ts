@@ -1,4 +1,4 @@
-import { useStorefrontApi } from '@/platform/runtime/storefront-ui-runtime';
+import { useStorefrontApi, useStorefrontUiRuntime } from '@/platform/runtime/storefront-ui-runtime';
 import { StorefrontIdentityApiClient } from '@/modules/shop-customers';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { StorefrontSession } from '@/modules/shop-customers';
@@ -38,8 +38,41 @@ export function shouldRevalidateStorefrontSession(
   return event.at - lastRevalidatedAt >= STOREFRONT_SESSION_REVALIDATION_MIN_INTERVAL_MS;
 }
 
+/**
+ * BCP-6b (correction qa-review round 1, point BLOQUANT) — fabrique le
+ * gestionnaire branché sur `FetchApiClient.onUnauthorized()`. Fonction pure,
+ * injectée d'états de garde plutôt que de lire des refs directement : elle
+ * se teste donc sans React ni DOM, en composant un vrai `FetchApiClient`
+ * (voir `tests/hooks/useStorefrontSession.test.ts`).
+ *
+ * Le hook ne fait que la brancher (principe (b1) d'E10.18e-1) : AUCUNE
+ * décision n'est prise dans l'effet lui-même.
+ *
+ * Anti-boucle : si la revalidation qu'elle déclenche échoue elle-même en
+ * 401 (session réellement absente), `isCheckInFlight()` doit déjà répondre
+ * `true` au moment où `FetchApiClient` notifie ce même 401 — la notification
+ * est synchrone, à l'intérieur du `await` de la requête déclenchée par
+ * `checkCurrent`. Le gestionnaire se tait donc lui-même sans throttle ad hoc.
+ */
+export function createStorefrontUnauthorizedHandler(params: {
+  isEnding: () => boolean;
+  isCheckInFlight: () => boolean;
+  getLastRevalidatedAt: () => number | null;
+  now: () => number;
+  checkCurrent: (blocking: boolean) => void;
+}): () => void {
+  return () => {
+    if (params.isEnding() || params.isCheckInFlight()) return;
+    if (!shouldRevalidateStorefrontSession({ type: 'unauthorized', at: params.now() }, params.getLastRevalidatedAt())) {
+      return;
+    }
+    params.checkCurrent(false);
+  };
+}
+
 /** Cycle de vie de la session boutique, indépendant de l'identité Magrit. */
 export function useStorefrontSession() {
+  const { apiClient } = useStorefrontUiRuntime();
   const api = useStorefrontApi(StorefrontIdentityApiClient);
   const [session, setSessionState] = useState<StorefrontSession | null>(null);
   const [loading, setLoading] = useState(true);
@@ -50,9 +83,14 @@ export function useStorefrontSession() {
   // BCP-6b — horodatage de la dernière résolution connue (succès ou échec),
   // utilisé par la politique pure ci-dessus pour espacer les revalidations.
   const lastRevalidatedAtRef = useRef<number | null>(null);
+  // BCP-6b (correction qa-review round 1) — vrai pendant toute la durée d'un
+  // `checkCurrent`, y compris son propre appel réseau. Empêche un 401 rendu
+  // PAR `api.current()` lui-même de redéclencher un `checkCurrent` imbriqué.
+  const checkInFlightRef = useRef(false);
 
   const checkCurrent = useCallback(async (blocking: boolean) => {
     const version = ++requestVersion.current;
+    checkInFlightRef.current = true;
     if (blocking) setLoading(true);
     try {
       const current = await api.current();
@@ -67,6 +105,7 @@ export function useStorefrontSession() {
       setUnavailable(!isMissingStorefrontSession(cause));
     } finally {
       if (version === requestVersion.current) setLoading(false);
+      checkInFlightRef.current = false;
     }
   }, [api]);
 
@@ -98,17 +137,21 @@ export function useStorefrontSession() {
     return () => document.removeEventListener('visibilitychange', onVisibilityChange);
   }, [checkCurrent]);
 
-  // BCP-6b — porte d'entrée pour un 401 rencontré par une action storefront
-  // (hors périmètre de cette story : les points d'appel restent à brancher
-  // par les modules qui portent ces actions). Toujours immédiat, jamais
-  // throttlé (cf. politique pure : `unauthorized` retourne toujours `true`).
-  const notifyUnauthorized = useCallback(() => {
-    if (endingRequest.current) return;
-    if (!shouldRevalidateStorefrontSession({ type: 'unauthorized', at: Date.now() }, lastRevalidatedAtRef.current)) {
-      return;
-    }
-    void checkCurrent(false);
-  }, [checkCurrent]);
+  // BCP-6b (correction qa-review round 1, point BLOQUANT) — TOUTE action
+  // storefront passe par l'`apiClient` unique du runtime (`useStorefrontApi`
+  // le mémoïse dessus) : s'abonner ICI à `onUnauthorized()` couvre déjà
+  // `useStorefrontOrderLifecycle`, `useStorefrontOrderList`,
+  // `useStorefrontOrderEditor`, etc., sans toucher à aucun de ces fichiers.
+  useEffect(() => {
+    const handler = createStorefrontUnauthorizedHandler({
+      isEnding: () => endingRequest.current,
+      isCheckInFlight: () => checkInFlightRef.current,
+      getLastRevalidatedAt: () => lastRevalidatedAtRef.current,
+      now: () => Date.now(),
+      checkCurrent: (blocking) => void checkCurrent(blocking),
+    });
+    return apiClient.onUnauthorized(handler);
+  }, [apiClient, checkCurrent]);
 
   const setSession = useCallback((next: StorefrontSession) => {
     requestVersion.current += 1;
@@ -137,5 +180,5 @@ export function useStorefrontSession() {
     }
   }, [api]);
 
-  return { session, loading, unavailable, ending, refresh, setSession, end, notifyUnauthorized } as const;
+  return { session, loading, unavailable, ending, refresh, setSession, end } as const;
 }

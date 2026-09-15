@@ -10,4 +10,5 @@ export type {
   ApiFormRequest,
   ApiRequest,
   ApiResponseWithEtag,
+  UnauthorizedListener,
 } from './fetch-api-client';

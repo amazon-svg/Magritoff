@@ -83,23 +83,44 @@ const MINUTE = 60 * SECOND;
 // 2026-09-16 (catalogue rechargé EN ENTIER à chaque tour).
 describe('shouldReloadPublicShopCatalogOnVisible (BCP-6b)', () => {
   it('un focus ne déclenche jamais rien, quel que soit le passé connu', () => {
-    expect(shouldReloadPublicShopCatalogOnVisible({ type: 'focus', at: 5 * SECOND }, null)).toBe(false);
-    expect(shouldReloadPublicShopCatalogOnVisible({ type: 'focus', at: 5 * SECOND }, 0)).toBe(false);
+    expect(shouldReloadPublicShopCatalogOnVisible({ type: 'focus', at: 5 * SECOND }, { status: 'ready', lastLoadedAt: null })).toBe(false);
+    expect(shouldReloadPublicShopCatalogOnVisible({ type: 'focus', at: 5 * SECOND }, { status: 'ready', lastLoadedAt: 0 })).toBe(false);
   });
 
-  it('un retour au premier plan à 9 min ne recharge pas, à 11 min il recharge', () => {
-    const lastLoadedAt = 0;
-    expect(shouldReloadPublicShopCatalogOnVisible({ type: 'visible', at: 9 * MINUTE }, lastLoadedAt)).toBe(false);
-    expect(shouldReloadPublicShopCatalogOnVisible({ type: 'visible', at: 11 * MINUTE }, lastLoadedAt)).toBe(true);
+  it('un retour au premier plan à 9 min ne recharge pas, à 11 min il recharge (statut ready)', () => {
+    const state = { status: 'ready' as const, lastLoadedAt: 0 };
+    expect(shouldReloadPublicShopCatalogOnVisible({ type: 'visible', at: 9 * MINUTE }, state)).toBe(false);
+    expect(shouldReloadPublicShopCatalogOnVisible({ type: 'visible', at: 11 * MINUTE }, state)).toBe(true);
   });
 
-  it('recharge exactement au seuil de 10 minutes, pas juste avant', () => {
-    expect(shouldReloadPublicShopCatalogOnVisible({ type: 'visible', at: 10 * MINUTE }, 0)).toBe(true);
-    expect(shouldReloadPublicShopCatalogOnVisible({ type: 'visible', at: 10 * MINUTE - 1 }, 0)).toBe(false);
+  it('recharge exactement au seuil de 10 minutes, pas juste avant (statut ready)', () => {
+    expect(shouldReloadPublicShopCatalogOnVisible({ type: 'visible', at: 10 * MINUTE }, { status: 'ready', lastLoadedAt: 0 })).toBe(true);
+    expect(shouldReloadPublicShopCatalogOnVisible({ type: 'visible', at: 10 * MINUTE - 1 }, { status: 'ready', lastLoadedAt: 0 })).toBe(false);
   });
 
-  it('un premier retour au premier plan, sans chargement connu, recharge toujours', () => {
-    expect(shouldReloadPublicShopCatalogOnVisible({ type: 'visible', at: 0 }, null)).toBe(true);
+  // Correction qa-review round 1, D1 — un statut différent de `ready` ne
+  // recharge JAMAIS au retour d'onglet, quel que soit le temps écoulé. Un
+  // premier chargement en échec, une boutique privée sans session ou un
+  // chargement encore en cours se rejouent par `retry` ou par un changement
+  // d'identité, jamais par un simple retour au premier plan.
+  it.each([
+    ['loading', 0] as const,
+    ['authentication_required', 0] as const,
+    ['not_found', 0] as const,
+    ['unavailable', 0] as const,
+  ])('un statut %s ne recharge jamais, même très après le seuil (D1)', (status, lastLoadedAt) => {
+    expect(
+      shouldReloadPublicShopCatalogOnVisible({ type: 'visible', at: 100 * MINUTE }, { status, lastLoadedAt }),
+    ).toBe(false);
+  });
+
+  // D1 — un statut `ready` sans horodatage de chargement (incohérence
+  // défensive : ne devrait pas arriver en pratique, `ready` et
+  // `lastLoadedAt` étant posés ensemble) ne recharge pas à l'aveugle.
+  it('un statut ready sans horodatage connu ne recharge pas (garde défensive, D1)', () => {
+    expect(
+      shouldReloadPublicShopCatalogOnVisible({ type: 'visible', at: 100 * MINUTE }, { status: 'ready', lastLoadedAt: null }),
+    ).toBe(false);
   });
 
   it('la constante opposable reste 10 minutes', () => {
@@ -141,7 +162,7 @@ describe('BCP-6b — horloge simulée, 60 s au repos, onglet visible (session + 
       const events: Array<{ type: 'visible' | 'focus'; at: number }> = []; // repos : aucun événement
       vi.advanceTimersByTime(60_000);
       for (const event of events) {
-        if (shouldReloadPublicShopCatalogOnVisible(event, lastLoadedAt)) {
+        if (shouldReloadPublicShopCatalogOnVisible(event, { status: 'ready', lastLoadedAt })) {
           calls += 1;
           lastLoadedAt = event.at;
         }

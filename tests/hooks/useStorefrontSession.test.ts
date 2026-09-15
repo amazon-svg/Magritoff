@@ -1,6 +1,8 @@
+import { z } from 'zod';
 import { describe, expect, it, vi } from 'vitest';
-import { ApiClientError } from '@/platform/api';
+import { ApiClientError, FetchApiClient } from '@/platform/api';
 import {
+  createStorefrontUnauthorizedHandler,
   isMissingStorefrontSession,
   shouldRevalidateStorefrontSession,
   STOREFRONT_SESSION_REVALIDATION_MIN_INTERVAL_MS,
@@ -105,5 +107,196 @@ describe('BCP-6b — horloge simulée, 60 s au repos, onglet visible (canal sess
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+function flush(): Promise<void> {
+  // Laisse s'écouler les micro-tâches ET macro-tâches en attente (le
+  // pipeline reel FetchApiClient.send -> parseResponse -> readJson()
+  // enchaîne plusieurs `await`) avant de lire un compteur de test.
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+const responseSchema = z.object({ ok: z.boolean() }).optional();
+
+function problemResponse(status: number): Response {
+  return new Response(
+    JSON.stringify({
+      type: 'about:blank',
+      title: 'Erreur storefront',
+      status,
+      code: status === 401 ? 'storefront.session_required' : 'api.error',
+      request_id: 'req-test',
+    }),
+    { status, headers: { 'Content-Type': 'application/problem+json' } },
+  );
+}
+
+// BCP-6b (correction qa-review round 1, point BLOQUANT) — `createStorefrontUnauthorizedHandler`
+// est pure : testée en isolation, sans FetchApiClient ni React.
+describe('createStorefrontUnauthorizedHandler (BCP-6b, correction qa-review round 1)', () => {
+  it('déclenche checkCurrent(false) sur un événement, si la politique l\'autorise', () => {
+    const checkCurrent = vi.fn();
+    const handler = createStorefrontUnauthorizedHandler({
+      isEnding: () => false,
+      isCheckInFlight: () => false,
+      getLastRevalidatedAt: () => null,
+      now: () => 1_000,
+      checkCurrent,
+    });
+
+    handler();
+
+    expect(checkCurrent).toHaveBeenCalledTimes(1);
+    expect(checkCurrent).toHaveBeenCalledWith(false);
+  });
+
+  it('ne déclenche rien si une session est en train de se terminer', () => {
+    const checkCurrent = vi.fn();
+    const handler = createStorefrontUnauthorizedHandler({
+      isEnding: () => true,
+      isCheckInFlight: () => false,
+      getLastRevalidatedAt: () => null,
+      now: () => 1_000,
+      checkCurrent,
+    });
+
+    handler();
+
+    expect(checkCurrent).not.toHaveBeenCalled();
+  });
+
+  it('ne déclenche rien si un checkCurrent est déjà en vol (anti-boucle)', () => {
+    const checkCurrent = vi.fn();
+    const handler = createStorefrontUnauthorizedHandler({
+      isEnding: () => false,
+      isCheckInFlight: () => true,
+      getLastRevalidatedAt: () => null,
+      now: () => 1_000,
+      checkCurrent,
+    });
+
+    handler();
+
+    expect(checkCurrent).not.toHaveBeenCalled();
+  });
+});
+
+// BCP-6b (correction qa-review round 1, point BLOQUANT) — preuve d'intégration
+// SANS React ni DOM : un vrai `FetchApiClient`, branché sur
+// `createStorefrontUnauthorizedHandler` exactement comme le fait le hook
+// (`apiClient.onUnauthorized(handler)`), pour prouver le câblage réel, pas
+// seulement la politique.
+describe('câblage FetchApiClient.onUnauthorized -> revalidation (BCP-6b, correction qa-review round 1)', () => {
+  it('un 401 d\'une action quelconque déclenche exactement une revalidation de session', async () => {
+    const client = new FetchApiClient('https://magrit.test', async () => problemResponse(401));
+    let checkCalls = 0;
+    let checkInFlight = false;
+    const checkCurrent = async (blocking: boolean) => {
+      checkInFlight = true;
+      try {
+        checkCalls += 1;
+        await client
+          .request({ path: '/api/v1/storefront/session/current', responseSchema })
+          .catch(() => undefined);
+      } finally {
+        checkInFlight = false;
+      }
+    };
+    const handler = createStorefrontUnauthorizedHandler({
+      isEnding: () => false,
+      isCheckInFlight: () => checkInFlight,
+      getLastRevalidatedAt: () => null,
+      now: () => Date.now(),
+      checkCurrent: (blocking) => void checkCurrent(blocking),
+    });
+    const unsubscribe = client.onUnauthorized(handler);
+
+    // Un 401 rendu par une action METIER (pas session/current elle-même).
+    await client.request({ path: '/api/v1/storefront/orders', responseSchema }).catch(() => undefined);
+    await flush();
+
+    expect(checkCalls).toBe(1);
+    unsubscribe();
+  });
+
+  it('un autre statut (500) ne déclenche aucune revalidation', async () => {
+    const client = new FetchApiClient('https://magrit.test', async () => problemResponse(500));
+    let checkCalls = 0;
+    const checkCurrent = () => {
+      checkCalls += 1;
+    };
+    const handler = createStorefrontUnauthorizedHandler({
+      isEnding: () => false,
+      isCheckInFlight: () => false,
+      getLastRevalidatedAt: () => null,
+      now: () => Date.now(),
+      checkCurrent,
+    });
+    const unsubscribe = client.onUnauthorized(handler);
+
+    await client.request({ path: '/api/v1/storefront/orders', responseSchema }).catch(() => undefined);
+    await flush();
+
+    expect(checkCalls).toBe(0);
+    unsubscribe();
+  });
+
+  it('pas de boucle si la revalidation elle-même renvoie 401 (session réellement expirée)', async () => {
+    // TOUTE requête sur ce client répond 401, y compris session/current :
+    // c'est le pire cas (session réellement absente).
+    const client = new FetchApiClient('https://magrit.test', async () => problemResponse(401));
+    let checkCalls = 0;
+    let checkInFlight = false;
+    const checkCurrent = async (blocking: boolean) => {
+      checkInFlight = true;
+      try {
+        checkCalls += 1;
+        await client
+          .request({ path: '/api/v1/storefront/session/current', responseSchema })
+          .catch(() => undefined);
+      } finally {
+        checkInFlight = false;
+      }
+    };
+    const handler = createStorefrontUnauthorizedHandler({
+      isEnding: () => false,
+      isCheckInFlight: () => checkInFlight,
+      getLastRevalidatedAt: () => null,
+      now: () => Date.now(),
+      checkCurrent: (blocking) => void checkCurrent(blocking),
+    });
+    const unsubscribe = client.onUnauthorized(handler);
+
+    await client.request({ path: '/api/v1/storefront/orders', responseSchema }).catch(() => undefined);
+    await flush();
+    await flush();
+
+    // Le 401 de l'action métier déclenche 1 checkCurrent. Le 401 que
+    // checkCurrent reçoit ensuite de session/current, LUI-MÊME, ne doit PAS
+    // en déclencher un second : `isCheckInFlight()` vaut `true` au moment où
+    // ce second 401 est notifié (il l'est de façon synchrone, à l'intérieur
+    // du `await` de la requête déclenchée par checkCurrent).
+    expect(checkCalls).toBe(1);
+    unsubscribe();
+  });
+
+  it('se désabonne : plus aucune notification après unsubscribe()', async () => {
+    const client = new FetchApiClient('https://magrit.test', async () => problemResponse(401));
+    let checkCalls = 0;
+    const handler = createStorefrontUnauthorizedHandler({
+      isEnding: () => false,
+      isCheckInFlight: () => false,
+      getLastRevalidatedAt: () => null,
+      now: () => Date.now(),
+      checkCurrent: () => { checkCalls += 1; },
+    });
+    const unsubscribe = client.onUnauthorized(handler);
+    unsubscribe();
+
+    await client.request({ path: '/api/v1/storefront/orders', responseSchema }).catch(() => undefined);
+    await flush();
+
+    expect(checkCalls).toBe(0);
   });
 });

@@ -1,7 +1,7 @@
 ---
 id: BCP-6b
 epic: E10 (hors E10, chantier boutique) — "chaine des prix Magrit -> panier et qualite d affichage"
-status: livre, qa-review distincte requise avant merge
+status: round 2 (correction qa-review round 1) — qa-review distincte requise avant merge
 branch: worktree-agent-ad85f6c400202ba79 (worktree isole, depuis feat/gescom-e10-4-entite-client @ 57d909b5)
 commit: (voir rapport de fin de story)
 depends_on: []
@@ -89,7 +89,7 @@ worktree — la recette navigateur (geste ci-dessous) referme ce point.
 |---|---|---|
 | Chargement | 14 appels au catalogue | 1 `session/current`, 1 sonde, 1 catalogue |
 | Catalogue au repos | Rechargé en entier toutes les 15 s, et à chaque `focus` | Jamais, tant que l'onglet vit. Ne se recharge que sur : reload de page, `retry`, changement d'identité de session (`sessionShopId`), retour au premier plan (`visibilitychange` → `visible`) si le dernier chargement date de plus de 10 min |
-| Session au repos | Revalidée toutes les 15 s, et à chaque `focus` | Aucun intervalle. Revalidation au retour au premier plan, au plus 1×/min, et sur un 401 (porte d'entrée exposée, câblage des appelants hors périmètre — voir « hors périmètre ») |
+| Session au repos | Revalidée toutes les 15 s, et à chaque `focus` | Aucun intervalle. Revalidation au retour au premier plan, au plus 1×/min, et sur un 401 **de toute action storefront** (round 2 : câblé au niveau du `FetchApiClient` partagé, voir plus bas — plus aucune dette) |
 | Bascules de `sessionLoading` | Relançaient sonde et catalogue | Le catalogue ne dépend plus que de la PREMIÈRE résolution de session (`sessionReady`, latch qui ne redevient jamais `false`) ; une revalidation ultérieure de session, même bloquante, ne relance plus le catalogue |
 
 ## Ce qui est livré
@@ -97,7 +97,7 @@ worktree — la recette navigateur (geste ci-dessous) referme ce point.
 | Fichier | Détail |
 |---|---|
 | `src/modules/shops/ui/hooks/usePublicShopCatalog.ts` | Retrait du `focus` + `setInterval`. Nouvelle politique pure exportée `shouldReloadPublicShopCatalogOnVisible(event, lastLoadedAt)` + constante `PUBLIC_SHOP_CATALOG_REFRESH_MIN_INTERVAL_MS` (10 min). Nouveau state `sessionReady` : bascule UNE FOIS de `false` à `true` à la première résolution de session (`sessionLoading` → `false`), ne redevient jamais `false` — l'effet de chargement dépend désormais de `sessionReady` (pas de `sessionLoading`), donc une revalidation de session ultérieure ne relance plus le catalogue. Un second effet, monté une fois `sessionReady`, écoute `visibilitychange` et ne recharge QUE le catalogue (pas la sonde), via la politique pure, avec un `lastLoadedAtRef` mis à jour à chaque chargement réussi. |
-| `src/modules/shop-customers/ui/hooks/useStorefrontSession.ts` | Retrait du `focus` + `setInterval`. Nouvelle politique pure exportée `shouldRevalidateStorefrontSession(event, lastRevalidatedAt)` + constante `STOREFRONT_SESSION_REVALIDATION_MIN_INTERVAL_MS` (1 min). Effet `visibilitychange` unique, revalidation SILENCIEUSE (`checkCurrent(false)`, ne touche jamais `loading`). Nouvelle fonction retournée `notifyUnauthorized()` : porte d'entrée pour qu'une action storefront, ailleurs dans le code, signale un 401 et déclenche une revalidation immédiate (la politique pure retourne toujours `true` pour `type: 'unauthorized'`, sans throttle). |
+| `src/modules/shop-customers/ui/hooks/useStorefrontSession.ts` | Retrait du `focus` + `setInterval`. Nouvelle politique pure exportée `shouldRevalidateStorefrontSession(event, lastRevalidatedAt)` + constante `STOREFRONT_SESSION_REVALIDATION_MIN_INTERVAL_MS` (1 min). Effet `visibilitychange` unique, revalidation SILENCIEUSE (`checkCurrent(false)`, ne touche jamais `loading`). **Round 2** : nouvelle fonction pure exportée `createStorefrontUnauthorizedHandler(...)`, branchée via `apiClient.onUnauthorized(handler)` (le hook lit `apiClient` via `useStorefrontUiRuntime()`) — voir section Round 2. |
 | `tests/hooks/usePublicShopCatalog.test.ts` | Tests de la politique pure (focus neutre, seuil 10 min, limite exacte, premier retour sans historique) + preuve à horloge simulée (`vi.useFakeTimers`) : ancienne politique = 8 appels/60 s (2 canaux), nouvelle = 0. |
 | `tests/hooks/useStorefrontSession.test.ts` | Même structure pour la politique de session (seuil 1 min) + preuve à horloge simulée : ancien canal = 4 appels/60 s, nouveau = 0. |
 | `tests/architecture/storefront-refresh-scheduling.test.ts` (nouveau) | Garde de non-régression : lecture directe du source des deux hooks, interdit tout `setInterval` et tout `addEventListener('focus'`, exige `addEventListener('visibilitychange'`. |
@@ -106,16 +106,6 @@ worktree — la recette navigateur (geste ci-dessous) referme ce point.
 
 ## Ce qui n'est pas dans le périmètre (hors dérogation R5, limites de mission)
 
-- **Câblage de `notifyUnauthorized()` aux points d'appel réels** (checkout,
-  soumission de commande, etc.) : la cible « un 401 déclenche la
-  revalidation » est livrée comme **capacité exposée par le hook**, testée en
-  isolation (pure function), mais son branchement aux actions storefront
-  toucherait `orderCancellation.helpers.ts`, `orderValidation.helpers.ts`,
-  les dialogues de commande et potentiellement `ProductOverlay.tsx` — tous
-  explicitement réservés à l'agent qui les corrige en parallèle. **Chemin de
-  mise en conformité** : une story de suivi (ou le lot qui possède ces
-  fichiers) appelle `notifyUnauthorized()` depuis son propre gestionnaire de
-  401, sans toucher aux deux hooks de cette story.
 - **Confirmation empirique de la cause exacte des 5 s / 14 appels** : non
   disponible sans navigateur (interdit par la mission). Le correctif retire
   structurellement tous les canaux automatiques identifiés — voir « Le
@@ -209,3 +199,155 @@ sans qu'aucun catalogue ne suive.
   `tests/storage/product_mockups_isolation.test.ts`, préexistant, lié à
   l'environnement local — seul échec toléré par la mission, ici skip et non
   échec), 2941 tests passés, 86 skips, OK.
+
+## Round 2 — corrections qa-review round 1 (rejet ciblé)
+
+La qa-review distincte a **rejeté** le commit `b8a12879` sur trois points :
+un point **bloquant** (aucun 401 traité — régression), un point **moyen**
+(D1, rechargement du catalogue sans limite hors statut `ready`), et des
+**tests manquants** qui auraient laissé passer des mutations (M7b, M8, M9,
+M10, M11, M12). Deux points en **dette non bloquante** étaient aussi
+signalés (garde d'architecture élargie, D2 — annulation du rechargement
+obsolète). Tout est traité dans ce round.
+
+### 1. BLOQUANT — un 401 d'une action storefront déclenche désormais la revalidation
+
+**Mécanisme retenu.** `FetchApiClient` ( `src/platform/api/fetch-api-client.ts`)
+porte un pub/sub minimal :
+
+- `onUnauthorized(listener): () => void` — abonnement, rend le
+  désabonnement ;
+- `parseResponse()` (devenu méthode privée, appelée par `request()`,
+  `requestWithEtag()` et `requestForm()`) notifie tous les abonnés dès
+  qu'une réponse non-`ok` a le statut `401`, **avant** de lancer
+  `ApiClientError`.
+
+C'est un ajout **rétrocompatible** (aucun paramètre requis, aucun abonné par
+défaut) : les autres consommateurs de `FetchApiClient` (workspace, etc.) ne
+sont pas affectés — vérifié par `pnpm test` complet, aucune régression.
+
+**Pourquoi ce point précis, et pas un branchement dans chaque module
+d'action.** Tous les hooks storefront d'action
+(`useStorefrontOrderLifecycle`, `useStorefrontOrderList`,
+`useStorefrontOrderEditor`, `useStorefrontOrderReceipt`,
+`useStorefrontCredentialSetup`, `useStorefrontIdentityForm`,
+`useStorefrontQuotesList`, `useStorefrontCategoryEditorial`, et
+`usePublicShopCatalog`/`useStorefrontSession` eux-mêmes) obtiennent leur
+client via `useStorefrontApi(SomeApiClient)`, qui les construit TOUS sur le
+même `apiClient` du contexte (`useStorefrontUiRuntime()`,
+`StorefrontRuntimeBoundary.tsx`, un seul `new FetchApiClient(...)` par
+montage). S'abonner UNE FOIS, dans `useStorefrontSession`, à
+`apiClient.onUnauthorized(...)` couvre donc structurellement toute action
+storefront à venir, sans toucher à aucun des fichiers réservés à l'agent
+parallèle (`orderCancellation.helpers.ts`, `orderValidation.helpers.ts`,
+dialogues de commande, `useStorefrontOrderList`,
+`useDashboardOrderManagement`, `ProductOverlay.tsx`) — vérifié : **aucun**
+de ces fichiers n'apparaît dans le diff de ce round.
+
+**Anti-boucle.** `createStorefrontUnauthorizedHandler(...)` (fonction pure,
+`useStorefrontSession.ts`) se tait si `isCheckInFlight()` répond `true`. Le
+hook fixe ce garde via `checkInFlightRef`, vrai pendant toute la durée d'un
+`checkCurrent` — y compris son propre appel réseau. Séquence si la session
+est réellement absente : (1) une action métier reçoit 401 → le handler
+n'est pas en vol → il appelle `checkCurrent(false)` → `checkInFlightRef`
+passe à `true` avant l'`await` ; (2) `api.current()` (dans ce
+`checkCurrent`) reçoit LUI-MÊME un 401 → `FetchApiClient` notifie à nouveau,
+de façon **synchrone**, à l'intérieur de cet `await` → le handler voit
+`isCheckInFlight() === true` et se tait. Aucune boucle, exactement 1
+`checkCurrent` déclenché par l'action. **Preuve exécutée** : en retirant
+temporairement le garde `isCheckInFlight()`, le test « pas de boucle » ne
+lève pas d'assertion — il **fait boucler le process Node en récursion de
+micro-tâches jusqu'à épuisement CPU** (observé : ~110 % CPU, worker tué,
+`pnpm vitest` rapporte l'exécution en échec). C'est la preuve la plus
+directe qu'on puisse obtenir sans navigateur que le garde n'est pas
+cosmétique. Remis en place, rejoué, vert.
+
+### 2. D1 — le catalogue ne recharge plus au retour d'onglet hors statut `ready`
+
+`shouldReloadPublicShopCatalogOnVisible` prend désormais un état
+`{ status, lastLoadedAt }` au lieu du seul horodatage : `status !== 'ready'`
+→ jamais de rechargement, quel que soit le temps écoulé (chargement en
+cours, boutique privée sans session, échec, boutique introuvable — ces cas
+se rejouent par `retry` ou par un changement d'identité, jamais par un
+retour d'onglet). Un `status === 'ready'` sans `lastLoadedAt` connu (état
+incohérent qui ne devrait pas se produire, `ready` et `lastLoadedAt` étant
+posés ensemble) ne recharge pas non plus, par défense. Le hook lit le
+statut courant via `stateRef` (synchronisé par un effet sur `[state]`, pas
+par dépendance directe de l'écouteur `visibilitychange`, pour éviter une
+resouscription à chaque rendu).
+
+### 3. Tests manquants — traités
+
+| Réf. | Ce que le test prouve | Où | Preuve d'échec exécutée |
+|---|---|---|---|
+| 401 bloquant | Un 401 d'une action quelconque déclenche exactement 1 revalidation ; un autre statut n'en déclenche aucune ; pas de boucle si la revalidation échoue elle-même en 401 | `tests/hooks/useStorefrontSession.test.ts` (3 `it` dédiés, intégration avec un vrai `FetchApiClient`) + `tests/platform/api/fetch-api-client.test.ts` (`onUnauthorized`, 4 `it`) | Test « pas de boucle » : guard `isCheckInFlight()` retiré → le process boucle en micro-tâches jusqu'à épuisement CPU (worker tué). Guard remis → vert. |
+| D1 | Statut ≠ `ready` ne recharge jamais, même après 100 min | `tests/hooks/usePublicShopCatalog.test.ts` (`it.each` sur 4 statuts + cas `ready`/`lastLoadedAt: null`) | Signature changée : sans la garde de statut, les anciens tests (lastLoadedAt-only) auraient laissé passer un rechargement sur `authentication_required` — la nouvelle suite l'interdit explicitement. |
+| M8 | L'écouteur `visibilitychange` du catalogue appelle réellement la politique, puis l'action, dans cet ordre | `tests/architecture/storefront-refresh-scheduling.test.ts` | Retrait de `if (!shouldReload) return;` → `guardIndex` vaut `-1` → `expect(guardIndex).toBeGreaterThan(-1)` échoue. Exécuté, vu rouge, remis, revu vert. |
+| M7b | L'écouteur `visibilitychange` de la session appelle réellement la politique, puis `checkCurrent(false)` | idem | Voir M12 (même bloc source) — le remplacement de `checkCurrent(false)` par `checkCurrent(true)` fait échouer CE test ET M12 simultanément (2 échecs), preuve qu'ils couvrent le même câblage sous deux angles. |
+| M9 | Un changement d'identité (`sessionShopId`) déclenche un cycle sonde + catalogue | `tests/architecture/storefront-catalog-access.test.ts` | `sessionShopId` retiré du tableau de dépendances de l'effet principal → `mainEffectMatch?.[1]` vaut `'api, attempt, sessionReady, slug'` ≠ attendu → échec. Exécuté, vu rouge, remis, revu vert. |
+| M10 | `retry` (`attempt`) déclenche un cycle | idem (même assertion, même tableau) | Couvert par la même extraction exacte du tableau de dépendances — `attempt` en fait partie, un retrait serait détecté de la même façon (vérifié par lecture : le test compare la chaîne ENTIÈRE, pas une sous-chaîne). |
+| M11 | L'effet PRINCIPAL garde son verrou `sessionReady`, ET ce sont bien SES dépendances qui sont vérifiées (pas celles de l'effet `visibilitychange`, qui partage le même garde littéral) | idem | L'extraction cible la PREMIÈRE occurrence du garde dans le fichier (l'effet principal apparaît en premier) et exige le tableau de dépendances complet, terme à terme — pas un `toContain` sur une sous-chaîne ambiguë comme dans le round 1. |
+| M12 | La revalidation au retour d'onglet ne bascule jamais `loading` (pas de clignotement) | `tests/architecture/storefront-refresh-scheduling.test.ts` | `checkCurrent(false)` → `checkCurrent(true)` dans l'effet `visibilitychange` → 2 assertions échouent (présence de `checkCurrent(false)`, absence de `checkCurrent(true)`). Exécuté, vu rouge, remis, revu vert. |
+
+**Dette non bloquante — traitée :**
+
+- **Garde d'architecture élargie** : `tests/architecture/storefront-refresh-scheduling.test.ts`
+  scanne désormais récursivement 8 racines de la surface boutique
+  (`src/modules/shops/ui`, `src/modules/shop-customers/ui`,
+  `src/modules/orders/ui`, `src/modules/catalog/ui/storefront`,
+  `src/modules/account/ui/customer-portal`, `src/surfaces/customer-portal`,
+  `src/app/surfaces`, `src/platform/runtime`) contre `setInterval` littéral,
+  sa forme obfusquée `globalThis['set'+'Interval']`, `window.onfocus` et
+  `addEventListener('focus', ...)`. **Non traité, resté en dette
+  explicitement** : un `setTimeout` auto-réarmé (récursif) — aucun motif
+  statique fiable ne le distingue d'un usage légitime (debounce) sans
+  lecture humaine, comme permis par le mandat (« si c'est simple, sinon
+  laisse-le en dette »).
+- **D2 — rechargement obsolète du catalogue** : `generationRef` (compteur
+  incrémenté à chaque lancement ET à chaque nettoyage de l'effet principal,
+  y compris au démontage) capturé par la requête déclenchée au retour
+  d'onglet ; si l'identité change avant que la réponse n'arrive, la réponse
+  obsolète est jetée au lieu d'écraser le catalogue de la nouvelle identité.
+  Remplace le précédent booléen `cancelled`, qui ne protégeait que contre un
+  changement issu du MÊME effet, pas contre une réponse en vol issue de
+  l'écouteur `visibilitychange` sous une identité déjà remplacée.
+
+**Précision sur l'hypothèse Vite écartée** (remarque du coordinateur) :
+pendant la mesure du 2026-09-16, Vite n'a enregistré AUCUN rechargement.
+L'hypothèse d'un rechargement de dev-server comme origine de la cadence de
+5 s est donc écartée pour CETTE mesure — la section « Ce qui n'est PAS
+établi » plus haut ne s'appuyait de toute façon pas sur cette hypothèse
+(elle cite l'outillage de recette / les `focus` en double, pas Vite). Le
+comptage navigateur (gestes ci-dessus) tranchera ce qui reste incertain.
+
+### Fichiers modifiés en plus (round 2)
+
+- `src/platform/api/fetch-api-client.ts` — `onUnauthorized`/`notifyUnauthorized`
+  (pub/sub 401), `parseResponse` devenu méthode privée.
+- `src/platform/api/index.ts` — export du type `UnauthorizedListener`.
+- `src/modules/shop-customers/ui/hooks/useStorefrontSession.ts` — lit
+  `apiClient` via `useStorefrontUiRuntime()`, `checkInFlightRef`,
+  `createStorefrontUnauthorizedHandler`, effet d'abonnement.
+- `src/modules/shops/ui/hooks/usePublicShopCatalog.ts` — `stateRef`,
+  `generationRef` (remplace `cancelled`), politique catalogue étendue au
+  statut.
+- `tests/platform/api/fetch-api-client.test.ts` — 4 `it` sur `onUnauthorized`.
+- `tests/hooks/useStorefrontSession.test.ts` — `createStorefrontUnauthorizedHandler`
+  (3 `it` purs) + câblage `FetchApiClient` réel (4 `it` d'intégration).
+- `tests/hooks/usePublicShopCatalog.test.ts` — politique catalogue mise à
+  jour (nouvelle signature `{ status, lastLoadedAt }`), `it.each` D1.
+- `tests/architecture/storefront-catalog-access.test.ts` — extraction exacte
+  du tableau de dépendances de l'effet principal (M9/M10/M11).
+- `tests/architecture/storefront-refresh-scheduling.test.ts` — blocs M7b/M8/M12
+  (câblage réel, pas seulement présence) + garde élargie (dette).
+
+### Gates rejouées (round 2)
+
+- `pnpm typecheck` — OK, aucune erreur.
+- `pnpm vitest run tests/hooks/usePublicShopCatalog.test.ts tests/hooks/useStorefrontSession.test.ts tests/architecture/storefront-refresh-scheduling.test.ts tests/architecture/storefront-catalog-access.test.ts tests/platform/api/fetch-api-client.test.ts tests/components/shop/StorefrontDelegationBanner.test.ts` — 6 fichiers, 65 tests, OK.
+- `pnpm test:architecture` — 45 fichiers, 278 tests, OK.
+- `pnpm test` (suite complète) — 293 fichiers passés, 11 skippés (dont
+  `tests/storage/product_mockups_isolation.test.ts`, préexistant/environnement
+  local, seul écart toléré), 2969 tests passés, 86 skips, OK.
+- `pnpm test:contract` — 23 fichiers, 432 tests, OK (vérifie l'absence de
+  régression sur `FetchApiClient`, partagé avec le reste de l'API).
