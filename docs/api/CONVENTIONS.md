@@ -4348,7 +4348,7 @@ Le motif est un fait, pas une préférence. **Le critère (b) du smoke du 15/09 
 
 **Expurger — par liste AUTORISÉE, jamais par liste d'interdits.** Seul sort ce qui est listé ici. **Tout champ amont non listé est retenu.** Un champ que Clariprint ajouterait demain ne fuit donc pas par défaut (critère plutôt que liste, §8.24 neuvième correction).
 - **Sortent** :
-  - les **textes** d'erreur de `all_faulty_process` : les clés (noms d'imprimeurs du parc du compte) sont remplacées par un ordinal `imprimeur_1`, `imprimeur_2`… Au plus 20 entrées, 300 caractères chacune ;
+  - les **textes** d'erreur de `all_faulty_process` : les clés (noms d'imprimeurs du parc du compte) sont remplacées par un ordinal `imprimeur_1`, `imprimeur_2`… Au plus 20 entrées, 300 caractères chacune. **Amendé par les arbitrages de la qa-review de BCP-1a, (3)** : un texte peut lui-même nommer un imprimeur. Ces textes ne vont donc **qu'au journal**, après substitution des noms, et jamais dans une réponse ni dans une archive commitée ;
   - la charge envoyée, **sans `reference` ni aucun `address`** : ce sont des textes libres, qui peuvent porter le nom ou l'adresse d'une personne ;
   - les champs scalaires listés sous « Conserver ».
 - **Ne sortent jamais**, et chacun a un test qui échoue s'il sort : `login`, `password`, l'URL de l'hôte, `external_id`, les noms d'imprimeurs, `CSV`, `PDF`, `quote_process`, `html`, `text`, les coûts par imprimeur.
@@ -4359,7 +4359,7 @@ Le motif est un fait, pas une préférence. **Le critère (b) du smoke du 15/09 
 - `outcome`, parmi `priced`, `not_priced`, `unavailable`, `not_configured` ;
 - le verdict.
 
-Aucune table, donc aucune rétention à arbitrer. **Réserve à lever avant de promettre qu'un diagnostic se retrouve** : la durée de conservation des journaux de fonction Supabase **n'est pas vérifiée**. Elle est à lire dans la documentation officielle, via Context7, et **pas de mémoire** : le précédent `pg_net` (6 heures, découvert en E10.22) montre ce que coûte une durée supposée.
+Aucune table, donc aucune rétention à arbitrer. ~~**Réserve à lever avant de promettre qu'un diagnostic se retrouve** : la durée de conservation des journaux de fonction Supabase **n'est pas vérifiée**.~~ **Réserve LEVÉE PAR LA MESURE le 2026-09-15** : sur ce projet, les journaux de fonction se conservent **environ 24 heures**. Les fenêtres antérieures sont vides, `claude-proxy-stream` compris ; mesure faite par l'API de gestion. **Conséquence opposable** : un verdict se lit **dans les 24 heures** qui suivent l'échec. Une recette ou un smoke qui rencontre un `-1` relève son `request_id` et lit le journal **le jour même**. Au-delà, le diagnostic est perdu : il n'existe aucune autre trace, et c'est voulu (point 2.3, arbitrages de la qa-review de BCP-1a, (3)).
 
 **BCP-0 — correctif immédiat de la fuite, AVANT BCP-1a (décision d'Arnaud du 2026-09-15).** dev-story, dans un worktree isolé, sur un périmètre fermé : retirer `all_process` et `all_faulty_process` des réponses. **Ni journal, ni banc, ni aucun autre changement de forme.** Consignes opposables :
 1. **Le modèle de sortie est `clariprintQuoteResultSchema`** (`src/modules/clariprint/api/contracts.ts`).
@@ -4400,7 +4400,7 @@ Aucune table, donc aucune rétention à arbitrer. **Réserve à lever avant de p
 **Exigences écrites dans le code du banc**, chacune tenue par un test en mode sec :
 - **Mode sec par défaut.** Il imprime le plan, les charges et le décompte, et n'ouvre **aucune** connexion. L'appel réel exige un drapeau explicite (`--execute`) et les identifiants dans l'environnement.
 - **Plafond `MAX_BILLED_CALLS = 18`, en constante.** Le compteur s'incrémente **avant** chaque appel réseau, `CheckAuth` compris : on ne sait pas s'il est facturé, donc il compte. Le banc refuse le dix-neuvième appel.
-- **L'archive s'écrit après CHAQUE appel**, pour qu'une interruption ne perde pas des appels déjà payés. Elle est gardée avec son entrée sous `results/<date>-<objet>.json` (douzième entrée du §8.24 : une mesure qui fonde un choix se garde avec son script et ses données).
+- **L'archive s'écrit après CHAQUE appel**, pour qu'une interruption ne perde pas des appels déjà payés. Elle est gardée avec son entrée (douzième entrée du §8.24 : une mesure qui fonde un choix se garde avec son script et ses données). **Sa forme exacte, ce qui est commité et ce qui ne l'est pas : voir les arbitrages de la qa-review de BCP-1a, (2), plus bas.**
 - **Le plan est une donnée déclarée** (étapes et règles d'arrêt), exécutée par une fonction pure testée en mode sec : le nombre annoncé est celui que le code exécute.
 
 **Le plan — trois phases, arrêt dès que la question est tranchée :**
@@ -4425,6 +4425,62 @@ Aucune table, donc aucune rétention à arbitrer. **Réserve à lever avant de p
 - les grammages disponibles par qualité.
 
 **Ce qu'on attend de la campagne** : la cause du `-1`, le verdict de déterminisme et les codes de finition acceptés. L'archive fonde l'écriture du contrat.
+
+**Arbitrages de la qa-review de BCP-1a (commit `d8a0a57b`, 2026-09-15), opposables.** Ces trois points sont des trous du cadrage, pas des défauts du code.
+
+**(1) Règle d'arrêt du banc sur panne : une décision du contrat ne se prend JAMAIS sur une panne.**
+- **Chaque appel est classé dans une énumération fermée**, et seules trois classes sont des **verdicts** :
+  - `priced` : JSON, `success: true`, `response` nombre fini ≥ 0 ;
+  - `refused` : JSON, `success: false` ;
+  - `invalid_price` : JSON, `success: true`, `response` négatif, non fini, absent ou non numérique ;
+  - `transport_failure` : **n'est pas un verdict**. Cela couvre une erreur réseau, un délai dépassé, tout statut HTTP non 2xx (un 4xx compris : un statut n'est pas une réponse de calcul) et un corps non JSON.
+- **Une `transport_failure`, à n'importe quel appel de n'importe quelle phase, ARRÊTE la campagne.** On ne rejoue pas, et on ne consomme pas le reste du plafond. L'archive est close avec `stop_reason: transport_failure` et `phase_a_verdict: inconclusive`. Le défaut du dev-story est confirmé, et généralisé à toutes les phases, pour trois raisons :
+  - *(i)* rejouer mélangerait, dans les trois appels de la phase A, des réponses prises sous panne et hors panne. Or une panne de Clariprint peut être **corrélée** au `-1` lui-même : le mélange fabriquerait un faux « non déterministe », donc un 502 gravé en v1 sur une panne ;
+  - *(ii)* en phase B, la règle « arrêt au premier prix obtenu » ne se lit pas à travers une panne ;
+  - *(iii)* l'appel en panne a peut-être été facturé : le compteur l'a déjà compté, avant l'appel.
+- **La relance est une NOUVELLE campagne**, sur décision explicite du coordinateur. Elle rejoue la phase A **depuis le début** (trois appels consécutifs de la même campagne, jamais recollés d'une campagne à l'autre), avec un compteur remis à zéro. L'archive de chaque campagne porte le total cumulé des appels facturés. **Au-delà de deux campagnes interrompues, on remonte à Arnaud** avant toute troisième, puisque chaque campagne se paie.
+- **Le verdict de la phase A**, lu sur trois verdicts de la même campagne :
+  - trois `refused` ou `invalid_price`, dans n'importe quel mélange de ces deux classes → `deterministic_not_priced` → **422**. Une alternance entre `refused` et `invalid_price` est notée, mais reste un non-chiffrage constant ;
+  - au moins un `priced` et au moins un non-chiffrage → `non_deterministic` → **502** ;
+  - trois `priced` → la charge chiffre : **la cause du `-1` du smoke n'est pas reproduite**, la phase B est sautée, et la base passe en C.
+- **`CheckAuth`** :
+  - « identifiants refusés » exige une réponse **JSON avec `success: false`** : arrêt avec `stop_reason: auth_refused` ;
+  - un 5xx, une erreur réseau, un délai dépassé ou un corps non JSON donnent `transport_failure`, et l'arrêt avec `stop_reason: transport_failure`, **jamais** `auth_refused` ;
+  - un 4xx, lui aussi, donne `transport_failure`, faute de réponse de calcul lisible.
+- Le **délai d'un appel** est borné comme dans la passerelle (20 s). Un délai dépassé est une `transport_failure`.
+
+**(2) L'archive `results/` : COMMITÉE, mais seulement sous une liste autorisée. Rien de brut sur disque, sauf un fichier local ignoré par git.**
+- **Pourquoi commitée.** La leçon du §8.24 (douzième entrée) exige qu'une mesure qui fonde une constante se rejoue. De plus, la matrice doit de toute façon figurer dans le story doc, qui est commité : l'ignorer par `.gitignore` ne retirerait rien du dépôt. Elle déplacerait seulement la donnée vers un document moins structuré.
+- **Pourquoi c'est compatible avec la règle « pas de données commitées ».** Par construction, l'archive ne contient **ni donnée personnelle, ni donnée commerciale** :
+  - **aucun prix positif, aucun coût** : ce sont les coûts du parc du compte, dans un dépôt partagé avec Expert Solutions ;
+  - aucun nom d'imprimeur, aucun texte de Clariprint.
+- **Deux fichiers commités** par campagne, sous `scripts/diagnostics/clariprint-variants/results/<date>-<objet>/` :
+  - `input.json` : la charge d'entrée, **sans `reference` et sans aucun `address`** ;
+  - `calls.json`.
+- **Les champs autorisés de `calls.json`, liste FERMÉE.** L'écrivain de l'archive est une fonction pure testée : un champ amont inconnu n'y est jamais écrit.
+  - **Au niveau de la campagne** : `plan_version`, `max_billed_calls`, `billed_calls_used`, `billed_calls_cumulative` (toutes campagnes de cet objet), `stop_reason` (`completed` · `stopped_on_price` · `transport_failure` · `auth_refused` · `cap_reached`), `phase_a_verdict` (`deterministic_not_priced` · `non_deterministic` · `priced` · `inconclusive`), `retained_rule` (422 ou 502, ou `null` si non concluant).
+  - **Pour chaque appel** :
+    - `ordinal`, `step_id` (A1…A4, B1…B10, C1…C4), `variant` (la dimension changée et la valeur posée, **tirées du plan déclaré**, jamais un texte libre), `started_at` (ISO UTC, suffixe `Z`), `duration_ms` ;
+    - `http_status` (entier, ou `null` sur une erreur réseau), `transport` (`ok` · `network_error` · `timeout` · `non_json`), `upstream_success` (booléen ou `null`) ;
+    - `outcome` (les quatre classes du (1)) et `response_class` (`positive` · `zero` · `negative` · `not_finite` · `absent` · `non_number`) ;
+    - **`response_raw` seulement quand `outcome` vaut `invalid_price`**, en chaîne de 32 caractères au plus. Un `-1` est un signal d'anomalie, pas un coût ;
+    - `all_process_count` et `faulty_process_count` (entiers) ;
+    - `error_present` (booléen) et `error_class` (point (3)).
+- **Hors de la liste, et donc jamais écrits** : un prix positif, `costs`, `delais`, `weight`, `fournisseur`, le contenu de `all_process`, les clés et les textes de `all_faulty_process`, le texte d'`error`, les identifiants, l'hôte.
+- **Un seul fichier non commité**, `results/<…>/texts.local.json`, ignoré par git (`*.local.json`). Il contient les textes d'erreur de Clariprint **après substitution des noms** (point (3)), pour la seule lecture de l'opérateur et de l'architecte. **Il est supprimé dès que le contrat de BCP-1b est écrit**, et sa suppression est notée dans le story doc.
+
+**(3) Le texte d'erreur de Clariprint : il ne sort que vers le JOURNAL, après substitution des noms. La liste « Ne sortent jamais » se lit par destination.** La qa-review a vérifié qu'un `error` (et, par extension, un texte de `all_faulty_process`) peut **nommer un imprimeur** du parc. Mon point 2.3 l'autorisait tel quel, ce qui contredisait sa propre liste « Ne sortent jamais ». **La règle est désormais écrite par destination :**
+
+| Destination | Lecteurs | Texte d'erreur de Clariprint |
+|---|---|---|
+| **Journal de fonction** | administrateurs du projet Supabase (AGE), conservation ~24 h (mesurée) | **Autorisé, APRÈS substitution** : chaque nom d'imprimeur connu **de la même réponse** (clés de `all_faulty_process`, champs `printer` de `all_process`, `fournisseur`) est remplacé par son ordinal, puis le texte est tronqué à 500 caractères (300 par entrée de `all_faulty_process`). Un nom absent de la réponse peut survivre : **résidu accepté**, parce que ce canal est celui de l'exploitant, sur le compte de la plateforme, et qu'il s'efface en 24 h. C'est aussi le seul endroit où la cause d'un `-1` peut se lire |
+| **Archive commitée du banc** | tout le dépôt, partagé avec Expert Solutions | **Jamais.** `error_present` et `error_class` seulement |
+| **`texts.local.json`** | l'opérateur de la campagne | le texte **après substitution** ; jamais commité, supprimé après l'écriture du contrat |
+| **Extension `diagnostic` de l'opération atelier (BCP-1b)** | les membres de n'importe quel espace | **Jamais de texte libre.** `error_class`, les compteurs et `sent_config` expurgé. **Cela amende le point 2.4**, qui y prévoyait « le verdict expurgé du point 2.3 » textes compris |
+| **Toute réponse publique** | Internet | **Jamais**, ni texte, ni classe (point 2.4) |
+
+- **`error_class` est une énumération fermée, avec `other` comme repli.** Ses valeurs sont **fixées par l'architecte à l'écriture du contrat de BCP-1b**, d'après les textes observés pendant la campagne, par exemple `paper_not_available` pour « no papers for … ». Tant qu'elle n'est pas écrite, le banc et le journal écrivent `unclassified`. **Aucune classe n'est inventée avant d'avoir vu les textes.**
+- **Le tronquage seul est écarté** : il coupe la fin d'un texte, pas le nom qu'il porte. **La présence seule, partout, est écartée** : le journal perdrait l'unique moyen de lire la cause d'un `-1`, alors que ce canal ne sort pas de l'exploitant.
 
 **BCP-1a crée aussi le référentiel des finitions** (point 5.3). C'est une donnée pure du vocabulaire Clariprint, dans le même module. BCP-2 et BCP-7 l'importent, et le créer ici leur évite de se disputer le fichier.
 
@@ -4717,7 +4773,7 @@ Vérifications après déploiement : le job figure dans `cron.job`, et une conso
   - `supplier_label: string | null` ;
   - `cost_breakdown`, en `Money` optionnels arrondis un à un. Le contrat dira que leur somme peut s'écarter de `total` d'un centime ;
   - `sent_config`, expurgé comme le journal ;
-  - l'extension `diagnostic` sur `clariprint.not_priced` et `clariprint.unavailable`, sur le précédent de `current_state` (§4).
+  - l'extension `diagnostic` sur `clariprint.not_priced` et `clariprint.unavailable`, sur le précédent de `current_state` (§4). **Amendé par les arbitrages de la qa-review de BCP-1a, (3)** : **jamais de texte libre de Clariprint**, seulement `error_class`, les compteurs et `sent_config` expurgé.
 - **La migration par `ClariprintHttpAdapter`** (`browser-clariprint-adapter.ts:90-104`).
   - Il choisit l'opération selon la surface : `clariprint-quotes` dans l'atelier (`browser-runtime.ts:24`) ; l'opération publique dans la boutique, avec le slug courant, que le runtime boutique (`storefront-browser-runtime.ts:16`) lui fournit.
   - Il continue de rendre `ClariprintQuoteResult` aux écrans. Un 429 ou un 503 devient `success: false` : l'écran retombe sur le prix marché, sans message technique. BCP-1b ne touche donc aucun écran.
