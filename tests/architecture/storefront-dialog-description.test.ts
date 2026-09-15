@@ -89,6 +89,15 @@ describe('description du tiroir panier — ShopLayout.tsx (texte exact, sr-only)
 // visible qui dit la meme chose : il DEVIENT la SheetDescription, meme
 // texte, meme style. Pas de sr-only ici (on ne double pas un texte deja
 // visible), et le texte ne change pas (ce n'est pas l'objet du lot).
+//
+// Fix BCP-6 lot 6 point 5.2 (recette navigateur 2026-09-15/16) : le wrapper
+// partage SheetDescription applique `text-sm`, qui imposait sa propre
+// hauteur de ligne (17.14px observe) au lieu de la hauteur heritee (18px)
+// d'avant BCP-6. Le className litteral est devenu la constante
+// `PRODUCT_OVERLAY_SUBTITLE_CLASSNAME` (ProductOverlay.helpers.ts), qui
+// neutralise `text-sm` au point d'appel sans toucher au wrapper partage —
+// voir tests/components/shop/ProductOverlay.sheetDescriptionStyle.test.ts
+// pour la preuve par `cn()` reel.
 describe('description du configurateur produit — ProductOverlay.tsx (sous-titre promu, visible)', () => {
   const overlay = readFileSync(
     resolve(sourceRoot, 'modules/catalog/ui/storefront/ProductOverlay.tsx'),
@@ -102,8 +111,11 @@ describe('description du configurateur produit — ProductOverlay.tsx (sous-titr
   });
 
   it('B7 — meme style que l ancien sous-titre visible (pas sr-only, classes et style conserves)', () => {
+    // Fix BCP-6 5.2 : className passe par la constante partagee (pas une
+    // chaine litterale recopiee) pour neutraliser `text-sm` du wrapper —
+    // cf. ProductOverlay.helpers.ts.
     expect(overlay).toMatch(
-      /<SheetDescription\s+className="text-ink-muted m-0 mt-1"\s+style=\{\{ fontSize: "12px", fontWeight: 400 \}\}\s*>/,
+      /<SheetDescription\s+className=\{PRODUCT_OVERLAY_SUBTITLE_CLASSNAME\}\s+style=\{\{ fontSize: "12px", fontWeight: 400 \}\}\s*>/,
     );
     // Le texte reste visible : pas de classe sr-only sur cette description
     // (contrairement au panier, qui n a pas de texte visible a reprendre).
@@ -112,6 +124,12 @@ describe('description du configurateur produit — ProductOverlay.tsx (sous-titr
 
   it('B7 — le vieux <p> du sous-titre a disparu (promu, pas duplique)', () => {
     expect(overlay).not.toMatch(/<p\s+className="text-ink-muted m-0 mt-1"/);
+  });
+
+  it('BCP-6 5.2 — la constante de className vient de ProductOverlay.helpers.ts (pas de valeur inventee au point d appel)', () => {
+    expect(overlay).toMatch(
+      /import\s*\{[^}]*PRODUCT_OVERLAY_SUBTITLE_CLASSNAME[^}]*\}\s*from\s*["']@\/modules\/catalog\/ui\/storefront\/ProductOverlay\.helpers["']/,
+    );
   });
 });
 

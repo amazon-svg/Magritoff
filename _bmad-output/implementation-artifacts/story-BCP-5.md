@@ -284,3 +284,22 @@ de promesse elle-même n'a pas été touchée.
 Chaque geste ci-dessus crée ou modifie une vraie commande de recette ; son
 sort (conservation ou nettoyage) appartient à Arnaud, comme pour le smoke
 E2E de clôture du chantier §8.25.
+
+## Correctif post-recette (2026-09-16, worktree isolé agent-a08a64b0c890d33e8)
+
+Recette navigateur du 2026-09-15/16 a trouvé un défaut préexistant à BCP-5
+(non introduit par ce lot) : `formatCancelErrorMessage`/`formatValidateErrorMessage`
+(`src/modules/orders/ui/storefront/order{Cancellation,Validation}.helpers.ts`)
+ne reconnaissaient le conflit de transition que sous l'ancien texte RPC
+(`'not allowed'`, espace) — la route actuelle `POST /orders/{id}/transitions`
+renvoie `transition_not_allowed: <from> -> <to>` (tiret bas), donc le texte
+technique brut fuitait à l'écran côté acheteur et atelier. Fix : détection du
+conflit par code métier stable (`ApiClientError.problem.code ===
+'orders.transition_not_allowed'`, préféré au texte) via un nouveau
+`toRpcLikeError()`, plus tolérance des deux formes textuelles ; la liste des
+commandes se recharge désormais après un conflit (succès ET échec) pour ne
+plus laisser une ligne afficher un statut périmé. Tests exécutés avec les
+messages exacts `transition_not_allowed: validated -> cancelled` et
+`transition_not_allowed: cancelled -> validated`, prouvés en échec sur le
+code pré-fix puis verts après. Aucun libellé de statut retouché — la table
+unique reste la seule source, inchangée par ce correctif.

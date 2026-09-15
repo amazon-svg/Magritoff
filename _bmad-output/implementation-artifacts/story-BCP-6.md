@@ -271,3 +271,22 @@ garde échoue toujours sur les versions `efc52207` de `ShopLayout.tsx` et
 - **Aucun deploiement** — front seul, pas de Supabase concerne par ce lot
   (§6 du cadrage : « tous les autres lots : front seul, aucun deploiement
   Supabase »).
+
+## Correctif post-recette (2026-09-16, worktree isolé agent-a08a64b0c890d33e8)
+
+Le point laissé « hors périmètre, sur instruction explicite du coordinateur »
+ci-dessus (le `text-sm` de `SheetDescription` appliqué à `ProductOverlay.tsx`)
+a été mesuré en recette navigateur du 2026-09-15/16 : hauteur de ligne du
+sous-titre à 17,14px au lieu de 18px (héritée) avant BCP-6. Fix au point
+d'appel uniquement — `PRODUCT_OVERLAY_SUBTITLE_CLASSNAME` (nouvelle constante
+exportée de `ProductOverlay.helpers.ts`, valeur
+`"text-ink-muted m-0 mt-1 text-[12px]"`) neutralise `text-sm` via
+tailwind-merge (même groupe font-size) sans imposer de `leading-*` explicite,
+donc la hauteur de ligne redevient héritée comme avant BCP-6. Wrapper partagé
+`src/shared/ui/sheet.tsx` non touché. Preuve par exécution du vrai `cn()` :
+`tests/components/shop/ProductOverlay.sheetDescriptionStyle.test.ts`, prouvée
+en échec sur le code pré-fix puis verte après. La garde AST des descriptions
+(`tests/architecture/storefront-dialog-description.test.ts`, bloc B7) a été
+mise à jour pour refléter le nouveau point d'appel (className via constante,
+plus littéral recopié) — la structure de la garde
+(`storefront-dialog-description-guard.ts`) n'a pas changé.

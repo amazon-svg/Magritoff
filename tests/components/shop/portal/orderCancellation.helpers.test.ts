@@ -1,9 +1,19 @@
 /**
  * Tests vitest pour orderCancellation.helpers.ts (Story S3.4 Sprint 5 AC6).
+ *
+ * Fix BCP-5 (recette navigateur 2026-09-15/16, CONVENTIONS §8.25 5.1) :
+ * tests ajoutes pour la forme actuelle du message serveur
+ * ('transition_not_allowed', tiret bas) qui echouait avant le fix
+ * (l'ancien pattern-matching n'attrapait que 'not allowed', avec espace).
  */
 
 import { describe, it, expect } from 'vitest';
-import { formatCancelErrorMessage } from '@/modules/orders/ui/storefront/orderCancellation.helpers';
+import { ApiClientError } from '@/platform/api';
+import {
+  formatCancelErrorMessage,
+  isTransitionConflict,
+  toRpcLikeError,
+} from '@/modules/orders/ui/storefront/orderCancellation.helpers';
 
 describe('formatCancelErrorMessage', () => {
   it('null / undefined → message reseau generique', () => {
@@ -42,5 +52,67 @@ describe('formatCancelErrorMessage', () => {
       .toContain('session a expire');
     expect(formatCancelErrorMessage({ message: '  Permission Denied  ' }))
       .toContain('droits pour annuler');
+  });
+
+  // BCP-5 (recette 2026-09-15/16) : forme ACTUELLE renvoyee par
+  // POST /orders/{id}/transitions ('transition_not_allowed: from -> to',
+  // tiret bas). Avant le fix, ce message tombait dans le fallback brut
+  // ("Erreur lors de l'annulation : transition_not_allowed: validated ->
+  // cancelled") au lieu du message clair.
+  it("forme actuelle 'transition_not_allowed: validated -> cancelled' -> message clair (pas le texte technique)", () => {
+    const result = formatCancelErrorMessage({ message: 'transition_not_allowed: validated -> cancelled' });
+    expect(result).toContain("plus en attente de validation");
+    expect(result).not.toContain('transition_not_allowed');
+  });
+
+  it("forme actuelle avec code metier ApiClientError privilegie le code (message annexe ignore)", () => {
+    const err = new ApiClientError({
+      type: 'about:blank',
+      title: 'Transition impossible',
+      status: 409,
+      code: 'orders.transition_not_allowed',
+      detail: 'transition_not_allowed: validated -> cancelled',
+    });
+    const result = formatCancelErrorMessage(toRpcLikeError(err));
+    expect(result).toContain("plus en attente de validation");
+    expect(result).not.toContain('transition_not_allowed');
+  });
+
+  it("ancienne forme RPC ('Transition ... not allowed', espace) continue de marcher", () => {
+    expect(formatCancelErrorMessage({ message: 'Transition draft -> cancelled not allowed in v1.1' }))
+      .toContain("plus en attente de validation");
+  });
+
+  it("isTransitionConflict reconnait le code metier meme sans texte 'transition'", () => {
+    expect(isTransitionConflict({ code: 'orders.transition_not_allowed' }, 'peu importe')).toBe(true);
+    expect(isTransitionConflict({ code: 'orders.permission_denied' }, 'transition not_allowed')).toBe(true);
+    expect(isTransitionConflict(null, 'not found')).toBe(false);
+  });
+
+  describe('toRpcLikeError', () => {
+    it('ApiClientError -> { message, code } depuis problem.detail/problem.code', () => {
+      const err = new ApiClientError({
+        type: 'about:blank',
+        title: 'Transition impossible',
+        status: 409,
+        code: 'orders.transition_not_allowed',
+        detail: 'transition_not_allowed: validated -> cancelled',
+        requestId: 'req-test',
+      });
+      expect(toRpcLikeError(err)).toEqual({
+        message: 'transition_not_allowed: validated -> cancelled',
+        code: 'orders.transition_not_allowed',
+      });
+    });
+
+    it('Error generique -> { message } sans code', () => {
+      expect(toRpcLikeError(new Error('Panne reseau'))).toEqual({ message: 'Panne reseau' });
+    });
+
+    it('non-Error -> null', () => {
+      expect(toRpcLikeError('oops')).toBeNull();
+      expect(toRpcLikeError(null)).toBeNull();
+      expect(toRpcLikeError(undefined)).toBeNull();
+    });
   });
 });

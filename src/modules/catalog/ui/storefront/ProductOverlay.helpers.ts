@@ -18,6 +18,28 @@
 
 import type { ShopProduct } from '@/modules/shops';
 
+/**
+ * Fix BCP-6 (recette navigateur 2026-09-15/16, docs/api/CONVENTIONS.md
+ * §8.25 lot 6 point 5.2) : classe du sous-titre du configurateur, devenu un
+ * `SheetDescription` en BCP-6. Le wrapper partage `src/shared/ui/sheet.tsx`
+ * applique `cn("text-muted-foreground text-sm", className)` — `text-sm`
+ * impose sa propre hauteur de ligne (17.14px observe en recette), differente
+ * de la hauteur heritee (18px) d'avant BCP-6. `text-[12px]` neutralise
+ * `text-sm` via tailwind-merge (meme groupe font-size que `text-sm`, donc le
+ * dernier gagne) SANS fixer de hauteur de ligne explicite : celle-ci
+ * redevient heritee du contexte ambiant, exactement comme avant BCP-6.
+ * `m-0 mt-1` et la couleur `text-ink-muted` sont inchanges (memes qu'avant
+ * BCP-6, `efc52207`).
+ *
+ * Exportee (plutot que recopiee en dur dans ProductOverlay.tsx) pour que le
+ * point d'appel et le test de preuve (qui execute le vrai `cn()`,
+ * tests/components/shop/ProductOverlay.sheetDescriptionStyle.test.ts)
+ * partagent la MEME valeur — jamais deux chaines qui pourraient diverger
+ * silencieusement. Ne pas modifier le wrapper partage `sheet.tsx` : le
+ * panier et d'autres fenetres l'utilisent avec `text-sm` volontaire.
+ */
+export const PRODUCT_OVERLAY_SUBTITLE_CLASSNAME = "text-ink-muted m-0 mt-1 text-[12px]";
+
 export const QUANTITIES = [50, 100, 250, 500, 1000, 2500, 5000, 10000] as const;
 export const FORMATS = [
   "A6",

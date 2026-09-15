@@ -3,7 +3,7 @@ import { OrdersApiClient } from '@/modules/orders';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { type OrderUI, orderSummaryToUi } from '@/modules/orders/ui/storefront/PortalOrders.helpers';
-import { formatCancelErrorMessage } from '@/modules/orders/ui/storefront/orderCancellation.helpers';
+import { formatCancelErrorMessage, toRpcLikeError } from '@/modules/orders/ui/storefront/orderCancellation.helpers';
 
 export function useStorefrontOrderList(shopId: string, enabled: boolean) {
   const ordersApi = useStorefrontApi(OrdersApiClient);
@@ -38,6 +38,7 @@ export function useStorefrontOrderList(shopId: string, enabled: boolean) {
   const cancel = useCallback(async (orderId: string): Promise<string | null> => {
     const order = orders.find((candidate) => candidate.id === orderId);
     if (!order) return 'Commande introuvable';
+    let errorMessage: string | null = null;
     try {
       await ordersApi.transition(order.id, {
         toStatus: 'cancelled',
@@ -46,10 +47,17 @@ export function useStorefrontOrderList(shopId: string, enabled: boolean) {
       });
     } catch (cause) {
       console.warn('[StorefrontOrderList] annulation impossible:', cause);
-      return formatCancelErrorMessage(cause instanceof Error ? cause : null);
+      errorMessage = formatCancelErrorMessage(toRpcLikeError(cause));
     }
-    toast.success('Commande annulée.');
+    // Fix BCP-5 (recette 2026-09-15/16, CONVENTIONS §8.25 5.1(c)) : que la
+    // transition reussisse ou soit rejetee (conflit), le vrai statut peut
+    // avoir change (une autre fenetre a valide/annule entre-temps) — on
+    // recharge la liste dans les deux cas pour ne jamais laisser une ligne
+    // afficher un statut perime pendant que le dialogue reste ouvert avec
+    // le message d'erreur.
     await reload();
+    if (errorMessage) return errorMessage;
+    toast.success('Commande annulée.');
     return null;
   }, [orders, ordersApi, reload]);
 

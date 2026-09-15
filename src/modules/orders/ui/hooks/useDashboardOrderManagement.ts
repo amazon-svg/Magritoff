@@ -5,7 +5,7 @@ import {
   type OrderUI,
   orderSummaryToUi,
 } from '@/modules/orders/ui/storefront/PortalOrders.helpers';
-import { formatCancelErrorMessage } from '@/modules/orders/ui/storefront/orderCancellation.helpers';
+import { formatCancelErrorMessage, toRpcLikeError } from '@/modules/orders/ui/storefront/orderCancellation.helpers';
 import { formatValidateErrorMessage } from '@/modules/orders/ui/storefront/orderValidation.helpers';
 
 export interface DashboardOrderUI extends OrderUI {
@@ -84,18 +84,23 @@ export function useDashboardOrderManagement({
     toStatus: 'cancelled' | 'validated' | 'in_production' | 'shipped',
   ): Promise<unknown | null> => {
     const operationTarget = targetKey;
+    let cause: unknown = null;
     try {
       await ordersApi.transition(order.id, {
         toStatus,
         reason: null,
         idempotencyKey: dashboardOrderTransitionKey(order.id, order.status, toStatus),
       });
-    } catch (cause) {
-      console.warn(`[DashboardOrders] transition ${order.status}→${toStatus} failed:`, cause);
-      return cause;
+    } catch (err) {
+      console.warn(`[DashboardOrders] transition ${order.status}→${toStatus} failed:`, err);
+      cause = err;
     }
+    // Fix BCP-5 (recette 2026-09-15/16, CONVENTIONS §8.25 5.1(c)) : recharge
+    // dans les deux cas (succes ET conflit) — un rejet 'transition_not_allowed'
+    // signifie que le statut reel a change ailleurs, la ligne doit refleter
+    // ce vrai statut meme si le dialogue reste ouvert avec le message.
     if (operationTarget === targetKeyRef.current) await reload();
-    return null;
+    return cause;
   };
 
   const cancel = async (orderId: string): Promise<string | null> => {
@@ -103,7 +108,7 @@ export function useDashboardOrderManagement({
     const cause = await transition(order ?? { id: orderId, status: 'draft' }, 'cancelled');
     return cause === null
       ? null
-      : formatCancelErrorMessage(cause instanceof Error ? cause : null);
+      : formatCancelErrorMessage(toRpcLikeError(cause));
   };
 
   const validate = async (orderId: string): Promise<string | null> => {
@@ -111,7 +116,7 @@ export function useDashboardOrderManagement({
     const cause = await transition(order ?? { id: orderId, status: 'draft' }, 'validated');
     return cause === null
       ? null
-      : formatValidateErrorMessage(cause instanceof Error ? cause : null);
+      : formatValidateErrorMessage(toRpcLikeError(cause));
   };
 
   const startProduction = async (order: OrderUI) => {
