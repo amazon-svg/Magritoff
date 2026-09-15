@@ -17,6 +17,7 @@ import {
   buildQuoteInvalidJsonBody,
   buildQuoteInvalidPriceBody,
   buildQuoteMissingProductBody,
+  buildQuoteServerErrorBody,
   buildQuoteSuccessBody,
 } from '../../../supabase/functions/make-server-e3db71a4/clariprint-responses.ts';
 
@@ -76,13 +77,22 @@ describe('clariprint-responses (correctif securite 2026-09-15)', () => {
     expect(JSON.stringify(body)).not.toContain('FournisseurSecretSARL');
   });
 
-  it('buildQuoteInvalidPriceBody ne renvoie pas la reponse Clariprint entiere', () => {
-    const negative = buildQuoteInvalidPriceBody(-1.2);
-    expect(negative).toEqual({ success: false, error: 'Prix Clariprint invalide (negatif)' });
-    const nanCase = buildQuoteInvalidPriceBody(undefined);
-    expect(nanCase).toEqual({ success: false, error: 'Prix Clariprint invalide (absent, NaN ou non-numerique)' });
-    assertNoBannedToken(negative);
-    assertNoBannedToken(nanCase);
+  it('buildQuoteInvalidPriceBody ne prend plus aucun argument (rien ne peut deriver de result)', () => {
+    // qa-review 2026-09-15 : un argument dependant de la reponse Clariprint,
+    // meme un simple nombre, est banni pour tout constructeur autre que
+    // buildQuoteSuccessBody. La fonction n a plus de parametre du tout.
+    expect(buildQuoteInvalidPriceBody).toHaveLength(0);
+    const body = buildQuoteInvalidPriceBody();
+    expect(body).toEqual({ success: false, error: 'Prix Clariprint invalide' });
+    assertNoBannedToken(body);
+  });
+
+  it('buildQuoteServerErrorBody ne prend aucun argument et masque le detail de l exception', () => {
+    expect(buildQuoteServerErrorBody).toHaveLength(0);
+    const body = buildQuoteServerErrorBody();
+    expect(body).toEqual({ success: false, error: 'Erreur serveur' });
+    assertNoBannedToken(body);
+    expect(JSON.stringify(body)).not.toContain('lrdp.clariprint.com');
   });
 
   it('buildQuoteSuccessBody ne transporte que les 6 champs metier, jamais les gammes brutes', () => {
@@ -112,6 +122,15 @@ describe('clariprint-responses (correctif securite 2026-09-15)', () => {
     );
   });
 
+  it('buildQuoteSuccessBody sanitise costs.total invalide (deplace hors index.ts)', () => {
+    const body = buildQuoteSuccessBody({
+      priceHT: 10,
+      costs: { impression: 5, total: -3 },
+    });
+    expect((body.costs as Record<string, unknown>).total).toBeUndefined();
+    expect((body.costs as Record<string, unknown>).impression).toBe(5);
+  });
+
   it('buildAuthTestBody ne renvoie que timestamp/success/message, jamais l hote ni le login', () => {
     const body = buildAuthTestBody({ success: false, message: 'Echec CheckAuth' });
     expect(Object.keys(body).sort()).toEqual(['message', 'success', 'timestamp']);
@@ -119,5 +138,85 @@ describe('clariprint-responses (correctif securite 2026-09-15)', () => {
     expect(serialized).not.toContain('clariprint.com');
     expect(serialized).not.toContain('CLARIPRINT_LOGIN');
     assertNoBannedToken(body);
+  });
+});
+
+describe('regression "constructeur qui recopie ...input" (qa-review 2026-09-15, mutation 14)', () => {
+  // Chaque constructeur est appele avec des cles en trop (via `as any`, pour
+  // contourner le typage strict) : si l implementation venait a faire
+  // `return { ...input }` au lieu de lister ses champs un par un, ces cles
+  // superflues se retrouveraient dans la reponse et ce test rougirait.
+  const POISON_KEYS = ['all_process', 'all_faulty_process', 'rawResponse', 'parsedResponse', 'secretField'];
+
+  function assertExactKeys(body: object, expectedKeys: string[]): void {
+    const keys = Object.keys(body).sort();
+    expect(keys).toEqual([...expectedKeys].sort());
+    for (const poison of POISON_KEYS) {
+      expect(keys).not.toContain(poison);
+    }
+  }
+
+  it('buildQuoteCredentialsMissingBody', () => {
+    const body = buildQuoteCredentialsMissingBody('msg' as any);
+    assertExactKeys(body, ['success', 'credentialsMissing', 'message']);
+  });
+
+  it('buildQuoteMissingProductBody ignore un argument injecte', () => {
+    const body = (buildQuoteMissingProductBody as any)({ all_process: ['x'], secretField: 1 });
+    assertExactKeys(body, ['success', 'error']);
+  });
+
+  it('buildQuoteHttpErrorBody ignore un argument injecte', () => {
+    const body = (buildQuoteHttpErrorBody as any)({ rawResponse: { huge: 'payload' } });
+    assertExactKeys(body, ['success', 'error']);
+  });
+
+  it('buildQuoteInvalidJsonBody ignore un argument injecte', () => {
+    const body = (buildQuoteInvalidJsonBody as any)({ parsedResponse: { x: 1 } });
+    assertExactKeys(body, ['success', 'error']);
+  });
+
+  it('buildQuoteCalcErrorBody ignore un argument injecte', () => {
+    const body = (buildQuoteCalcErrorBody as any)({ all_faulty_process: { a: 1 } });
+    assertExactKeys(body, ['success', 'error']);
+  });
+
+  it('buildQuoteInvalidPriceBody ignore un argument injecte', () => {
+    const body = (buildQuoteInvalidPriceBody as any)({ result: { secret: true } });
+    assertExactKeys(body, ['success', 'error']);
+  });
+
+  it('buildQuoteServerErrorBody ignore un argument injecte', () => {
+    const body = (buildQuoteServerErrorBody as any)({ message: String(new Error('boom au host lrdp.clariprint.com')) });
+    assertExactKeys(body, ['success', 'error']);
+  });
+
+  it('buildQuoteSuccessBody ignore les cles en trop meme avec un objet force via as any', () => {
+    const poisoned = {
+      priceHT: 10,
+      costs: { total: 5 },
+      delais: 1,
+      weight: 1,
+      fournisseur: 'F',
+      processDuration: 1,
+      all_process: ['gamme-secrete'],
+      all_faulty_process: { x: 1 },
+      rawResponse: { everything: true },
+      secretField: 'ne doit jamais sortir',
+    } as any;
+    const body = buildQuoteSuccessBody(poisoned);
+    assertExactKeys(body, ['success', 'priceHT', 'costs', 'delais', 'weight', 'fournisseur', 'processDuration']);
+  });
+
+  it('buildAuthTestBody ignore les cles en trop meme avec un objet force via as any', () => {
+    const poisoned = {
+      success: true,
+      message: 'ok',
+      rawResponse: '...',
+      parsedResponse: { a: 1 },
+      environment: { CLARIPRINT_HOST: 'lrdp.clariprint.com' },
+    } as any;
+    const body = buildAuthTestBody(poisoned);
+    assertExactKeys(body, ['timestamp', 'success', 'message']);
   });
 });

@@ -47,9 +47,9 @@ export const CLARIPRINT_GENERIC_MESSAGES = {
   httpError: "Erreur de communication avec Clariprint",
   invalidJson: "Reponse Clariprint invalide",
   calcError: "Erreur de calcul Clariprint",
-  priceNegative: "Prix Clariprint invalide (negatif)",
-  priceInvalid: "Prix Clariprint invalide (absent, NaN ou non-numerique)",
+  priceInvalid: "Prix Clariprint invalide",
   missingProduct: "Donnees produit Clariprint manquantes",
+  serverError: "Erreur serveur",
 } as const;
 
 /** Credentials manquants (CLARIPRINT_LOGIN / CLARIPRINT_PASSWORD) : reponse
@@ -81,20 +81,39 @@ export function buildQuoteCalcErrorBody(): ClariprintQuoteErrorBody {
   return { success: false, error: CLARIPRINT_GENERIC_MESSAGES.calcError };
 }
 
-/** Prix Clariprint invalide (absent, NaN, non-numerique ou negatif). La
- * reponse Clariprint entiere n est plus renvoyee au client. */
-export function buildQuoteInvalidPriceBody(priceHT: unknown): ClariprintQuoteErrorBody {
-  const isNegative = typeof priceHT === "number" && priceHT < 0;
-  return {
-    success: false,
-    error: isNegative
-      ? CLARIPRINT_GENERIC_MESSAGES.priceNegative
-      : CLARIPRINT_GENERIC_MESSAGES.priceInvalid,
-  };
+/** Prix Clariprint invalide (absent, NaN, non-numerique ou negatif). Message
+ * volontairement generique et sans argument : rien de derive de la reponse
+ * Clariprint ne doit transiter par cet appel (decision qa-review 2026-09-15,
+ * regle "aucun argument de constructeur ne derive de result/..."). */
+export function buildQuoteInvalidPriceBody(): ClariprintQuoteErrorBody {
+  return { success: false, error: CLARIPRINT_GENERIC_MESSAGES.priceInvalid };
+}
+
+/** Erreur serveur generique (catch-all). Ne recoit jamais le detail de
+ * l exception (qui peut contenir l hote ou un extrait reseau) : celui-ci
+ * reste dans console.error, cote appelant. */
+export function buildQuoteServerErrorBody(): ClariprintQuoteErrorBody {
+  return { success: false, error: CLARIPRINT_GENERIC_MESSAGES.serverError };
+}
+
+/** Masque costs.total si invalide (NaN, non-numerique ou negatif). Logique
+ * de sanitisation deplacee ici (hors index.ts) pour que l appel a
+ * buildQuoteSuccessBody() ne recoive, pour la cle `costs`, qu un acces
+ * simple `result.costs` -- exigence de la regle AST (qa-review 2026-09-15). */
+function sanitizeCosts(costs: unknown): unknown {
+  if (!costs || typeof costs !== "object") return costs;
+  const record = costs as Record<string, unknown>;
+  if (record.total === undefined) return costs;
+  const totalInvalid =
+    typeof record.total !== "number" || !Number.isFinite(record.total) || record.total < 0;
+  if (!totalInvalid) return costs;
+  return { ...record, total: undefined };
 }
 
 /** Corps de reponse succes. Ne recoit que les 6 champs metier attendus :
- * impossible d y glisser all_process / all_faulty_process par construction. */
+ * impossible d y glisser all_process / all_faulty_process par construction.
+ * `costs` est sanitise en interne (sanitizeCosts) : l appelant ne fait
+ * jamais qu un acces simple `result.costs`. */
 export function buildQuoteSuccessBody(input: {
   priceHT: number;
   costs?: unknown;
@@ -104,7 +123,7 @@ export function buildQuoteSuccessBody(input: {
   processDuration?: unknown;
 }): ClariprintQuoteSuccessBody {
   const body: ClariprintQuoteSuccessBody = { success: true, priceHT: input.priceHT };
-  if (input.costs !== undefined) body.costs = input.costs;
+  if (input.costs !== undefined) body.costs = sanitizeCosts(input.costs);
   if (input.delais !== undefined) body.delais = input.delais;
   if (input.weight !== undefined) body.weight = input.weight;
   if (input.fournisseur !== undefined) body.fournisseur = input.fournisseur;

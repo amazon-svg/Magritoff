@@ -18,6 +18,7 @@ import {
   buildQuoteInvalidJsonBody,
   buildQuoteInvalidPriceBody,
   buildQuoteMissingProductBody,
+  buildQuoteServerErrorBody,
   buildQuoteSuccessBody,
 } from "./clariprint-responses.ts";
 
@@ -1184,35 +1185,27 @@ app.post("/make-server-e3db71a4/clariprint-quote", async (c) => {
       priceHT < 0;
 
     if (isInvalidPrice) {
+      // Le detail brut (priceHT, reponse Clariprint entiere) reste ici, dans
+      // les logs serveur uniquement -- jamais dans le corps de la reponse
+      // HTTP (regle qa-review 2026-09-15 : aucun argument de constructeur ne
+      // derive de `result`).
       console.error(
         `❌ Anomalie prix Clariprint détectée — priceHT=${JSON.stringify(priceHT)}. Bloqué côté serveur. Réponse Clariprint brute:`,
         result,
       );
-      return c.json(buildQuoteInvalidPriceBody(priceHT));
+      return c.json(buildQuoteInvalidPriceBody());
     }
 
-    // costs.total : si présent et invalide, on le masque sans bloquer la réponse
-    let costs = result.costs;
-    if (costs && costs.total !== undefined) {
-      const totalInvalid =
-        typeof costs.total !== "number" ||
-        !Number.isFinite(costs.total) ||
-        costs.total < 0;
-      if (totalInvalid) {
-        console.warn(
-          `⚠️ costs.total Clariprint invalide (${JSON.stringify(costs.total)}), masqué.`,
-        );
-        costs = { ...costs, total: undefined };
-      }
-    }
-
-    // Note securite (2026-09-15) : all_process / all_faulty_process ne sont
-    // plus renvoyes au client (route appelable avec la seule cle anonyme).
-    // buildQuoteSuccessBody() n accepte que les 6 champs metier ci-dessous.
+    // Note securite (2026-09-15, correctif renforce apres qa-review) :
+    // - all_process / all_faulty_process ne sont plus renvoyes au client ;
+    // - buildQuoteSuccessBody() n accepte que les 6 champs metier ci-dessous,
+    //   chacun lu par un acces simple `result.xxx` (garde AST dediee) ;
+    // - la sanitisation de costs.total est deplacee dans le module pur, pour
+    //   que cet appel ne manipule plus de valeur derivee.
     return c.json(
       buildQuoteSuccessBody({
-        priceHT,
-        costs,
+        priceHT: result.response,
+        costs: result.costs,
         delais: result.delais,
         weight: result.weight,
         fournisseur: result.fournisseur,
@@ -1221,10 +1214,7 @@ app.post("/make-server-e3db71a4/clariprint-quote", async (c) => {
     );
   } catch (error) {
     console.error("❌ Erreur dans clariprint-quote:", error);
-    return c.json(
-      { success: false, error: "Erreur serveur", message: String(error) },
-      500,
-    );
+    return c.json(buildQuoteServerErrorBody(), 500);
   }
 });
 
