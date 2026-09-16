@@ -96,6 +96,14 @@ describe('BCP-10 — la fiche produit ne configure, ne chiffre et n ajoute plus 
       expect(publicShop).toContain('addToCart(withQty, 1)');
       expect(publicShop).not.toMatch(/addToCart\(withQty,\s*qty\)/);
 
+      // D2 (qa-review round 2, quatrieme porte) : le cablage lui-meme doit
+      // passer le gestionnaire TEL QUEL. Sans cette assertion, un point
+      // d appel du type onConfirm={(p, q) => handleOverlayConfirm(p, 500)}
+      // laisse handleOverlayConfirm intact caractere pour caractere, passe
+      // les trois assertions ci-dessus, et jette pourtant la quantite
+      // choisie par l acheteur : QA-M9 deplace de trois lignes.
+      expect(publicShop).toContain('onConfirm={handleOverlayConfirm}');
+
       // Verrou de non-contournement : `handleOverlayConfirm` est la SEULE
       // fonction du fichier à appeler addToCart avec une valeur littérale ET
       // à construire `withQty` — si un jour un second gestionnaire réécrit la
