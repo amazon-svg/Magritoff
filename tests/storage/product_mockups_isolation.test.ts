@@ -22,9 +22,18 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 const BUCKET = 'product_mockups';
 
+// Ce test ECRIT dans le bucket (upload + delete). Il ne doit JAMAIS viser autre
+// chose qu'une pile locale : `SUPABASE_URL` du .env pointe sur la PRODUCTION, et
+// le test s'y executait des que le .env etait charge (constate le 2026-09-16).
+// La garde ci-dessous est la seule barriere : ne pas la retirer.
+const EST_LOCAL = (url: string): boolean => /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?(\/|$)/.test(url);
+
 const SKIP_REASON = (() => {
   const env = process.env;
   if (!env.SUPABASE_URL) return 'SUPABASE_URL absent';
+  if (!EST_LOCAL(env.SUPABASE_URL)) {
+    return `SUPABASE_URL ne pointe pas sur une pile locale (${env.SUPABASE_URL}) : test d ecriture ignore`;
+  }
   if (!env.SUPABASE_SERVICE_ROLE_KEY) return 'SUPABASE_SERVICE_ROLE_KEY absent';
   if (!env.SUPABASE_ANON_KEY) return 'SUPABASE_ANON_KEY absent';
   return null;
