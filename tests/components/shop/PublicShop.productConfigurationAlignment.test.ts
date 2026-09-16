@@ -13,6 +13,16 @@
  * (PublicShop.submitCart.test.ts) : assertions texte sur les fichiers
  * sources, pour une classe de défaut (câblage entre composants, signature de
  * callback) qu'un test de rendu isolé ne verrait pas plus sûrement.
+ *
+ * BCP-11 (docs/api/CONVENTIONS.md §8.25 point 3.6) — deux assertions ci-dessous
+ * ont été mises à jour pour suivre la nouvelle forme de `addToCart` et
+ * `handleOverlayConfirm` : la conversion exemplaires → paquet ne s'écrit plus
+ * en littéral ici, elle passe par le point unique `toPackLine`
+ * (`orders/ui/storefront/cartLine.ts`). L'INTENTION des tests d'origine
+ * (QA-M9 : la quantité choisie par l'acheteur, pas une valeur périmée ;
+ * QA-M11 : jamais un nombre d'exemplaires nu en second argument d'`addToCart` ;
+ * D2 : le câblage appelle le gestionnaire réel, pas un wrapper qui jette
+ * l'argument) est préservée, sous une forme qui suit la nouvelle signature.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -52,12 +62,19 @@ describe('BCP-10 — la fiche produit ne configure, ne chiffre et n ajoute plus 
     expect(src).toMatch(/onConfigure\(product\)/);
   });
 
-  it("addToCart garde EXACTEMENT sa signature à deux paramètres (point (f))", () => {
+  it("addToCart garde EXACTEMENT sa signature à deux paramètres (point (f), forme BCP-11)", () => {
     const src = read('src/modules/shops/ui/storefront/PublicShop.tsx');
 
-    // Signature exacte : aucun troisième paramètre, ni ajouté ni réintroduit.
-    expect(src).toMatch(/const addToCart = \(product: ShopProduct, qty = 1\) => \{/);
-    expect(src).not.toMatch(/addToCart = \(product: ShopProduct, qty = 1, [^)]+\)/);
+    // BCP-11 (docs/api/CONVENTIONS.md §8.25 point 3.6) : le second paramètre
+    // est désormais un PackCount typé (jamais un nombre nu) — mais la forme
+    // à DEUX paramètres, elle, ne bouge pas : aucun troisième paramètre, ni
+    // ajouté ni réintroduit.
+    expect(src).toMatch(
+      /const addToCart = \(product: ShopProduct, packCount: PackCount = ONE_PACK\) => \{/,
+    );
+    expect(src).not.toMatch(
+      /addToCart = \(product: ShopProduct, packCount: PackCount = ONE_PACK, [^)]+\)/,
+    );
   });
 
   it('PublicShop est l HÔTE UNIQUE de ProductOverlay (une seule instance, un seul onConfirm)', () => {
@@ -76,40 +93,45 @@ describe('BCP-10 — la fiche produit ne configure, ne chiffre et n ajoute plus 
 
   it(
     "handleOverlayConfirm applique la règle du paquet EXACTEMENT " +
-      '(qa-review round 2, QA-M9 / QA-M11) : quantité stockée dans config, ' +
-      "1 paquet ajouté au panier — jamais qty tel quel",
+      '(qa-review round 2, QA-M9 / QA-M11, forme BCP-11 via toPackLine) : ' +
+      "quantité choisie typée CopyCount, 1 paquet ajouté au panier — jamais qty tel quel",
     () => {
       const publicShop = read('src/modules/shops/ui/storefront/PublicShop.tsx');
 
-      // QA-M9 : le snapshot doit stocker LA QUANTITÉ CHOISIE dans l'overlay
-      // (`qty`), pas la quantité déjà stockée sur le produit — sinon la
-      // commande repart avec l'ancienne quantité, silencieusement.
-      expect(publicShop).toContain(
-        'config: { ...(productConfigured.config ?? {}), quantity: qty }',
-      );
+      // QA-M9, forme BCP-11 : le snapshot doit construire la ligne à partir
+      // de LA QUANTITÉ CHOISIE dans l'overlay (`qty`, le paramètre reçu de
+      // `ProductOverlay.onConfirm`), pas une quantité déjà stockée sur le
+      // produit — sinon la commande repart avec l'ancienne quantité,
+      // silencieusement. `copies(qty)` est la SEULE conversion possible :
+      // un nombre nu ne compile plus (cartLine.typecheck.ts, T8/T9).
+      expect(publicShop).toContain('toPackLine(productConfigured, copies(qty))');
 
-      // QA-M11 : le panier ne reçoit jamais `qty` (nombre d'exemplaires) en
-      // deuxième argument d'`addToCart` — ce serait le retour exact du bug
-      // #5 (`cartPricing.ts:27` multiplie `priceHT * line.qty`, un forfait à
-      // 35 € pour 500 ex afficherait 17 500 €). Seul `1` (un paquet) est
-      // correct ; toute autre valeur, y compris `qty`, est une régression.
-      expect(publicShop).toContain('addToCart(withQty, 1)');
-      expect(publicShop).not.toMatch(/addToCart\(withQty,\s*qty\)/);
+      // QA-M11, forme BCP-11 : le panier ne reçoit jamais `qty` (nombre
+      // d'exemplaires) en deuxième argument d'`addToCart` — ce serait le
+      // retour exact du bug #5 (`cartPricing.ts:27` multiplie
+      // `priceHT * line.qty`, un forfait à 35 € pour 500 ex afficherait
+      // 17 500 €). Seul `ONE_PACK` (garanti par `toPackLine`, prouvé par
+      // cartLine.test.ts T1) est correct.
+      expect(publicShop).toContain('addToCart(line.product, ONE_PACK)');
+      expect(publicShop).not.toMatch(/addToCart\(productConfigured,\s*qty\)/);
+      expect(publicShop).not.toMatch(/addToCart\(line\.product,\s*qty\)/);
 
       // D2 (qa-review round 2, quatrieme porte) : le cablage lui-meme doit
       // passer le gestionnaire TEL QUEL. Sans cette assertion, un point
       // d appel du type onConfirm={(p, q) => handleOverlayConfirm(p, 500)}
       // laisse handleOverlayConfirm intact caractere pour caractere, passe
-      // les trois assertions ci-dessus, et jette pourtant la quantite
-      // choisie par l acheteur : QA-M9 deplace de trois lignes.
+      // les assertions ci-dessus, et jette pourtant la quantite choisie par
+      // l acheteur : QA-M9 deplace de trois lignes.
       expect(publicShop).toContain('onConfirm={handleOverlayConfirm}');
 
       // Verrou de non-contournement : `handleOverlayConfirm` est la SEULE
-      // fonction du fichier à appeler addToCart avec une valeur littérale ET
-      // à construire `withQty` — si un jour un second gestionnaire réécrit la
-      // même règle ailleurs dans ce fichier, ce test ne le verrait plus filer
-      // par ce nom précis, donc autant fixer aussi le nombre d'occurrences.
+      // fonction du fichier à appeler `toPackLine` — si un jour un second
+      // gestionnaire réécrit la même règle ailleurs dans ce fichier (la
+      // troisième copie que BCP-11 ferme dans GammePage.tsx ne doit pas
+      // renaître ici), ce test ne le verrait plus filer par ce nom précis,
+      // donc autant fixer aussi le nombre d'occurrences.
       expect(publicShop.match(/const handleOverlayConfirm = /g)?.length).toBe(1);
+      expect(publicShop.match(/toPackLine\(/g)?.length).toBe(1);
     },
   );
 

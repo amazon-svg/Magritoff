@@ -61,8 +61,15 @@ export interface ShopProductCardProps {
    * En S2.4, ouvrira l'overlay Clariprint.
    */
   onConfigure?: (product: ShopProduct) => void;
-  /** Handler bouton secondaire "Ajouter au panier" rapide. Requis. */
-  onAddToCart: (product: ShopProduct, qty?: number) => void;
+  /**
+   * Handler bouton secondaire "Ajouter au panier" rapide. Requis.
+   *
+   * BCP-11 (docs/api/CONVENTIONS.md §8.25 point 3.6) — ce canal n'a jamais
+   * transporté de quantité réelle (les deux appels ci-dessous passent
+   * toujours le littéral 1) : le paramètre `qty` a été retiré. Un ajout au
+   * panier depuis cette carte ajoute toujours exactement 1 paquet.
+   */
+  onAddToCart: (product: ShopProduct) => void;
   /** Click sur la card en dehors des boutons. Optionnel (retro-compat onSelectProduct). */
   onCardClick?: (product: ShopProduct) => void;
   /** Mode selection multiple (S2.8). Si true, affiche checkbox top-left. */
@@ -324,7 +331,7 @@ export function ShopProductCard({
                 if (onConfigure) {
                   onConfigure(product);
                 } else {
-                  onAddToCart(product, 1);
+                  onAddToCart(product);
                 }
               }}
               className="px-3 py-1.5 bg-ink text-paper rounded-md hover:bg-black transition-all"
@@ -360,7 +367,7 @@ export function ShopProductCard({
               aria-label={`Ajouter ${product.name} au panier`}
               onClick={(e) => {
                 e.stopPropagation();
-                onAddToCart(product, 1);
+                onAddToCart(product);
               }}
               className="px-3 py-1.5 bg-paper border border-line-2 text-ink rounded-md hover:bg-bg transition-all"
               style={{ fontSize: "12.5px", fontWeight: 500 }}

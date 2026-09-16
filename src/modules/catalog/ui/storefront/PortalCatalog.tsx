@@ -48,7 +48,12 @@ interface Props {
   shop: Shop;
   products: ShopProduct[];
   onSelectProduct: (p: ShopProduct) => void;
-  onAddToCart: (p: ShopProduct, qty?: number) => void;
+  /**
+   * BCP-11 (docs/api/CONVENTIONS.md §8.25 point 3.6) — canal quantité retiré :
+   * ce catalogue n'ajoute jamais qu'un produit non configuré, toujours 1
+   * paquet (voir `ShopProductCard`, seul producteur).
+   */
+  onAddToCart: (p: ShopProduct) => void;
   /**
    * BCP-10 (docs/api/CONVENTIONS.md §8.25 point 3.5 (b)) — bouton
    * « Configurer » d'une carte : ouvre la SEULE surcouche `ProductOverlay`,
