@@ -18,10 +18,36 @@
  *     en les mergeant dans le `config` du ShopProduct catalogue courant pour
  *     conserver les choix faits à la commande originale (matière, finition,
  *     etc.) tout en bénéficiant de l'image / prix courants du catalogue.
+ *
+ * BCP-11 (docs/api/CONVENTIONS.md §8.25 point 3.6) — quatrième porte du
+ * panier : `rebuildCartFromOrderItems` ne passe pas par `addToCart`, une
+ * discipline posée uniquement là-bas l'aurait laissée ouverte. Elle passe
+ * donc par le même point unique, `toPackLine` :
+ *   - si `clariprint_options.quantity` est un nombre positif, l'item vient
+ *     d'un produit CONFIGURÉ (forfait pour N exemplaires) : on reconstruit
+ *     via `toPackLine(product, copies(clariprint_options.quantity), packs(qty))`,
+ *     où `qty` (nombre de PAQUETS) vient de `item.quantity`, PRÉSERVÉ —
+ *     jamais figé à 1. Round 1 de ce lot figeait `qty` à `ONE_PACK`
+ *     inconditionnellement (qa-review, défaut 1) : un acheteur qui avait
+ *     commandé 2 paquets à 70 € (le tiroir panier permet de cumuler, voir
+ *     `cartLine.ts`) retrouvait 1 paquet à 35 € après un renouvellement,
+ *     sans avertissement. C'est l'unité qu'il fallait fermer, PAS la valeur
+ *     (cadrage §8.25 point 3.6 (b), conséquence 1) ;
+ *   - sinon, `item.quantity` (`tenant_order_items.quantity`) est un nombre
+ *     de PAQUETS ordinaire (produit non configuré, quantité réellement
+ *     multipliable) : il est préservé tel quel, comme avant ce lot.
+ *   Ce choix est délibéré et n'est PAS une heuristique sur la magnitude de
+ *   `item.quantity` : une commande ancienne fautive où le nombre
+ *   d'exemplaires aurait fuité dans `item.quantity` SANS que
+ *   `clariprint_options.quantity` ne le confirme n'est pas "réparée" à la
+ *   volée — elle est reconstruite telle qu'écrite, quitte à afficher un total
+ *   visiblement faux plutôt que de le corriger en silence (voir CONVENTIONS
+ *   §8.25 point 3.6 (e), tests T6/T7).
  */
 
 import type { ShopProduct } from '@/modules/shops';
 import type { CartLine } from '@/modules/orders/ui/storefront/types';
+import { copies, packLine, packs, toPackLine } from '@/modules/orders/ui/storefront/cartLine';
 
 /**
  * DTO d'un item de commande tel que renvoyé par la query Supabase
@@ -87,19 +113,48 @@ export function rebuildCartFromOrderItems(
       continue;
     }
 
+    // BCP-11 — quatrième porte : un `clariprint_options.quantity` numérique
+    // et positif signale un produit CONFIGURÉ (forfait pour N exemplaires) ;
+    // on passe alors par le point unique `toPackLine`, qui écrit
+    // `config.quantity` et qui reçoit EXPLICITEMENT `packs(qty)` en troisième
+    // argument : `qty` (paquets, ligne 95) N'EST PAS figé à 1, il vient de
+    // `item.quantity`, exactement comme dans la branche non configurée
+    // ci-dessous. Round 1 de ce lot figeait `qty` à `ONE_PACK`
+    // inconditionnellement — régression relevée en qa-review (défaut 1) :
+    // un acheteur ayant commandé 2 paquets à 70 € retrouvait 1 paquet à 35 €
+    // après un renouvellement, sans avertissement. `toPackLine` reste seul
+    // responsable de l'écriture de `config.quantity` — le snapshot
+    // `clariprint_options` NE le fournit PAS pré-mergé (voir `quantity`
+    // exclu ci-dessous), sinon un retrait accidentel de cette écriture dans
+    // `toPackLine` resterait invisible (la valeur "correcte" continuerait de
+    // fuiter par le merge). Sans le signal `clariprint_options.quantity`,
+    // `item.quantity` est un nombre de paquets ordinaire et reste tel quel
+    // (voir le commentaire de tête sur le résidu volontairement non
+    // "réparé").
+    const rawCopyCount = item.clariprint_options?.quantity;
+    const isConfigured =
+      typeof rawCopyCount === 'number' && Number.isFinite(rawCopyCount) && rawCopyCount > 0;
+
     // Merge options Clariprint snapshotées avec config produit catalogue.
     // Les snapshots ont priorité (préservent les choix de la commande originale)
     // mais la config courante reste accessible pour les clés non snapshotées
-    // (ex: image_url, default prix marché).
+    // (ex: image_url, default prix marché). `quantity` est exclu du snapshot
+    // fusionné quand `toPackLine` va de toute façon l'écrire (raison
+    // ci-dessus) : la seule source de `config.quantity` doit être ce point
+    // unique, jamais une fusion antérieure qui porterait accidentellement la
+    // même valeur.
+    const { quantity: _snapshotQuantity, ...clariprintOptionsRest } = item.clariprint_options ?? {};
     const mergedConfig: Record<string, unknown> = {
       ...(product.config ?? {}),
-      ...(item.clariprint_options ?? {}),
+      ...(isConfigured ? clariprintOptionsRest : (item.clariprint_options ?? {})),
     };
+    const productMerged: ShopProduct = { ...product, config: mergedConfig };
 
-    lines.push({
-      product: { ...product, config: mergedConfig },
-      qty,
-    });
+    const line: CartLine = isConfigured
+      ? toPackLine(productMerged, copies(rawCopyCount as number), packs(qty))
+      : packLine(productMerged, packs(qty));
+
+    lines.push(line);
     matched++;
   }
 

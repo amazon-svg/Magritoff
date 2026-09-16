@@ -29,7 +29,14 @@ interface Props {
   products: ShopProduct[];
   onView: (v: PortalView) => void;
   onSelectProduct: (p: ShopProduct) => void;
-  onReorder: (p: ShopProduct) => void;
+  /**
+   * BCP-11 (docs/api/CONVENTIONS.md §8.25 point 3.6 (g)) — renommé depuis
+   * `onReorder`, un nom hérité et trompeur : cette prop n'a jamais eu de lien
+   * avec le renouvellement de commande (`renewOrder`,
+   * `useStorefrontOrderLifecycle.ts`). Elle ajoute un produit de la grille
+   * « Nouveautés » au panier, toujours 1 paquet.
+   */
+  onAddToCart: (p: ShopProduct) => void;
   /** S7.8 — clic tuile famille → page gamme /g/:slug. */
   onOpenGamme: (slug: string) => void;
   /**
@@ -48,7 +55,7 @@ export function PortalHome({
   products,
   onView,
   onSelectProduct,
-  onReorder,
+  onAddToCart,
   onOpenGamme,
   onConfigure,
   pimGammes,
@@ -164,7 +171,7 @@ export function PortalHome({
                 product={p}
                 shop={shop}
                 onConfigure={onConfigure}
-                onAddToCart={onReorder}
+                onAddToCart={onAddToCart}
                 onCardClick={onSelectProduct}
                 pimGammes={pimGammes}
               />

@@ -31,6 +31,7 @@ import { GammeConfigurator } from '@/modules/catalog/ui/storefront/gamme/GammeCo
 import { StickyPriceBar } from '@/modules/catalog/ui/storefront/gamme/StickyPriceBar';
 import { PimEditorial } from '@/modules/catalog/ui/storefront/gamme/PimEditorial';
 import { ShopProductCard } from '@/modules/catalog/ui/storefront/ShopProductCard';
+import { ONE_PACK, copies, toPackLine } from '@/modules/orders/ui/storefront';
 
 export interface GammePageProps {
   shop: Shop;
@@ -39,7 +40,12 @@ export interface GammePageProps {
   products: ShopProduct[];
   pimGammes: Gamme[];
   pimDefinitions: ProductDefinition[];
-  onAddToCart: (product: ShopProduct, qty: number) => void;
+  /**
+   * BCP-11 (docs/api/CONVENTIONS.md §8.25 point 3.6) — canal quantité retiré :
+   * cette page construit elle-même la ligne (1 paquet, exemplaires dans
+   * `config.quantity`) via `toPackLine` avant d'appeler ce callback.
+   */
+  onAddToCart: (product: ShopProduct) => void;
   onGoHome: () => void;
   onGoCatalog: () => void;
   /** S7.4 — navigation vers une autre page gamme (breadcrumb famille). */
@@ -148,17 +154,16 @@ export function GammePage({
   const handleAdd = () => {
     const result = confirm();
     if (!result) return;
-    // S-FIX-PANIER-11/05 (même normalisation que PortalCatalog) : le prix est
+    // BCP-11 (docs/api/CONVENTIONS.md §8.25 point 3.6) — troisième copie
+    // historique de S-FIX-PANIER-11/05, non détectée par BCP-10. Remplacée
+    // par le point unique `toPackLine` (module orders) : le prix est
     // FORFAITAIRE pour le pack configuré → panier qty=1 pack, exemplaires
-    // stockés dans config.quantity (sinon price_ht × qty multiplie par les ex).
-    const withQty = {
-      ...result.productConfigured,
-      config: {
-        ...((result.productConfigured.config as Record<string, unknown>) ?? {}),
-        quantity: result.qty,
-      },
-    } as ShopProduct;
-    onAddToCart(withQty, 1);
+    // typés `CopyCount` puis stockés dans config.quantity. `packCount` est
+    // désormais OBLIGATOIRE (round 3, qa-review) : ce geste d'ajout normal
+    // déclare explicitement `ONE_PACK` au lieu de l'hériter d'une valeur par
+    // défaut.
+    const line = toPackLine(result.productConfigured, copies(result.qty), ONE_PACK);
+    onAddToCart(line.product);
   };
 
   return (
@@ -322,7 +327,7 @@ export function GammePage({
                 pimGammes={pimGammes}
                 onCardClick={onSelectProduct}
                 onConfigure={onConfigure}
-                onAddToCart={(prod, qty) => onAddToCart(prod, qty ?? 1)}
+                onAddToCart={onAddToCart}
               />
             ))}
           </div>
