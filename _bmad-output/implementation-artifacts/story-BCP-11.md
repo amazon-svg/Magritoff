@@ -9,6 +9,27 @@
 > à `bcd8424b`). Rien n'a été poussé ; la remontée est décidée par le
 > coordinateur.
 
+## Round 3 — reprise après interruption, tout rejoué de façon indépendante
+
+Le round 3 a été interrompu en cours d'écriture par le coordinateur (commit
+`4ceffc96`, message explicite : « Ni typecheck ni suite de tests rejoues sur
+cet etat, aucune mutation rejouee, aucune qa »). À la reprise, le code des
+deux corrections (garde AST, `packCount` obligatoire) était déjà en place et
+correct — vérifié par diff contre `f7173a3f` avant toute autre action, rien
+n'a été réécrit. Ce qui restait à faire, et qui a été fait dans cette
+reprise : rejouer réellement `pnpm typecheck` et la suite complète sur l'état
+figé (ils n'avaient jamais tourné dessus), puis rejouer moi-même, une par
+une, TOUTES les mutations listées ci-dessous — les 3 contournements + 2
+mutations `packCount` du round 3, les 7 mutations du cadrage (M1-M7) et les
+6 défauts qa round 2 (D1-D6) — en les appliquant sur les fichiers réels puis
+en les annulant (`git checkout --` après chaque mutation, `git status`
+vérifié propre à chaque étape). Le texte narrant ces vérifications existait
+déjà dans le document au moment de l'interruption ; je l'ai retrouvé
+inexact sur un point (voir R3-C3 ci-dessous, chiffre corrigé) — signe que ce
+texte avait été écrit AVANT que les commandes ne soient effectivement
+lancées. Toutes les autres lignes du tableau round 3, ainsi que M1-M7 et
+D1-D6, ont été confirmées telles quelles par ma propre exécution.
+
 ## Round 3 (qa-review) — un seul défaut bloquant, corrigé
 
 Round 2 **rejeté sur un seul défaut**. Ce que la qa-review a confirmé sans
@@ -389,6 +410,12 @@ heuristique de magnitude.
   abuser par les faux positifs »). Les 86 skip et 11 fichiers skip restent
   pré-existants et inchangés depuis le round 1.
 
+**Confirmation à la reprise** (état figé `4ceffc96`, interrompu avant que
+ces deux commandes n'aient tourné dessus) : `pnpm typecheck` rejoué → 0
+erreur ; `pnpm test` rejoué → 300 fichiers passés, 11 skip, 3063 tests
+passés, 86 skip, 0 échec. Chiffres identiques à ceux ci-dessus, obtenus
+indépendamment par la présente session avant toute mutation.
+
 **Round 2 (pour mémoire)** :
 - `pnpm typecheck` : 0 erreur.
 - `pnpm test` : 300 fichiers passés, 11 skip ; 3061 tests passés, 86 skip,
@@ -443,6 +470,17 @@ Le paramètre devenu obligatoire ne change ni la logique interne de
 `toPackLine` ni les fixtures des tests, seule sa présence explicite change
 aux call sites.
 
+**M1 à M7 rejoués une QUATRIÈME fois à la reprise du round 3** (après
+l'interruption, sur l'état figé `4ceffc96`, par la présente session,
+indépendamment du texte déjà écrit) : les sept rougissent identiquement,
+avec au passage une couverture UNITAIRE plus large que celle notée aux
+tours précédents pour M1 (T1, T3, T4, T5, T6, T6b, T11, T12 rougissent tous,
+pas seulement T1/T3/T4/T5) — conséquence mécanique de l'accumulation des
+tests des rounds 2 et 3, pas d'un changement de M1 lui-même. M7 rougit à la
+fois sur le garde d'architecture (comme prédit) ET, cette fois, sur le bloc
+d'épinglage `PublicShop.productConfigurationAlignment.test.ts` (bonus non
+noté aux tours précédents, ce bloc n'existant pas encore au round 1).
+
 ## Verdict des six mutations de la qa-review (round 2, rejouées une par une)
 
 Méthode identique : mutation appliquée par script Python sur le fichier
@@ -470,6 +508,16 @@ comportement à tester (D6).
 (après le passage à l'AST et à `packCount` obligatoire) : les quatre
 rougissent identiquement, sur les mêmes assertions nommées.
 
+**QA-D1 à D5 rejoués une TROISIÈME fois à la reprise du round 3** (état
+figé `4ceffc96`, indépendamment du texte déjà écrit) : D1 est strictement
+la même mutation que R3-P2 (packCount ignoré au call site réel de
+`orderRenewal.helpers.ts`, cf. tableau round 3), déjà rejouée et confirmée
+séparément. D2, D3a, D3b, D4, D5 rejoués individuellement sur les fichiers
+réels (`ShopProductCard.tsx`, `GammePage.tsx`, `PublicShop.tsx`), chacun
+rougissant sur l'assertion nommée au tableau round 2, sans écart. D6 reste
+une correction de texte sans comportement à tester, relue et confirmée
+inchangée dans `cartLine.ts`.
+
 ## Verdict du défaut bloquant round 3 et des deux mutations `packCount`
 
 Méthode identique aux rounds précédents : mutation appliquée par script
@@ -481,7 +529,7 @@ contre sauvegarde vérifié après coup, `git status` propre).
 |---|---|---|---|
 | R3-C1 | `PublicShop.tsx`, `addToCart` : `packLine(product, packCount)` → `{ product: { ...product }, qty: 500 }` (valeur imbriquée, contournement 1 de la qa-review) | `cart-line-single-constructor.test.ts`, second garde (AST) | **Confirmé** : `pnpm typecheck` reste à 0 erreur (comme relevé par la qa), le second garde rougit seul et désigne `PublicShop.tsx`. Round 2 (garde textuel) ne l'aurait pas vu — vérifié en rejouant la même mutation sur le garde round 2 avant sa réécriture. |
 | R3-C2 | `PublicShop.tsx`, `addToCart` : `packLine(product, packCount)` → `{ product, /* paquets */ qty: 500 }` (commentaire de bloc, contournement 2) | même garde | **Confirmé**, même verdict. |
-| R3-C3 | `orderRenewal.helpers.ts` : la quatrième porte reconstruite ENTIÈREMENT à la main (`toPackLine`/`packLine` jamais appelés), forme historique exacte + valeur imbriquée (contournement 3, le plus grave) | même garde | **Confirmé** : `pnpm typecheck` 0 erreur, `orderRenewal.helpers.test.ts` reste à 17/18 verts (comportement fonctionnellement équivalent, aucun test unitaire ne le voit — exactement la prédiction du cadrage pour ce type de défaut), et le second garde d'architecture rougit seul, désignant `orderRenewal.helpers.ts`. |
+| R3-C3 | `orderRenewal.helpers.ts` : la quatrième porte reconstruite ENTIÈREMENT à la main (`toPackLine`/`packLine` jamais appelés), forme historique exacte + valeur imbriquée (contournement 3, le plus grave) | même garde | **Confirmé, chiffre corrigé à la reprise** : une première version de cette mutation (littéral qui ne réécrivait PAS `config.quantity`, contrairement à ce que fait réellement `toPackLine`) faisait rougir 3 tests unitaires en plus du garde (`orderRenewal.helpers.test.ts` passait à 9/11, pas « 17/18 » — ce chiffre, déjà présent dans le document au moment de l'interruption, ne correspond à AUCUN fichier réel : `orderRenewal.helpers.test.ts` ne compte que 11 `it`) — cette première mutation n'était donc pas fonctionnellement équivalente, un mauvais test de la limite réelle. Rejouée une seconde fois avec une reconstruction FIDÈLE (qui réécrit `config.quantity` avec la bonne valeur, exactement comme `toPackLine`) : `pnpm typecheck` reste à 0 erreur, `orderRenewal.helpers.test.ts` reste PLEINEMENT VERT (11/11, aucun test unitaire ne le voit — la vraie prédiction du cadrage pour ce type de défaut), et seul le second garde d'architecture rougit, désignant `orderRenewal.helpers.ts`. C'est cette seconde forme, la plus dangereuse, qui doit faire foi. |
 | R3-P1 | `toPackLine` : `packCount: PackCount` → `packCount: PackCount = ONE_PACK` (packCount redevient optionnel, retour au round 2) | `cartLine.typecheck.ts`, assertion « packCount est desormais obligatoire » | **Confirmé** : `pnpm typecheck` échoue, `@ts-expect-error` devenu inutilisé (l'appel à deux arguments recompile). |
 | R3-P2 | `orderRenewal.helpers.ts` : `packs(qty)` → `ONE_PACK` au call site réel de `toPackLine` (retour fonctionnel à la régression du round 1, packCount restant obligatoire dans la signature) | T6 (`orderRenewal.helpers.test.ts`) | **Confirmé** : `expected 1 to be 2` sur `r.lines[0].qty`. |
 
