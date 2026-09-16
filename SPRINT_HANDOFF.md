@@ -1334,7 +1334,7 @@ Claude doit alors :
 
 **Erreur du PV du 15/09 corrigée** : le « 172,00 € » face à un sous-total de 60,00 € n'était pas une anomalie, mais la quantité « 1 » collée au montant « 72,00 € » dans le texte extrait.
 
-### BCP-11 — la regle du paquet ramenee a un domicile unique (2026-09-16, EN COURS)
+### BCP-11 — la regle du paquet ramenee a un domicile unique (2026-09-16, FUSIONNE)
 
 **Decision d'Arnaud** : « on regle maintenant ». **Cadre par l'architecte** (§8.25 point 3.6, commit `bcd8424b`). **Non pousse, non fusionne** : worktree isole `.claude/worktrees/bcp-11`, branche `feat/bcp-11-regle-du-paquet`.
 
@@ -1351,3 +1351,15 @@ Claude doit alors :
 **Round 3 demande** : garde 2 passe a l'AST (`typescript@5.9.3` deja en dependance), sanity check prouvant les trois contournements ; et `packCount` rendu **obligatoire** dans `toPackLine` (tranche par le coordinateur : une valeur par defaut egale a celle qui a produit la regression est la figure que le point 3.6 (d) rejette).
 
 **Q14 — ajout direct au panier conditionne** (§8.25 point 3.7, meme commit). Arbitrage d'Arnaud, verbatim : « dans la mesure ou le produit comporte les caracteristiques ayant permis de le chiffrer il peut etre mis au panier tel quel, sinon il faut le configurer ». Decoupage prescrit : **Q14-a** (prix issu d'un chiffrage imprimeur) faisable maintenant, **Q14-b** (configuration chiffrable) apres BCP-2, donc apres la campagne. **Deux arbitrages en attente d'Arnaud** : bouton masque (tranche par l'architecte, precedent Q3) ou grise ; et sequence avec la correction des 23 produits ERAM a 0,00 EUR, faute de quoi « + Panier » disparait de 23 cartes sur 30.
+
+**Round 3 et cloture de BCP-11.** Le round 3 (`4ceffc96` interrompu par une panne reseau, complete par `c171a75f`) a passe le garde d architecture a l **AST TypeScript** et rendu `packCount` **obligatoire**. Interruption instructive : le code y etait deja ecrit et correct, mais **le story doc portait un verdict de mutation fabrique** (« 17/18 verts » sur un fichier qui compte 11 tests), redige avant l execution des commandes — trouve et corrige par l auteur lui-meme a la reprise, et signale a la qa comme motif de defiance sur tout le reste du document.
+
+**Approuve au round 3.** La qa a prouve elle-meme la propriete decisive : la quatrieme porte **reconstruite fidelement a la main** (qui reecrit `config.quantity` comme le fait `toPackLine`) laisse `orderRenewal.helpers.test.ts` **pleinement vert** — seul le garde AST la voit. Les trois faux positifs de la version textuelle ont disparu gratuitement.
+
+**Trois durcissements du coordinateur avant fusion** (`4ead9e3f`), dont deux recommandes par la qa et un qu il a trouve en les appliquant : cle calculee fermee dans le garde (prouvee par mutation : le garde rougit seul) ; `packCount` rendu obligatoire aussi sur `packLine` (prouve : `TS2554` nomme) ; et **un TROISIEME commentaire faux** — le docblock de `toPackLine` decrivait encore un parametre optionnel qui ne l etait plus, dans le fichier ecrit pour reparer cette faute precise, non vu par l auteur ni par la qa.
+
+**Fusionne** (`1669ef62`). Gates sur la branche : typecheck 0 erreur, **3 109 tests passes, 0 echec**. **Non pousse.**
+
+**Limites ecrites, dans le code et dans le story doc** : une erreur de VALEUR reste possible (`copies(1)` au lieu de `copies(500)` compile) ; une `CartLine` assemblee en plusieurs instructions echappe au garde ; `CartContext.tsx` est un second panier independant, hors perimetre.
+
+**Donnees ERAM, geste d Arnaud du 2026-09-16** : sur sa decision (« exclure »), les **23 produits sans prix** ont ete retires de la boutique par `shops.excluded_product_ids` — **aucune suppression**, le catalogue de bibliotheque partage est intact, l etat avant est sauvegarde. La boutique affiche desormais **7 produits, tous chiffres**. Trois points a connaitre : **« Flyers A5 recto-verso » est parmi les exclus** alors que c est le produit du parcours de recette et de la campagne (a reintegrer ou a tarifer avant le smoke de cloture) ; les 7 restants comportent des doublons de demonstration ; et **« Affiches A1 offset » est a 17 500 EUR**, montant a verifier.
