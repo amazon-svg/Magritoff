@@ -38,7 +38,7 @@ describe('cartLine — toPackLine (BCP-11)', () => {
     const product = forfaitProduct({
       config: { clariprintData: { format: 'A5' }, quantity: 100 },
     });
-    const line = toPackLine(product, copies(500));
+    const line = toPackLine(product, copies(500), ONE_PACK);
     expect(line.qty).toBe(1);
     expect((line.product.config as any).quantity).toBe(500);
   });
@@ -48,25 +48,25 @@ describe('cartLine — toPackLine (BCP-11)', () => {
     const product = forfaitProduct({
       config: { clariprintData: { format: 'A5' }, clariprintQuote: quote },
     });
-    const line = toPackLine(product, copies(500));
+    const line = toPackLine(product, copies(500), ONE_PACK);
     expect((line.product.config as any).clariprintData).toEqual({ format: 'A5' });
     expect((line.product.config as any).clariprintQuote).toBe(quote);
     expect((line.product.config as any).quantity).toBe(500);
   });
 
   it('T3 — le test des 17 500 euros : un forfait a 35 euros pour 500 exemplaires facture 35 euros, pas 17500', () => {
-    const line = toPackLine(forfaitProduct({ price_ht: 35 }), copies(500));
+    const line = toPackLine(forfaitProduct({ price_ht: 35 }), copies(500), ONE_PACK);
     expect(resolveCartLinePricing(line).lineTotalHt).toBe(35);
   });
 
   it('T4 — le total du panier est la somme des forfaits, pas seulement une ligne', () => {
-    const lineA = toPackLine(forfaitProduct({ id: 'prod-a', price_ht: 35 }), copies(500));
-    const lineB = toPackLine(forfaitProduct({ id: 'prod-b', price_ht: 60 }), copies(1000));
+    const lineA = toPackLine(forfaitProduct({ id: 'prod-a', price_ht: 35 }), copies(500), ONE_PACK);
+    const lineB = toPackLine(forfaitProduct({ id: 'prod-b', price_ht: 60 }), copies(1000), ONE_PACK);
     expect(computePortalCartTotalHt([lineA, lineB])).toBe(95);
   });
 
   it('T5 — les paquets s ajoutent toujours : meme produit ajoute deux fois = qty 2, total 70', () => {
-    const line = toPackLine(forfaitProduct({ price_ht: 35 }), copies(500));
+    const line = toPackLine(forfaitProduct({ price_ht: 35 }), copies(500), ONE_PACK);
     // Simule le merge d une ligne existante dans le panier (PublicShop.addToCart) :
     // qty reste un number ordinaire, incrementable — ce n est PAS fige a 1.
     const addedTwice: CartLine = { ...line, qty: line.qty + ONE_PACK };
@@ -87,8 +87,16 @@ describe('cartLine — toPackLine (BCP-11)', () => {
     expect(resolveCartLinePricing(line).lineTotalHt).toBe(70);
   });
 
-  it('T12 — sans packCount explicite, toPackLine garde le defaut ONE_PACK (geste normal d ajout)', () => {
-    const line = toPackLine(forfaitProduct({ price_ht: 35 }), copies(500));
+  it('T12 (BCP-11 round 3, deuxieme correction) — packCount est obligatoire : ONE_PACK explicite pour le geste normal d ajout', () => {
+    // Round 2 rendait packCount optionnel (defaut ONE_PACK) : la qa-review a
+    // juge cette forme equivalente au helper partage ecarte au cadrage
+    // (point 3.6 (d)) - un parametre qu on peut omettre est une convention,
+    // pas une garantie, et sa valeur par defaut etait EXACTEMENT celle qui a
+    // produit la regression du round 1. Round 3 : packCount n a plus de
+    // valeur par defaut (verifie aussi par cartLine.typecheck.ts, un appel a
+    // deux arguments ne compile plus). Ici, le geste normal d ajout continue
+    // de fonctionner en declarant ONE_PACK explicitement.
+    const line = toPackLine(forfaitProduct({ price_ht: 35 }), copies(500), ONE_PACK);
     expect(line.qty).toBe(1);
   });
 });

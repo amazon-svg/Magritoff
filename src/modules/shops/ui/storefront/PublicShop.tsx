@@ -243,11 +243,14 @@ export function PublicShop() {
   const [overlayProduct, setOverlayProduct] = useState<ShopProduct | null>(null);
   const onConfigure = (product: ShopProduct) => setOverlayProduct(product);
   const handleOverlayConfirm = (productConfigured: ShopProduct, qty: number) => {
-    // `line.qty` est un `number` ordinaire (CartLine.qty n'est pas typé
-    // PackCount, décision de l'architecte) : on repasse par `ONE_PACK`
-    // directement plutôt que par `line.qty`, pour que `addToCart` continue
-    // de rejeter tout ce qui n'est pas explicitement un `PackCount` (T8).
-    const line = toPackLine(productConfigured, copies(qty));
+    // `packCount` est désormais OBLIGATOIRE dans `toPackLine` (round 3,
+    // qa-review) : ce geste d'ajout normal déclare explicitement `ONE_PACK`
+    // au lieu de l'hériter d'une valeur par défaut. `line.qty` est un
+    // `number` ordinaire (CartLine.qty n'est pas typé PackCount, décision de
+    // l'architecte) : on repasse par `ONE_PACK` directement plutôt que par
+    // `line.qty`, pour que `addToCart` continue de rejeter tout ce qui n'est
+    // pas explicitement un `PackCount` (T8).
+    const line = toPackLine(productConfigured, copies(qty), ONE_PACK);
     addToCart(line.product, ONE_PACK);
     setOverlayProduct(null);
   };

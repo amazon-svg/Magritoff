@@ -31,7 +31,7 @@ import { GammeConfigurator } from '@/modules/catalog/ui/storefront/gamme/GammeCo
 import { StickyPriceBar } from '@/modules/catalog/ui/storefront/gamme/StickyPriceBar';
 import { PimEditorial } from '@/modules/catalog/ui/storefront/gamme/PimEditorial';
 import { ShopProductCard } from '@/modules/catalog/ui/storefront/ShopProductCard';
-import { copies, toPackLine } from '@/modules/orders/ui/storefront';
+import { ONE_PACK, copies, toPackLine } from '@/modules/orders/ui/storefront';
 
 export interface GammePageProps {
   shop: Shop;
@@ -158,8 +158,11 @@ export function GammePage({
     // historique de S-FIX-PANIER-11/05, non détectée par BCP-10. Remplacée
     // par le point unique `toPackLine` (module orders) : le prix est
     // FORFAITAIRE pour le pack configuré → panier qty=1 pack, exemplaires
-    // typés `CopyCount` puis stockés dans config.quantity.
-    const line = toPackLine(result.productConfigured, copies(result.qty));
+    // typés `CopyCount` puis stockés dans config.quantity. `packCount` est
+    // désormais OBLIGATOIRE (round 3, qa-review) : ce geste d'ajout normal
+    // déclare explicitement `ONE_PACK` au lieu de l'hériter d'une valeur par
+    // défaut.
+    const line = toPackLine(result.productConfigured, copies(result.qty), ONE_PACK);
     onAddToCart(line.product);
   };
 

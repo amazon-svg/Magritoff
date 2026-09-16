@@ -112,8 +112,11 @@ describe('BCP-10 — la fiche produit ne configure, ne chiffre et n ajoute plus 
       // `ProductOverlay.onConfirm`), pas une quantité déjà stockée sur le
       // produit — sinon la commande repart avec l'ancienne quantité,
       // silencieusement. `copies(qty)` est la SEULE conversion possible :
-      // un nombre nu ne compile plus (cartLine.typecheck.ts, T8/T9).
-      expect(publicShop).toContain('toPackLine(productConfigured, copies(qty))');
+      // un nombre nu ne compile plus (cartLine.typecheck.ts, T8/T9). Round 3
+      // (qa-review, deuxième correction) : `packCount` est désormais
+      // OBLIGATOIRE dans `toPackLine`, ce geste normal déclare `ONE_PACK`
+      // explicitement en troisième argument.
+      expect(publicShop).toContain('toPackLine(productConfigured, copies(qty), ONE_PACK)');
 
       // QA-M11, forme BCP-11 : le panier ne reçoit jamais `qty` (nombre
       // d'exemplaires) en deuxième argument d'`addToCart` — ce serait le
@@ -165,9 +168,12 @@ describe('BCP-10 — la fiche produit ne configure, ne chiffre et n ajoute plus 
       // 3.6 (d)) — un site qui passerait `copies(1)` au lieu de
       // `copies(result.qty)` compilerait toujours, puisque `CopyCount` est
       // un `number` marqué, pas une valeur vérifiée. Seule une assertion
-      // texte peut le voir ici (le compilateur ne peut pas).
-      expect(gamme).toContain('toPackLine(result.productConfigured, copies(result.qty))');
-      expect(gamme).not.toMatch(/toPackLine\(result\.productConfigured,\s*copies\(1\)\)/);
+      // texte peut le voir ici (le compilateur ne peut pas). Round 3
+      // (qa-review, deuxième correction) : `packCount` est désormais
+      // OBLIGATOIRE dans `toPackLine`, ce geste normal déclare `ONE_PACK`
+      // explicitement en troisième argument.
+      expect(gamme).toContain('toPackLine(result.productConfigured, copies(result.qty), ONE_PACK)');
+      expect(gamme).not.toMatch(/toPackLine\(result\.productConfigured,\s*copies\(1\)/);
 
       // Verrou de non-contournement, même logique que pour PublicShop.
       expect(gamme.match(/const handleAdd = /g)?.length).toBe(1);

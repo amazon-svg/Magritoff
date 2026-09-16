@@ -9,6 +9,78 @@
 > à `bcd8424b`). Rien n'a été poussé ; la remontée est décidée par le
 > coordinateur.
 
+## Round 3 (qa-review) — un seul défaut bloquant, corrigé
+
+Round 2 **rejeté sur un seul défaut**. Ce que la qa-review a confirmé sans
+réserve du round 2 : la régression du renouvellement réparée ET épinglée
+(T6 rougit) ; `GammePage` couvert, ses deux mutations meurent ; T8 et T10
+avec de vraies dents ; les sept mutations du cadrage rougissant plus
+largement qu'au round 1 ; cinq des six mutations qa round 1 mortes ;
+1 assertion retirée contre 21 ajoutées, aucun test affaibli ni désactivé,
+skips inchangés ; frontières BCP-2/4/8 et Q14 tenues ; aucune cinquième
+porte ; `pnpm typecheck` 0 erreur, 3061 tests passés, 0 échec.
+
+**Défaut bloquant — le second garde d'architecture (round 2) se contournait
+par la mise en forme, et son commentaire l'affirmait plus large qu'il n'était
+réellement.** `cartLine.ts` promettait de détecter « un objet littéral qui
+porte à la fois une clé `product` et une clé `qty`, peu importe l'ordre ou la
+forme » ; la limite déclarée ne couvrait qu'une `CartLine` assemblée en
+PLUSIEURS instructions. Trois contournements EN UN SEUL LITTÉRAL,
+non couverts par cette limite, passaient `pnpm typecheck` et 3061 tests :
+
+1. `{ product: { ...product }, qty: 500 }` — une valeur imbriquée. Le motif
+   round 2 (`src.match(/\{[^{}]*\}/g)`) exclut par construction tout bloc
+   contenant une accolade imbriquée : le littéral entier échappait donc au
+   motif, pas seulement sa valeur.
+2. `{ product, /* paquets */ qty: 500 }` — un commentaire de bloc entre la
+   virgule et la clé. `memberKey()` round 2 rendait littéralement
+   `"/* paquets */ qty"` au lieu de `"qty"` dès qu'un commentaire précédait
+   la clé — jamais égal à `"qty"`, donc jamais détecté.
+3. **Le cas grave** : la quatrième porte (`orderRenewal.helpers.ts`)
+   reconstruite ENTIÈREMENT à la main — `toPackLine`/`packLine` jamais
+   appelés — `lines.push({ product: { ...product, config: lineConfig },
+   qty })`, la forme historique exacte d'avant ce lot (`bcd8424b`). Le
+   domicile unique pouvait donc être vidé de sa substance sur la porte même
+   qui a justifié le round 2, sans qu'aucun des deux gardes ne le voie.
+
+**Corrigé par la première voie demandée (pas la reformulation du
+commentaire)** : le second garde parcourt désormais le véritable AST
+TypeScript (`ts.createSourceFile` + `ts.isObjectLiteralExpression`,
+`typescript@5.9.3` déjà présent en devDependency) au lieu d'une découpe
+textuelle par profondeur de parenthèses. Une quinzaine de lignes utiles
+(`objectLiteralPropertyKey` + `countHandBuiltCartLineLiterals`), voir
+`tests/architecture/cart-line-single-constructor.test.ts`. **Bénéfice
+collatéral confirmé** : les trois faux positifs round 2 (déclaration du type
+`CartLine` dans `types.ts`, paramètre `qty` d'une signature de fonction
+imbriquée dans `ProductOverlay.tsx`, argument d'appel imbriqué `product`
+dans `useProductConfigurator.ts`) disparaissent sans code de découpe
+maison — un AST distingue nativement une clé de propriété d'un argument
+d'appel ou d'un membre d'interface, aucun des trois ne peut plus être
+confondu avec une clé `product`/`qty` d'un littéral d'objet. Le sanity check
+du test prouve maintenant les trois formes de contournement (pas seulement
+la preuve du round 2) comme cas positifs attendus, et les trois faux
+positifs comme cas négatifs attendus.
+
+**Deuxième correction, tranchée par le coordinateur (la qa ne bloquait pas
+dessus)** : `packCount` est désormais **OBLIGATOIRE** dans `toPackLine` (plus
+de `= ONE_PACK`). Motif retenu, celui du cadrage lui-même (point 3.6 (d)) :
+« un helper qu'on peut décliner est une convention, pas une garantie » — un
+paramètre optionnel dont la valeur par défaut est EXACTEMENT celle qui a
+produit la régression du round 1 est la même figure. Coût réel : deux
+`ONE_PACK` explicites, dans `PublicShop.handleOverlayConfirm` et
+`GammePage.handleAdd`, qui déclarent leur intention au lieu de l'hériter.
+
+**Fichiers touchés en round 3**, en plus de ceux des rounds précédents :
+`cartLine.ts` (`packCount` obligatoire, docblocks réécrits), `cartLine.typecheck.ts`
+(assertions étendues au paramètre obligatoire), `PublicShop.tsx`,
+`GammePage.tsx` (les deux appels à `toPackLine` déclarent `ONE_PACK`
+explicitement, import mis à jour pour `GammePage.tsx`),
+`cart-line-single-constructor.test.ts` (second garde réécrit en AST, 3 tests
+positifs et 1 test de non-faux-positifs ajoutés), `cartLine.test.ts` (tous
+les appels à `toPackLine` mis à jour, T12 repensé pour la forme obligatoire),
+`PublicShop.productConfigurationAlignment.test.ts` (2 assertions `toContain`
+mises à jour pour le troisième argument).
+
 ## Round 2 (qa-review) — rejeté round 1, six défauts, tous corrigés
 
 Le round 1 a été **rejeté** par une qa-review adversariale distincte. Ce que
@@ -307,15 +379,22 @@ heuristique de magnitude.
 
 ## Tests exécutés et résultat
 
-**Round 2 (état final)** :
+**Round 3 (état final)** :
 - `pnpm typecheck` (= `pnpm run typecheck:modular` = `tsc --noEmit -p tsconfig.modular.json`,
   strict, script canonique du dépôt) : **0 erreur**.
 - `pnpm test` (vitest, suite complète) : **300 fichiers passés, 11 skip ;
-  3061 tests passés, 86 skip, 0 échec.** (round 1 : 3054 — +7 tests round 2 :
-  T6b, T11, T12, et 4 nouvelles assertions dans le bloc GammePage/défaut 3 et
-  le second garde d'architecture, comptées comme sous-assertions des `it`
-  existants sauf T6b/T11/T12 qui sont de nouveaux `it`). Les 86 skip et 11
-  fichiers skip restent pré-existants et inchangés.
+  3063 tests passés, 86 skip, 0 échec.** (round 2 : 3061 — +2 tests round 3 :
+  les deux nouveaux `it` du garde d'architecture AST — « les trois
+  contournements... sont détectés » et « le garde AST ne se laisse pas
+  abuser par les faux positifs »). Les 86 skip et 11 fichiers skip restent
+  pré-existants et inchangés depuis le round 1.
+
+**Round 2 (pour mémoire)** :
+- `pnpm typecheck` : 0 erreur.
+- `pnpm test` : 300 fichiers passés, 11 skip ; 3061 tests passés, 86 skip,
+  0 échec (round 1 : 3054 — +7 tests round 2 : T6b, T11, T12, et 4 nouvelles
+  assertions dans le bloc GammePage/défaut 3 et le second garde
+  d'architecture).
 
 **Round 1 (pour mémoire, confirmé par la qa-review sans réserve)** :
 - `pnpm run typecheck:all` (script non canonique, `tests/**` inclus en
@@ -358,6 +437,12 @@ comme au round 1, avec en plus T6/T6b/T11/T12 (nouveaux tests round 2) qui
 rougissent aussi sous M1 et M2 — la couverture s'est renforcée, pas
 affaiblie.
 
+**M1 à M7 rejoués une TROISIÈME fois contre le code round 3** (après le
+passage de `packCount` à obligatoire) : les sept rougissent identiquement.
+Le paramètre devenu obligatoire ne change ni la logique interne de
+`toPackLine` ni les fixtures des tests, seule sa présence explicite change
+aux call sites.
+
 ## Verdict des six mutations de la qa-review (round 2, rejouées une par une)
 
 Méthode identique : mutation appliquée par script Python sur le fichier
@@ -381,6 +466,30 @@ sur le code d'avant la correction (D1 à D4), soit vérifiés par sanity-check
 symétrique au round 1 (D5), soit une correction purement documentaire sans
 comportement à tester (D6).
 
+**QA-D2, D3a, D3b, D4 rejoués une seconde fois contre le code round 3**
+(après le passage à l'AST et à `packCount` obligatoire) : les quatre
+rougissent identiquement, sur les mêmes assertions nommées.
+
+## Verdict du défaut bloquant round 3 et des deux mutations `packCount`
+
+Méthode identique aux rounds précédents : mutation appliquée par script
+Python sur une copie du fichier réel (pas seulement une chaîne de test),
+suite ciblée relancée, verdict noté, fichier restauré à l'identique (`diff`
+contre sauvegarde vérifié après coup, `git status` propre).
+
+| # | Mutation | Assertion qui doit rougir | Verdict observé |
+|---|---|---|---|
+| R3-C1 | `PublicShop.tsx`, `addToCart` : `packLine(product, packCount)` → `{ product: { ...product }, qty: 500 }` (valeur imbriquée, contournement 1 de la qa-review) | `cart-line-single-constructor.test.ts`, second garde (AST) | **Confirmé** : `pnpm typecheck` reste à 0 erreur (comme relevé par la qa), le second garde rougit seul et désigne `PublicShop.tsx`. Round 2 (garde textuel) ne l'aurait pas vu — vérifié en rejouant la même mutation sur le garde round 2 avant sa réécriture. |
+| R3-C2 | `PublicShop.tsx`, `addToCart` : `packLine(product, packCount)` → `{ product, /* paquets */ qty: 500 }` (commentaire de bloc, contournement 2) | même garde | **Confirmé**, même verdict. |
+| R3-C3 | `orderRenewal.helpers.ts` : la quatrième porte reconstruite ENTIÈREMENT à la main (`toPackLine`/`packLine` jamais appelés), forme historique exacte + valeur imbriquée (contournement 3, le plus grave) | même garde | **Confirmé** : `pnpm typecheck` 0 erreur, `orderRenewal.helpers.test.ts` reste à 17/18 verts (comportement fonctionnellement équivalent, aucun test unitaire ne le voit — exactement la prédiction du cadrage pour ce type de défaut), et le second garde d'architecture rougit seul, désignant `orderRenewal.helpers.ts`. |
+| R3-P1 | `toPackLine` : `packCount: PackCount` → `packCount: PackCount = ONE_PACK` (packCount redevient optionnel, retour au round 2) | `cartLine.typecheck.ts`, assertion « packCount est desormais obligatoire » | **Confirmé** : `pnpm typecheck` échoue, `@ts-expect-error` devenu inutilisé (l'appel à deux arguments recompile). |
+| R3-P2 | `orderRenewal.helpers.ts` : `packs(qty)` → `ONE_PACK` au call site réel de `toPackLine` (retour fonctionnel à la régression du round 1, packCount restant obligatoire dans la signature) | T6 (`orderRenewal.helpers.test.ts`) | **Confirmé** : `expected 1 to be 2` sur `r.lines[0].qty`. |
+
+Les trois contournements de la qa-review (R3-C1 à R3-C3) ont été rejoués
+contre les FICHIERS RÉELS (`PublicShop.tsx`, `orderRenewal.helpers.ts`), pas
+seulement contre des chaînes synthétiques dans le test — la preuve porte
+donc sur le même terrain que celui d'où la qa-review l'a tirée.
+
 ## Ce que je n'ai pas fait
 
 - Pas touché à `useProductConfigurator.ts` (frontière BCP-2).
@@ -394,49 +503,87 @@ comportement à tester (D6).
 - N'ai rien poussé ni committé — la remontée est décidée par le coordinateur
   (consigne #8 de la tâche).
 
-## Limite du garde textuel — à dire, pas à corriger
+## Limite des deux gardes — à dire, pas à corriger
 
-Les deux gardes de `tests/architecture/cart-line-single-constructor.test.ts`
-(la règle du paquet réécrite en toutes lettres, et une `CartLine` construite
-à la main) sont des tests TEXTUELS, pas un contrôle du compilateur ni un
-contrôle sémantique. **Le domicile unique couvre le copier-coller de la
-règle, pas sa réécriture délibérée sous une autre forme.** Un exemple concret
-qui leur échapperait : `const nextConfig = { ...base }; nextConfig.quantity
-= result.qty; const line: CartLine = { ...{} as CartLine }; line.product =
-result.productConfigured; line.qty = 1;` (assemblage en plusieurs
-instructions plutôt qu'un littéral unique, mutation de propriété plutôt que
-spread) — ni la forme `config: { ...spread, quantity }` ni la forme `{
-product, qty }` n'y apparaissent littéralement, alors que le résultat est
-exactement la même duplication de règle que ce lot ferme. C'est le compromis
-explicitement accepté au cadrage (§8.25 point 3.6 (e)) et documenté dans
-`cartLine.ts` lui-même : un garde textuel prouve l'absence du copier-coller
-connu, pas l'absence de toute réécriture possible de la même règle.
+Depuis le round 3, les deux gardes de
+`tests/architecture/cart-line-single-constructor.test.ts` n'ont plus la même
+nature, et donc plus la même limite.
+
+**Garde 1 (règle du paquet réécrite en toutes lettres, `config: { ...spread,
+quantity }`) reste TEXTUEL.** Une réécriture qui l'évite — par exemple
+`const nextConfig = { ...base }; nextConfig.quantity = result.qty;` — lui
+échappe encore, qu'elle soit ensuite assemblée en un littéral `CartLine`
+unique ou en plusieurs instructions.
+
+**Garde 2 (`CartLine` construite à la main) est désormais un AST**
+(`ts.isObjectLiteralExpression`). Il détecte tout littéral d'objet UNIQUE
+portant les deux clés `product` et `qty`, quelle que soit sa mise en forme —
+indentation, commentaires, guillemets de clé, valeur imbriquée — puisque
+l'AST est construit sur la grammaire réelle du langage, pas sur une
+approximation textuelle. Sa limite restante est structurelle, pas
+cosmétique : une construction RÉPARTIE SUR PLUSIEURS INSTRUCTIONS
+(`const line = {} as CartLine; line.product = result.productConfigured;
+line.qty = 1;` — ou l'exemple ci-dessus mené jusqu'au bout, avec un objet
+assemblé par affectations plutôt que par un littéral) n'est pas un
+`ObjectLiteralExpression` portant les deux clés, et n'est donc pas détectée.
+
+**Le domicile unique couvre donc le copier-coller de la règle sous une forme
+syntaxiquement reconnaissable — un littéral d'objet, quelle que soit sa mise
+en forme — pas toute réécriture imaginable de la même règle.** C'est le
+compromis explicitement accepté au cadrage (§8.25 point 3.6 (e)) et
+documenté dans `cartLine.ts` lui-même : un garde qui ne rougit pas sur la
+faute qu'il prétend interdire ne vaut pas la ligne qu'il occupe — ce qui
+vaut d'autant plus pour ce qu'un garde ne prétend PAS interdire, et qui doit
+être nommé, pas caché derrière un commentaire optimiste. C'est exactement la
+correction apportée ce round : le garde 2 ne prétend plus couvrir moins
+qu'il ne couvre (round 1 : le commentaire affirmait une couverture absente),
+ni plus qu'il ne couvre (round 2 : la limite déclarée ne couvrait pas les
+trois contournements trouvés) — la limite ci-dessus est la limite réelle,
+vérifiée par les tests de contournement du round 3.
 
 ## Pour la qa-review
 
 Points à rejouer en priorité, dans l'ordre où je m'attendrais à ce qu'une
 lecture adversariale les trouve :
-1. La limite du garde textuel ci-dessus — vérifier qu'elle n'est pas
-   invoquée comme prétexte pour ne pas étendre un garde qui POURRAIT
-   raisonnablement couvrir un contournement donné (c'est exactement ce que
-   le round 1 a raté au défaut 4 : le commentaire affirmait une couverture
-   que le garde n'avait pas, alors qu'il pouvait raisonnablement l'avoir).
-2. Le second constructeur `packLine()` (dérogation R5, motif re-writé au
-   round 2) — vérifier qu'il ne réintroduit pas de canal caché, et que son
-   motif (rendre le second garde d'architecture vérifiable) tient
-   effectivement au vu du code actuel.
-3. L'inférence `isConfigured` dans `orderRenewal.helpers.ts` (un
+1. La limite RÉELLE du garde 2 (AST) ci-dessus — la construction répartie
+   sur plusieurs instructions. Vérifier qu'elle n'est pas invoquée comme
+   prétexte pour ne pas durcir un garde qui POURRAIT raisonnablement couvrir
+   un contournement donné (c'est exactement le défaut qui a fait rejeter les
+   rounds 1 et 2 sur cette même phrase : une propriété que seul un
+   commentaire affirme n'est pas une propriété). Si une construction
+   répartie sur plusieurs instructions s'avère réaliste dans ce code (pas
+   seulement un exercice de style), le signaler plutôt que le documenter
+   comme limite acceptée.
+2. Essayer de contourner le garde AST lui-même autrement que par les trois
+   formes déjà couvertes — par exemple une clé calculée
+   (`{ [productKey]: p, qty }`), une clé Symbol, ou une fonction usine qui
+   retourne l'objet littéral depuis un site indirect (le garde suit l'AST du
+   FICHIER, pas les flux de données inter-fichiers).
+3. Le second constructeur `packLine()` (dérogation R5, motif re-motivé deux
+   fois : round 2 pour rendre le garde 2 vérifiable, implicitement reconfirmé
+   round 3 puisque le garde 2 existe toujours et couvre maintenant
+   réellement `packLine`/`toPackLine` comme les deux seuls points
+   légitimes) — vérifier qu'il ne réintroduit pas de canal caché.
+4. `packLine()` lui-même garde un `packCount: PackCount = ONE_PACK`
+   optionnel (contrairement à `toPackLine`, rendu obligatoire ce round) —
+   décision assumée de ne pas étendre au-delà de ce que le coordinateur a
+   explicitement demandé, documentée comme telle. Vérifier si cette
+   distinction est défendable ou si `packLine` mérite le même traitement (le
+   defaut n'est actuellement invoqué nulle part dans le code réel, tous les
+   appels passent `packCount` explicitement).
+5. L'inférence `isConfigured` dans `orderRenewal.helpers.ts` (un
    `clariprint_options.quantity` numérique positif) — vérifier qu'elle ne se
    déclenche pas de façon dommageable sur une ligne non configurée qui
    porterait par ailleurs un `config.quantity` de catalogue (le round 2
    corrige le SEUL dommage identifié — `qty` figé à 1 — mais l'inférence
    elle-même reste une heuristique sur la forme des données).
-4. Le comportement de M4 (round 1) sur T8/T10 (résultat partiel, expliqué
+6. Le comportement de M4 (round 1) sur T8/T10 (résultat partiel, expliqué
    dans le tableau M1-M7) — vérifier que l'exigence réelle (`pnpm typecheck`
    échoue) est bien ce qui compte, et pas la correspondance littérale à
    trois noms de test.
-5. Rejouer les 7 mutations du cadrage (M1-M7) ET les 6 défauts round 2
-   soi-même (scripts non conservés dans le dépôt — appliqués puis annulés à
-   chaque fois ; à refaire à la main ou via un script équivalent, la
-   démarche et le verdict de chacune sont décrits ligne par ligne
-   ci-dessus).
+7. Rejouer les 7 mutations du cadrage (M1-M7), les 6 défauts round 2 et les
+   3 contournements + 2 mutations `packCount` du round 3 soi-même (scripts
+   non conservés dans le dépôt — appliqués puis annulés à chaque fois, sur
+   les FICHIERS RÉELS pour les contournements round 3 ; à refaire à la main
+   ou via un script équivalent, la démarche et le verdict de chacune sont
+   décrits ligne par ligne ci-dessus).
