@@ -74,6 +74,53 @@ describe('BCP-10 — la fiche produit ne configure, ne chiffre et n ajoute plus 
     expect(catalog).not.toMatch(/setOverlayProduct/);
   });
 
+  it(
+    "handleOverlayConfirm applique la règle du paquet EXACTEMENT " +
+      '(qa-review round 2, QA-M9 / QA-M11) : quantité stockée dans config, ' +
+      "1 paquet ajouté au panier — jamais qty tel quel",
+    () => {
+      const publicShop = read('src/modules/shops/ui/storefront/PublicShop.tsx');
+
+      // QA-M9 : le snapshot doit stocker LA QUANTITÉ CHOISIE dans l'overlay
+      // (`qty`), pas la quantité déjà stockée sur le produit — sinon la
+      // commande repart avec l'ancienne quantité, silencieusement.
+      expect(publicShop).toContain(
+        'config: { ...(productConfigured.config ?? {}), quantity: qty }',
+      );
+
+      // QA-M11 : le panier ne reçoit jamais `qty` (nombre d'exemplaires) en
+      // deuxième argument d'`addToCart` — ce serait le retour exact du bug
+      // #5 (`cartPricing.ts:27` multiplie `priceHT * line.qty`, un forfait à
+      // 35 € pour 500 ex afficherait 17 500 €). Seul `1` (un paquet) est
+      // correct ; toute autre valeur, y compris `qty`, est une régression.
+      expect(publicShop).toContain('addToCart(withQty, 1)');
+      expect(publicShop).not.toMatch(/addToCart\(withQty,\s*qty\)/);
+
+      // Verrou de non-contournement : `handleOverlayConfirm` est la SEULE
+      // fonction du fichier à appeler addToCart avec une valeur littérale ET
+      // à construire `withQty` — si un jour un second gestionnaire réécrit la
+      // même règle ailleurs dans ce fichier, ce test ne le verrait plus filer
+      // par ce nom précis, donc autant fixer aussi le nombre d'occurrences.
+      expect(publicShop.match(/const handleOverlayConfirm = /g)?.length).toBe(1);
+    },
+  );
+
+  it(
+    'la grille du catalogue (chemin de référence, déjà correct avant BCP-10) ' +
+      'ouvre toujours la surcouche via onConfigure (qa-review round 2, QA-M13)',
+    () => {
+      const catalog = read('src/modules/catalog/ui/storefront/PortalCatalog.tsx');
+
+      // Défaut symétrique à celui de PortalHome/GammePage (bloc précédent) :
+      // recâbler la grille principale sur `onSelectProduct` ferait régresser
+      // le SEUL chemin qui fonctionnait déjà avant ce lot.
+      expect(catalog).not.toMatch(/onConfigure=\{onSelectProduct\}/);
+      expect(catalog).toMatch(
+        /onCardClick=\{onSelectProduct\}\s*\n\s*onAddToCart=\{onAddToCart\}\s*\n\s*onConfigure=\{onConfigure\}/,
+      );
+    },
+  );
+
   it("les cartes des cinq autres surfaces ouvrent la surcouche, pas la fiche, pour le geste Configurer", () => {
     const home = read('src/modules/catalog/ui/storefront/PortalHome.tsx');
     const gamme = read('src/modules/catalog/ui/storefront/gamme/GammePage.tsx');

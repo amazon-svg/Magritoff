@@ -1,7 +1,7 @@
 ---
 id: BCP-10
 epic: E10 (hors E10, chantier boutique) — "chaine des prix Magrit -> panier et qualite d affichage"
-status: round 1 — qa-review distincte requise avant merge
+status: round 2 — corrections qa-review round 1 (rejet ciblé sur un point bloquant) appliquées, qa-review distincte requise avant merge
 branch: worktree-agent-a9e4a48a6b3612c3a (worktree isolé, depuis feat/gescom-e10-4-entite-client, HEAD au départ 907dc489)
 depends_on: []
 parallelisable_avec: [] — "lançable tout de suite" (cadrage §8.25 point 3.5), ne dépend ni de la campagne banc ni du contrat ; doit passer AVANT BCP-2
@@ -76,7 +76,7 @@ recherche), et un seul (grille du catalogue) ouvrait déjà la bonne surface,
 |---|---|
 | `src/modules/catalog/ui/storefront/productPriceDisplay.ts` | **Créé.** Fonction pure `resolveProductPriceDisplay(resolution)` — « résolution → texte + badge », testée cas par cas. Ne touche pas `priceResolver.ts`. |
 | `src/modules/catalog/ui/storefront/PortalProduct.tsx` | Réécrit : fiche descriptive seule (visuel, fil d Ariane, description, prix via `resolvePrice` + la fonction pure ci-dessus, un bouton « Configurer »). Bloc mort entier supprimé (listes en dur, `selectedOpts`, `setQty`, `calculatePrice`, `computeClariprintQuoteSafe`, mise à l échelle `qty/500`, bouton panier). Prop `onAddToCart` (3 args) remplacée par `onConfigure: (p: ShopProduct) => void`. |
-| `src/modules/shops/ui/storefront/PublicShop.tsx` | **Hôte unique** de `ProductOverlay` (lazy, importé via l entrée publique `@/modules/catalog/ui/storefront`). Nouveaux : état `overlayProduct`, `onConfigure(product)`, `handleOverlayConfirm` (règle du paquet — qty = exemplaires, 1 paquet au panier — déplacée ici, retirée de `PortalCatalog.tsx`). `onConfigure` propagé à `PortalHome`, `PortalCatalog`, `GammePage`, `PortalProduct`. Reset de l overlay ajouté à l effet de changement de boutique (UM10.4). `addToCart` **inchangé** (toujours 2 paramètres). |
+| `src/modules/shops/ui/storefront/PublicShop.tsx` | **Hôte unique** de `ProductOverlay` (lazy, importé via l entrée publique `@/modules/catalog/ui/storefront`). Nouveaux : état `overlayProduct`, `onConfigure(product)`, `handleOverlayConfirm` (règle du paquet — qty = exemplaires, 1 paquet au panier — déplacée ici, retirée de `PortalCatalog.tsx`). `onConfigure` propagé à `PortalHome`, `PortalCatalog`, `GammePage`, `PortalProduct`. Reset de l overlay ajouté à l effet de changement de boutique (UM10.4). `addToCart` **inchangé** (toujours 2 paramètres). **Round 2** : rendu de `<ProductOverlay>` rendu conditionnel à `overlayProduct` (chargement différé réellement au clic, plus seulement au nom du `Suspense`). |
 | `src/modules/catalog/ui/storefront/PortalCatalog.tsx` | Perd son `overlayProduct` local, son import lazy de `ProductOverlay`, sa règle du paquet dupliquée et sa prop `taxRate` (devenue inutile, plus consommée que par l ex-overlay local). Nouvelle prop requise `onConfigure`, câblée sur la carte de la grille, la landing et le bouton « Configurer » des suggestions de Magrit (résultats IA). |
 | `src/modules/catalog/ui/storefront/PortalHome.tsx` | Nouvelle prop `onConfigure`, câblée sur `ShopProductCard` (section Nouveautés) à la place de `onSelectProduct`. |
 | `src/modules/catalog/ui/storefront/gamme/GammePage.tsx` | Nouvelle prop `onConfigure`, câblée sur `ShopProductCard` (section « Produits de la gamme ») à la place de `onSelectProduct`. Le configurateur héros de la page (`GammeConfigurator`/`useProductConfigurator`) est une surface distincte, non touchée. |
@@ -85,7 +85,7 @@ recherche), et un seul (grille du catalogue) ouvrait déjà la bonne surface,
 | `src/shared/presentation/testIds.ts` | 3 nouveaux testid déclarés (`productPage`, `productPageConfigureBtn`, `productPagePrice`), aucun sur l ex-bloc d options (supprimé). |
 | `tests/architecture/storefront-tax-boundary.test.ts` | Mis à jour : l assertion « `PortalCatalog` héberge `ProductOverlay` et lui injecte `taxRate` » devient « `PublicShop` héberge `ProductOverlay` (hôte unique) ; `PortalCatalog` ne l héberge plus » — c est exactement le changement d architecture demandé par BCP-10, pas un affaiblissement. |
 | `tests/modules/catalog/productPriceDisplay.test.ts` | **Créé.** Tests unitaires cas par cas de la fonction pure. |
-| `tests/components/shop/PublicShop.productConfigurationAlignment.test.ts` | **Créé.** Tests de régression texte (pattern déjà en usage dans ce dossier, `PublicShop.submitCart.test.ts`) sur le câblage entre composants — voir tableau mutation → test ci-dessous. |
+| `tests/components/shop/PublicShop.productConfigurationAlignment.test.ts` | **Créé, puis complété en round 2.** Tests de régression texte (pattern déjà en usage dans ce dossier, `PublicShop.submitCart.test.ts`) sur le câblage entre composants — voir tableau mutation → test ci-dessous. Round 2 : deux tests ajoutés sur le CONTENU de `handleOverlayConfirm` (QA-M9, QA-M11) et sur la grille du catalogue (QA-M13). |
 
 ## Critères d acceptation, un par un
 
@@ -121,7 +121,7 @@ destructeur sur le worktree).
 | M7 | `PortalCatalog.tsx` ré-exécute la règle du paquet localement (duplication d origine du défaut) | `storefront-tax-boundary.test.ts` — assertion `catalog.not.toContain('<ProductOverlay')` / `not.toContain('taxRate={taxRate}')` | Vérifiée par lecture (l assertion inverse était vraie sur `907dc489` : `PortalCatalog.tsx` y contient bien `<ProductOverlay` et `taxRate={taxRate}`) |
 | M8 | Import direct de `ProductOverlay` par un chemin profond depuis un autre module (contournement de l entrée publique) | `tests/architecture/modular-ui-boundaries.test.ts` — « autorise uniquement les entrées publiques » | Oui — constatée en cours de lot : le premier essai (import profond `@/modules/catalog/ui/storefront/ProductOverlay` depuis `PublicShop.tsx`) faisait échouer ce test existant ; corrigé en passant par l entrée publique `@/modules/catalog/ui/storefront` |
 
-## Gates exécutées
+## Gates exécutées (round 1)
 
 - `pnpm typecheck` — OK, aucune erreur (`tsc --noEmit -p tsconfig.modular.json`).
 - `pnpm test:architecture` — **45 fichiers, 279 tests, OK.**
@@ -184,6 +184,116 @@ panier vidé, sinon la fusion par `product.id` rend la comparaison illisible.
 
 **Chaque rejouage crée une commande ERAM réelle si l on va jusqu à la
 commande** ; la recette ci-dessus s arrête au panier.
+
+## Round 2 — corrections qa-review round 1 (rejet ciblé sur un seul point bloquant)
+
+**Ce que la qa-review round 1 a validé, sans y retoucher** : les 10 critères
+d acceptation, les gates (typecheck, 279 tests d architecture, 3043 au
+total), les six mutations M1-M8 du tableau round 1 (vérifiées réellement
+tuées), le test `storefront-tax-boundary.test.ts` **non affaibli**
+(comparaison avec la version d avant le lot : deux `not.toContain` ajoutés,
+l assertion d hôte déplacée, le compteur `taxRate >= 4` inchangé), l absence
+de valeur inventée et le périmètre.
+
+**BLOQUANT, corrigé — la règle du paquet (`handleOverlayConfirm`,
+`PublicShop.tsx`) était en un seul endroit, ce qui était l objectif, mais
+rien ne protégeait son CONTENU.** Le test round 1 n assertionnait que
+l HÉBERGEMENT (`<ProductOverlay>` monté une fois, `overlayProduct`,
+`onConfigure`), jamais ce que fait le gestionnaire une fois appelé. La
+qa-review a injecté trois régressions qui survivaient à la suite complète :
+
+- **QA-M11** — `addToCart(withQty, qty)` au lieu de `addToCart(withQty, 1)`.
+  Comme `lineTotalHt = resolution.priceHT * line.qty` (`cartPricing.ts:27`),
+  c est le retour exact du bug #5 (S-FIX-PANIER-11/05) : un forfait à 35 €
+  pour 500 ex afficherait 17 500 € au panier et dans la commande créée.
+- **QA-M9** — `handleOverlayConfirm` perd `quantity: qty` dans le `config`
+  reconstruit. Le snapshot part alors en commande avec la quantité
+  **stockée** sur le produit, pas celle choisie dans la surcouche — c est
+  très exactement la classe de défaut que BCP-10 existe pour corriger,
+  réintroduite en silence par ce chemin précis.
+- **QA-M13** — la grille du catalogue (le SEUL chemin déjà correct avant ce
+  lot) recâblée sur `onConfigure={onSelectProduct}` : aucun test de
+  non-régression ne protégeait ce chemin de référence.
+
+**Correction appliquée** dans le fichier de test existant
+(`tests/components/shop/PublicShop.productConfigurationAlignment.test.ts`),
+sans ajouter de dépendance de rendu — des assertions de texte sur le
+gestionnaire restent le bon niveau ici, dans la continuité du reste du
+fichier et du pattern déjà en usage dans ce dossier
+(`PublicShop.submitCart.test.ts`) :
+
+- un nouveau test dédié à `handleOverlayConfirm`, avec les trois assertions
+  demandées (`quantity: qty` dans le `config` reconstruit, `addToCart(withQty,
+  1)` littéral, et `not.toMatch(/addToCart\(withQty,\s*qty\)/)`), plus un
+  verrou de non-contournement (une seule déclaration de
+  `handleOverlayConfirm` dans le fichier) ;
+- un nouveau test dédié à la grille du catalogue (QA-M13), qui vérifie le
+  bloc exact `onCardClick`/`onAddToCart`/`onConfigure` de `ShopProductCard`
+  et l absence de `onConfigure={onSelectProduct}` dans tout le fichier.
+
+### Tableau mutation → test (round 2), avec preuve par revert contrôlé et durées
+
+Chaque mutation a été rejouée par édition ciblée (`sed`) du fichier corrigé,
+sauvegarde préalable comprise, jamais de `git checkout`/`reset` destructeur :
+copie de sauvegarde avant mutation, `pnpm vitest run` sur le seul fichier de
+test concerné, puis restauration depuis la copie.
+
+| # | Mutation | Test qui la tue | Résultat | Durée |
+|---|---|---|---|---|
+| QA-M11 | `addToCart(withQty, 1)` → `addToCart(withQty, qty)` dans `handleOverlayConfirm` | nouveau bloc « handleOverlayConfirm applique la règle du paquet EXACTEMENT » — `not.toMatch(/addToCart\(withQty,\s*qty\)/)` | **Tuée** — 1 test échoue sur 7 | 0,735 s |
+| QA-M9 | `config: { ...(productConfigured.config ?? {}), quantity: qty }` → `config: { ...(productConfigured.config ?? {}) }` | idem — `toContain('config: { ...(productConfigured.config ?? {}), quantity: qty }')` | **Tuée** — 1 test échoue sur 7 | 0,593 s |
+| QA-M13 | `onConfigure={onConfigure}` → `onConfigure={onSelectProduct}` sur la carte de la grille (`PortalCatalog.tsx`) | nouveau bloc « la grille du catalogue... ouvre toujours la surcouche via onConfigure » | **Tuée** — 1 test échoue sur 7 | 0,591 s |
+
+Après restauration des trois fichiers, `pnpm vitest run
+tests/components/shop/PublicShop.productConfigurationAlignment.test.ts`
+repasse à 7/7 vert.
+
+### Non bloquants — traités
+
+1. **Chargement différé rétabli.** `PublicShop.tsx` rendait
+   `<ProductOverlay>` **inconditionnellement** dans un `<Suspense>`, alors
+   que le commentaire juste au-dessus affirmait un chargement au clic. Le
+   rendu est maintenant conditionné à `overlayProduct` (`{overlayProduct &&
+   (<Suspense>...</Suspense>)}`), exactement la garde que portait l ancien
+   hôte local de `PortalCatalog.tsx` avant ce lot — comportement de
+   fermeture inchangé (même démontage immédiat qu avant BCP-10, ce n est pas
+   une régression introduite ici). Le commentaire est mis à jour pour dire
+   ce que fait maintenant le code.
+
+### Non bloquants — inscrits en dette (signalés, non corrigés)
+
+2. **La tuile « Les plus demandés » (landing de catégorie) perd son seul
+   accès direct à la fiche `/p/:id`.** Avant BCP-10, cliquer une tuile
+   « bestseller » de `PortalCategoryLanding.tsx` menait à la fiche produit
+   (bloc mort, certes, mais une navigation existait). Après BCP-10, le clic
+   entier ouvre la surcouche (point (b) du cadrage, qui nomme explicitement
+   « landing » dans la liste des surfaces à bouton Configurer — décision
+   reprise telle quelle, pas une invention de ce lot). **Conséquence** :
+   depuis cette tuile précise, il n existe plus de geste pour atteindre la
+   fiche descriptive de ce produit (elle reste atteignable par la grille du
+   catalogue, l accueil — corps de carte —, la recherche, ou un lien direct).
+   Conforme au cadrage, mais c est une capacité retirée : signalée ici pour
+   que ce ne soit pas découvert en recette sans explication. Aucune action
+   proposée : trancher un ajout de navigation reviendrait à réinterpréter le
+   cadrage, pas à l appliquer.
+
+**Hors périmètre, sur instruction du coordinateur, non traités ici** : le
+bouton « + Panier » de `ShopProductCard.tsx:355-366` et le renouvellement de
+commande ajoutent au panier sans passer par la surcouche (remonté par la qa
+à l architecte comme question à part) ; `DEFAULT_OPTIONS`
+(`format: "A5"`, `paper: "135g"`) reste le travail du normaliseur de BCP-2.
+
+## Gates exécutées (round 2)
+
+- `pnpm typecheck` — OK, aucune erreur.
+- `pnpm test:architecture` — **45 fichiers, 279 tests, OK** (inchangé).
+- `pnpm vitest run --maxWorkers=2 --exclude "**/tests/storage/product_mockups_isolation.test.ts"` —
+  **298 fichiers passés, 10 skippés (préexistants) ; 3045 tests passés (+2
+  par rapport au round 1, les deux nouvelles assertions), 82 skips
+  (préexistants) ; 0 échec.** Durée 20,4 s.
+- Les trois mutations QA-M9/QA-M11/QA-M13 vérifiées tuées par revert
+  contrôlé (tableau ci-dessus), fichiers restaurés ensuite — aucune trace
+  dans le diff final.
 
 ## Ce qui reste ouvert (hors périmètre de BCP-10, sur instruction)
 

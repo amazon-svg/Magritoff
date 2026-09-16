@@ -611,17 +611,23 @@ export function PublicShop() {
     </ShopLayout>
     {/* BCP-10 (docs/api/CONVENTIONS.md §8.25 point 3.5 (b)) — hôte UNIQUE de
         la surcouche de configuration, ouverte PAR-DESSUS l'écran courant
-        (catalogue, gamme, accueil ou fiche produit) sans changer l'URL. */}
-    <Suspense fallback={null}>
-      <ProductOverlay
-        product={overlayProduct}
-        shop={shop}
-        taxRate={taxRate}
-        clariprintGateway={clariprint}
-        onClose={() => setOverlayProduct(null)}
-        onConfirm={handleOverlayConfirm}
-      />
-    </Suspense>
+        (catalogue, gamme, accueil ou fiche produit) sans changer l'URL.
+        Rendu CONDITIONNEL à `overlayProduct` (pas juste dans un Suspense) :
+        le chunk lazy ne se charge que quand l'acheteur clique « Configurer »
+        — même garde que l'ancien hôte local de PortalCatalog.tsx (round 2
+        qa-review, correctif non bloquant). */}
+    {overlayProduct && (
+      <Suspense fallback={null}>
+        <ProductOverlay
+          product={overlayProduct}
+          shop={shop}
+          taxRate={taxRate}
+          clariprintGateway={clariprint}
+          onClose={() => setOverlayProduct(null)}
+          onConfirm={handleOverlayConfirm}
+        />
+      </Suspense>
+    )}
     </>
   );
 }
