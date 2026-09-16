@@ -1298,3 +1298,28 @@ Claude doit alors :
 2. Lire ses mémoires `project_magrit.md` et `reference_magrit_infra.md` (qui peuvent être à mettre à jour)
 3. Vérifier l'état git du repo (`git status`, `git log --oneline -5`)
 4. Demander un nouveau PAT Supabase si déploiement edge function nécessaire
+
+### BCP-10 — alignement des deux parcours de configuration produit (2026-09-16)
+
+**Le défaut.** Deux écrans proposaient les mêmes réglages. La surcouche `ProductOverlay` fonctionnait ; la page `PortalProduct.tsx` portait ses propres listes en dur et **sa sélection était jetée** — `onAddToCart(p, 1, selectedOpts)` aboutissait à `addToCart(product, qty = 1)`, qui n'a que deux paramètres. Un client venu de l'accueil configurait dans le vide.
+
+**Cadré par l'architecte** (§8.25 point 3.5, commit `907dc489`), **livré** (`713fa558` + `a102123a`), **approuvé en qa round 2**, **fusionné** (`cf8e279a`).
+
+- la fiche survit comme page descriptive, URL `/p/:id` et référencement conservés (les boutiques `self_signup` comme ERAM sont indexables) ;
+- la surcouche devient l'**hôte unique**, montée dans `PublicShop.tsx` ; six chemins convergent ;
+- bloc mort supprimé ; **les coins sont gelés, pas migrés** (`cornerOptions` n'existe nulle part ailleurs : les reprendre créerait une option non chiffrable, interdit par Q3) ;
+- finition initiale `aucun` ; `addToCart` garde sa signature ; aucun calcul de prix ajouté, un supprimé.
+
+**Ce que la qa a trouvé, et qui justifie la méthode.** Au round 1, trois régressions injectées **survivaient aux 3 043 tests** : `addToCart(withQty, qty)` ramenait le bug #5 (un forfait à 35 € pour 500 ex affiché **17 500 €**, au panier ET dans la commande), la perte de `quantity: qty` réintroduisait la sélection jetée, et la grille du catalogue n'avait aucun test de non-régression. Le lot rassemblait une règle dupliquée en un seul endroit — que rien ne protégeait. Round 2 : les trois meurent désormais, en ~0,6 s chacune.
+
+**Quatrième porte fermée par le coordinateur** (`2974e1e4`) : la qa a prouvé qu'un câblage `onConfirm={(p, q) => handleOverlayConfirm(p, 500)}` laissait le gestionnaire intact, passait les trois assertions, et jetait pourtant la quantité choisie. Assertion ajoutée sur le câblage lui-même, vérifiée par injection (1 échec sur 7, vert après restauration).
+
+**Gates après fusion** : typecheck OK, `test:architecture` 279/279, suite complète **3 091 tests, 0 échec**.
+
+**Dette inscrite, non corrigée :**
+- **une troisième copie de la règle du paquet** dans `gamme/GammePage.tsx:148-162` (`handleAdd`). Le cadrage en recensait deux ; il en reste deux après BCP-10. La copie est correcte aujourd'hui, mais non testée — c'est la duplication dont la divergence a produit le défaut d'origine ;
+- **« + Panier » et le renouvellement** (`ShopProductCard.tsx:355-366`, `PortalHome.tsx:167`) ajoutent au panier **sans passer par la surcouche**, ce qui contredit « seule et partout » du cadrage. À porter à l'architecte comme question séparée ;
+- la tuile « Les plus demandés » perd son seul accès direct à `/p/:id` ;
+- `DEFAULT_OPTIONS` invente toujours `format: "A5"` et `paper: "135g"` : travail du normaliseur de BCP-2, donc suspendu à la campagne d'appels d'Arnaud. **La recette de BCP-10 prouve l'alignement, pas le respect complet de Q3.**
+
+**Recette navigateur : 11 gestes**, à jouer panier vidé (`addToCart` fusionne par `product.id`) et **sur la base locale** — la jouer sur ERAM en production créerait des commandes réelles. Le geste décisif est la comparaison de deux lignes de panier, mêmes choix, depuis la fiche puis depuis le catalogue ; et le contrôle du TOTAL, pas seulement de la ligne.
