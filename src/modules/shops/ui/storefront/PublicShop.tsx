@@ -28,6 +28,15 @@ import { usePublicShopCatalog } from '@/modules/shops/ui/hooks/usePublicShopCata
 import { useStorefrontOrderLifecycle } from '@/modules/orders/ui/hooks';
 import { ONE_PACK, copies, packLine, toPackLine, type PackCount } from '@/modules/orders/ui/storefront';
 
+/**
+ * BCP-11 (docs/api/CONVENTIONS.md §8.25 point 3.6) — contrat de `addToCart`
+ * (défini plus bas, fermeture locale du composant). Exporté pour que
+ * `PublicShop.typecheck.ts` puisse vérifier par compilation qu'un nombre nu
+ * ne compile plus en second argument (T8), sans avoir besoin d'accéder à la
+ * fermeture réelle — `addToCart` reste une fonction locale, non exportée.
+ */
+export type AddToCartFn = (product: ShopProduct, packCount?: PackCount) => void;
+
 // BCP-10 (docs/api/CONVENTIONS.md §8.25 point 3.5 (b)) — R7 : lazy-load le
 // ProductOverlay (configurateur lourd chargé seulement quand l'acheteur
 // clique « Configurer »). Un SEUL hôte pour toute la boutique : PublicShop.
@@ -188,7 +197,15 @@ export function PublicShop() {
   // jamais un nombre d'exemplaires. Un produit CONFIGURÉ (exemplaires) doit
   // passer par `toPackLine` avant d'atteindre cette fonction (voir
   // `handleOverlayConfirm` ci-dessous et `GammePage.handleAdd`).
-  const addToCart = (product: ShopProduct, packCount: PackCount = ONE_PACK) => {
+  //
+  // Typée via `AddToCartFn` (déclaré en tête de fichier et exporté) plutôt
+  // que par inférence : cette fonction est locale au composant, donc jamais
+  // testable directement — l'assertion de compilation T8 vit dans
+  // `PublicShop.typecheck.ts`, qui importe `AddToCartFn` sans avoir besoin
+  // d'accéder à la fermeture réelle (qa-review round 2, défaut 5 : round 1
+  // gardait cette assertion en code mort DANS le corps du composant React,
+  // recréée à chaque rendu).
+  const addToCart: AddToCartFn = (product, packCount = ONE_PACK) => {
     setCart((prev) => {
       const existing = prev.find((l) => l.product.id === product.id);
       if (existing) {
@@ -199,15 +216,6 @@ export function PublicShop() {
       return [...prev, packLine(product, packCount)];
     });
   };
-  // BCP-11 T8 (docs/api/CONVENTIONS.md §8.25 point 3.6 (e)) — assertion de
-  // compilation, jamais appelée : `addToCart` ne doit plus accepter un
-  // nombre nu en second argument. Vérifiée par `pnpm typecheck`, pas par
-  // vitest (fonction locale à ce composant, non exportable en l'état).
-  function __bcp11_t8_addToCart_rejects_raw_number(product: ShopProduct): void {
-    // @ts-expect-error BCP-11 T8 — un nombre nu ne compile plus ici.
-    addToCart(product, 500);
-  }
-  void __bcp11_t8_addToCart_rejects_raw_number;
   const updateQty = (productId: string, delta: number) => {
     setCart((prev) =>
       prev

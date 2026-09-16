@@ -9,6 +9,112 @@
 > à `bcd8424b`). Rien n'a été poussé ; la remontée est décidée par le
 > coordinateur.
 
+## Round 2 (qa-review) — rejeté round 1, six défauts, tous corrigés
+
+Le round 1 a été **rejeté** par une qa-review adversariale distincte. Ce que
+la qa-review a confirmé SANS réserve du round 1 : `pnpm typecheck` à 0 erreur,
+3054 tests passés / 0 échec, aucun test affaibli ou désactivé, les sept
+mutations prescrites au cadrage (M1-M7) rougissant toutes avec des assertions
+nommées, le commentaire de `PublicShop.tsx` corrigé, la frontière BCP-2/4/8
+respectée, `openapi/` et `cartPricing.ts` intacts. Le rejet porte entièrement
+sur ce que les sept mutations prescrites ne regardaient pas.
+
+**Défaut 1 — régression fonctionnelle, la plus grave, corrigée.**
+`orderRenewal.helpers.ts` (round 1) appelait `toPackLine(...)` qui écrivait
+`ONE_PACK` en dur, jetant `item.quantity`. Un acheteur ayant configuré un
+produit et commandé **2 paquets** (le tiroir panier le permet, `updateQty`)
+retrouvait **1 paquet** après un renouvellement de commande, sans
+avertissement — exactement l'inverse de ce que dit le cadrage (§8.25 point
+3.6 (b), conséquence 1) : « ce qu'il faut distinguer, c'est l'unité, pas la
+valeur ». **Corrigé** : `toPackLine()` accepte désormais un troisième
+paramètre optionnel `packCount: PackCount = ONE_PACK` ; `orderRenewal.helpers.ts`
+lui passe explicitement `packs(qty)` (le nombre de paquets réellement
+commandé) dans la branche configurée. Les appelants normaux (surcouche,
+gamme) ne passent pas ce troisième argument et gardent `ONE_PACK` par défaut
+— le geste d'ajout normal reste 1 paquet. T6 est rejoué avec `quantity: 2`
+(pas seulement 1, sur instruction qa) et un nouveau T6b couvre le cas
+`quantity: 1`. T11/T12 testent `toPackLine` directement à ce sujet, au niveau
+le plus pur. Voir aussi la remarque qa sur l'inférence `isConfigured` :
+elle se déclenche potentiellement sur des lignes non configurées portant déjà
+un `config.quantity` de catalogue — ce n'était dangereux QUE parce que `qty`
+était figé à 1 sans condition ; une fois `packCount` préservé, cette
+inférence redevient idempotente (elle réécrit `config.quantity` avec la
+même valeur qu'elle contenait déjà) et sans effet de bord sur `qty`.
+
+**Défaut 2 — T10 assertion morte, corrigé.** Round 1 testait un TROISIÈME
+argument (`onAddToCart(product, 1, 2)`), une erreur avant comme après ce lot
+(l'ancien type n'a jamais eu de troisième paramètre). Corrigé : le test
+porte maintenant sur un **second** argument (`onAddToCart(product, 1)`),
+compilait avant (ancien type `(product, qty?: number) => void`), ne compile
+plus après (`(product) => void`). Vérifié par restauration temporaire de
+l'ancien type : `pnpm typecheck` échoue bien avec le nouveau test, restait
+vert avec l'ancien.
+
+**Défaut 3 — `GammePage.handleAdd` non épinglé, corrigé.** Deux mutations
+qa (jeter le résultat de `toPackLine` en repassant `result.productConfigured` ;
+`copies(result.qty)` → `copies(1)`) survivaient à `pnpm typecheck` et à la
+suite complète. Corrigé : un nouveau bloc dans
+`PublicShop.productConfigurationAlignment.test.ts` épingle textuellement
+`onAddToCart(line.product)` et `toPackLine(result.productConfigured,
+copies(result.qty))` dans `GammePage.tsx`, avec les deux négations
+correspondantes. Les deux mutations qa rejouées rougissent chacune sur
+l'assertion attendue (voir tableau plus bas).
+
+**Défaut 4 — le commentaire de `cartLine.ts` mentait sur la portée du garde
+d'architecture, corrigé par extension du garde (pas par retrait du
+commentaire).** Le garde M7 (round 1) ne testait que la forme `config: {
+...spread, quantity }` ; il ne regardait jamais un littéral `{ product, qty
+}` construit à la main. Preuve qa : `return [...prev, { product, qty: 500
+}];` dans `PublicShop.tsx` passait `pnpm typecheck` et 3054 tests. **Choix
+retenu, motivé** : étendre le garde plutôt que retirer le commentaire — la
+dérogation `packLine()` du round 1 (documentée comme fermant ce trou) reste
+justifiée UNE FOIS le garde étendu pour vraiment le vérifier ; la retirer
+aurait laissé `packLine()` sans motif écrit. `tests/architecture/cart-line-single-constructor.test.ts`
+porte maintenant DEUX gardes indépendants (détail dans le fichier). Le
+premier essai du second garde (regex naïve `product` + `qty` n'importe où
+dans un bloc `{...}`) produisait 3 faux positifs (`types.ts` — la déclaration
+du type `CartLine` lui-même ; `ProductOverlay.tsx` — `qty` dans une signature
+de fonction imbriquée ; `useProductConfigurator.ts` — `product` comme
+argument d'appel imbriqué dans `buildConfiguredProduct(product, ...)`,
+distinct de la vraie clé `productConfigured`). Corrigé par un petit
+analyseur qui découpe chaque bloc par profondeur de parenthèses/crochets et
+n'examine que les clés de PREMIER NIVEAU — les trois faux positifs
+disparaissent, les deux vrais positifs (littéral `{product, qty}` réel, et
+la preuve qa rejouée) restent détectés. **À dire, pas à corriger** (inscrit
+dans `cartLine.ts` et ici) : le garde reste TEXTUEL. Une réécriture qui
+l'évite (`const nextConfig = { ...base }; nextConfig.quantity = result.qty;`
+suivi d'une `CartLine` assemblée en plusieurs instructions plutôt qu'un
+littéral unique) lui échapperait. Le domicile unique couvre le
+copier-coller de la règle, pas sa réécriture délibérée.
+
+**Défaut 5 — domicile de l'assertion T8, corrigé.** `__bcp11_t8_addToCart_rejects_raw_number`
+vivait dans le corps du composant React `PublicShop`, recréée à chaque
+rendu, maintenue vivante par un `void`. Corrigé : `addToCart` est maintenant
+typée via un type exporté `AddToCartFn` (déclaré en tête de `PublicShop.tsx`),
+et l'assertion T8 vit dans un nouveau fichier sibling,
+`PublicShop.typecheck.ts`, qui teste le CONTRAT (`AddToCartFn`) sans avoir
+besoin d'accéder à la fermeture réelle — même principe que T9 sur
+`toPackLine`. Vérifié par sanity-check (mutation du type `AddToCartFn` :
+`pnpm typecheck` échoue bien avec le déplacement, comme avant).
+
+**Défaut 6 — affirmation inexacte dans `cartLine.ts`, corrigée.** « Les deux
+seules entrées du panier » ignorait `CartContext.tsx`
+(`src/modules/orders/ui/runtime/`), un second panier indépendant avec son
+propre `addToCart` et son propre calcul (`computeCartTotalHT`,
+`cartMath.ts`). Corrigé dans le docblock de `toPackLine()` : « les deux
+entrées connues du panier storefront B2B (`CartLine`) », avec mention
+explicite que `CartContext.tsx` est un second panier, hors périmètre de
+BCP-11, non couvert par ce point unique.
+
+**Fichiers touchés en round 2**, en plus de ceux du round 1 : `cartLine.ts`
+(signature `toPackLine` + docblocks), `orderRenewal.helpers.ts` (préserve
+`packCount`), `PublicShop.tsx` (type `AddToCartFn` exporté, T8 retiré du
+corps du composant), `PublicShop.typecheck.ts` (neuf), `ShopProductCard.typecheck.ts`
+(T10 corrigé), `cart-line-single-constructor.test.ts` (second garde),
+`cartLine.test.ts` (T11, T12), `orderRenewal.helpers.test.ts` (T6 avec
+quantity:2, T6b), `PublicShop.productConfigurationAlignment.test.ts`
+(signature `addToCart`/`AddToCartFn`, nouveau bloc GammePage).
+
 ## Ce que ce lot ferme
 
 Le prix d'un produit configuré (Clariprint) est **forfaitaire** pour N
@@ -102,18 +208,35 @@ exigence vérifiable.
 
 ## Dérogations R5
 
-Une seule, déjà nommée au point 4 ci-dessus : l'ajout de `packLine()` en plus
-de `toPackLine()`, non prescrit littéralement par le texte de cadrage mais
-nécessaire pour que le test d'architecture M7 (garde du point (e)) tienne sa
-promesse ("seul `cartLine.ts` construit `{ product, qty }`") sans angle mort.
-Chemin de mise en conformité si la qa-review la rejette : supprimer
-`packLine()`, faire revenir les deux littéraux `{ product, qty }` dans
-`PublicShop.addToCart` et `orderRenewal.helpers.ts`, et restreindre le test
-d'architecture M7 à la seule forme `config: { ...spread, quantity }` (ce qu'il
-fait déjà — `packLine` n'est pas indispensable à CE garde précis, il l'est à
-la promesse plus large "un seul domicile pour toute construction de
-`CartLine`"). Périmètre de la dérogation : 3 lignes dans `cartLine.ts`, 2
-call sites.
+Une seule : l'ajout de `packLine()` en plus de `toPackLine()`, non prescrit
+littéralement par le texte de cadrage.
+
+**Motif round 1 (rejeté par la qa-review, défaut 4)** : nécessaire pour que
+le test d'architecture M7 tienne sa promesse ("seul `cartLine.ts` construit
+`{ product, qty }`") sans angle mort. **La qa-review a jugé ce motif
+inexact** : le garde M7 round 1 ne testait QUE `config: { ...spread,
+quantity }`, jamais `{ product, qty }` — la promesse citée dans le
+commentaire n'était donc pas tenue, elle était seulement affirmée. Preuve
+qa : `return [...prev, { product, qty: 500 }];` dans `PublicShop.tsx`
+passait `pnpm typecheck` et 3054 tests.
+
+**Motif round 2, retenu** : le garde d'architecture a été étendu pour
+vérifier RÉELLEMENT qu'aucun fichier sous `src/modules/*/ui/` autre que
+`cartLine.ts` ne construit un littéral `{ product, qty }` (second garde dans
+`cart-line-single-constructor.test.ts`, avec analyseur de clés de premier
+niveau pour éviter les faux positifs sur les déclarations de type et les
+arguments d'appel imbriqués). `packLine()` est maintenant la fonction dont
+l'existence rend ce garde vérifiable dans `PublicShop.addToCart` et
+`orderRenewal.helpers.ts` — le motif est désormais exact, pas seulement
+affirmé.
+
+Chemin de mise en conformité si la qa-review la rejette malgré tout :
+supprimer `packLine()`, faire revenir les deux littéraux `{ product, qty }`
+dans `PublicShop.addToCart` et `orderRenewal.helpers.ts`, et retirer le
+second garde d'architecture (le premier, `config: { ...spread, quantity }`,
+suffirait alors à couvrir M7 seul, mais plus le défaut 4). Périmètre de la
+dérogation : 3 lignes dans `cartLine.ts`, 2 call sites, ~70 lignes du second
+garde d'architecture.
 
 ## Fichiers créés
 
@@ -123,8 +246,12 @@ call sites.
   complément T8 sur `toPackLine` directement), jamais exécuté, vérifié par
   `pnpm typecheck` (même convention que `tests/kernel/types.typecheck.ts`).
 - `src/modules/catalog/ui/storefront/ShopProductCard.typecheck.ts` — T10.
-- `tests/architecture/cart-line-single-constructor.test.ts` — garde M7.
-- `tests/components/shop/portal/cartLine.test.ts` — T1 à T5.
+- `src/modules/shops/ui/storefront/PublicShop.typecheck.ts` — T8, round 2
+  (déplacé hors du corps du composant, défaut 5).
+- `tests/architecture/cart-line-single-constructor.test.ts` — garde M7
+  (deux gardes indépendants depuis le round 2 : voir défaut 4).
+- `tests/components/shop/portal/cartLine.test.ts` — T1 à T5, T11/T12
+  (round 2, défaut 1).
 
 ## Fichiers modifiés
 
@@ -135,9 +262,11 @@ call sites.
   garde MUX — seule la profondeur `ui/storefront` avec `index.ts` est une
   entrée publique autorisée entre modules).
 - `src/modules/orders/ui/storefront/orderRenewal.helpers.ts` — quatrième
-  porte fermée (voir détail ci-dessous).
+  porte fermée (voir détail ci-dessous) ; round 2 : `packs(qty)` passé
+  explicitement à `toPackLine` (défaut 1, préserve le nombre de paquets).
 - `src/modules/catalog/ui/storefront/gamme/GammePage.tsx` — troisième copie
-  remplacée, type de prop, grille de cartes.
+  remplacée, type de prop, grille de cartes. Non retouché en round 2 (le
+  défaut 3 était un trou de COUVERTURE, pas un bug de ce fichier).
 - `src/modules/catalog/ui/storefront/PortalCatalog.tsx` — type de prop seul.
 - `src/modules/catalog/ui/storefront/PortalHome.tsx` — `onReorder` renommé
   `onAddToCart` (nom trompeur signalé par l'architecte, aucun lien avec le
@@ -146,42 +275,57 @@ call sites.
   2 call sites (aucun rendu, aucun prix touché).
 - `src/modules/shops/ui/storefront/PublicShop.tsx` — commentaire menteur
   corrigé, `addToCart` typé `PackCount`, `handleOverlayConfirm` réécrit via
-  `toPackLine`, 3 câblages de props mis à jour, assertion de compilation T8.
+  `toPackLine`, 3 câblages de props mis à jour. Round 2 : `addToCart` typée
+  via `AddToCartFn` exporté (défaut 5), T8 retiré du corps du composant.
 - `tests/components/shop/PublicShop.productConfigurationAlignment.test.ts` —
   2 assertions pinning BCP-10 mises à jour pour suivre la nouvelle forme
-  (intention QA-M9/QA-M11/D2 préservée, voir docblock ajouté).
+  (intention QA-M9/QA-M11/D2 préservée, voir docblock ajouté). Round 2 :
+  assertion `addToCart`/`AddToCartFn` mise à jour (défaut 5) ; nouveau bloc
+  d'épinglage pour `GammePage.handleAdd` (défaut 3).
 - `tests/components/shop/portal/orderRenewal.helpers.test.ts` — T6, T7
-  ajoutés.
+  ajoutés. Round 2 : T6 rejoué avec `quantity: 2` (défaut 1), T6b ajouté
+  pour le cas `quantity: 1`.
 
 ## Détail de la quatrième porte (`rebuildCartFromOrderItems`)
 
 Un `clariprint_options.quantity` numérique et positif signale un produit
-CONFIGURÉ (forfait) : reconstruction via `toPackLine(product, copies(...))`,
-qui fige `qty` à 1 paquet et est **seule responsable** de l'écriture de
-`config.quantity` (le snapshot `clariprint_options` est fusionné **sans** sa
-clé `quantity`, précisément pour que M2 — retirer l'écriture dans
-`toPackLine` — ne reste pas invisible derrière une valeur déjà correcte
-fuitée par la fusion ; voir le round de mutation M2 ci-dessous, où j'ai dû
-corriger mon implémentation une première fois pour cette raison exacte).
-Sans ce signal, `item.quantity` (paquets) est préservé tel quel — **jamais**
-réinterprété comme des exemplaires même si la valeur est suspecte (T7) : une
-commande fautive historique s'affiche avec un total visiblement faux plutôt
-que d'être « réparée » en silence par une heuristique de magnitude.
+CONFIGURÉ (forfait) : reconstruction via `toPackLine(product, copies(...),
+packs(qty))`, qui écrit `config.quantity` — **seule responsable** de cette
+écriture (le snapshot `clariprint_options` est fusionné **sans** sa clé
+`quantity`, précisément pour que M2 — retirer l'écriture dans `toPackLine`
+— ne reste pas invisible derrière une valeur déjà correcte fuitée par la
+fusion ; voir le round de mutation M2 plus bas, où j'ai dû corriger mon
+implémentation une première fois pour cette raison exacte) — et qui
+**préserve le nombre de paquets réellement commandé** (`packs(qty)`,
+troisième argument, round 2, défaut 1 : round 1 figeait `ONE_PACK` sans
+condition, une régression fonctionnelle relevée par la qa-review). Sans le
+signal `clariprint_options.quantity`, `item.quantity` (paquets) est préservé
+tel quel — **jamais** réinterprété comme des exemplaires même si la valeur
+est suspecte (T7) : une commande fautive historique s'affiche avec un total
+visiblement faux plutôt que d'être « réparée » en silence par une
+heuristique de magnitude.
 
 ## Tests exécutés et résultat
 
+**Round 2 (état final)** :
 - `pnpm typecheck` (= `pnpm run typecheck:modular` = `tsc --noEmit -p tsconfig.modular.json`,
   strict, script canonique du dépôt) : **0 erreur**.
-  - `pnpm run typecheck:all` (script non canonique, `tests/**` inclus en
-    entier) : erreurs pré-existantes, **identiques avant et après ce lot**
-    (vérifié par `git stash` / re-run) — aucune régression introduite par
-    BCP-11, mais ce script n'est pas la preuve demandée (`pnpm typecheck`
-    l'est).
 - `pnpm test` (vitest, suite complète) : **300 fichiers passés, 11 skip ;
-  3054 tests passés, 86 skip, 0 échec.** Les 86 skip et 11 fichiers skip sont
-  pré-existants (vérifiés identiques sur la branche non modifiée via
-  `git stash`). Sur la branche non modifiée, un test échoue de façon isolée
-  (flake pré-existant, hors périmètre BCP-11) — absent sur ma branche.
+  3061 tests passés, 86 skip, 0 échec.** (round 1 : 3054 — +7 tests round 2 :
+  T6b, T11, T12, et 4 nouvelles assertions dans le bloc GammePage/défaut 3 et
+  le second garde d'architecture, comptées comme sous-assertions des `it`
+  existants sauf T6b/T11/T12 qui sont de nouveaux `it`). Les 86 skip et 11
+  fichiers skip restent pré-existants et inchangés.
+
+**Round 1 (pour mémoire, confirmé par la qa-review sans réserve)** :
+- `pnpm run typecheck:all` (script non canonique, `tests/**` inclus en
+  entier) : erreurs pré-existantes, **identiques avant et après ce lot**
+  (vérifié par `git stash` / re-run) — aucune régression introduite par
+  BCP-11, mais ce script n'est pas la preuve demandée (`pnpm typecheck`
+  l'est).
+- Sur la branche non modifiée (`bcd8424b`), un test échoue de façon isolée
+  (flake pré-existant, hors périmètre BCP-11) — absent sur ma branche aux
+  deux rounds.
 
 ## Verdict des mutations (rejouées une par une, puis annulées)
 
@@ -207,6 +351,36 @@ seule variable partagée). J'ai donc rejoué l'ESPRIT de chaque mutation
 noté ci-dessus tout écart entre la prédiction littérale et le résultat
 observé, plutôt que de forcer une correspondance artificielle.
 
+**M1 à M7 rejoués une seconde fois contre le code round 2** (après ajout du
+troisième paramètre `packCount` à `toPackLine`, pour vérifier que le
+changement ne les avait pas affaiblies) : les sept rougissent exactement
+comme au round 1, avec en plus T6/T6b/T11/T12 (nouveaux tests round 2) qui
+rougissent aussi sous M1 et M2 — la couverture s'est renforcée, pas
+affaiblie.
+
+## Verdict des six mutations de la qa-review (round 2, rejouées une par une)
+
+Méthode identique : mutation appliquée par script Python sur le fichier
+concerné, suite ciblée relancée, verdict noté avec le nom exact de
+l'assertion qui meurt, fichier restauré à l'identique
+(`diff` contre une copie de sauvegarde vérifié après coup, `git status`
+propre).
+
+| # | Mutation qa (défaut) | Assertion qui doit rougir | Verdict observé |
+|---|---|---|---|
+| QA-D1 | `toPackLine` : `packCount,` (3ᵉ arg de `packLine`) → `ONE_PACK,` (ignore le `packCount` reçu, régression round 1) | T11 (`cartLine.test.ts`), T6 (`orderRenewal.helpers.test.ts`) | **Confirmé** : T11 `expected 1 to be 2` sur `line.qty` ; T6 `expected 1 to be 2` sur `r.lines[0].qty`. |
+| QA-D2 | `ShopProductCard.tsx` : `onAddToCart: (product) => void` → `onAddToCart: (product, qty?: number) => void` (canal quantité rouvert) | T10 (`ShopProductCard.typecheck.ts:37`, second argument) | **Confirmé** : `pnpm typecheck` échoue, `@ts-expect-error` devenu inutilisé — le canal rouvert compile de nouveau avec un second argument, T10 le voit. |
+| QA-D3a | `GammePage.handleAdd` : `onAddToCart(line.product)` → `onAddToCart(result.productConfigured)` (résultat de `toPackLine` jeté) | `PublicShop.productConfigurationAlignment.test.ts`, bloc « GammePage.handleAdd applique la règle du paquet EXACTEMENT » | **Confirmé** : `expect(gamme).toContain('onAddToCart(line.product)')` échoue. |
+| QA-D3b | `GammePage.handleAdd` : `copies(result.qty)` → `copies(1)` (résidu nommé au cadrage, point 3.6 (d)) | même bloc que QA-D3a | **Confirmé** : `expect(gamme).toContain('toPackLine(result.productConfigured, copies(result.qty))')` échoue (le littéral exact n'apparaît plus). |
+| QA-D4 | `PublicShop.tsx`, `addToCart` : `packLine(product, packCount)` → `{ product, qty: 500 }` (nombre nu en littéral `CartLine`, canal que le round 1 n'avait pas fermé) | `cart-line-single-constructor.test.ts`, second garde (« ne construit une CartLine à la main ») | **Confirmé** : `pnpm typecheck` reste propre (comme relevé par la qa), le second garde d'architecture rougit seul et désigne `PublicShop.tsx`. |
+| QA-D5 | Pas une mutation de comportement : relocalisation de l'assertion T8 hors du corps du composant React. Vérifiée par sanity-check symétrique au round 1 (mutation du type `AddToCartFn` : `packCount?: PackCount` → `packCount?: number`) | `PublicShop.typecheck.ts:37` | **Confirmé** : `pnpm typecheck` échoue (`@ts-expect-error` inutilisé) dans le NOUVEAU domicile, exactement comme il le faisait dans l'ancien — la relocalisation n'a rien affaibli. |
+| QA-D6 | Pas une mutation : correction texte de `cartLine.ts:79-80` (« les deux seules entrées » → « les deux entrées connues du panier storefront B2B », avec mention de `CartContext.tsx`). Vérifiée par relecture, aucun test applicable à une affirmation de commentaire. | — | **Corrigé et relu.** |
+
+Les six défauts sont donc chacun soit couverts par une assertion qui rougit
+sur le code d'avant la correction (D1 à D4), soit vérifiés par sanity-check
+symétrique au round 1 (D5), soit une correction purement documentaire sans
+comportement à tester (D6).
+
 ## Ce que je n'ai pas fait
 
 - Pas touché à `useProductConfigurator.ts` (frontière BCP-2).
@@ -220,18 +394,49 @@ observé, plutôt que de forcer une correspondance artificielle.
 - N'ai rien poussé ni committé — la remontée est décidée par le coordinateur
   (consigne #8 de la tâche).
 
+## Limite du garde textuel — à dire, pas à corriger
+
+Les deux gardes de `tests/architecture/cart-line-single-constructor.test.ts`
+(la règle du paquet réécrite en toutes lettres, et une `CartLine` construite
+à la main) sont des tests TEXTUELS, pas un contrôle du compilateur ni un
+contrôle sémantique. **Le domicile unique couvre le copier-coller de la
+règle, pas sa réécriture délibérée sous une autre forme.** Un exemple concret
+qui leur échapperait : `const nextConfig = { ...base }; nextConfig.quantity
+= result.qty; const line: CartLine = { ...{} as CartLine }; line.product =
+result.productConfigured; line.qty = 1;` (assemblage en plusieurs
+instructions plutôt qu'un littéral unique, mutation de propriété plutôt que
+spread) — ni la forme `config: { ...spread, quantity }` ni la forme `{
+product, qty }` n'y apparaissent littéralement, alors que le résultat est
+exactement la même duplication de règle que ce lot ferme. C'est le compromis
+explicitement accepté au cadrage (§8.25 point 3.6 (e)) et documenté dans
+`cartLine.ts` lui-même : un garde textuel prouve l'absence du copier-coller
+connu, pas l'absence de toute réécriture possible de la même règle.
+
 ## Pour la qa-review
 
 Points à rejouer en priorité, dans l'ordre où je m'attendrais à ce qu'une
 lecture adversariale les trouve :
-1. Le second constructeur `packLine()` (dérogation R5 documentée ci-dessus) —
-   vérifier qu'il ne réintroduit pas de canal caché.
-2. Le comportement de M4 sur T8/T10 (résultat partiel, expliqué) — vérifier
-   que l'exigence réelle (`pnpm typecheck` échoue) est bien ce qui compte, et
-   pas la correspondance littérale à trois noms de test.
-3. Le choix de discriminer "produit configuré" via `clariprint_options.quantity`
-   plutôt que via un champ explicite dédié — c'est une inférence sur la forme
-   des données, documentée et testée (T6/T7), mais c'est une inférence.
-4. Rejouer M1 à M7 soi-même (scripts non conservés dans le dépôt — appliqués
-   puis annulés à chaque fois ; à refaire à la main ou via un script
-   équivalent, la démarche est décrite ligne par ligne ci-dessus).
+1. La limite du garde textuel ci-dessus — vérifier qu'elle n'est pas
+   invoquée comme prétexte pour ne pas étendre un garde qui POURRAIT
+   raisonnablement couvrir un contournement donné (c'est exactement ce que
+   le round 1 a raté au défaut 4 : le commentaire affirmait une couverture
+   que le garde n'avait pas, alors qu'il pouvait raisonnablement l'avoir).
+2. Le second constructeur `packLine()` (dérogation R5, motif re-writé au
+   round 2) — vérifier qu'il ne réintroduit pas de canal caché, et que son
+   motif (rendre le second garde d'architecture vérifiable) tient
+   effectivement au vu du code actuel.
+3. L'inférence `isConfigured` dans `orderRenewal.helpers.ts` (un
+   `clariprint_options.quantity` numérique positif) — vérifier qu'elle ne se
+   déclenche pas de façon dommageable sur une ligne non configurée qui
+   porterait par ailleurs un `config.quantity` de catalogue (le round 2
+   corrige le SEUL dommage identifié — `qty` figé à 1 — mais l'inférence
+   elle-même reste une heuristique sur la forme des données).
+4. Le comportement de M4 (round 1) sur T8/T10 (résultat partiel, expliqué
+   dans le tableau M1-M7) — vérifier que l'exigence réelle (`pnpm typecheck`
+   échoue) est bien ce qui compte, et pas la correspondance littérale à
+   trois noms de test.
+5. Rejouer les 7 mutations du cadrage (M1-M7) ET les 6 défauts round 2
+   soi-même (scripts non conservés dans le dépôt — appliqués puis annulés à
+   chaque fois ; à refaire à la main ou via un script équivalent, la
+   démarche et le verdict de chacune sont décrits ligne par ligne
+   ci-dessus).

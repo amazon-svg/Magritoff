@@ -62,18 +62,27 @@ describe('BCP-10 — la fiche produit ne configure, ne chiffre et n ajoute plus 
     expect(src).toMatch(/onConfigure\(product\)/);
   });
 
-  it("addToCart garde EXACTEMENT sa signature à deux paramètres (point (f), forme BCP-11)", () => {
+  it("addToCart garde EXACTEMENT sa signature à deux paramètres (point (f), forme BCP-11 round 2)", () => {
     const src = read('src/modules/shops/ui/storefront/PublicShop.tsx');
 
     // BCP-11 (docs/api/CONVENTIONS.md §8.25 point 3.6) : le second paramètre
     // est désormais un PackCount typé (jamais un nombre nu) — mais la forme
     // à DEUX paramètres, elle, ne bouge pas : aucun troisième paramètre, ni
-    // ajouté ni réintroduit.
-    expect(src).toMatch(
-      /const addToCart = \(product: ShopProduct, packCount: PackCount = ONE_PACK\) => \{/,
+    // ajouté ni réintroduit. Round 2 (qa-review, défaut 5) : la signature
+    // est portée par le type exporté `AddToCartFn` (pour que
+    // `PublicShop.typecheck.ts` teste le contrat sans code mort dans le
+    // composant), donc le littéral de type inline a disparu de la
+    // déclaration elle-même — c'est `AddToCartFn` qui doit garder EXACTEMENT
+    // deux paramètres.
+    expect(src).toContain(
+      'export type AddToCartFn = (product: ShopProduct, packCount?: PackCount) => void;',
     );
     expect(src).not.toMatch(
-      /addToCart = \(product: ShopProduct, packCount: PackCount = ONE_PACK, [^)]+\)/,
+      /export type AddToCartFn = \(product: ShopProduct, packCount\?: PackCount, [^)]+\) => void;/,
+    );
+    expect(src).toMatch(/const addToCart: AddToCartFn = \(product, packCount = ONE_PACK\) => \{/);
+    expect(src).not.toMatch(
+      /const addToCart: AddToCartFn = \(product, packCount = ONE_PACK, [^)]+\) => \{/,
     );
   });
 
@@ -132,6 +141,37 @@ describe('BCP-10 — la fiche produit ne configure, ne chiffre et n ajoute plus 
       // donc autant fixer aussi le nombre d'occurrences.
       expect(publicShop.match(/const handleOverlayConfirm = /g)?.length).toBe(1);
       expect(publicShop.match(/toPackLine\(/g)?.length).toBe(1);
+    },
+  );
+
+  it(
+    "GammePage.handleAdd applique la règle du paquet EXACTEMENT " +
+      '(qa-review round 2, défaut 3) : la ligne construite par toPackLine ' +
+      "est bien celle transmise, avec LA quantité choisie — pas jetée, pas figée à 1",
+    () => {
+      const gamme = read('src/modules/catalog/ui/storefront/gamme/GammePage.tsx');
+
+      // Défaut 3a (qa-review round 2) : `toPackLine` est appelé mais son
+      // résultat (`line.product`, qui porte `config.quantity` à jour) est
+      // jeté au profit de `result.productConfigured` (le produit catalogue
+      // NON configuré). L'acheteur qui choisit 5000 ex. repart avec la
+      // quantité périmée du catalogue, gravée ensuite dans une table
+      // append-only (tenant_order_items via submitCart). Seul `line.product`
+      // transmis à `onAddToCart` est correct.
+      expect(gamme).toContain('onAddToCart(line.product)');
+      expect(gamme).not.toMatch(/onAddToCart\(result\.productConfigured\)/);
+
+      // Défaut 3b (qa-review round 2) : le résidu nommé au cadrage (point
+      // 3.6 (d)) — un site qui passerait `copies(1)` au lieu de
+      // `copies(result.qty)` compilerait toujours, puisque `CopyCount` est
+      // un `number` marqué, pas une valeur vérifiée. Seule une assertion
+      // texte peut le voir ici (le compilateur ne peut pas).
+      expect(gamme).toContain('toPackLine(result.productConfigured, copies(result.qty))');
+      expect(gamme).not.toMatch(/toPackLine\(result\.productConfigured,\s*copies\(1\)\)/);
+
+      // Verrou de non-contournement, même logique que pour PublicShop.
+      expect(gamme.match(/const handleAdd = /g)?.length).toBe(1);
+      expect(gamme.match(/toPackLine\(/g)?.length).toBe(1);
     },
   );
 

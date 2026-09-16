@@ -32,8 +32,30 @@
  * forfait). Il existe pour que `PublicShop.addToCart` et
  * `rebuildCartFromOrderItems` n'aient eux non plus jamais à écrire l'objet
  * `{ product, qty }` en littéral — le test d'architecture
- * (`tests/architecture/cart-line-single-constructor.test.ts`) vérifie qu'AUCUN
- * fichier sous `src/modules/*\/ui/` autre que ce fichier ne le fait.
+ * (`tests/architecture/cart-line-single-constructor.test.ts`) vérifie
+ * qu'aucun fichier sous `src/modules/*\/ui/` autre que ce fichier ne
+ * construit ni la forme `config: { ...spread, quantity }` (la règle du
+ * paquet réécrite en toutes lettres) ni un objet littéral qui porte à la
+ * fois une clé `product` et une clé `qty` (une `CartLine` construite à la
+ * main). **Limite assumée, à lire avant de croire ce garde plus large qu'il
+ * n'est** : c'est un test TEXTUEL, pas un contrôle du compilateur — une
+ * réécriture équivalente qui évite ces deux formes précises (par exemple
+ * `const nextConfig = { ...base }; nextConfig.quantity = result.qty;` suivi
+ * d'un objet `CartLine` construit en plusieurs instructions plutôt qu'un
+ * seul littéral) lui échappe. Le domicile unique couvre le copier-coller de
+ * la règle, pas sa réécriture délibérée.
+ *
+ * `toPackLine()` accepte un troisième paramètre optionnel, `packCount`
+ * (par défaut `ONE_PACK`) : un geste d'ajout au panier (surcouche, gamme)
+ * ajoute toujours exactement 1 paquet, mais le RENOUVELLEMENT d'une commande
+ * (`rebuildCartFromOrderItems`) doit reconstruire le nombre de paquets tel
+ * qu'il a été réellement commandé (le tiroir panier permet d'en cumuler
+ * plusieurs, `updateQty`). Fixer `qty` à `ONE_PACK` sans condition aurait
+ * réparé l'UNITÉ (exemplaires ne peuvent plus fuiter dans `qty`) en cassant
+ * la VALEUR (un acheteur qui a commandé 2 paquets à 70 € en retrouverait 1 à
+ * 35 € après un « Commander à nouveau », sans un mot) — précisément la
+ * distinction posée par le cadrage (§8.25 point 3.6 (b), conséquence 1) :
+ * « ce qu'il faut distinguer, c'est l'unité, pas la valeur ».
  */
 
 import type { ShopProduct } from '@/modules/shops';
@@ -74,13 +96,24 @@ export function packLine(product: ShopProduct, packCount: PackCount = ONE_PACK):
 
 /**
  * Construit la `CartLine` d'un produit configuré : `quantity` (exemplaires)
- * est écrit dans `config.quantity`, et `qty` (paquets) est toujours
- * `ONE_PACK`. C'est la SEULE fonction qui doit faire cette conversion —
- * `rebuildCartFromOrderItems` (renouvellement de commande) l'utilise aussi,
- * pour que les deux seules entrées du panier (`addToCart` et `setCart` du
- * renouvellement) traversent le même point.
+ * est écrit dans `config.quantity` ; `qty` (paquets) vaut `ONE_PACK` par
+ * défaut — le geste normal d'ajout au panier — ou le `packCount` fourni
+ * explicitement par un appelant qui reconstruit un état antérieur (voir
+ * `rebuildCartFromOrderItems`, seul appelant à passer ce troisième
+ * paramètre). C'est la SEULE fonction qui doit écrire `config.quantity`,
+ * pour que les deux entrées connues du panier storefront B2B — `addToCart`
+ * (`PublicShop.tsx`) et `setCart` du renouvellement
+ * (`rebuildCartFromOrderItems`) — traversent le même point. Il existe un
+ * SECOND panier dans le dépôt, indépendant (`CartContext.tsx`,
+ * `src/modules/orders/ui/runtime/`) : hors périmètre de BCP-11, non couvert
+ * par ce point unique — voir le cadrage, ce lot ne visait que le panier
+ * storefront B2B (`CartLine`).
  */
-export function toPackLine(productConfigured: ShopProduct, quantity: CopyCount): CartLine {
+export function toPackLine(
+  productConfigured: ShopProduct,
+  quantity: CopyCount,
+  packCount: PackCount = ONE_PACK,
+): CartLine {
   return packLine(
     {
       ...productConfigured,
@@ -89,6 +122,6 @@ export function toPackLine(productConfigured: ShopProduct, quantity: CopyCount):
         quantity,
       },
     },
-    ONE_PACK,
+    packCount,
   );
 }

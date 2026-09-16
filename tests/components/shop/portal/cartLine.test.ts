@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { copies, ONE_PACK, toPackLine } from '@/modules/orders/ui/storefront/cartLine';
+import { copies, ONE_PACK, packs, toPackLine } from '@/modules/orders/ui/storefront/cartLine';
 import { computePortalCartTotalHt, resolveCartLinePricing } from '@/modules/orders/ui/storefront/cartPricing';
 import type { ShopProduct } from '@/modules/shops';
 import type { CartLine } from '@/modules/orders/ui/storefront/types';
@@ -72,5 +72,23 @@ describe('cartLine — toPackLine (BCP-11)', () => {
     const addedTwice: CartLine = { ...line, qty: line.qty + ONE_PACK };
     expect(addedTwice.qty).toBe(2);
     expect(resolveCartLinePricing(addedTwice).lineTotalHt).toBe(70);
+  });
+
+  it('T11 (BCP-11 round 2, defaut 1) — toPackLine preserve un packCount explicite, ne le fige pas a ONE_PACK', () => {
+    // Le troisieme parametre existe UNIQUEMENT pour rebuildCartFromOrderItems
+    // (renouvellement) : reconstruire une commande passee de 2 paquets a
+    // 500 ex. chacun doit rendre qty=2, pas 1. Round 1 de ce lot ignorait ce
+    // parametre (n existait pas) et figeait toujours ONE_PACK — regression
+    // relevee en qa-review, corrigee ici au niveau le plus bas (pur,
+    // sans passer par rebuildCartFromOrderItems).
+    const line = toPackLine(forfaitProduct({ price_ht: 35 }), copies(500), packs(2));
+    expect(line.qty).toBe(2);
+    expect((line.product.config as any).quantity).toBe(500);
+    expect(resolveCartLinePricing(line).lineTotalHt).toBe(70);
+  });
+
+  it('T12 — sans packCount explicite, toPackLine garde le defaut ONE_PACK (geste normal d ajout)', () => {
+    const line = toPackLine(forfaitProduct({ price_ht: 35 }), copies(500));
+    expect(line.qty).toBe(1);
   });
 });
