@@ -4258,7 +4258,7 @@ La fiche propose `src/services/exports/orders.ts`. **Il n'existe aucun dossier `
 > - **Q2 : le chiffrage est OUVERT au visiteur non connecté**, contrairement à la recommandation de ce cadrage. Le contrat de BCP-1b est refait (point 2.4) : une opération publique résolue par le slug, une limite de débit obligatoire à trois étages, une réponse publique sans rien d'interne. **Le plafond global quotidien (L3) est la condition de cette décision : tant qu'Arnaud n'en a pas fixé la valeur, BCP-1b ne se déploie pas** (point 2.4, risque résiduel).
 > - **Q7 : les appels Clariprint sont facturés, et le banc est joué quand même**, sous un plafond écrit dans le code et avec un mode sec : **18 appels au plus**, justifiés au point 2.3.
 >
-> Q3, Q4, Q5, Q6 et Q8 ne sont pas encore arbitrées. Les recommandations par défaut du point 9 tiennent jusqu'à leur arbitrage.
+> Q3, Q4, Q5, Q6 et Q8 ne sont pas arbitrées **à ce round**. Les recommandations par défaut du point 9 tiennent jusqu'à leur arbitrage. **Q6 est tranchée le 2026-09-15** (lots 5, 6 et 9 avancés pendant le banc), **Q3 le 2026-09-16** (sixième round).
 >
 > **TROISIÈME ROUND — arbitrages d'Arnaud du 2026-09-15, opposables.**
 > - **La seconde porte** relève de BCP-0, en correctif séparé. Elle est **neutralisée, pas supprimée**, et sa suppression est reportée au retrait de la fonction (point 2.3).
@@ -4272,6 +4272,12 @@ La fiche propose `src/services/exports/orders.ts`. **Il n'existe aucun dossier `
 > - **BCP-0 se ferme avec ce déploiement** (point 2.3).
 > - **BCP-0b n'a plus à limiter cette porte**, et le premier constat du troisième round est levé : l'ancienne fonction ne peut plus appeler Clariprint (point 2.3bis (7)).
 > - **La fonction continue de tourner** : `claude-proxy` et `claude-proxy-stream` restent actifs, puisque `/assistant/chat` passe par eux.
+>
+> **SIXIÈME ROUND — décision d'Arnaud du 2026-09-16, opposable : Q3 est tranchée, on MASQUE.**
+> - **La dorure et le soft-touch (pelliculage doux) n'apparaissent plus dans la boutique** tant que leurs codes Clariprint ne sont pas obtenus auprès de l'imprimeur. **Le reste du lot configurateur avance sans elles.**
+> - **Aucune valeur par défaut n'est inventée**, ni pour ces deux finitions, ni pour la qualité de papier quand la configuration de base n'en porte pas.
+> - La règle complète, ses surfaces, le sort des commandes existantes et sa condition de levée : **point 3.4**, écrit pour que rien ne reste au choix du dev-story.
+> - **Ce que cela ne débloque pas** : BCP-2 reste suspendu à BCP-1b (donc à la campagne de banc, non jouée) et à l'audit des configurations stockées (non fait). Voir le point 6, « Ce qui reste entre BCP-2 et son lancement ».
 
 #### 1. Ce que le dépôt montre en plus des diagnostics — onze constats
 
@@ -4805,7 +4811,7 @@ La recommandation était un normaliseur tolérant côté serveur, dans la passer
 | `quantity` | chaîne de chiffres, sans zéro en tête | `:81` | entier → chaîne |
 | `width`, `height` | **centimètres**, chaîne décimale à point, 2 décimales au plus (`"14.8"`) | `:99-100` | convention P0.9 : un nombre (mm) est divisé par 10, une chaîne (cm) est gardée ; un nom de format passe par la table en mm (`ProductOverlay.helpers.ts:72-82`, divisée par 10). **`size` n'est jamais produit** |
 | `openwidth`, `openheight`, `folds` (dépliant) | même règle ; `folds` en chaîne | `:239-246` | tel quel |
-| `papers` | objet à **une** clé `custom` (ou `of`), valeur `{quality, weight}` en chaînes | `:124-134`, `:248-251` | `"135g"` → `weight: "135"`. `quality` vient de la configuration de base du produit. **Absente → configuration non chiffrable, aucune qualité inventée** (Q3) |
+| `papers` | objet à **une** clé `custom` (ou `of`), valeur `{quality, weight}` en chaînes | `:124-134`, `:248-251` | `"135g"` → `weight: "135"`. `quality` vient de la configuration de base du produit. **Absente → configuration non chiffrable, aucune qualité inventée** — **Q3 tranchée le 2026-09-16, dans ce sens exactement** (point 3.4) |
 | `front_colors`, `back_colors` | tableau de codes d'encre | `:110-114` | `4` → `["4-color"]`, `0` → `[]`. Forme retenue : **celle qui chiffre dans la campagne** (phases A/B, point 2.3) |
 | `finishing_front`, `finishing_back` | code du référentiel, ou `""` ; tableau pour une combinaison | `:119-123` | option du configurateur → code par le référentiel (point 5.3). **Option sans code → configuration non chiffrable** |
 | `deliveries` | objet (clé libre → `{iso, address, quantity}`) | `:218` (contra `:288`) | complété par la passerelle quand il est absent (existant) ; forme retenue : **celle qui chiffre dans la campagne** (point 2.3) |
@@ -4813,7 +4819,9 @@ La recommandation était un normaliseur tolérant côté serveur, dans la passer
 | `binding`, `cover`, `components` (brochure) | selon la doc | `:315-363` | **hors campagne** (point 2.3) : la forme du prompt, avec `pages` au premier niveau, reste non vérifiée ; il n'y a aucune brochure dans la chaîne à réparer |
 | `reference` | chaîne libre | `:79` | conservée |
 
-**Options du configurateur sans correspondance documentée** : `dorure` (`ProductOverlay.helpers.ts:319-321`) est un champ **inventé**. La doc parle de `gilding_*`, qui exige une position et des dimensions. `soft-touch` n'a **aucun code connu**. Tant que Q3 n'est pas tranchée, une configuration qui porte l'une de ces options est **non chiffrable** : elle retombe sur le prix marché. Elle n'est jamais envoyée avec l'option omise en silence, ce qui afficherait un prix trop bas.
+**Options du configurateur sans correspondance documentée** : `dorure` (`ProductOverlay.helpers.ts:341-342`, et non `:319-321` comme l'écrivait ce cadrage — vérifié) est un champ **inventé** ; le normaliseur ne le produit donc jamais. La doc parle de `gilding_*`, qui exige une position et des dimensions. `soft-touch` n'a **aucun code connu**.
+
+**Q3 est tranchée le 2026-09-16 : ces deux options sont MASQUÉES à la source** — on ne les propose plus (point 3.4). La règle de repli reste écrite pour les configurations **déjà stockées** qui en portent une : elles sont **non chiffrables** et retombent sur le prix marché. **Une option n'est jamais envoyée en étant omise en silence**, ce qui afficherait un prix trop bas.
 
 **Ce qui reste à vérifier sur le référentiel réel du compte, et que ce cadrage n'affirme PAS** :
 - les **codes de finition valides** : la page `JsonVarnish` n'est pas dans le dépôt ;
@@ -4833,6 +4841,50 @@ Moyens : la campagne du banc (phases B et C, point 2.3) et les pages `JsonVarnis
 - **« Configurer » sur une suggestion ouvre l'overlay existant** : `setOverlayProduct` (`PortalCatalog.tsx:155`, `:861-883`). Le clic sur la carte (`:757`) aussi. Aujourd'hui, `onSelectProduct` mène vers `/p/ai-…`, introuvable, puis vers `Navigate` (`PublicShop.tsx:534-536`). Une suggestion n'est pas un produit du catalogue : elle n'a pas de route.
 - `extractInitialOptions` lit la forme canonique : `papers.custom.weight` et les couleurs en tableaux.
 - **Conséquence pour l'atelier** : `useProductConfigurator` est partagé. La recette couvre donc aussi l'« Éditer » de `ProductCard` côté atelier.
+
+##### 3.4 Q3 — dorure et soft-touch MASQUÉES (décision d'Arnaud du 2026-09-16), et aucune valeur par défaut inventée
+
+**La décision, mot pour mot** : les finitions dont le code Clariprint est inconnu — **la dorure** et **le soft-touch (pelliculage doux)** — **n'apparaissent pas dans la boutique** tant que leurs codes ne sont pas obtenus auprès de l'imprimeur. Le reste du lot configurateur avance sans elles. **Aucune valeur par défaut n'est inventée**, ni pour ces finitions, ni pour la qualité de papier.
+
+**Le motif, et pourquoi masquer plutôt que laisser l'option retomber sur le prix marché.** Proposer un choix qu'on ne sait pas chiffrer produit une promesse que rien ne tient : l'acheteur configure une dorure, la voit acceptée, et reçoit un prix qui ne la contient pas. Le repli « non chiffrable → prix marché » du point 3.2 protège le prix ; il ne protège pas la promesse. **Masquer supprime la promesse à la source.** Ce n'est pas un renoncement : c'est une option gelée, avec une condition de levée écrite plus bas.
+
+**(a) Où le masquage s'applique — les quatre surfaces, nommées, parce qu'aucune n'est déductible des autres.**
+
+| Surface | Ce qui est masqué | Vérifié |
+|---|---|---|
+| **Surcouche de configuration** (boutique) | le champ **« Dorure » disparaît entièrement** (toutes ses valeurs non vides sont sans code) ; **`soft-touch` sort de la liste des finitions** recto et verso | `ProductOverlay.tsx:314` (dorure), `:275` et `:296` (finitions) |
+| **Configurateur de gamme** | les deux mêmes, **par les mêmes constantes** | `GammeConfigurator.tsx:191`, `:161`, `:176` |
+| **Constantes partagées** | `DORURES` (`ProductOverlay.helpers.ts:72`) et l'entrée `"soft-touch"` de `FINISHINGS` (`:65-70`). **C'est ici que le masquage se fait**, pas dans le JSX : les deux écrans lisent les mêmes constantes, et une suppression au niveau du JSX en laisserait un des deux | vérifié : ce sont les deux seuls consommateurs |
+| **Fiche produit** | sa **liste écrite en dur**, indépendante des constantes ci-dessus : `['Sans finition', 'Soft touch', 'Pelliculage mat', 'Pelliculage brillant']` perd `'Soft touch'` | `PortalProduct.tsx:125` |
+
+**Le masquage vaut pour la boutique ET pour l'atelier**, parce que le motif est l'absence de code, pas l'audience : `useProductConfigurator` et `ProductOverlay.helpers.ts` sont partagés, et une charge non chiffrable l'est des deux côtés. La recette couvre donc aussi l'« Éditer » de `ProductCard`.
+
+**Corollaire, pour qu'aucun chemin ne reste ouvert** : `buildClariprintPayload` **n'écrit plus jamais `payload.dorure`** (`ProductOverlay.helpers.ts:341-342` : la branche disparaît, elle n'a plus d'entrée possible). Et `normalizeFinishingLabel` (`:366`), qui mappe aujourd'hui tout libellé contenant « soft » et « touch » vers `soft-touch`, **rend `"aucun"`** : c'est le point d'entrée des libellés venus du LLM et des produits atelier, et le laisser en l'état rouvrirait le masquage par la porte des suggestions de Magrit. Le test `tests/components/shop/ProductOverlay.helpers.test.ts:344`, qui affirme aujourd'hui l'inverse, **change d'assertion, et le story doc en donne le motif** (précédent : `tests/lib/orderStatus.test.ts` en BCP-5).
+
+**(b) Ce qui n'est PAS masqué — la donnée déjà là.** Masquer, c'est **ne plus offrir** ; ce n'est pas effacer. L'atelier continue d'afficher ce qu'un produit porte déjà (`ProductCard.tsx:465-500` montre `finishRecto` tel quel) : c'est la donnée de l'imprimeur, et la lui cacher l'empêcherait de produire ce qui a été commandé.
+
+**(c) Une commande existante qui porte déjà l'une de ces finitions — règle, parce que le cadrage était muet.**
+- **Rien n'est réécrit. Aucune migration, aucun `update`, aucun backfill.** `tenant_order_items.clariprint_options` est un **snapshot immuable des options au moment de la commande** (`20260509000100_e1_orders_v1_1.sql:73`, `not null`), et la configuration entière du produit y est recopiée (`useStorefrontOrderLifecycle.ts:132`). Un trigger le relit pour les candidats PIM (`20260518000100_pim_candidates_on_tenant_order_items.sql:54-65`). **Réécrire un snapshot falsifierait une commande passée** et ferait diverger le prix accepté de la configuration affichée.
+- **La commande reste lisible et honnête des deux côtés.** Côté acheteur, l'affichage de la finition passe par le référentiel de BCP-7, qui **masque tout code inconnu** (point 5.3) : la ligne ne montrera donc pas `dorure`, et surtout **jamais un code brut**. Côté atelier, la valeur reste visible (point (b)).
+- **Le masquage est prospectif.** Une commande passée ne devient pas invalide, elle n'est simplement plus reproductible à l'identique par le configurateur. **Un « Recommander » sur une telle ligne repart d'une configuration sans l'option masquée** : il ne la réintroduit pas en douce, et il ne la supprime pas non plus de l'historique.
+- **Si une configuration stockée en porte une, elle reste non chiffrable** (point 3.2) : prix marché, badge, jamais un envoi avec l'option omise en silence.
+
+**(d) La trace — oui, et elle est écrite, pas laissée au runtime.** Trois supports, aucun n'étant un journal console (BCP-6 l'interdit pour un code inconnu) :
+1. **Le référentiel nomme ce qui est gelé.** `clariprint-finishing-codes.ts` (BCP-1a) reçoit une **liste nommée et documentée des finitions connues du produit mais sans code Clariprint** — `dorure`, `soft-touch` — **distincte** de la table des libellés. Elle ne sert à afficher ni à envoyer quoi que ce soit : elle existe pour que personne ne les réinvente sous un autre nom, et pour que la levée soit un geste d'une ligne. C'est le point de vérité du gel.
+2. **L'audit des configurations stockées compte les occurrences** (prérequis de BCP-2, point 3.2) : combien de produits de boutique et de bibliothèque portent `dorure` ou une finition « soft-touch », et sur quelles boutiques. **Le chiffre va dans le story doc.** Sans lui, personne ne sait ce que le masquage retire réellement à l'acheteur.
+3. **Ce document** : la décision, sa date, sa condition de levée.
+
+**(e) Aucune valeur par défaut inventée — la seconde moitié de la décision, souvent oubliée.**
+- **Qualité de papier** : absente de la configuration de base → **configuration non chiffrable**, pas de qualité supposée (point 3.2, ligne `papers`).
+- **`PortalProduct.tsx:46` pose aujourd'hui `finish: 'Soft touch'` comme valeur sélectionnée par défaut. C'est exactement la valeur inventée que cette décision interdit : elle est retirée**, et aucune autre finition ne la remplace — l'état initial est « rien de sélectionné » ou « Sans finition », jamais un choix pris à la place de l'acheteur.
+- **Constat à porter à Arnaud, découvert en instruisant cette décision, et que BCP-2 ne corrige PAS en silence** : le bloc d'options de la fiche produit (papier, finition, coins) **est décoratif**. `PortalProduct.tsx:446` passe bien `selectedOpts` en troisième argument, mais le récepteur `addToCart(product, qty = 1)` (`PublicShop.tsx:176`) **n'a que deux paramètres** : la sélection est silencieusement jetée, et n'atteint ni le chiffrage, ni le panier, ni la commande. C'est un factice de la même famille que le budget retiré en BCP-8. **Le brancher changerait la chaîne des prix sans cadrage : BCP-2 ne le branche pas.** Il retire la valeur par défaut inventée et la valeur masquée, et laisse le reste en l'état. **Le sort du bloc est la question Q12.**
+
+**(f) La condition de levée — précise, pour qu'on sache quand ce point s'efface.**
+1. **Obtenir les codes chez l'imprimeur** : la page `JsonVarnish` du référentiel du compte pour le soft-touch, et la spécification `gilding_*` pour la dorure — qui exige en plus **une position et des dimensions**, donc des champs de configuration que la boutique ne collecte pas aujourd'hui. **La dorure demandera plus qu'un code** : son retour n'est pas symétrique de celui du soft-touch.
+2. **L'interlocuteur Clariprint reste à désigner par Arnaud** (déjà ouvert en Q7, et toujours pas tranché).
+3. À réception : les codes entrent dans le référentiel, la campagne de banc les vérifie (phase C, point 2.3 — **un code non vérifié ne se remet pas en service**), puis ce point 3.4 et le point 5.3 sont rouverts et les options réapparaissent. **La levée est une décision d'Arnaud, pas un effet automatique de l'arrivée des codes.**
+
+**(g) Ce que cette décision NE débloque pas.** Elle retire Q3 de la liste des blocages de BCP-2. **Elle ne rend pas BCP-2 lançable** : voir le point 6, « Ce qui reste entre BCP-2 et son lancement ».
 
 #### 4. Lot 4 — la règle exacte de `resolvePrice` dans la boutique
 
@@ -4976,6 +5028,7 @@ Ce sont les cinq valeurs du prompt. **Les libellés sont une proposition**, vali
 - **Code inconnu → masqué, jamais affiché.** Exemple : `PELLIC_BRILL`, présent seulement dans une fixture (`tests/components/shop/ProductOverlay.helpers.test.ts:303`).
 - **Combinaison** : les libellés connus, joints par « + ». Si aucun n'est connu, la ligne est masquée.
 - **Aucun journal console** par code inconnu (BCP-6).
+- **Ni la dorure ni le soft-touch n'entrent dans cette table** (décision Q3 du 2026-09-16, point 3.4) : ils n'ont pas de code, et un libellé sans code ne s'invente pas. Le fichier porte en revanche la **liste nommée des finitions gelées faute de code** (point 3.4 (d) 1), qui ne sert ni à afficher ni à envoyer. **Conséquence utile pour une commande passée** : une ligne qui porte `dorure` ou `soft-touch` en snapshot voit sa finition **masquée**, jamais rendue en code brut.
 
 ##### 5.4 BCP-8 — cohérence du panier, budget retiré
 
@@ -5006,7 +5059,7 @@ Ce sont les cinq valeurs du prompt. **Les libellés sont une proposition**, vali
 | *(campagne)* | banc joué **en mode sec, puis réellement sous un plafond de 18 appels** (point 2.3) | BCP-1a | `scripts/diagnostics/clariprint-variants/results/` |
 | *(architecte)* | écriture du contrat, **après la campagne archivée** | la campagne | `openapi/magrit-core.v1.yaml`, ce document |
 | **BCP-1b** | 1 — opération atelier, opération publique par slug (L2 et `Retry-After` ajoutés au limiteur de BCP-0b), migration des appelants, retrait de la route historique | le contrat écrit ; BCP-0b | `src/modules/clariprint/api/`, `src/server/api/clariprint-quotes-routes.ts`, migration additive (portée L2), `browser-clariprint-adapter.ts`, runtimes, `src/schemas/clariprintPayload.schema.ts` |
-| **BCP-2** | 2 — normaliseur, configurateur, « Configurer » | BCP-1a (formes), BCP-1b (barrière), audit, Q3 pour dorure/soft-touch | normaliseur, `ProductOverlay.helpers.ts`, `useProductConfigurator.ts`, `PortalProduct.tsx`, `PortalCatalog.tsx` |
+| **BCP-2** | 2 — normaliseur, configurateur, « Configurer », **masquage dorure/soft-touch (point 3.4)** | BCP-1a (formes), BCP-1b (barrière), audit des configurations stockées. **Q3 tranchée le 2026-09-16 : elle ne bloque plus** | normaliseur, `ProductOverlay.helpers.ts`, `ProductOverlay.tsx`, `GammeConfigurator.tsx`, `useProductConfigurator.ts`, `PortalProduct.tsx`, `PortalCatalog.tsx` |
 | **BCP-3** | 3 — recherche IA | BCP-2 (même fichier) | `PortalCatalog.tsx`, `PortalCatalog.helpers.ts` |
 | **BCP-4** | 4 — prix, plancher, suggestions, badge | BCP-3 (même fichier) ; données ERAM : geste humain, à tout moment | `ShopProductCard.tsx`, `gammeFloorPrices.ts`, `priceResolver.ts`, `GammeTile.tsx`, `PortalCatalog.tsx` |
 | **BCP-5** | 5 — table unique de statuts, textes | — (Q1 tranchée : oui) | helpers de `src/modules/orders/ui/`, `PortalThankYou.tsx`, `PortalCart.tsx` (textes) |
@@ -5018,6 +5071,19 @@ Ce sont les cinq valeurs du prompt. **Les libellés sont une proposition**, vali
 | *Clôture* | smoke E2E rejoué | tous | — |
 
 **Réponse à « le lot 2 dépend-il des lots 1 et 4 ? »** Oui du lot 1, entier : de BCP-1a pour les formes, de BCP-1b pour la barrière. **Non du lot 4 dans le code.** Le lot 4 ne fait qu'afficher ce que le lot 2 chiffre. Seul le smoke de clôture exige les deux.
+
+**Ce qui reste entre BCP-2 et son lancement (état au 2026-09-16).** Q3 tranchée **ne suffit pas** : elle lève un blocage sur trois.
+
+| Prérequis | État au 2026-09-16 | Qui le lève |
+|---|---|---|
+| **Q3** (dorure, soft-touch) | **LEVÉ** le 2026-09-16 (point 3.4) | fait |
+| **L'audit des configurations stockées** (point 3.2) | **NON FAIT** — aucun story doc BCP-2, aucun résultat d'audit au dépôt | **lançable tout de suite** : lecture seule, aucune dépendance, ne coûte aucun appel Clariprint. **C'est le prochain geste utile.** Son résultat peut rouvrir ce cadrage (« une forme non prévue ici rouvre ce cadrage ») |
+| **BCP-1a** (formes, référentiel des finitions) | **LIVRÉ et fusionné** | fait |
+| **La campagne de banc** | **NON JOUÉE** — `scripts/diagnostics/clariprint-variants/results/` n'existe pas. Seul le mode sec a tourné (17 appels planifiés, aucun appel réseau) | **Arnaud seul** : appels facturés, `--execute`, identifiants fournis par lui |
+| **Le contrat BCP-1b** (écrit par l'architecte **après** la campagne archivée) | **NON ÉCRIT** — il attend les textes d'erreur réels pour fixer l'énumération `error_class`, et deux choix irréversibles en v1 (point 2.1) | l'architecte, une fois la campagne archivée |
+| **BCP-1b** (la barrière : schéma strict qui refuse en 422) | **NON COMMENCÉ** | dev-story, après le contrat |
+
+**Verdict : BCP-2 n'est pas lançable.** Il dépend de BCP-1b pour la barrière, donc du contrat, donc de la campagne — que personne n'a jouée. **Le chemin critique n'est pas Q3 : c'est la campagne d'appels réels chez l'imprimeur, qui n'appartient qu'à Arnaud.** Un dev-story qui commencerait BCP-2 maintenant écrirait un normaliseur sans le serveur qui le fait respecter, c'est-à-dire exactement le défaut du smoke : une charge fautive partant sans que rien ne la refuse.
 
 **Ordre par défaut : celui d'Arnaud.** Trois conflits de fichiers imposent leur propre séquence :
 - `PortalCatalog.tsx` : 2 → 3 → 4 ;
@@ -5070,6 +5136,7 @@ Ce sont les cinq valeurs du prompt. **Les libellés sont une proposition**, vali
    - « Configurer » ouvre la configuration, le prix se recalcule, l'ajout au panier fonctionne ;
    - aucune carte à 0 €, aucun « dès 1,00 € » ;
    - les dimensions sont justes en mm, aucune finition n'apparaît en code ;
+   - **aucune option « dorure » ni « soft-touch » n'est proposée**, sur aucune des quatre surfaces du point 3.4 (a), et **aucune finition n'est présélectionnée** à l'ouverture d'une fiche produit ;
    - le panier est en HT par ligne, sans budget, et le tiroir est fermé au checkout ;
    - les libellés de remerciement et de « Mes commandes » sont conformes ;
    - l'`aria-label` du compte est conforme.
@@ -5084,14 +5151,15 @@ Ce sont les cinq valeurs du prompt. **Les libellés sont une proposition**, vali
 |---|---|---|---|
 | **Q1** | L'atelier lit-il lui aussi « En attente de validation » pour une commande boutique `draft` ? | **TRANCHÉE le 2026-09-15 : oui** | une seule table pour les deux surfaces (point 5.1) |
 | **Q2** | Un visiteur **non connecté** obtient-il un chiffrage Clariprint ? | **TRANCHÉE le 2026-09-15 : oui, le chiffrage est ouvert**, contrairement à la recommandation de ce cadrage | contrat refait au point 2.4. Condition : Q9 |
-| **Q3** | Les options sans code Clariprint connu (dorure, soft-touch), et la qualité de papier quand la configuration de base n'en porte pas | non arbitrée ; bloque la partie de BCP-2 qui touche ces options | masquer dorure et soft-touch tant que le référentiel n'est pas obtenu ; aucune qualité par défaut inventée |
+| **Q3** | Les options sans code Clariprint connu (dorure, soft-touch), et la qualité de papier quand la configuration de base n'en porte pas | **TRANCHÉE le 2026-09-16 : on MASQUE**, conformément à la recommandation. Ne bloque plus BCP-2 | dorure et soft-touch retirées de toutes les surfaces de choix (boutique et atelier) tant que les codes ne sont pas obtenus chez l'imprimeur ; aucune valeur par défaut inventée, ni finition ni qualité de papier ; rien n'est réécrit sur une commande passée. **Règle complète, surfaces, trace et condition de levée : point 3.4** |
 | **Q4** | Une base heuristique pour banderole, bâche et oriflamme | non arbitrée ; ne bloque rien | seulement sur des prix réels observés |
 | **Q5** | « Livraison : Siège social · Paris » dans le panier est un factice : le retirer avec le budget ? | non arbitrée ; bloque cet élément de BCP-8 | retirer |
-| **Q6** | Paralléliser 5, 6 et 9 pendant la campagne de banc, en dérogeant à l'ordre fixé | non arbitrée ; ne bloque rien (défaut : l'ordre) | oui, en worktree séparé |
+| **Q6** | Paralléliser 5, 6 et 9 pendant la campagne de banc, en dérogeant à l'ordre fixé | **TRANCHÉE le 2026-09-15 : oui** — décision déjà appliquée (BCP-5, BCP-6 et BCP-9 menés en worktrees, fusionnés). Cette ligne disait encore « non arbitrée » : corrigé le 2026-09-16 | oui, en worktree séparé |
 | **Q7** | Le coût des appels au compte Clariprint | **TRANCHÉE le 2026-09-15 : les appels sont facturés, et on teste quand même** | **18 appels au plus**, plafond écrit dans le code, mode sec par défaut (point 2.3). Reste ouvert : l'interlocuteur Clariprint pour la page `JsonVarnish` |
 | **Q9** | La valeur du plafond global quotidien L3 | **TRANCHÉE le 2026-09-15 : 500 appels par jour pour toute la plateforme**, ajustable par configuration quand le prix d'un appel sera connu | la table `api_rate_limits` (point 2.3bis (2)). Les valeurs de L1 (30 par 10 min) et de L2 (300 par heure) restent des propositions |
 | **Q10** | Poser le limiteur d'abord sur la route actuelle | **TRANCHÉE le 2026-09-15 : oui, en premier** : c'est BCP-0b, après BCP-0 et avant BCP-1a | point 2.3bis. BCP-1b le reprend tel quel |
 | **Q11** | **Un plafond quotidien propre à l'atelier (L3a)**, et la validation de l'étage membre à 120 par 10 min. L'exemption de L3 se contourne, puisque compte et espace se créent en libre-service (point 2.3bis (4)) | ne bloque pas BCP-0b. Sans L3a, la facture de la voie atelier n'est bornée que par le nombre de comptes | un plafond quotidien pour l'atelier, dont la valeur se fixe contre le prix d'un appel. À défaut, restreindre l'exemption aux espaces vérifiés, selon un critère à définir |
+| **Q12** | **Le bloc d'options de la fiche produit est décoratif** : `PortalProduct.tsx:446` passe `selectedOpts`, mais `addToCart` (`PublicShop.tsx:176`) n'a que deux paramètres et le jette. Papier, finition et coins choisis là n'atteignent ni le chiffrage, ni le panier, ni la commande (point 3.4 (e)) | ne bloque pas BCP-2, qui se borne à retirer la valeur par défaut inventée et la valeur masquée | **le retirer**, comme le budget factice de BCP-8 : un choix sans effet trompe l'acheteur. Le brancher changerait la chaîne des prix et demande son propre cadrage |
 | **Q8** | *Pour information, hors chantier* : le chiffrage est montré à l'acheteur **sans marge** (point 1 (4)) ; le fournisseur, affiché aujourd'hui à l'acheteur, **disparaît** en BCP-1b ; la zone de livraison `FR-75` est codée en dur dans tous les chiffrages, qui incluent donc une livraison à Paris | rien | à inscrire au backlog |
 
 #### 10. État des gates
@@ -5105,6 +5173,8 @@ Ce sont les cinq valeurs du prompt. **Les libellés sont une proposition**, vali
 **Quatrième round (mesure de l'IP, retrait en 410 de la seconde porte)** : même état. Seul ce document change.
 
 **Cinquième round (BCP-0c, routes de diagnostic)** : même état. `openapi/magrit-core.v1.yaml` est inchangé. L'ajout du 403 à `docs/architecture/api/openapi.yaml` est un livrable de BCP-0c, dans le même commit que son code.
+
+**Sixième round (Q3 tranchée, masquage dorure et soft-touch)** : même état. **Aucune ligne d'`openapi/magrit-core.v1.yaml` ni de `src/`** — seul ce document change. C'est cohérent : le contrat de chiffrage n'est pas encore écrit (il attend la campagne, point 2.1), et il ne décrira de toute façon **que les formes canoniques du point 3.2**, où ni `dorure` ni `soft-touch` ne figurent. **Le masquage ne retire donc rien du contrat : il retire une option d'interface qui n'y est jamais entrée.** Aucune dérogation R5 nouvelle.
 
 ## 9. Commandes
 
