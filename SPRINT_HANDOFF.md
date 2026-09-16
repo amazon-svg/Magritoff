@@ -167,6 +167,14 @@ Joué par le coordinateur dans Chrome DevTools, compte acheteur ERAM connecté p
 
   Options : pointer ce test sur la pile locale (`VITE_SUPABASE_URL`), créer le bucket en prod, ou l'ignorer explicitement hors environnement dédié.
 
+  **Contrôle navigateur du 2026-09-16 sur `0e54e804` : les deux correctifs sont CONFIRMÉS.** 0 rechargement Vite pendant le contrôle (compteur à 47 au départ comme à l'arrivée), aucun agent n'écrivant.
+  - **Conflits de transition** : C1 (annulation pendant validation) et C2 (validation pendant annulation) affichent le message français attendu, dans les DEUX sens. Aucun `transition_not_allowed`, `permission_denied` ni `order_not_found` visible. **C6** : exactement UNE relecture de la liste après le 409 et AUCUN message de succès — le point que M4c/M4d laissaient sans test.
+  - **C4** : hauteur de ligne du sous-titre revenue à 18 px (12 px, `rgb(82, 82, 91)`, une occurrence, description en place).
+  - **BCP-6b** : 0 appel au repos sur 149 s, 0 sur `focus` seul, 0 à la navigation interne, 0 après démontage-remontage ; 1 appel de chaque au chargement, avec ou sans session. **Session expirée : UNE seule revalidation, retour immédiat à l'écran de connexion, aucune rafale — reproduit deux fois, dont une par un vrai clic d'interface** (c'est le geste qui couvre H1 et H4). **D1** : retour sur onglet sans session = 1 revalidation, 0 catalogue.
+  - **Écarts non bloquants** : à la reconnexion, la liste des commandes est appelée 4 fois dont une annulée (`net::ERR_ABORTED`) — sonde et catalogue restent uniques, la série s'arrête, concurrence à instruire ; « Configurer et ajouter » navigue vers une page produit depuis l'accueil mais ouvre la surcouche depuis le catalogue ; console propre (seuls des signalements préexistants de champs sans `id`/`name` et un `label for`).
+  - **Non joués, avec leur raison** : R5 (10 min), R8 (arrière-plan), R10 (`retry` : une navigation interne ne rappelle pas le catalogue et un chargement réseau coupé casse le document), C5 (aucune entrée d'UI ne provoque 403/404), C7 (exige une session) — couverts par les tests et la sonde de la qa.
+  - PV détaillé geste par geste, avec les `reqid` : hors dépôt (scratchpad de session). Reporté dans les story docs BCP-5, BCP-6, BCP-9 et BCP-6b.
+
   Dette relevée au round 2 : `withHeaders()` créait une instance SANS reprendre les abonnés (corrigé au round 3) — aujourd'hui seuls l'atelier et `order-upload-links` l'utilisent, mais un client de la boutique qui y passerait perdrait silencieusement ses 401. Mutations survivantes acceptées au titre du choix (b1), faute d'outil de rendu dans le dépôt : A5, D1c, D2 et les variantes « texte gardé » de M7b, M8, M9, M10 et M12 ; elles sont couvertes par les gestes R12 à R15 du comptage navigateur. Ajouter une dépendance de rendu serait un arbitrage d'Arnaud.
 - **Hors lot, relevés pour les lots 4, 7 et 8** :
   - dimensions « ?×? mm » ;

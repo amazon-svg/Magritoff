@@ -321,3 +321,28 @@ M4/M5) ; (2) un garde-fou strict — un code métier présent qui ne vaut PAS
 générique à la façade E10) n'est plus jamais requalifié en conflit de
 transition, même si le texte y ressemblait (mutation M6). Chaque test a été
 exécuté en échec sur la mutation qu'il vise puis vert après restauration.
+
+## Contrôle navigateur du 2026-09-16 (après fusion des correctifs)
+
+**Code contrôlé** : `0e54e804` — correctif post-recette BCP-5/6 (merge `24634582`, qa round 2 approuvée) et BCP-6b (merge `c165e751`, qa round 3 approuvée). Environnement local, Chrome, contextes isolés acheteuse et atelier. **0 rechargement Vite pendant le contrôle** (compteur à 47 au départ comme à l'arrivée), aucun agent n'écrivant dans le dépôt.
+
+**Les deux correctifs sont confirmés en navigateur.**
+
+- **Conflits de transition, dans les deux sens.** C1 (annulation côté acheteuse pendant que l'atelier valide) et C2 (validation côté atelier pendant que l'acheteuse annule) affichent le message français attendu. Aucun `transition_not_allowed`, `permission_denied` ni `order_not_found` visible à l'écran.
+- **C6** : après le refus 409, **exactement une** relecture de la liste et **aucun** message de succès, des deux côtés. C'est le point que les mutations M4c et M4d laissaient sans test.
+- **C4** : hauteur de ligne du sous-titre de la surcouche produit revenue à **18 px** (12 px de taille, `rgb(82, 82, 91)`, une seule occurrence, description accessible en place). La régression de BCP-6 (17,14 px) est corrigée.
+- **Fin de la boucle session/catalogue** : 0 appel au repos sur 149 s, 0 sur `focus` seul, 0 à la navigation interne, 0 après un démontage-remontage. 1 appel de chaque au chargement, avec ou sans session.
+- **Session expirée** : une seule revalidation, retour immédiat à l'écran de connexion, aucune rafale — reproduit deux fois, dont une par un vrai clic d'interface. C'est le geste qui couvre les contournements H1 et H4 que la qa n'a pas pu tuer par des tests.
+- **Correction D1** : retour sur l'onglet après plus d'une minute, sans session — 1 revalidation, **0 catalogue**.
+
+**Écarts relevés, aucun bloquant**
+
+1. **Reconnexion** : la liste des commandes est appelée quatre fois, dont une requête annulée (`net::ERR_ABORTED`). La sonde et le catalogue restent uniques et la série s'arrête, mais la concurrence entre le point d'entrée et le rechargement d'identité reste à instruire.
+2. **Parcours produit** : « Configurer et ajouter » navigue vers une page produit depuis l'accueil, alors que le même libellé ouvre la surcouche depuis le catalogue.
+3. **Console** : uniquement des signalements mineurs et préexistants (champs de formulaire sans `id`/`name`, un `label for` mal formé). Aucun avertissement React, aucun `ref`, aucun « Missing Description ».
+
+**Gestes non joués, avec leur raison** : R5 (retour après 10 min, couvert par le test à horloge simulée), R8 (ouverture en arrière-plan, non reproductible fidèlement), R10 (`retry` : une navigation interne ne rappelle pas le catalogue, et un chargement réseau coupé casse le document lui-même ; couvert par le test dédié), C5 (aucune entrée d'interface ne provoque un 403 ou un 404) et C7 (réseau coupé : exige une session). C5 et C7 sont couverts par la sonde de la qa round 2.
+
+**Relevés hors lot, inchangés** (lots 7 et 8) : « ?×? mm », « Livraison : Siège social · Paris », budget factice « 8 420 € / 13 500 € ».
+
+Procès-verbal détaillé, geste par geste avec les `reqid` : hors dépôt, dans le scratchpad de session (`recette-boutique/pv-controle-post-correctifs.md`).
