@@ -10,7 +10,14 @@ interface Props {
   tone: string;
   /** Clic tuile sous-catégorie → filtre le catalogue (+ format si dérivée). */
   onSelectSubcategory: (gammeSlugs: string[], formatKey?: string) => void;
-  onSelectProduct: (p: ShopProduct) => void;
+  /**
+   * BCP-10 (docs/api/CONVENTIONS.md §8.25 point 3.5 (b)) — clic sur une tuile
+   * « Les plus demandés » : ouvre la surcouche `ProductOverlay` (hébergée une
+   * fois par `PublicShop`), au même titre que le bouton « Configurer » des
+   * autres cartes (accueil, gamme, catalogue, suggestions de Magrit). La
+   * landing n'a pas de bouton distinct : la tuile entière porte ce geste.
+   */
+  onConfigure: (p: ShopProduct) => void;
   pimGammes?: Gamme[] | undefined;
   pimDefinitions?: ProductDefinition[] | undefined;
 }
@@ -24,7 +31,7 @@ export function PortalCategoryLanding({
   model,
   tone,
   onSelectSubcategory,
-  onSelectProduct,
+  onConfigure,
   pimGammes,
   pimDefinitions,
 }: Props) {
@@ -102,7 +109,7 @@ export function PortalCategoryLanding({
               <button
                 key={p.id}
                 data-testid={TEST_IDS.shop.catalogLandingBestseller}
-                onClick={() => onSelectProduct(p)}
+                onClick={() => onConfigure(p)}
                 className="group flex items-center gap-3 w-[260px] p-2.5 rounded-xl bg-bg border border-line hover:border-line-2 hover:bg-paper text-left"
               >
                 <img

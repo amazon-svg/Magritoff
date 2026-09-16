@@ -225,6 +225,12 @@ export const TEST_IDS = {
     overlayOptionFinishingVerso: 'shop-overlay-option-finishing-verso',
     overlayOptionPrinting: 'shop-overlay-option-printing',
     overlayOptionDorure: 'shop-overlay-option-dorure',
+    // BCP-10 (docs/api/CONVENTIONS.md §8.25 point 3.5) — fiche produit /p/:id
+    // devenue purement descriptive : aucun testid sur l'ex-bloc d'options
+    // (supprimé, pas déplacé — un testid sur du code mort est un testid mort).
+    productPage: 'shop-product-page',
+    productPageConfigureBtn: 'shop-product-page-configure-btn',
+    productPagePrice: 'shop-product-page-price',
     // S2.4b — Bouton Editer atelier qui ouvre l'overlay (correctif scope persona primaire)
     productCardEditBtn: 'product-card-edit-btn',
     // S7.3 — Page gamme /shop/:slug/g/:gamme (Epic 7 gabarit boutique v2)

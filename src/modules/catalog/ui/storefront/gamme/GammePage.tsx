@@ -46,6 +46,14 @@ export interface GammePageProps {
   onGoGamme: (slug: string) => void;
   /** S7.4 — clic carte produit lié → fiche /p/:id. */
   onSelectProduct: (product: ShopProduct) => void;
+  /**
+   * BCP-10 (docs/api/CONVENTIONS.md §8.25 point 3.5) — bouton « Configurer »
+   * d'une carte de la section « Produits de la gamme » : ouvre la surcouche
+   * `ProductOverlay`, hébergée une fois par `PublicShop`. Le configurateur
+   * héros de cette page (au-dessus, `GammeConfigurator`) est une surface
+   * distincte, non touchée par BCP-10.
+   */
+  onConfigure: (product: ShopProduct) => void;
   /** Filet Magrit : ouvre la zone de recherche Magrit (vue catalogue). */
   onAskMagrit: () => void;
 }
@@ -62,6 +70,7 @@ export function GammePage({
   onGoCatalog,
   onGoGamme,
   onSelectProduct,
+  onConfigure,
   onAskMagrit,
 }: GammePageProps) {
   const { gamme, family } = useMemo(
@@ -312,7 +321,7 @@ export function GammePage({
                 shop={shop}
                 pimGammes={pimGammes}
                 onCardClick={onSelectProduct}
-                onConfigure={onSelectProduct}
+                onConfigure={onConfigure}
                 onAddToCart={(prod, qty) => onAddToCart(prod, qty ?? 1)}
               />
             ))}

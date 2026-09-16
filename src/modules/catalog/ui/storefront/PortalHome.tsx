@@ -32,6 +32,13 @@ interface Props {
   onReorder: (p: ShopProduct) => void;
   /** S7.8 — clic tuile famille → page gamme /g/:slug. */
   onOpenGamme: (slug: string) => void;
+  /**
+   * BCP-10 (docs/api/CONVENTIONS.md §8.25 point 3.5) — bouton « Configurer »
+   * d'une carte : ouvre la surcouche `ProductOverlay`, hébergée une fois par
+   * `PublicShop`. Ne pas confondre avec `onSelectProduct`, qui mène à la
+   * fiche descriptive `/p/:id`.
+   */
+  onConfigure: (p: ShopProduct) => void;
   pimGammes?: Gamme[];
   pimDefinitions?: ProductDefinition[];
 }
@@ -43,6 +50,7 @@ export function PortalHome({
   onSelectProduct,
   onReorder,
   onOpenGamme,
+  onConfigure,
   pimGammes,
   pimDefinitions,
 }: Props) {
@@ -155,7 +163,7 @@ export function PortalHome({
                 key={p.id}
                 product={p}
                 shop={shop}
-                onConfigure={onSelectProduct}
+                onConfigure={onConfigure}
                 onAddToCart={onReorder}
                 onCardClick={onSelectProduct}
                 pimGammes={pimGammes}

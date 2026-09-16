@@ -24,7 +24,7 @@ describe('frontière fiscale du storefront', () => {
     }
   });
 
-  it('injecte le taux du catalogue jusque dans le configurateur partagé', () => {
+  it('injecte le taux du catalogue jusque dans le configurateur partagé, hébergé une seule fois (BCP-10)', () => {
     const publicShop = readFileSync(resolve(process.cwd(), 'src/modules/shops/ui/storefront/PublicShop.tsx'), 'utf8');
     const catalog = readFileSync(resolve(process.cwd(), 'src/modules/catalog/ui/storefront/PortalCatalog.tsx'), 'utf8');
     const overlay = readFileSync(resolve(process.cwd(), 'src/modules/catalog/ui/storefront/ProductOverlay.tsx'), 'utf8');
@@ -35,9 +35,14 @@ describe('frontière fiscale du storefront', () => {
 
     expect(publicShop).toContain('<PortalCatalog');
     expect(publicShop).toContain('<GammePage');
+    // BCP-10 (docs/api/CONVENTIONS.md §8.25 point 3.5 (b)) — un SEUL hôte pour
+    // `ProductOverlay` : `PublicShop`. `PortalCatalog` ne l'héberge plus : la
+    // règle métier du paquet était dupliquée entre PortalCatalog et
+    // PortalProduct, ce qui a laissé la fiche produit jeter sa sélection.
+    expect(publicShop).toContain('<ProductOverlay');
     expect(publicShop.match(/taxRate=\{taxRate\}/g)?.length).toBeGreaterThanOrEqual(4);
-    expect(catalog).toContain('<ProductOverlay');
-    expect(catalog).toContain('taxRate={taxRate}');
+    expect(catalog).not.toContain('<ProductOverlay');
+    expect(catalog).not.toContain('taxRate={taxRate}');
     expect(overlay).toContain('useProductConfigurator(product, {');
     expect(overlay).toContain('taxRate: configuredTaxRate');
     expect(gamme).toContain('useProductConfigurator(defaultProduct, {');
@@ -45,6 +50,7 @@ describe('frontière fiscale du storefront', () => {
     expect(configurator).toContain('opts.taxRate ?? DEFAULT_TAX_RATE');
     expect(boundary).toContain('clariprint: storefrontBrowserRuntime.createClariprint(apiClient)');
     expect(catalog).toContain('useStorefrontUiRuntime()');
+    expect(publicShop).toContain('useStorefrontUiRuntime()');
     expect(gamme).toContain('clariprintGateway: clariprint');
     expect(overlay).toContain('clariprintGateway');
     expect(configurator).not.toContain('useBrowserServices');

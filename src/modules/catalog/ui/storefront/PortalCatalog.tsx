@@ -1,5 +1,5 @@
 import { useStorefrontUiRuntime } from '@/platform/runtime/storefront-ui-runtime';
-import { lazy, Suspense, useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Search, Sparkles, X, Loader2, AlertTriangle } from 'lucide-react';
 import type { Shop, ShopProduct } from '@/modules/shops';
 import type { Gamme, ProductDefinition } from '@/modules/catalog/ui/helpers/productEnrichment';
@@ -44,18 +44,19 @@ import {
   type SortKey,
 } from '@/modules/catalog/ui/storefront/PortalCatalog.helpers';
 
-// R7 (refacto 2026-05-11) : lazy-load le ProductOverlay (configurateur lourd
-// charge seulement quand l'acheteur clique "Configurer").
-const ProductOverlay = lazy(() =>
-  import('@/modules/catalog/ui/storefront/ProductOverlay').then((m) => ({ default: m.ProductOverlay })),
-);
-
 interface Props {
   shop: Shop;
-  taxRate: number;
   products: ShopProduct[];
   onSelectProduct: (p: ShopProduct) => void;
   onAddToCart: (p: ShopProduct, qty?: number) => void;
+  /**
+   * BCP-10 (docs/api/CONVENTIONS.md §8.25 point 3.5 (b)) — bouton
+   * « Configurer » d'une carte : ouvre la SEULE surcouche `ProductOverlay`,
+   * hébergée une fois par `PublicShop`. `PortalCatalog` n'héberge plus son
+   * `overlayProduct` local (c'était la seule instance correcte avant ce
+   * lot ; elle devient la référence pour toutes les autres surfaces).
+   */
+  onConfigure: (p: ShopProduct) => void;
   pimGammes?: Gamme[];
   pimDefinitions?: ProductDefinition[];
   /** S2.19 — fil d'Ariane : « Accueil » ramène à la home boutique. */
@@ -119,10 +120,10 @@ function configToEphemeralShopProduct(config: any, index: number): ShopProduct {
 // Design source : .design-handoff/designs/05 - Portail B2B.html (section .f2b)
 export function PortalCatalog({
   shop,
-  taxRate,
   products,
   onSelectProduct,
   onAddToCart,
+  onConfigure,
   onGoHome,
   pimGammes,
   pimDefinitions,
@@ -150,9 +151,6 @@ export function PortalCatalog({
   useEffect(() => {
     setSelectedFormats(initialFormat ? new Set([initialFormat]) : new Set());
   }, [initialFormat]);
-
-  // S2.4 — Etat ProductOverlay (configuration produit Clariprint)
-  const [overlayProduct, setOverlayProduct] = useState<ShopProduct | null>(null);
 
   // Resultats generes par Magrit (claude-proxy). Produits ephemeres qu'on peut
   // ajouter au panier meme s'ils n'existent pas dans le catalogue shop.
@@ -513,7 +511,7 @@ export function PortalCatalog({
             if (onSelectSubcategory) onSelectSubcategory(slugs, formatKey);
             else if (onSelectFamily) onSelectFamily(slugs);
           }}
-          onSelectProduct={onSelectProduct}
+          onConfigure={onConfigure}
           pimGammes={pimGammes}
           pimDefinitions={pimDefinitions}
         />
@@ -689,7 +687,7 @@ export function PortalCatalog({
               pimGammes={pimGammes}
               onCardClick={onSelectProduct}
               onAddToCart={onAddToCart}
-              onConfigure={(prod) => setOverlayProduct(prod)}
+              onConfigure={onConfigure}
             />
           ))
         )}
@@ -841,7 +839,7 @@ export function PortalCatalog({
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          onSelectProduct(p);
+                          onConfigure(p);
                         }}
                         className="px-3 py-1.5 bg-ink text-paper rounded-md hover:bg-black"
                         style={{ fontSize: '12.5px', fontWeight: 500 }}
@@ -855,31 +853,6 @@ export function PortalCatalog({
             </div>
           )}
         </div>
-      )}
-
-      {/* S2.4 — Overlay configuration produit Clariprint (R7 lazy) */}
-      {overlayProduct && (
-        <Suspense fallback={null}>
-          <ProductOverlay
-            product={overlayProduct}
-            shop={shop}
-            taxRate={taxRate}
-            clariprintGateway={clariprint}
-            onClose={() => setOverlayProduct(null)}
-            onConfirm={(productConfigured, qty) => {
-              // S-FIX-PANIER-11/05 (bug #5) : `qty` retourne par l'overlay est la
-              // quantite d'exemplaires. On la stocke dans config.quantity et on
-              // passe `1 pack` au panier pour que `price_ht * cart.qty` reste
-              // egal au prix forfaitaire du pack (pas multiplie par les ex).
-              const withQty = {
-                ...productConfigured,
-                config: { ...(productConfigured.config ?? {}), quantity: qty },
-              };
-              onAddToCart(withQty, 1);
-              setOverlayProduct(null);
-            }}
-          />
-        </Suspense>
       )}
     </div>
   );
