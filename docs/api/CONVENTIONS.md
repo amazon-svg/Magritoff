@@ -4277,7 +4277,15 @@ La fiche propose `src/services/exports/orders.ts`. **Il n'existe aucun dossier `
 > - **La dorure et le soft-touch (pelliculage doux) n'apparaissent plus dans la boutique** tant que leurs codes Clariprint ne sont pas obtenus auprès de l'imprimeur. **Le reste du lot configurateur avance sans elles.**
 > - **Aucune valeur par défaut n'est inventée**, ni pour ces deux finitions, ni pour la qualité de papier quand la configuration de base n'en porte pas.
 > - La règle complète, ses surfaces, le sort des commandes existantes et sa condition de levée : **point 3.4**, écrit pour que rien ne reste au choix du dev-story.
-> - **Ce que cela ne débloque pas** : BCP-2 reste suspendu à BCP-1b (donc à la campagne de banc, non jouée) et à l'audit des configurations stockées (non fait). Voir le point 6, « Ce qui reste entre BCP-2 et son lancement ».
+> - **Ce que cela ne débloque pas** : BCP-2 reste suspendu à BCP-1b (donc à la campagne de banc, non jouée). L'audit des configurations stockées, **non fait à ce round, l'a été depuis** (commit `80c4c39d`). Voir le point 6, « Ce qui reste entre BCP-2 et son lancement ».
+>
+> **SEPTIÈME ROUND — décision d'Arnaud du 2026-09-16, opposable : les deux parcours de configuration s'alignent sur la surcouche.**
+> - **La surcouche `ProductOverlay` devient la seule surface de configuration.** La fiche produit `/p/:productId` **survit** comme fiche descriptive, avec son URL et son référencement, et un unique bouton « Configurer » qui ouvre la surcouche **par-dessus elle**, sans quitter l'URL.
+> - **Le bloc d'options mort de la fiche est supprimé**, listes écrites en dur comprises — donc `finish: 'Soft touch'`, mais aussi les **coins**, qui n'ont **aucun code Clariprint** et rejoignent les options gelées plutôt que de migrer.
+> - **`addToCart` ne change pas de signature** : la configuration voyage dans `product.config.clariprintData`, où la commande la lit déjà. C'est le troisième argument qui disparaît, pas un quatrième qui apparaît.
+> - **Le lot reste hors du périmètre des prix (E10.21)** : il ne crée aucun calcul, il en **supprime** un. Son seul empiètement, nommé et cadré, est l'affichage du prix de la fiche, qui adopte la règle déjà écrite du point 4 (a).
+> - **Le défaut n'était pas « l'accueil » mais cinq chemins sur six.** Détail, arbitrages et recette : **point 3.5**. C'est **BCP-10**, et il **ne dépend ni de la campagne, ni du contrat** : il est lançable tout de suite.
+> - **Ce que cela ne règle pas** : la surcouche invente elle aussi deux valeurs (`format: "A5"`, `paper: "135g"`). BCP-10 **ne les corrige pas** — c'est le normaliseur de BCP-2. **Q13**, point 9.
 
 #### 1. Ce que le dépôt montre en plus des diagnostics — onze constats
 
@@ -4886,6 +4894,146 @@ Moyens : la campagne du banc (phases B et C, point 2.3) et les pages `JsonVarnis
 
 **(g) Ce que cette décision NE débloque pas.** Elle retire Q3 de la liste des blocages de BCP-2. **Elle ne rend pas BCP-2 lançable** : voir le point 6, « Ce qui reste entre BCP-2 et son lancement ».
 
+##### 3.5 BCP-10 — Q12 tranchée : les deux parcours de configuration s'alignent sur la surcouche, et la fiche produit cesse de configurer
+
+> **Numéro de story : BCP-10, retenu sous la réserve de vérification habituelle.** Aucun agent de cette session n'a d'accès Notion (même limite qu'aux §8.22, §8.23 et §8.24). Vérifié dans le dépôt : aucun `BCP-10` n'y existe (ce document, artefacts BMAD, tests, scripts) ; `BCP-0` à `BCP-9` y sont tous. Si le backlog porte déjà un BCP-10, **seul le numéro change** — rien de ce qui suit n'en dépend.
+
+**La décision d'Arnaud du 2026-09-16, mot pour mot** : les deux écrans qui proposent les mêmes réglages s'alignent **sur celui qui fonctionne**, c'est-à-dire la surcouche `ProductOverlay`. Ce qui suit tranche les cinq points laissés ouverts, pour qu'aucun ne retombe sur le dev-story.
+
+**Ce que Q12 disait, et ce que l'instruction a trouvé en plus.** Q12 (point 9) décrivait **un** écran fautif atteint depuis l'accueil. La vérification fichier par fichier en montre **cinq chemins d'entrée** vers la fiche produit, et **un seul** vers la surcouche. Le défaut est donc bien plus large que « l'accueil » :
+
+| Chemin | Ce que l'acheteur obtient aujourd'hui | Où |
+|---|---|---|
+| Carte de l'**accueil**, bouton « Configurer » | **la fiche produit** — bloc d'options mort | `PortalHome.tsx:158` (`onConfigure={onSelectProduct}`) |
+| Carte de la **page gamme**, bouton « Configurer » | **la fiche produit** — bloc mort | `GammePage.tsx:315` (`onConfigure={onSelectProduct}`) |
+| **Suggestions de Magrit** (résultats IA), bouton « Configurer » | **la fiche produit** — bloc mort | `PortalCatalog.tsx:841-849` |
+| **Landing de catégorie**, clic produit | **la fiche produit** — bloc mort | `PortalCategoryLanding.tsx:105` |
+| **Recherche** (autocomplétion, en-tête et catalogue) | **la fiche produit** — bloc mort | `ShopHeaderSearch.tsx:63`, `PortalCatalog.tsx:309` |
+| Carte de la **grille du catalogue**, bouton « Configurer » | **la surcouche** — configuration réellement transmise | `PortalCatalog.tsx:692` (`onConfigure={(prod) => setOverlayProduct(prod)}`) |
+
+**Le même libellé, « Configurer », mène donc à deux écrans différents selon la carte cliquée, et l'un des deux jette le choix.** C'est la forme exacte du défaut relevé en recette le 16/09. Le clic sur le **corps** d'une carte mène lui aussi à la fiche, partout.
+
+**(a) La cible — tranchée : la surcouche devient la SEULE surface de configuration, et la fiche produit SURVIT comme fiche descriptive.**
+
+**La page n'est pas supprimée.** Elle porte une URL propre — `/shop/:slug/p/:productId` (`portal-routes.ts:146-150`, constante `portalRuntimePaths.product`) — et cette URL est **indexable** sur les boutiques `self_signup` : le `noindex` de `PublicShop.tsx:148-150` ne s'applique qu'aux boutiques privées. ERAM est `self_signup`. Détruire `/p/:id` détruirait donc des adresses référençables, **et** casserait les cinq chemins ci-dessus, **et** laisserait les liens déjà émis sans destination. **On ne détruit pas une URL pour réparer un bloc de formulaire.**
+
+**Le partage de rôles, opposable :**
+
+| Surface | Rôle après BCP-10 | Ce qu'elle ne fait plus |
+|---|---|---|
+| **Fiche produit** `/p/:id` | **Décrire et adresser** : visuel (ou mockup), nom, fil d'Ariane avec la gamme PIM, description, caractéristiques stockées en **lecture seule** (format et finitions rendus par les formateurs de BCP-7), prix d'appel, **un** bouton primaire « Configurer » | **configurer** ; **chiffrer** ; **ajouter au panier** |
+| **Surcouche** `ProductOverlay` | **Configurer, chiffrer, ajouter au panier** — seule et partout | — |
+
+**Les six chemins convergent ainsi :**
+- **Bouton « Configurer » d'une carte** (accueil, gamme, catalogue, suggestions de Magrit, landing) → **ouvre la surcouche sur place, sans navigation**. Le comportement de la grille du catalogue devient le comportement de toutes les cartes. Un bouton nommé « Configurer » ouvre la configuration : c'est ce que son libellé promet depuis le début.
+- **Corps d'une carte, recherche, lien direct, retour de navigateur** → **la fiche** `/p/:id`, qui décrit.
+- **Bouton « Configurer » de la fiche** → **la même surcouche**, ouverte **par-dessus la fiche**, sans quitter `/p/:id`.
+
+**Pourquoi la surcouche s'ouvre par-dessus la fiche plutôt que de renvoyer l'acheteur au catalogue** : la surcouche n'est pas adressable par URL (c'est un état local, `PortalCatalog.tsx:155`). Renvoyer au catalogue pour configurer ferait perdre à l'acheteur la page qu'il venait de lire, et rendrait le retour de navigateur incohérent. Ouvrir par-dessus conserve l'URL, donc le partage, le rafraîchissement et l'indexation.
+
+**(b) Un seul hôte pour la surcouche, et c'est `PublicShop` — décision d'architecture, pas de confort.**
+
+Aujourd'hui, la règle métier « la quantité est un nombre d'exemplaires, pas un nombre de paquets ; on ajoute **1 paquet** au panier » est écrite **deux fois** : `PortalCatalog.tsx:872-879` et `PortalProduct.tsx:442-446`. **C'est cette duplication qui a produit le défaut** — deux copies d'une même règle divergent toujours, et l'une des deux a perdu le troisième argument en chemin. En ajouter une troisième dans la fiche serait reproduire la cause.
+
+**Donc : `PublicShop` monte la surcouche une fois**, en conserve l'import paresseux (`lazy` + `Suspense`, règle R7 déjà tenue en `PortalCatalog.tsx:47-51`), porte l'unique `onConfirm` — celui qui applique la règle du paquet et appelle `addToCart` — et expose aux écrans enfants **une seule prop `onConfigure(product)`**. `PortalCatalog` perd son hôte local et son `overlayProduct` ; `PortalHome`, `GammePage`, `PortalCategoryLanding` et `PortalProduct` reçoivent la même prop. **Une règle, un endroit, aucune surface capable d'en inventer une autre.**
+
+**(c) Le sort du bloc d'options mort — tranché : supprimé, listes comprises.**
+
+Disparaissent de `PortalProduct.tsx`, sans remplacement :
+- l'état `selectedOpts` et sa valeur initiale (`:44-48`) ;
+- les trois listes écrites en dur `paperOptions`, `finishOptions`, `cornerOptions` (`:124-126`) ;
+- le mutateur `setOpt` (`:128-130`) ;
+- les trois blocs JSX PAPIER / FINITION / COINS (`:198-283`) ;
+- le sélecteur de quantité (`:285-332`), le bouton « Calculer le prix » et l'appel Clariprint propre à la fiche (`calculatePrice`, `:74-92`), le bouton « Ajouter au panier » (`:433-457`) — **tout ce qui configure, chiffre ou ajoute**.
+
+**Pourquoi le bloc « coins » ne migre pas vers la surcouche.** `cornerOptions` (« Droits », « Ronds », « Carrés biseautés ») **n'existe nulle part ailleurs dans le dépôt** : ni dans `ConfigOptions`, ni dans `buildClariprintPayload`, ni dans les formes canoniques du point 3.2, ni dans `src/imports/JsonApi.txt`. **Aucun code Clariprint n'est connu pour les coins.** Le transporter dans la surcouche reviendrait à créer une option non chiffrable — exactement ce que la décision Q3 interdit (point 3.4). **Les coins sont donc retirés, pas déplacés**, et rejoignent la liste nommée des options gelées faute de code, dans `clariprint-finishing-codes.ts` (point 3.4 (d) 1), avec la dorure et le soft-touch. Si Arnaud veut les coins, ils reviennent par le même chemin que la dorure : un code obtenu chez l'imprimeur, puis vérifié au banc.
+
+**Effet utile sur le cadrage déjà écrit** : la quatrième ligne du tableau des surfaces de masquage du point 3.4 (a) — « Fiche produit, sa liste écrite en dur » — **devient sans objet** si BCP-10 passe avant BCP-2. Il ne reste alors que **trois** surfaces à masquer, toutes alimentées par les mêmes constantes. C'est un argument de séquence, repris en (f).
+
+**(d) La valeur initiale de la finition — tranchée : `aucun` (« Sans finition »), explicitement, et non une absence de valeur.**
+
+Le point 3.4 (e) laissait le choix ouvert entre « rien de sélectionné » et « Sans finition ». Il se ferme ici, pour la seule surface qui subsiste, la surcouche :
+
+- **`'Soft touch'` disparaît** (`PortalProduct.tsx:46`) avec le bloc entier : la valeur inventée s'efface par suppression de son support, ce qui est la façon la plus sûre de ne pas la voir revenir.
+- **La valeur initiale est `aucun`.** Motif : `aucun` est une **valeur réelle du vocabulaire**, première entrée de `FINISHINGS` (`ProductOverlay.helpers.ts:65`), et `buildClariprintPayload` l'**omet** de la charge envoyée (convention documentée en tête de la fonction). Choisir `aucun` n'envoie donc rien de plus à l'imprimeur : c'est la description honnête d'un produit sans finition, pas un choix pris à la place de l'acheteur.
+- **Pourquoi PAS l'absence de valeur.** `ConfigOptions.finishingFront` est une chaîne sans état « non choisi ». Introduire cet état obligerait `buildClariprintPayload`, le chiffrage, le panier et le snapshot de commande à savoir représenter un troisième cas — **on inventerait un état pour éviter d'inventer une valeur**, en touchant la chaîne de chiffrage au passage. Le rapport coût/bénéfice est mauvais, et `aucun` dit déjà la vérité.
+- **Ce que « aucune finition présélectionnée » veut dire en recette** (critère du point 8.5) : aucune finition **autre que `aucun`** n'est présélectionnée. Le critère est ainsi vérifiable sans ambiguïté.
+
+**(e) DÉFAUT DE L'ÉCRAN CIBLE, à ne pas importer en silence — la surcouche invente, elle aussi, deux valeurs.**
+
+S'aligner sur l'écran qui fonctionne **ne veut pas dire que l'écran cible est sain**. `DEFAULT_OPTIONS` (`ProductOverlay.helpers.ts:223-231`) pose, quand la configuration stockée est muette :
+
+| Champ | Valeur inventée | Ce que l'acheteur voit |
+|---|---|---|
+| `format` | **`"A5"`** | un format présélectionné qui n'est pas celui du produit |
+| `paper` | **`"135g"`** | un grammage présélectionné qui n'est pas celui du produit |
+
+`extractInitialOptions` retombe dessus dès que `format`, `width`/`height` ou `papers` manquent (`:247-257`). **C'est la même famille de faute que `finish: 'Soft touch'`**, sur l'écran vers lequel on converge, et c'est très probablement l'origine de la « charge A5 du smoke » citée au point 8.
+
+**Ce que BCP-10 en fait : rien, et il le dit.** Ces deux valeurs relèvent du **normaliseur de BCP-2**, dont le point 3.2 porte déjà la règle opposable (« absente → configuration **non chiffrable**, aucune qualité inventée »). Les corriger ici demanderait le normaliseur, donc BCP-1b, donc la campagne — que personne n'a jouée. **BCP-10 ne les corrige pas et n'a pas le droit de les corriger en passant.**
+
+**Conséquence sur la lecture de la recette, à ne pas contourner** : à l'issue de BCP-10, les deux parcours seront **alignés** (même écran, même effet, même panier), sans être **exempts de valeur inventée**. La recette de BCP-10 prouve l'alignement ; elle **ne prouve pas** le respect complet de Q3, qui reste suspendu à BCP-2. Écrit ici pour que personne ne coche Q3 sur la foi de cette recette. **Nouvelle question à Arnaud : Q13** (point 9).
+
+**(f) La signature d'`addToCart` — tranchée : INCHANGÉE, et l'ajout configuré passe exclusivement par la surcouche.**
+
+`addToCart(product, qty = 1)` (`PublicShop.tsx:176`) **ne reçoit pas de troisième paramètre**. Trois raisons, dans l'ordre de force :
+
+1. **La configuration a déjà un domicile, et ce n'est pas un argument d'appel.** La surcouche écrit le choix **dans le produit** : `buildConfiguredProduct` (`useProductConfigurator.ts:132-145`) rend un `ShopProduct` dont `config.clariprintData` porte la charge construite à partir des options. La configuration voyage donc **dans `product`**, déjà. Un troisième paramètre créerait un **second domicile** pour la même notion — la règle « ne jamais dupliquer une notion existante sous un autre nom » s'applique telle quelle.
+2. **La commande lit `product.config`, pas la ligne de panier.** Le snapshot immuable `tenant_order_items.clariprint_options` est alimenté depuis la configuration du produit (`useStorefrontOrderLifecycle.ts:132`), et un trigger le relit pour les candidats PIM (point 3.4 (c)). Une configuration passée à côté, dans un troisième argument, **n'atteindrait toujours pas la commande** — on aurait réparé l'apparence du défaut, pas le défaut.
+3. **La suppression du troisième argument est la preuve, au niveau des types, que la faute ne peut pas revenir.** La prop devient `onAddToCart: (p: ShopProduct, qty: number) => void` dans `PortalProduct` — et de toute façon la fiche n'ajoute plus au panier. Tant que la signature acceptait un argument que personne ne lisait, **le compilateur ne pouvait rien dire** : c'est précisément ce silence qui a laissé passer `PortalProduct.tsx:446` pendant des mois.
+
+**(g) Périmètre des prix — dit explicitement, comme demandé.**
+
+**BCP-10 reste HORS du périmètre de `PricingEngine` (E10.21) : il n'ajoute aucun calcul de prix, aucune marge, aucune règle nouvelle.** Il en **supprime** un : le chiffrage propre à la fiche (`calculatePrice`, `:74-92`) et sa mise à l'échelle proportionnelle `priceResolution.priceHT * (qty / 500)` (`:104-108`), qui n'existe **qu'à cet endroit** dans le dépôt. Après BCP-10, l'ajout au panier emprunte **exclusivement** le chemin déjà en service et déjà testé de la surcouche. **On ne déplace pas la chaîne des prix : on en retire une branche parallèle.**
+
+**Mais il y a un empiètement, et il faut le nommer plutôt que le découvrir en recette.** Supprimer la mise à l'échelle change **le prix affiché sur la fiche**. La fiche doit donc afficher son prix autrement, et BCP-10 lui applique **la règle déjà écrite au point 4 (a)** : `resolvePrice(product, product.config.clariprintQuote ?? null)`, prix sans badge pour `clariprint` et `library_cached`, badge « Prix marché » pour `prix_marche`, « Prix à la configuration » pour `zero` — jamais « 0 € ». La quantité affichée devient la quantité stockée (`/ N ex.`), comme sur la carte.
+
+**BCP-10 est donc consommateur d'une règle de BCP-4, pas auteur d'une règle nouvelle.** Pour qu'il n'y ait pas deux implémentations :
+- **BCP-10 crée la fonction pure** « résolution → texte + badge » annoncée au point 4, puisqu'il est le premier lot à en avoir besoin, et la teste cas par cas ;
+- **BCP-4 la consomme** au lieu de la créer, sur la carte, le plancher et les suggestions ;
+- **BCP-10 ne touche ni `priceResolver.ts`, ni `gammeFloorPrices.ts`, ni `ShopProductCard.tsx`, ni `GammeTile.tsx`** — ils restent la propriété de BCP-4.
+
+**(h) Ce que BCP-10 ne fait pas** — pour qu'aucun de ces sujets ne soit traité en passant :
+- il ne corrige **pas** `DEFAULT_OPTIONS` (point (e)) ;
+- il ne touche **pas** au normaliseur, qui appartient à BCP-2 ;
+- il ne traite **pas** les deux formes imprévues remontées par l'audit des configurations stockées (huit valeurs de `kind` sans mappage, neuf produits dont `papers` n'est pas canonique, story doc `story-BCP-2-audit.md`) : elles font l'objet d'une instruction séparée et **peuvent rouvrir le point 3.2** ;
+- il ne rend **rien** de la fiche produit indexable qui ne le soit déjà, et n'ajoute ni `canonical` ni sitemap — la boutique n'en a pas aujourd'hui, et en ajouter un serait un autre sujet.
+
+**(i) `data-testid` — la fiche produit n'en porte AUCUN aujourd'hui** (vérifié : zéro occurrence dans `PortalProduct.tsx`). La recette ci-dessous en a besoin. À déclarer dans `src/shared/presentation/testIds.ts`, sous `TEST_IDS.shop`, à la convention `<scope>-<element>[-<modifier>]` de l'en-tête du fichier — **jamais de chaîne littérale dans le composant** :
+
+| Clé | Valeur | Sur quoi |
+|---|---|---|
+| `productPage` | `shop-product-page` | la racine de la fiche |
+| `productPageConfigureBtn` | `shop-product-page-configure-btn` | l'unique bouton primaire |
+| `productPagePrice` | `shop-product-page-price` | le prix d'appel, badge compris |
+
+**Aucun testid n'est posé sur le bloc d'options** : il disparaît, et un testid sur du code supprimé est un testid mort. Son absence se prouve par les libellés (point 7 ci-dessous).
+
+**(j) La recette navigateur — les gestes qui PROUVENT l'alignement, dans l'ordre.**
+
+Jouée par le coordinateur sur `/shop/eram`, **sans aucun agent qui écrive dans la copie de travail servie** (règle du point 8.3 : Vite recharge tous les onglets de son serveur). **Pas de merge sans elle.** Chaque geste dit ce qu'il prouve — un geste dont on ne sait pas ce qu'il démontre ne sert à rien.
+
+| # | Geste | Ce qui doit se produire | Ce que ça prouve |
+|---|---|---|---|
+| 1 | **Accueil** → bouton « Configurer » d'une carte | la **surcouche s'ouvre sur place** ; **l'URL ne change pas** (on reste sur `/shop/eram`) | le chemin qui était fautif se comporte désormais comme le catalogue |
+| 2 | **Accueil** → clic sur le **corps** de la même carte | on arrive sur `/shop/eram/p/<id>` ; **aucun bloc PAPIER / FINITION / COINS** ; **un seul** bouton primaire, « Configurer » | le bloc mort a disparu, et la fiche a gardé son rôle |
+| 3 | Sur cette fiche → « Configurer » | la **même** surcouche s'ouvre **par-dessus** ; **l'URL reste `/p/<id>`** ; fermer la surcouche **laisse sur la fiche**, sans quitter la boutique | la fiche garde son URL — donc son référencement et son partage — tout en donnant accès à la vraie configuration |
+| 4 | Dans cette surcouche : **changer le papier**, changer la quantité, attendre le recalcul, « Ajouter au panier » | le prix se recalcule ; la ligne de panier porte **le papier choisi** (rendu au format de BCP-7) et la **quantité choisie** | **le geste décisif** : c'est exactement ce qui était silencieusement jeté. Un panier qui porte le choix prouve la réparation |
+| 5 | Vider le panier. **Catalogue** → même produit → « Configurer » → **mêmes choix qu'au geste 4** → ajouter | la ligne de panier est **identique** à celle du geste 4 : même papier, même quantité, **même prix** | **la preuve de l'alignement lui-même** : deux parcours, un seul résultat. C'est l'écart relevé en recette le 16/09 qui se referme |
+| 6 | Ouvrir la configuration depuis **la page gamme**, puis depuis une **suggestion de Magrit** (résultats IA) | la surcouche s'ouvre dans les deux cas — **jamais** la fiche | les deux chemins oubliés par l'énoncé initial de Q12 sont traités eux aussi |
+| 7 | À chaque ouverture de la surcouche | **aucune finition présélectionnée autre que `aucun`** ; **aucune « Dorure »**, aucun « Soft touch », **aucun bloc « Coins »** nulle part | Q3 (point 3.4) et le gel des coins (point (c)) |
+| 8 | Coller `/shop/eram/p/<id>` dans un **onglet neuf** | la fiche s'affiche : visuel, fil d'Ariane, description, prix d'appel, bouton « Configurer » opérant | l'URL survit à un accès direct — c'est la valeur de référencement qu'on a refusé de détruire |
+| 9 | Sur la fiche : vérifier le **prix affiché** | jamais « 0 € » ; « Prix marché » porte son badge ; une source `clariprint` ou `library_cached` n'en porte pas | la règle du point 4 (a), appliquée à la fiche (point (g)) |
+| 10 | **Console** pendant tout le parcours | **zéro erreur, zéro avertissement** | critère permanent de BCP-6 |
+
+**Deux pièges à ne pas manquer**, parce qu'ils ne se voient qu'en les cherchant :
+- **Le retour de navigateur après le geste 3.** Fermer la surcouche ne doit pas empiler une entrée d'historique : « Retour » depuis la fiche doit ramener d'où l'on venait, pas rouvrir la surcouche puis la fiche.
+- **Le geste 5 doit être joué panier vidé.** Sinon `addToCart` fusionne les deux lignes par `product.id` (`PublicShop.tsx:178-184`) et la comparaison qui fait toute la valeur du geste devient impossible à lire.
+
+**Chaque rejouage crée une commande ERAM réelle si l'on va jusqu'à la commande** ; la recette ci-dessus s'arrête au panier et n'en crée aucune.
+
+**(k) Contrat : `openapi/magrit-core.v1.yaml` n'est PAS concerné, et voici pourquoi.** Aucun endpoint n'est ajouté, modifié ni retiré. Aucun schéma ne change : la configuration voyage dans un champ qui la porte déjà (`config.clariprintData`), le chiffrage passe par la route existante, et le panier n'a jamais été une ressource d'API — il est en mémoire dans `PublicShop` (`:107`). **BCP-10 est un lot d'interface, entièrement contenu dans `src/modules/catalog/ui/` et `src/modules/shops/ui/`.** La fiche produit cessant d'appeler Clariprint, le lot **retire** un appelant de la route de chiffrage ; il n'en ajoute aucun, ce qui est neutre pour le contrat comme pour le limiteur de débit en service depuis le 16/09 au matin.
+
 #### 4. Lot 4 — la règle exacte de `resolvePrice` dans la boutique
 
 **Règle générale : tout prix montré à l'acheteur sort de `resolvePrice(product, clariprintQuote)`** (`priceResolver.ts:133`). Aucun composant ne lit `price_ht` directement, et la hiérarchie n'est pas modifiée. La règle d'affichage est une **fonction pure**, « résolution → texte + badge », testée cas par cas. Elle est partagée par les trois emplacements ci-dessous.
@@ -5068,6 +5216,7 @@ Ce sont les cinq valeurs du prompt. **Les libellés sont une proposition**, vali
 | **BCP-7** | 7 — dimensions, finitions | BCP-2 (formateur unifié), BCP-1a (référentiel) | `productEnrichment.ts`, `PortalCart.tsx` (format) |
 | **BCP-8** | 8 — panier, budget | BCP-5 et BCP-7 (même fichier), Q5 pour la ligne livraison | `PortalCart.tsx`, `ShopLayout.tsx`, `PublicShop.tsx`, `PortalChrome.tsx` |
 | **BCP-9** | 9 — libellé acheteur | BCP-6 (même fichier) | `ShopLayout.tsx` (une ligne) |
+| **BCP-10** | — alignement des deux parcours de configuration (décision d'Arnaud du 2026-09-16, point 3.5) : surcouche unique hôtée par `PublicShop`, fiche produit descriptive, bloc d'options mort supprimé, coins gelés | **rien** — ni campagne, ni contrat, ni normaliseur. **Lançable tout de suite.** Conflits de fichiers seulement (ci-dessous) | `PublicShop.tsx` (hôte unique + prop `onConfigure`), `PortalProduct.tsx`, `PortalCatalog.tsx`, `PortalHome.tsx`, `GammePage.tsx`, `PortalCategoryLanding.tsx`, `ShopProductCard.tsx` (câblage seul), `testIds.ts`, la fonction pure « résolution → texte + badge » du point 4 |
 | *Clôture* | smoke E2E rejoué | tous | — |
 
 **Réponse à « le lot 2 dépend-il des lots 1 et 4 ? »** Oui du lot 1, entier : de BCP-1a pour les formes, de BCP-1b pour la barrière. **Non du lot 4 dans le code.** Le lot 4 ne fait qu'afficher ce que le lot 2 chiffre. Seul le smoke de clôture exige les deux.
@@ -5077,7 +5226,7 @@ Ce sont les cinq valeurs du prompt. **Les libellés sont une proposition**, vali
 | Prérequis | État au 2026-09-16 | Qui le lève |
 |---|---|---|
 | **Q3** (dorure, soft-touch) | **LEVÉ** le 2026-09-16 (point 3.4) | fait |
-| **L'audit des configurations stockées** (point 3.2) | **NON FAIT** — aucun story doc BCP-2, aucun résultat d'audit au dépôt | **lançable tout de suite** : lecture seule, aucune dépendance, ne coûte aucun appel Clariprint. **C'est le prochain geste utile.** Son résultat peut rouvrir ce cadrage (« une forme non prévue ici rouvre ce cadrage ») |
+| **L'audit des configurations stockées** (point 3.2) | **FAIT** le 2026-09-16 (commit `80c4c39d`, story doc `story-BCP-2-audit.md`), sur la production. **Deux formes imprévues en sont ressorties** — huit valeurs de `kind` sans mappage, et neuf produits dont la forme de `papers` n'est pas canonique | fait. **Mais la clause « une forme non prévue ici rouvre ce cadrage » est DÉCLENCHÉE** : ces deux constats font l'objet d'une instruction séparée et **peuvent rouvrir le point 3.2**. Ils ne sont **pas** traités au septième round |
 | **BCP-1a** (formes, référentiel des finitions) | **LIVRÉ et fusionné** | fait |
 | **La campagne de banc** | **NON JOUÉE** — `scripts/diagnostics/clariprint-variants/results/` n'existe pas. Seul le mode sec a tourné (17 appels planifiés, aucun appel réseau) | **Arnaud seul** : appels facturés, `--execute`, identifiants fournis par lui |
 | **Le contrat BCP-1b** (écrit par l'architecte **après** la campagne archivée) | **NON ÉCRIT** — il attend les textes d'erreur réels pour fixer l'énumération `error_class`, et deux choix irréversibles en v1 (point 2.1) | l'architecte, une fois la campagne archivée |
@@ -5086,9 +5235,12 @@ Ce sont les cinq valeurs du prompt. **Les libellés sont une proposition**, vali
 **Verdict : BCP-2 n'est pas lançable.** Il dépend de BCP-1b pour la barrière, donc du contrat, donc de la campagne — que personne n'a jouée. **Le chemin critique n'est pas Q3 : c'est la campagne d'appels réels chez l'imprimeur, qui n'appartient qu'à Arnaud.** Un dev-story qui commencerait BCP-2 maintenant écrirait un normaliseur sans le serveur qui le fait respecter, c'est-à-dire exactement le défaut du smoke : une charge fautive partant sans que rien ne la refuse.
 
 **Ordre par défaut : celui d'Arnaud.** Trois conflits de fichiers imposent leur propre séquence :
-- `PortalCatalog.tsx` : 2 → 3 → 4 ;
+- `PortalCatalog.tsx` : **10 → 2 → 3 → 4** ;
+- `PortalProduct.tsx` : **10 → 2** — et après 10, il ne reste presque rien à y faire pour 2 ;
 - `PortalCart.tsx` : 5 → 7 → 8 ;
 - `ShopLayout.tsx` : 6 → 9 → 8.
+
+**BCP-10 passe AVANT BCP-2, et ce n'est pas qu'une question de fichier.** Trois raisons : il ne dépend ni de la campagne ni du contrat, donc il **occupe utilement le temps mort** où BCP-2 est bloqué ; il **supprime une des quatre surfaces de masquage** du point 3.4 (a), celle de la fiche produit, ce qui allège BCP-2 d'autant ; et il retire de `PortalProduct.tsx` le code que BCP-2 devrait sinon corriger avant de le voir disparaître. **L'ordre inverse ferait corriger par BCP-2 des lignes que BCP-10 efface.** BCP-10 se mène dans son propre worktree, sur son propre port Vite (règle du point 8.3).
 
 **Parallélisable sans conflit** : la piste « commande et affichage » (5, 6, 9) peut avancer pendant le seul temps mort de la piste « chiffrage », c'est-à-dire la campagne de banc puis l'écriture du contrat. Cela **déroge à l'ordre fixé par Arnaud** et ne se fait qu'avec son accord (Q6). Chaque piste dans son propre worktree, avec son propre serveur Vite sur un port distinct.
 
@@ -5136,7 +5288,7 @@ Ce sont les cinq valeurs du prompt. **Les libellés sont une proposition**, vali
    - « Configurer » ouvre la configuration, le prix se recalcule, l'ajout au panier fonctionne ;
    - aucune carte à 0 €, aucun « dès 1,00 € » ;
    - les dimensions sont justes en mm, aucune finition n'apparaît en code ;
-   - **aucune option « dorure » ni « soft-touch » n'est proposée**, sur aucune des quatre surfaces du point 3.4 (a), et **aucune finition n'est présélectionnée** à l'ouverture d'une fiche produit ;
+   - **aucune option « dorure » ni « soft-touch » n'est proposée**, sur aucune des surfaces du point 3.4 (a) — **quatre avant BCP-10, trois après** —, et **aucune finition autre que `aucun` n'est présélectionnée** à l'ouverture de la configuration (point 3.5 (d)) ;
    - le panier est en HT par ligne, sans budget, et le tiroir est fermé au checkout ;
    - les libellés de remerciement et de « Mes commandes » sont conformes ;
    - l'`aria-label` du compte est conforme.
@@ -5159,7 +5311,8 @@ Ce sont les cinq valeurs du prompt. **Les libellés sont une proposition**, vali
 | **Q9** | La valeur du plafond global quotidien L3 | **TRANCHÉE le 2026-09-15 : 500 appels par jour pour toute la plateforme**, ajustable par configuration quand le prix d'un appel sera connu | la table `api_rate_limits` (point 2.3bis (2)). Les valeurs de L1 (30 par 10 min) et de L2 (300 par heure) restent des propositions |
 | **Q10** | Poser le limiteur d'abord sur la route actuelle | **TRANCHÉE le 2026-09-15 : oui, en premier** : c'est BCP-0b, après BCP-0 et avant BCP-1a | point 2.3bis. BCP-1b le reprend tel quel |
 | **Q11** | **Un plafond quotidien propre à l'atelier (L3a)**, et la validation de l'étage membre à 120 par 10 min. L'exemption de L3 se contourne, puisque compte et espace se créent en libre-service (point 2.3bis (4)) | ne bloque pas BCP-0b. Sans L3a, la facture de la voie atelier n'est bornée que par le nombre de comptes | un plafond quotidien pour l'atelier, dont la valeur se fixe contre le prix d'un appel. À défaut, restreindre l'exemption aux espaces vérifiés, selon un critère à définir |
-| **Q12** | **Le bloc d'options de la fiche produit est décoratif** : `PortalProduct.tsx:446` passe `selectedOpts`, mais `addToCart` (`PublicShop.tsx:176`) n'a que deux paramètres et le jette. Papier, finition et coins choisis là n'atteignent ni le chiffrage, ni le panier, ni la commande (point 3.4 (e)) | ne bloque pas BCP-2, qui se borne à retirer la valeur par défaut inventée et la valeur masquée | **le retirer**, comme le budget factice de BCP-8 : un choix sans effet trompe l'acheteur. Le brancher changerait la chaîne des prix et demande son propre cadrage |
+| **Q12** | **Le bloc d'options de la fiche produit est décoratif** : `PortalProduct.tsx:446` passe `selectedOpts`, mais `addToCart` (`PublicShop.tsx:176`) n'a que deux paramètres et le jette. Papier, finition et coins choisis là n'atteignent ni le chiffrage, ni le panier, ni la commande (point 3.4 (e)) | **TRANCHÉE le 2026-09-16 : on aligne les deux parcours sur la surcouche**, conformément à la recommandation, et **le bloc est retiré**. En l'instruisant, le défaut s'est révélé bien plus large que « l'accueil » : **cinq chemins d'entrée sur six** mènent à la fiche et à son bloc mort | la surcouche devient la seule surface de configuration ; la fiche produit **survit** comme fiche descriptive avec son URL `/p/:id` et son référencement ; `addToCart` garde sa signature ; les coins sont **gelés**, faute de code Clariprint. **Règle complète, hôte unique, périmètre des prix et recette : point 3.5.** C'est BCP-10 |
+| **Q13** | **La surcouche invente deux valeurs par défaut**, sur l'écran même vers lequel les parcours convergent : `DEFAULT_OPTIONS` pose `format: "A5"` et `paper: "135g"` quand la configuration stockée est muette (`ProductOverlay.helpers.ts:223-231`, repli en `:247-257`). Même famille de faute que `finish: 'Soft touch'` | ne bloque pas BCP-10, qui **ne les corrige pas** (point 3.5 (e)). **Conséquence à ne pas contourner** : la recette de BCP-10 prouve l'alignement des parcours, **pas** le respect complet de Q3 | les traiter dans **BCP-2**, par la règle déjà opposable du point 3.2 (« absente → configuration non chiffrable, aucune valeur inventée »). Les corriger avant demanderait le normaliseur, donc BCP-1b, donc la campagne |
 | **Q8** | *Pour information, hors chantier* : le chiffrage est montré à l'acheteur **sans marge** (point 1 (4)) ; le fournisseur, affiché aujourd'hui à l'acheteur, **disparaît** en BCP-1b ; la zone de livraison `FR-75` est codée en dur dans tous les chiffrages, qui incluent donc une livraison à Paris | rien | à inscrire au backlog |
 
 #### 10. État des gates
@@ -5173,6 +5326,8 @@ Ce sont les cinq valeurs du prompt. **Les libellés sont une proposition**, vali
 **Quatrième round (mesure de l'IP, retrait en 410 de la seconde porte)** : même état. Seul ce document change.
 
 **Cinquième round (BCP-0c, routes de diagnostic)** : même état. `openapi/magrit-core.v1.yaml` est inchangé. L'ajout du 403 à `docs/architecture/api/openapi.yaml` est un livrable de BCP-0c, dans le même commit que son code.
+
+**Septième round (Q12 tranchée, alignement des deux parcours de configuration — BCP-10)** : même état. **Aucune ligne d'`openapi/magrit-core.v1.yaml` ni de `src/`** — seul ce document change. Le motif est écrit au point 3.5 (k) : BCP-10 n'ajoute, ne modifie ni ne retire aucun endpoint et aucun schéma ; la configuration voyage dans un champ qui la porte déjà, le chiffrage emprunte la route existante, et le panier n'a jamais été une ressource d'API. Le lot **retire** un appelant de la route de chiffrage (la fiche cesse d'appeler Clariprint) et n'en ajoute aucun : c'est neutre pour le contrat comme pour le limiteur de débit entré en production le 2026-09-16 au matin. **Aucune dérogation R5 nouvelle.**
 
 **Sixième round (Q3 tranchée, masquage dorure et soft-touch)** : même état. **Aucune ligne d'`openapi/magrit-core.v1.yaml` ni de `src/`** — seul ce document change. C'est cohérent : le contrat de chiffrage n'est pas encore écrit (il attend la campagne, point 2.1), et il ne décrira de toute façon **que les formes canoniques du point 3.2**, où ni `dorure` ni `soft-touch` ne figurent. **Le masquage ne retire donc rien du contrat : il retire une option d'interface qui n'y est jamais entrée.** Aucune dérogation R5 nouvelle.
 
