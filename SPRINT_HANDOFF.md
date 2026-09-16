@@ -1323,3 +1323,13 @@ Claude doit alors :
 - `DEFAULT_OPTIONS` invente toujours `format: "A5"` et `paper: "135g"` : travail du normaliseur de BCP-2, donc suspendu à la campagne d'appels d'Arnaud. **La recette de BCP-10 prouve l'alignement, pas le respect complet de Q3.**
 
 **Recette navigateur : 11 gestes**, à jouer panier vidé (`addToCart` fusionne par `product.id`) et **sur la base locale** — la jouer sur ERAM en production créerait des commandes réelles. Le geste décisif est la comparaison de deux lignes de panier, mêmes choix, depuis la fiche puis depuis le catalogue ; et le contrôle du TOTAL, pas seulement de la ligne.
+
+**Recette navigateur BCP-10 du 2026-09-16 : CONCLUANTE.** Jouée sur la base LOCALE (pas sur ERAM en production : la recette y créerait des commandes réelles), Chrome en profil temporaire dédié.
+- l'accueil ouvre la surcouche **sur place**, URL inchangée ; la fiche n'a plus aucun bloc de réglages et porte un seul bouton « Configurer », qui ouvre la surcouche sans quitter `/p/:id` ;
+- **preuve de l'alignement** : mêmes choix depuis la fiche puis depuis le catalogue, panier vidé entre les deux → **lignes identiques** (500 ex, 1 paquet, 60,00 € HT / 72,00 € TTC) ;
+- **règle du paquet** : 5050 ex → sous-total 424,20 € HT, jamais multiplié. Le bug #5 ne revient pas ;
+- console propre (seul le signalement préexistant des champs sans `id`).
+
+**Écart de méthode à connaître** : le moteur de fonctions local coupait les isolats pour dépassement de durée (503 sur toutes les routes). Insister ne suffit pas ; seul un `supabase stop` puis `supabase start` complet l'a réparé. Docker (colima) était éteint au départ.
+
+**Erreur du PV du 15/09 corrigée** : le « 172,00 € » face à un sous-total de 60,00 € n'était pas une anomalie, mais la quantité « 1 » collée au montant « 72,00 € » dans le texte extrait.

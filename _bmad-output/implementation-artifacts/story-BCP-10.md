@@ -302,3 +302,24 @@ commande ajoutent au panier sans passer par la surcouche (remonté par la qa
 - Le badge « Prix marché » sur la carte catalogue, le plancher de gamme et
   les suggestions de Magrit — BCP-4, qui consommera
   `resolveProductPriceDisplay` créée ici.
+
+## Recette navigateur du 2026-09-16 (après fusion `cf8e279a`)
+
+**Environnement** : base LOCALE et boutique `recette-boutique` — la recette n'a PAS été jouée sur ERAM en production, où aller jusqu'au panier puis à la commande créerait une commande réelle. Chrome lancé avec un profil temporaire dédié (`/tmp/chrome-recette-bcp10`), pour ne pas rouvrir les sessions habituelles d'Arnaud, dont celle de production. Pile locale redémarrée (le moteur de fonctions coupait les isolats pour dépassement de durée : défaut connu, corrigé par un redémarrage complet).
+
+| # | Geste | Résultat |
+|---|---|---|
+| 1 | Accueil → « Configurer » | **OK.** La surcouche s'ouvre sur place, URL inchangée (`/shop/recette-boutique`). C'est le défaut corrigé : ce bouton menait auparavant à une page dont les réglages étaient sans effet |
+| 2 | Accueil → corps de la carte | **OK.** Arrivée sur `/p/lib-895c10ce…`, **aucun bloc PAPIER / FINITION / COINS**, un seul bouton d'action : « Configurer » |
+| 3 | Fiche → « Configurer » | **OK.** La surcouche s'ouvre par-dessus, **URL strictement inchangée** |
+| 4 | Surcouche : quantité et papier modifiés, puis ajout | **OK.** La ligne du panier porte **5050 ex** (quantité choisie, contre 500 par défaut) : la sélection atteint le panier. Le papier n'est pas *affiché* dans la ligne — défaut connu du rendu des caractéristiques (« ?×? mm », lot 7), pas une régression de BCP-10 |
+| 5 | **Comparaison des deux parcours**, panier vidé, même produit, même papier (300g) | **OK — la preuve de l'alignement.** Les deux lignes sont IDENTIQUES : « 500 ex · ?×? mm · Flyer A5 », 1 paquet, 72,00 € TTC, sous-total 60,00 € HT |
+| 6 | **Total du panier**, pas seulement la ligne | **OK.** 5050 ex → sous-total **424,20 € HT**, jamais 424,20 × 5050. La ligne affiche « 1 » paquet au prix du paquet : la règle du paquet tient, le bug #5 ne revient pas |
+| 10 | Prix de la fiche | **OK.** Aucun « 0,00 € ». Le chiffrage bascule sur une estimation de marché (« Erreur réseau — Prix marché estimé »), attendu en local faute d'appel réel à l'imprimeur, et le badge ESTIMATION est bien porté |
+| 11 | Console | **OK.** Un seul signalement, mineur et préexistant : champs de formulaire sans `id`/`name` |
+
+**Constat de lecture, à conserver** : la finition initiale de la surcouche est bien `aucun`. La dorure et `soft-touch` restent proposés — c'est attendu, leur masquage relève du point 3.4 / BCP-2. **Cette recette prouve l'alignement des parcours, elle ne permet pas de cocher Q3.**
+
+**Gestes non joués** : 7 (page gamme et suggestion de Magrit), 8 (configurateur héros de la page gamme — la troisième copie de la règle du paquet, inscrite en dette), 9 (fiche en onglet neuf). À jouer si un doute apparaît sur ces surfaces.
+
+**Correction d'une erreur du PV du 15/09** : le « 172,00 € » relevé comme incohérent face à un sous-total de 60,00 € était une mauvaise lecture — c'est la quantité « 1 » collée au montant « 72,00 € » dans le texte extrait. Aucune anomalie de montant à cet endroit.
