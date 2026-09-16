@@ -1333,3 +1333,21 @@ Claude doit alors :
 **Écart de méthode à connaître** : le moteur de fonctions local coupait les isolats pour dépassement de durée (503 sur toutes les routes). Insister ne suffit pas ; seul un `supabase stop` puis `supabase start` complet l'a réparé. Docker (colima) était éteint au départ.
 
 **Erreur du PV du 15/09 corrigée** : le « 172,00 € » face à un sous-total de 60,00 € n'était pas une anomalie, mais la quantité « 1 » collée au montant « 72,00 € » dans le texte extrait.
+
+### BCP-11 — la regle du paquet ramenee a un domicile unique (2026-09-16, EN COURS)
+
+**Decision d'Arnaud** : « on regle maintenant ». **Cadre par l'architecte** (§8.25 point 3.6, commit `bcd8424b`). **Non pousse, non fusionne** : worktree isole `.claude/worktrees/bcp-11`, branche `feat/bcp-11-regle-du-paquet`.
+
+**Ce que le cadrage a corrige dans les faits transmis** : `cartPricing.ts` est dans `orders`, pas `shops` ; et `PortalHome.tsx:167` n'est PAS le renouvellement de commande (c'est la grille « Nouveautes », branchee sur une prop au nom herite `onReorder`). Le vrai renouvellement est `renewOrder` (`useStorefrontOrderLifecycle.ts:77-111`) et il **n'emprunte pas `addToCart`** : c'est une quatrieme porte que le mandat ignorait.
+
+**Le danger est LATENT, pas vivant** : les quatre portes transportent aujourd'hui 1 paquet. Aucun prix faux n'est affiche. Ce qui est casse, c'est l'impossibilite de le prouver — et le fait que BCP-2/3/4 vont reecrire ces fichiers.
+
+**Discipline retenue (point 3.6 (d))**, contre le simple helper partage : canal quantite retire la ou il ne transporte rien ; `CopyCount` / `PackCount` la ou un nombre doit voyager ; quatrieme porte fermee par le meme constructeur. Limite ecrite : rend la famille « x500 » impossible, pas l'erreur de valeur.
+
+**Deux tours de qa, deux rejets** :
+- **round 1** (`dab18f12`) rejete sur 4 defauts, dont une **regression fonctionnelle introduite par le correctif** : le renouvellement figeait `qty: 1` et perdait les paquets de l'acheteur (2 paquets commandes, 1 seul au renouvellement). Le cadrage disait pourtant de fixer l'unite, jamais la valeur. Plus : une assertion **vraie depuis toujours** (3 arguments la ou il en fallait 2), `GammePage.handleAdd` couvert par aucun test, et un commentaire promettant une garantie que le garde ne tenait pas ;
+- **round 2** (`f7173a3f`) rejete sur **un seul** defaut : le garde d'architecture, ecrit en analyse textuelle, se contourne par la mise en forme (+8 caracteres, un commentaire bloc, ou la porte reconstruite a la main sous sa forme d'avant le lot) — typecheck propre et 3 061 verts. Un test ecrit contre la preuve, pas contre la faute.
+
+**Round 3 demande** : garde 2 passe a l'AST (`typescript@5.9.3` deja en dependance), sanity check prouvant les trois contournements ; et `packCount` rendu **obligatoire** dans `toPackLine` (tranche par le coordinateur : une valeur par defaut egale a celle qui a produit la regression est la figure que le point 3.6 (d) rejette).
+
+**Q14 — ajout direct au panier conditionne** (§8.25 point 3.7, meme commit). Arbitrage d'Arnaud, verbatim : « dans la mesure ou le produit comporte les caracteristiques ayant permis de le chiffrer il peut etre mis au panier tel quel, sinon il faut le configurer ». Decoupage prescrit : **Q14-a** (prix issu d'un chiffrage imprimeur) faisable maintenant, **Q14-b** (configuration chiffrable) apres BCP-2, donc apres la campagne. **Deux arbitrages en attente d'Arnaud** : bouton masque (tranche par l'architecte, precedent Q3) ou grise ; et sequence avec la correction des 23 produits ERAM a 0,00 EUR, faute de quoi « + Panier » disparait de 23 cartes sur 30.
