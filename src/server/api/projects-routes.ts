@@ -13,6 +13,7 @@
 import {
   createProjectCommandSchema,
   createProjectItemCommandSchema,
+  importHopeStudioBasketItemCommandSchema,
   projectDetailSchema,
   projectItemSchema,
   projectSchema,
@@ -186,6 +187,22 @@ export function createProjectsRoutes(service: ProjectsService): readonly GescomR
         return withDomainErrors(async () => ({
           status: 201,
           data: await service.addItem(context.tenantId, context.params['projectId']!, input),
+        }));
+      },
+    }),
+
+    defineGescomRoute({
+      method: 'POST',
+      path: '/projects/{projectId}/hopstudio-items',
+      operationId: 'importHopeStudioBasketItem',
+      authentication: 'user',
+      createsResource: true,
+      inputSchema: importHopeStudioBasketItemCommandSchema,
+      dataSchema: projectItemSchema,
+      async handle(context, input) {
+        return withDomainErrors(async () => ({
+          status: 201,
+          data: await service.importHopeStudioBasketItem(context.tenantId, context.params['projectId']!, input),
         }));
       },
     }),

@@ -11,6 +11,7 @@ import { API_V1_BASE_PATH, type ApiResponseWithEtag, FetchApiClient } from '../.
 import {
   createProjectCommandSchema,
   createProjectItemCommandSchema,
+  importHopeStudioBasketItemCommandSchema,
   projectDetailSchema,
   projectItemSchema,
   projectSchema,
@@ -20,6 +21,7 @@ import {
   updateProjectCommandSchema,
   type CreateProjectCommand,
   type CreateProjectItemCommand,
+  type ImportHopeStudioBasketItemCommand,
   type ProjectDetailDto,
   type ProjectDto,
   type ProjectItemDto,
@@ -130,6 +132,21 @@ export class ProjectsApiClient {
       path: `${BASE_PATH}/${projectId}/items`,
       body: createProjectItemCommandSchema.parse(command),
       headers: { 'Idempotency-Key': newIdempotencyKey() },
+      responseSchema: successEnvelopeSchema(projectItemSchema),
+    });
+    return envelope.data;
+  }
+
+  async importHopeStudioBasketItem(
+    projectId: string,
+    command: ImportHopeStudioBasketItemCommand,
+    idempotencyKey: string,
+  ): Promise<ProjectItemDto> {
+    const envelope = await this.client.request({
+      method: 'POST',
+      path: `${BASE_PATH}/${encodeURIComponent(projectId)}/hopstudio-items`,
+      body: importHopeStudioBasketItemCommandSchema.parse(command),
+      headers: { 'Idempotency-Key': idempotencyKey },
       responseSchema: successEnvelopeSchema(projectItemSchema),
     });
     return envelope.data;

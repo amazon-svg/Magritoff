@@ -110,6 +110,19 @@ export const createProjectItemCommandSchema = z
   })
   .strict();
 
+/** Ligne brute du panier HopeStudio, reçue uniquement depuis l'atelier utilisateur. */
+export const importHopeStudioBasketItemCommandSchema = z.object({
+  card: z.object({
+    DBK: z.string().min(1).max(300),
+    prompt: z.string().max(300).optional(),
+    selected: z.string().max(300).optional(),
+    configuration: z.record(z.string(), z.unknown()),
+    clicked_intent: z.object({
+      getPrice: z.object({ response: z.union([z.number(), z.string()]) }).passthrough(),
+    }).passthrough(),
+  }).passthrough(),
+}).strict();
+
 export const removeProjectItemResultSchema = z.object({ removed: z.literal(true) }).strict();
 
 export const projectsListSchema = z.array(projectSchema);
@@ -122,6 +135,7 @@ export type CreateProjectCommand = z.infer<typeof createProjectCommandSchema>;
 export type UpdateProjectCommand = z.infer<typeof updateProjectCommandSchema>;
 export type ReplaceProjectTagsCommand = z.infer<typeof replaceProjectTagsCommandSchema>;
 export type CreateProjectItemCommand = z.infer<typeof createProjectItemCommandSchema>;
+export type ImportHopeStudioBasketItemCommand = z.infer<typeof importHopeStudioBasketItemCommandSchema>;
 export type RemoveProjectItemResultDto = z.infer<typeof removeProjectItemResultSchema>;
 
 // ---------------------------------------------------------------------------

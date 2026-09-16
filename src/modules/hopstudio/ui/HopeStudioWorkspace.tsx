@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ApiClientError } from '../../../platform/api/fetch-api-client.ts';
 import { useWorkspaceApi } from '../../../platform/runtime/workspace-ui-runtime.tsx';
 import { HopeStudioApiClient } from '../api/client.ts';
+import { ProjectsApiClient, importHopeStudioBasketItemCommandSchema } from '@/modules/projects';
 import {
   HOPSTUDIO_ASSET_ROOT,
   HOPSTUDIO_EJS_ROOT,
@@ -44,14 +45,19 @@ export function HopeStudioWorkspace({
   userId,
   initialRequest,
   compact = false,
+  projectId = null,
 }: Readonly<{
   tenantId: string;
   userId: string;
   initialRequest: HopeStudioInitialRequest;
   compact?: boolean;
+  projectId?: string | null;
 }>) {
   const api = useWorkspaceApi(HopeStudioApiClient);
+  const projectsApi = useWorkspaceApi(ProjectsApiClient);
   const hostRef = useRef<HTMLDivElement>(null);
+  const importingRef = useRef(false);
+  const [transferMessage, setTransferMessage] = useState<string | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [error, setError] = useState<string | null>(null);
 
@@ -114,6 +120,52 @@ export function HopeStudioWorkspace({
     });
   }, [initialRequest.id, initialRequest.query, status, tenantId, userId]);
 
+  useEffect(() => {
+    const importBasket = (event: Event) => {
+      if (importingRef.current) return;
+      if (!projectId) {
+        setTransferMessage('Sélectionnez un projet actif avant de transférer le panier.');
+        return;
+      }
+      const lines = (event as CustomEvent<{ lines?: unknown }>).detail?.lines;
+      if (!Array.isArray(lines) || lines.length === 0 || lines.length > 50) {
+        setTransferMessage('Le panier HopeStudio doit contenir entre 1 et 50 lignes.');
+        return;
+      }
+      importingRef.current = true;
+      setTransferMessage('Transfert du panier vers le projet…');
+      void (async () => {
+        let imported = 0;
+        try {
+          const commands = lines.map((line) => {
+            const { card } = importHopeStudioBasketItemCommandSchema.parse({ card: line });
+            return {
+              card: {
+                DBK: card.DBK,
+                ...(card.prompt !== undefined ? { prompt: card.prompt } : {}),
+                ...(card.selected !== undefined ? { selected: card.selected } : {}),
+                configuration: card.configuration,
+                clicked_intent: { getPrice: { response: card.clicked_intent.getPrice.response } },
+              },
+            };
+          });
+          for (const command of commands) {
+            const key = await basketIdempotencyKey(projectId, command.card);
+            await projectsApi.importHopeStudioBasketItem(projectId, command, key);
+            imported += 1;
+          }
+          setTransferMessage(`${imported} chiffrage${imported > 1 ? 's' : ''} ajouté${imported > 1 ? 's' : ''} au projet.`);
+        } catch (cause) {
+          setTransferMessage(`${imported} ligne${imported > 1 ? 's' : ''} ajoutée${imported > 1 ? 's' : ''}. ${cause instanceof Error ? cause.message : 'Transfert impossible.'}`);
+        } finally {
+          importingRef.current = false;
+        }
+      })();
+    };
+    window.addEventListener('HOPES-PUSH-BASKET', importBasket);
+    return () => window.removeEventListener('HOPES-PUSH-BASKET', importBasket);
+  }, [projectId, projectsApi]);
+
   return (
     <section
       className="hopstudio-workspace h-full min-h-0 overflow-hidden bg-white"
@@ -133,6 +185,11 @@ export function HopeStudioWorkspace({
           {error}
         </div>
       )}
+      {transferMessage && (
+        <div className="absolute inset-x-3 top-3 z-40 rounded-md border border-line bg-white px-4 py-3 text-sm text-ink shadow" role="status">
+          {transferMessage}
+        </div>
+      )}
 
       <div id="hopes-container" className="hopstudio-container">
         <div id="chat-bar" className="chat-bar" />
@@ -150,6 +207,21 @@ export function HopeStudioWorkspace({
       </div>
     </section>
   );
+}
+
+async function basketIdempotencyKey(
+  projectId: string,
+  card: ReturnType<typeof importHopeStudioBasketItemCommandSchema.parse>['card'],
+): Promise<string> {
+  const encoded = new TextEncoder().encode(JSON.stringify({
+    projectId,
+    cardKey: card.DBK,
+    selected: card.selected,
+    configuration: card.configuration,
+    amount: card.clicked_intent.getPrice.response,
+  }));
+  const digest = await crypto.subtle.digest('SHA-256', encoded);
+  return `hopstudio-${Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')}`;
 }
 
 function enhanceChatChrome(

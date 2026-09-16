@@ -1027,6 +1027,49 @@ paths:
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
 
+  /projects/{projectId}/hopstudio-items:
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
+    post:
+      operationId: importHopeStudioBasketItem
+      summary: Importe une ligne de panier HopeStudio dans un projet actif.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImportHopeStudioBasketItemCommand'
+      responses:
+        '201':
+          description: Ligne importée dans le projet.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ProjectItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
   /projects/{projectId}/items/{itemId}:
     parameters:
       - $ref: '#/components/parameters/MagritTenant'
@@ -11351,6 +11394,45 @@ components:
             - type: object
               additionalProperties: true
             - type: 'null'
+
+    ImportHopeStudioBasketItemCommand:
+      title: ImportHopeStudioBasketItemCommand
+      type: object
+      additionalProperties: false
+      required: [card]
+      properties:
+        card:
+          type: object
+          additionalProperties: true
+          required: [DBK, configuration, clicked_intent]
+          properties:
+            DBK:
+              type: string
+              minLength: 1
+              maxLength: 300
+            prompt:
+              type: string
+              maxLength: 300
+            selected:
+              type: string
+              maxLength: 300
+            configuration:
+              type: object
+              additionalProperties: true
+            clicked_intent:
+              type: object
+              additionalProperties: true
+              required: [getPrice]
+              properties:
+                getPrice:
+                  type: object
+                  additionalProperties: true
+                  required: [response]
+                  properties:
+                    response:
+                      oneOf:
+                        - type: number
+                        - type: string
 
     # --------------------------------------------------------------------------
     # Story E10.3 — Creation d un devis depuis un projet
