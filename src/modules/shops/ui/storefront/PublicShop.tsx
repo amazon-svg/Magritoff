@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router';
 import { Loader2 } from 'lucide-react';
 import type { ShopProduct } from '@/modules/shops';
+import { useStorefrontUiRuntime } from '@/platform/runtime/storefront-ui-runtime';
 
 import { PortalHome } from '@/modules/catalog/ui/storefront';
 import { PortalCatalog } from '@/modules/catalog/ui/storefront';
@@ -26,6 +27,13 @@ import { useStorefrontSession } from '@/modules/shop-customers/ui/hooks';
 import { usePublicShopCatalog } from '@/modules/shops/ui/hooks/usePublicShopCatalog';
 import { useStorefrontOrderLifecycle } from '@/modules/orders/ui/hooks';
 
+// BCP-10 (docs/api/CONVENTIONS.md §8.25 point 3.5 (b)) — R7 : lazy-load le
+// ProductOverlay (configurateur lourd chargé seulement quand l'acheteur
+// clique « Configurer »). Un SEUL hôte pour toute la boutique : PublicShop.
+const ProductOverlay = lazy(() =>
+  import('@/modules/catalog/ui/storefront').then((m) => ({ default: m.ProductOverlay })),
+);
+
 /**
  * Portail B2B Magrit — version 2.
  *
@@ -47,6 +55,7 @@ export function PublicShop() {
   const slug = params.slug ?? '';
   const splat = params['*'];
   const navigate = useNavigate();
+  const clariprint = useStorefrontUiRuntime().clariprint;
   const {
     session: storefrontSession,
     loading: storefrontSessionLoading,
@@ -195,6 +204,25 @@ export function PublicShop() {
     setCart((prev) => prev.filter((l) => l.product.id !== productId));
   };
 
+  // ─── BCP-10 (docs/api/CONVENTIONS.md §8.25 point 3.5) ─────────────────────
+  // Hôte UNIQUE de la surcouche de configuration produit `ProductOverlay`.
+  // Toutes les surfaces (accueil, gamme, catalogue, suggestions de Magrit,
+  // landing, fiche produit) appellent `onConfigure(product)` pour l'ouvrir
+  // PAR-DESSUS l'écran courant, sans navigation. La règle métier « qty =
+  // nombre d'exemplaires, on ajoute 1 PAQUET au panier » ne vit plus qu'ici :
+  // elle était écrite deux fois (PortalCatalog.tsx et PortalProduct.tsx), et
+  // c'est cette duplication qui a laissé la fiche produit jeter sa sélection.
+  const [overlayProduct, setOverlayProduct] = useState<ShopProduct | null>(null);
+  const onConfigure = (product: ShopProduct) => setOverlayProduct(product);
+  const handleOverlayConfirm = (productConfigured: ShopProduct, qty: number) => {
+    const withQty: ShopProduct = {
+      ...productConfigured,
+      config: { ...(productConfigured.config ?? {}), quantity: qty },
+    };
+    addToCart(withQty, 1);
+    setOverlayProduct(null);
+  };
+
   // ─── S2.2 Hydratation localStorage des gammes deplices ───────────────────
   useEffect(() => {
     if (!slug) return;
@@ -239,6 +267,7 @@ export function PublicShop() {
     setCart([]);
     setPendingFormat(null);
     setCartOpenRequest(0);
+    setOverlayProduct(null);
   }, [slug]);
 
   const selectSubcategory = (gammeSlugs: string[], formatKey?: string) => {
@@ -469,6 +498,7 @@ export function PublicShop() {
           onSelectProduct={(p) => goView('product', p.id)}
           onReorder={(p) => addToCart(p, 1)}
           onOpenGamme={(gSlug) => goView('gamme', gSlug)}
+          onConfigure={onConfigure}
           pimGammes={pimGammes}
           pimDefinitions={pimDefinitions}
         />
@@ -477,10 +507,10 @@ export function PublicShop() {
       {view === 'catalog' && (
         <PortalCatalog
           shop={shop}
-          taxRate={taxRate}
           products={filteredProducts}
           onSelectProduct={(p) => goView('product', p.id)}
           onAddToCart={(p, qty) => addToCart(p, qty ?? 1)}
+          onConfigure={onConfigure}
           onGoHome={() => goView('home')}
           pimGammes={pimGammes}
           pimDefinitions={pimDefinitions}
@@ -510,22 +540,21 @@ export function PublicShop() {
           onGoCatalog={() => goView('catalog')}
           onGoGamme={(gSlug) => goView('gamme', gSlug)}
           onSelectProduct={(p) => goView('product', p.id)}
+          onConfigure={onConfigure}
           onAskMagrit={() => goView('catalog')}
         />
       )}
 
+      {/* BCP-10 (docs/api/CONVENTIONS.md §8.25 point 3.5 (a)) — fiche
+          descriptive : plus de configurateur, plus d'ajout au panier direct.
+          Son unique bouton ouvre la surcouche via `onConfigure`, PAR-DESSUS
+          la fiche, sans quitter `/p/:id`. */}
       {view === 'product' && selectedProduct && (
         <PortalProduct
           product={selectedProduct}
           taxRate={taxRate}
           onBack={() => goView('catalog')}
-          onAddToCart={(p, qty) => {
-            addToCart(p, qty);
-            // S-REWORK-1 : panier est en drawer accessible via cart icon header,
-            // pas en page entiere. On retourne sur catalog (l acheteur peut ouvrir
-            // le drawer pour verifier puis valider).
-            goView('catalog');
-          }}
+          onConfigure={onConfigure}
           pimGammes={pimGammes}
           pimDefinitions={pimDefinitions}
         />
@@ -580,6 +609,19 @@ export function PublicShop() {
         <Navigate to={shopUrl(slug, 'catalog')} replace />
       )}
     </ShopLayout>
+    {/* BCP-10 (docs/api/CONVENTIONS.md §8.25 point 3.5 (b)) — hôte UNIQUE de
+        la surcouche de configuration, ouverte PAR-DESSUS l'écran courant
+        (catalogue, gamme, accueil ou fiche produit) sans changer l'URL. */}
+    <Suspense fallback={null}>
+      <ProductOverlay
+        product={overlayProduct}
+        shop={shop}
+        taxRate={taxRate}
+        clariprintGateway={clariprint}
+        onClose={() => setOverlayProduct(null)}
+        onConfirm={handleOverlayConfirm}
+      />
+    </Suspense>
     </>
   );
 }
