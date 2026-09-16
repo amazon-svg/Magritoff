@@ -103,6 +103,18 @@ function objectLiteralPropertyKey(prop: ts.ObjectLiteralElementLike): string | n
     if (ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name)) {
       return name.text;
     }
+    // Durcissement du coordinateur (qa-review round 3, durcissement 1) : une
+    // cle CALCULEE dont l expression est une constante litterale — `{
+    // ['product']: p, ['qty']: 500 }` — designe exactement la meme propriete
+    // qu un identifiant, et echappait a ce garde. C etait la derniere evasion
+    // purement cosmetique : elle rendait fausse la phrase de `cartLine.ts`.
+    // Verifie sans faux positif sur l arbre reel.
+    if (
+      ts.isComputedPropertyName(name) &&
+      (ts.isStringLiteral(name.expression) || ts.isNumericLiteral(name.expression))
+    ) {
+      return name.expression.text;
+    }
   }
   return null;
 }

@@ -635,3 +635,40 @@ lecture adversariale les trouve :
    les FICHIERS RÉELS pour les contournements round 3 ; à refaire à la main
    ou via un script équivalent, la démarche et le verdict de chacune sont
    décrits ligne par ligne ci-dessus).
+
+## Durcissements du coordinateur apres approbation (qa-review round 3)
+
+La qa-review approuve le round 3 et recommande deux durcissements "a passer
+avant merge, sans nouveau tour". Appliques par le coordinateur, plus un
+troisieme qu il a trouve en les appliquant.
+
+1. **Cle calculee fermee dans le garde AST** (`tests/architecture/cart-line-single-constructor.test.ts`).
+   `objectLiteralPropertyKey` reconnait desormais une cle CALCULEE dont
+   l expression est une constante litterale : `{ ['product']: p, ['qty']: 500 }`
+   designe la meme propriete qu un identifiant et echappait au garde. C etait
+   la derniere evasion purement cosmetique — celle qu un developpeur peut
+   ecrire sans intention de contourner quoi que ce soit.
+   **Preuve rejouee** : mutation `return [...prev, { ['product']: product, ['qty']: packCount }];`
+   dans `PublicShop.tsx:216` -> le garde rougit seul, assertion nommee
+   `expect(offenders).toEqual([])` (`:195`). Restaure, worktree propre.
+   **Zero faux positif** : suite complete 3063 passes, 0 echec.
+
+2. **`packCount` rendu obligatoire aussi sur `packLine`** (`cartLine.ts`).
+   Le `= ONE_PACK` subsistait sur le second constructeur, avec pour valeur par
+   defaut exactement celle qui a produit la regression du round 1. Cout reel
+   nul : les trois appelants passaient deja le parametre.
+   **Preuve rejouee** : mutation `packLine(productMerged)` dans
+   `orderRenewal.helpers.ts:155` -> `error TS2554: Expected 2 arguments, but
+   got 1`, diagnostic nomme. Restaure.
+
+3. **Un TROISIEME commentaire faux, trouve par le coordinateur, que ni
+   l auteur ni la qa n avaient vu.** Le docblock de `toPackLine` decrivait
+   encore `packCount` comme valant "`ONE_PACK` par defaut" alors que le round
+   3 venait de le rendre obligatoire. Meme faute que les deux precedentes de
+   ce lot — une propriete affirmee par un commentaire et non tenue par le code
+   —, dans le fichier ecrit pour reparer cette faute, et une ligne au-dessus
+   du paragraphe qui explique l obligation. Corrige, et le motif est ecrit :
+   ce defaut a coute une regression et un tour de revue.
+
+Gates apres durcissements : `pnpm typecheck` 0 erreur ; `pnpm test` 300
+fichiers passes / 11 skip, **3063 tests passes / 86 skip, 0 echec**.

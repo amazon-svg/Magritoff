@@ -111,17 +111,20 @@ export const ONE_PACK: PackCount = packs(1);
  * multiplie légitimement `price_ht` (voir `cartPricing.test.ts`,
  * "réutilise le prix catalogue"). Ne touche jamais `config`.
  */
-export function packLine(product: ShopProduct, packCount: PackCount = ONE_PACK): CartLine {
+export function packLine(product: ShopProduct, packCount: PackCount): CartLine {
   return { product, qty: packCount };
 }
 
 /**
  * Construit la `CartLine` d'un produit configuré : `quantity` (exemplaires)
- * est écrit dans `config.quantity` ; `qty` (paquets) vaut `ONE_PACK` par
- * défaut — le geste normal d'ajout au panier — ou le `packCount` fourni
- * explicitement par un appelant qui reconstruit un état antérieur (voir
- * `rebuildCartFromOrderItems`, seul appelant à passer ce troisième
- * paramètre). C'est la SEULE fonction qui doit écrire `config.quantity`,
+ * est écrit dans `config.quantity` ; `packCount` (paquets) est OBLIGATOIRE —
+ * chaque appelant déclare son intention, `ONE_PACK` pour le geste normal
+ * d'ajout au panier, le nombre d'origine pour qui reconstruit un état
+ * antérieur (`rebuildCartFromOrderItems`). Ce paramètre a été optionnel, à
+ * `ONE_PACK` par défaut, le temps d'un round : c'est précisément ce défaut
+ * qui a fait perdre au renouvellement les paquets de l'acheteur, et ce
+ * docblock a décrit un jour de plus l'optionnalité qui venait de
+ * disparaître. C'est la SEULE fonction qui doit écrire `config.quantity`,
  * pour que les deux entrées connues du panier storefront B2B — `addToCart`
  * (`PublicShop.tsx`) et `setCart` du renouvellement
  * (`rebuildCartFromOrderItems`) — traversent le même point. Il existe un
