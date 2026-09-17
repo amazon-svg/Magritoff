@@ -8,6 +8,113 @@ blocks: [E10.10b-4c]
 ---
 # E10.10b-4b — Éditeur visuel de correspondance coordonnées
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> **Source qui fait foi : Notion** — [E10.10b-4b — Éditeur visuel de correspondance coordonnées](https://app.notion.com/p/3d6d0131973c81029fe0e87a423aa21b) · extrait le 17/09/2026 · page modifiée le 09/09/2026.
+> Copie destinée à tout intervenant (développement, QA, revue, agent) : lire ce périmètre avant la partie implémentation. En cas d'écart, Notion prévaut. Le statut Notion peut retarder sur la livraison réelle, décrite plus bas.
+
+| Epic | Sprint | Priorité | Effort | Statut Notion | Assigné à | Offre | Source | Ordre |
+|---|---|---|---|---|---|---|---|---|
+| E10 — Gestion commerciale | Sprint 5 — Gestion commerciale | P1 | M | Terminé | Claude code | Pro+ | WM 01/09/2026 | — |
+
+### Description fonctionnelle (Notion)
+
+**En tant que** imprimeur Pro+, **je veux** positionner visuellement les champs de mon devis (adresses, totaux) sur le gabarit PDF importé, **afin de** générer des devis à ma marque sans coordination manuelle par ligne.
+
+##### Statut
+
+Terminé — qa-review round 2, Approuvé (faille de sécurité B1 fermée et re-testée empiriquement, toutes réserves corrigées, rendu visuel du tableau conforme au wireframe).
+
+##### Contexte produit
+
+Deuxième étape du système de devis PDF personnalisés (suite de E10.10b-4a, qui livre l'infrastructure d'import du gabarit). Cette story ajoute l'éditeur interactif : afficher le fond PDF, placer les 25 champs simples par clic/glisser/clavier, configurer police/taille/couleur par champ, éditer la zone de répétition des lignes (ancre, espacement, colonnes visibles), prévisualiser sur un devis d'exemple. L'éditeur refuse tout paramétrage invalide côté client (plafond `rows_per_page`, alignement sans largeur) et côté serveur (422 détaillé par champ). Migration neuve + table isolée par tenant. Aucun appel au moteur de génération (4c, qui n'existe pas encore) — l'aperçu est une projection client, jamais un rendu PDF réel.
+
+Design validé par Arnaud le 09/09 (`.design-handoff/wireframes/E10.10b-4b-editeur-coordonnees.md`) avec deux arbitrages explicites : (1) pas de remplacement du fond depuis cet écran (reste en 4a) ; (2) bouton "Enregistrer" explicite, pas d'autosave.
+
+##### Critères d'acceptation (contrat §8.18, tous tenus)
+
+1. **Migration `document_pdf_template_fields`, RLS testée, D1 complété** — table neuve (25 champs en `check`, bornes `x/y/width/font_size` en `check`, `unique(template_id, field)`). Trigger `document_pdf_template_fields_assert_same_tenant` (défense en profondeur, ajouté qa-review round 1). RLS (`select` ouverte à tout tenant member, `write` par capability `can_manage_document_templates`). Fonction `api_replace_document_pdf_template_fields` (`security definer`, remplacement intégral delete+insert, verrou `pg_advisory_xact_lock`, 409 `upload_required` si gabarit non `ready`). `api_confirm_document_pdf_template_upload` recréée pour compléter `has_field_map` par un `OR exists(...)`.
+2. **Endpoints `GET`/`PUT /document-pdf-templates/{templateId}/fields`, `If-Match`/ETag sur le `PUT`** — lecture ouverte à tout tenant member, écriture gardée par `can_manage_document_templates`. ETag distinct de celui du gabarit. 409 `upload_required`, 422 `invalid_field_map` (détaillé par champ), 428/409 sur `If-Match`.
+3. **Écran d'édition** (`/dashboard/document-templates/:templateId/fields`) — PDF.js en import dynamique (vérifié par build réel, aucun effet sur bundle boutique). Palette "Champs" (4 familles, compteur 0/26). Positionnement multi-modal (glisser-déposer, clic-armé, clavier). Panneau de réglages (police famille/style, taille, alignement, couleur, `max_lines`, retrait). Onglet "Tableau" avec stepper plafonné DANS L'ÉTAT, sélection page de reprise multi-page, rendu visuel du tableau AJOUTÉ en round 1 (ligne réelle éditable + ligne fictive grisu00e9e/pointillée, deux poignées de glisse pour ancre et espacement). Mode Aperçu calque client sur devis d'exemple fixe, nombre de pages calculé dynamiquement. Bouton "Enregistrer" explicite avec gestion 409/422.
+4. **Terminologie des totaux alignée** — cohérente avec `QuoteEditorPage.tsx` déjà en production (divergence assumée et documentée par rapport au wireframe initial).
+
+##### Dev Agent Record
+
+###### Agent Model Used
+
+Architecte (cadrage contrat, Claude Opus) → UX design (agent général, wireframe validé par Arnaud) → `dev-story` (implémentation, Claude Sonnet) → `qa-review` (Claude Opus, 2 rounds).
+
+###### Completion Notes
+
+**Éditeur visuel complet** : migration neuve `document_pdf_template_fields` (25 champs enum, bornes en check, unique par template, trigger cohérence tenant). Endpoints GET/PUT fields avec ETag distinct, isolation tenant par RLS + capability. Écran `DashboardDocumentTemplateFields` : palette 4 familles, positionnement multi-modal (glisser/clic/clavier), réglages par champ, onglet Tableau (stepper plafonné dans l'état, rendu visuel ajouté), mode Aperçu calque client, bouton Enregistrer explicite. PDF.js import dynamique, bundle boutique inchangé. Microcopy FR du wireframe reprise mot pour mot.
+
+**qa-review round 1 — Changes Requested, corrigé** :
+
+- **B1 — Faille de sécurité réelle (isolation tenant rompue), CORRIGÉE** : `document_pdf_template_fields.template_id` et `.tenant_id` étaient indépendants. Un admin du tenant B, connaissant l'UUID d'un gabarit du tenant A, pouvait insérer une ligne avec `template_id`=A et `tenant_id`=B → déni de service durable sur A (résidu non visible ni nettoyable, contrainte `unique(template_id, field)` brisée). Corrigée à trois endroits : (1) trigger `document_pdf_template_fields_assert_same_tenant` (même patron que `project_tag_links_assert_same_tenant`, E10.2) ; (2) filtre `and tenant_id = ...` ajouté à l'`exists(...)` de `has_field_map` ; (3) scénario 6 SQL (insert cross-tenant refusé, défense redondante sur `has_field_map` avec trigger désactivé de force pour prouver l'indépendance des deux niveaux).
+- **R5 — Retour visuel du tableau sur le canevas, CONFIRMÉ par Arnaud, AJOUTÉ** : première livraison ne rendait le tableau que par champs numériques, sans retour visuel avant le mode Aperçu. Ajouté : ligne réelle éditable (teintée) + ligne fictive (grisée, pointillée, infobulle "repu00e8re") + deux poignées de glisse (ancre, espacement), conforme au wireframe écran C.
+- **D2 — correction de documentation** : la livraison initiale présentait l'effacement des placements par `reset_fields` comme une décision ajoutée par ce lot. Faux : le contrat l'écrit explicitement deux fois (`openapi/magrit-core.v1.yaml`) — `reset_fields` efface la carte de champs EN ENTIER. 4a ne pouvait effacer que `lines_block` (table absente) ; 4b répare ce que 4a n'avait pas pu tenir, ce n'est pas une extension.
+- **R1-R8, toutes traitées** : plafond d'état (pas seulement d'affichage), avertissement permanent multi-page + repère visuel `totals.`/`page.`, déplacement via `onDrop` du canevas (pas `onDragEnd`), alignement forcé à gauche si largeur retirée, `page.count` calculé dynamiquement, compteur aligné sur 26, labels associés pour l'accessibilité.
+- **R9 non traitée sur instruction explicite** : `react-dnd` reste une dépendance inutilisée dans `package.json`, arbitrage architecte hors périmètre de cette story.
+
+**qa-review round 2 — Approved** : faille B1 re-testée empiriquement (exploitation réelle rejouée, pas relecture de rapport) sur QUATRE vecteurs, dont deux non demandés initialement (contournement par UPDATE direct, écriture en bypass RLS complet) — tous refusés. Test de non-régression validé par mutation (désactivation volontaire du trigger pour prouver que le test échoue bien sans lui). Rendu visuel du tableau vérifié conforme au wireframe point par point. Aucune réserve bloquante restante.
+
+###### Vérifications
+
+- `pnpm typecheck` : 0 erreur
+- `pnpm gen:api:check` : ✅ aligné (aucune touche à `openapi/magrit-core.v1.yaml`)
+- `pnpm test:architecture` : 144/144
+- `pnpm test:contract` : 301/301
+- `pnpm exec vitest run tests/modules/document-templates/` : 44/44 (+5 pour `computeDocumentPageCount`)
+- `pnpm test` (suite complète) : 1805 passés / 36 skip, 3 échecs pré-existants sans rapport (`product_mockups_isolation.test.ts`, projet Supabase distant)
+- `tests/sql/gescom-e10-10b-4b-document-pdf-template-fields.sql` : 6 scénarios, 0 erreur (rejoué après corrections round 1, mutation testée)
+- `tests/sql/gescom-e10-10b-4a-document-pdf-templates.sql` : rejoué, 0 erreur, aucune régression
+- `pnpm build` : succès, `pdfjs-dist` isolé dans un chunk séparé (import dynamique), absent de tout chunk storefront/portail
+
+###### File List
+
+- Migration : `supabase/migrations/20260909030000_gescom_e10_10b_4b_document_pdf_template_fields.sql`
+- Module (étendu) : `src/modules/document-templates/api/contracts.ts`, `api/client.ts`, `application/document-field-map-validator.ts`, `application/document-templates-repository.ts`, `application/document-templates-service.ts`
+- Adaptateur : `src/adapters/supabase/document-templates-repository.ts`
+- Routes : `src/server/api/document-templates-routes.ts`
+- UI : `src/modules/document-templates/ui/workspace/field-editor/` (`DocumentTemplateFieldsPage.tsx`, `PaletteFieldsPanel.tsx`, `FieldSettingsPanel.tsx`, `LinesTablePanel.tsx`, `PreviewOverlay.tsx`, `usePdfPageCanvas.ts`, `field-catalog.ts`, `pdf-coordinates.ts`, `sample-quote.ts`, `types.ts`)
+- Dépendance : `pdfjs-dist@4.9.155` ajoutée à `package.json`/`pnpm-lock.yaml`
+- Tests : `tests/contract/document-templates.contract.test.ts` (+9), `tests/modules/document-templates/document-field-map-validator.test.ts` (17), `tests/modules/document-templates/pdf-coordinates.test.ts` (11, dont 5 `computeDocumentPageCount`), `tests/modules/document-templates/field-catalog.test.ts` (9), `tests/sql/gescom-e10-10b-4b-document-pdf-template-fields.sql` (6 scénarios)
+
+##### QA Results
+
+**Verdict : Approuvé** — round 2. Faille B1 (isolation tenant rompue sur `document_pdf_template_fields`) identifiée round 1 par exploitation empirique, fermée par trigger de cohérence tenant + filtre `tenant_id` + scénario SQL de non-régression. Round 2 : faille re-testée sur quatre vecteurs (dont deux non prévus initialement), tous refusés ; non-régression validée par mutation. R5 (rendu visuel du tableau) confirmé par Arnaud, ajouté, vérifié conforme au wireframe. Toutes les réserves R1-R8 corrigées. Aucune réserve bloquante restante.
+
+**Dettes tracées, non bloquantes** :
+
+- Trois incohérences purement documentaires (commentaires dans la migration et le fichier de test SQL disant encore "décision à confirmer" alors que le point est tranché) — à aligner dans une prochaine passe, aucun effet d'exécution.
+- Un `delete` dans `reset_fields` ne filtre pas explicitement `tenant_id` en plus de `template_id` — rendu inoffensif par le trigger, style à harmoniser.
+- Aucun test automatisé du glisser-déposer et des poignées visuelles (aucun précédent de test de composant dans ce dépôt, aucun navigateur disponible dans cet environnement) — à couvrir par la campagne de recette humaine/Chrome MCP, cahier TF-XX à créer (glisu00e9 de l'ancre, glisu00e9 de la poignée d'espacement, glisu00e9 hors canevas, rendu PDF.js sur URL signée réelle).
+- `react-dnd` reste une dépendance inutilisée dans `package.json` — arbitrage architecte au niveau du dépôt, hors périmètre de cette story.
+
+##### Change Log
+
+- 2026-09-09 — Livraison initiale, qa-review round 1, Changes Requested (faille B1, rendu visuel du tableau manquant, documentation D2 à corriger).
+- 2026-09-09 — Corrections dev (B1 trigger+filtre+scénario 6, R5 rendu visuel, R1-R8, D2), qa-review round 2, Approuvé.
+- 2026-09-09 — Fiche créée dans Notion à partir du story document livré et du verdict qa-review final.
+
+### Cas de test fonctionnels rattachés (Notion)
+
+| TF | Cas de test | Statut | Priorité | Parcours | Cible | Stories liées |
+|---|---|---|---|---|---|---|
+| [TF-195](https://app.notion.com/3d6d0131973c81578e89dce595f027ec) | TF-004 — Positionnement par glisser-déposer d'un champ simple sur le canevas | À jouer | P0 — Critique | P13 — Devis et gestion commerciale | B5 | E10.10b-4b |
+| [TF-196](https://app.notion.com/3d6d0131973c8161bc15f9735fac9a15) | TF-005 — Glissé de l'ancre du tableau : ligne réelle et ligne fictive bougent ensemble | À jouer | P0 — Critique | P13 — Devis et gestion commerciale | B5 | E10.10b-4b |
+| [TF-197](https://app.notion.com/3d6d0131973c81df8160df0474b9c8de) | TF-006 — Ajustement de l'espacement du tableau : row_height change, ancre immobile | À jouer | P1 — Importante | P13 — Devis et gestion commerciale | B5 | E10.10b-4b |
+| [TF-198](https://app.notion.com/3d6d0131973c81c1950dd230b362c447) | TF-007 — Relâcher un champ glissé hors du canevas annule le geste (non-régression) | À jouer | P1 — Importante | P13 — Devis et gestion commerciale | B5 | E10.10b-4b |
+| [TF-199](https://app.notion.com/3d6d0131973c81068e75ed2324826a54) | TF-008 — Rendu du canevas PDF réel via PDF.js sur URL signée | À jouer | P0 — Critique | P13 — Devis et gestion commerciale | B5 | E10.10b-4b |
+| [TF-200](https://app.notion.com/3d6d0131973c81f89206d04402c01c7e) | TF-009 — Positionnement au clavier (Entrée, Flèches, Suppr) | À jouer | P1 — Importante | P13 — Devis et gestion commerciale | B5 | E10.10b-4b |
+| [TF-201](https://app.notion.com/3d6d0131973c81418925e2960a9a8ab3) | TF-010 — Détection et affichage du conflit d'enregistrement concurrent (409 If-Match) | À jouer | P1 — Importante | P13 — Devis et gestion commerciale | B5 | E10.10b-4b |
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 Contrat : `docs/api/CONVENTIONS.md` §8.18, `openapi/magrit-core.v1.yaml`
 (`DocumentFieldId`, `DocumentLineFieldId`, `DocumentFieldPlacement`,
 `DocumentLinesColumn`, `DocumentLinesBlock`, `DocumentPdfTemplateFieldMap`,

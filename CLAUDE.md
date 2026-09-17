@@ -27,6 +27,8 @@ Tous les agents reçoivent automatiquement `docs/project-context.md` + `SPRINT_H
 
 **Règle Dev** : produire un story document `_bmad-output/implementation-artifacts/story-{X}.md` à chaque story livrée.
 
+**Règle story document — périmètre fonctionnel d'abord (Arnaud, 17/09/2026, permanente)** : tout story document s'ouvre sur le périmètre fonctionnel de la story tel qu'il est décrit dans Notion (description complète, propriétés, cas de test rattachés), entre les marqueurs `notion-functional`, **avant** toute information d'implémentation. Notion fait foi ; la section ne se modifie jamais à la main, elle est régénérée par l'agent `scribe` avec `scripts/notion/sync_story_functional.py`. Tout intervenant (dev, QA, revue, agent) lit cette section en premier. Détail : [docs/spec/STORY_DOCUMENT_STANDARD.md](docs/spec/STORY_DOCUMENT_STANDARD.md) · correspondance Notion ↔ dépôt : [INDEX-stories-notion.md](_bmad-output/implementation-artifacts/INDEX-stories-notion.md).
+
 ## ⚠️ Copie de travail de référence — à vérifier en début de session
 
 Le repo `amazon-svg/Magritoff` est cloné **deux fois** en local. Les deux clones portent les mêmes noms de branches et le même `package.json` : rien dans le repo ne permet de les distinguer. **Se tromper de dossier = travailler sur du code périmé sans le voir.**

@@ -8,6 +8,20 @@ parallelisable_avec: [BCP-0b]
 ---
 # BCP-0c — Reserver les diagnostics de plateforme a l administrateur de la plateforme
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> Aucune story du Sprint Board Notion n'est rattachée à ce story document : c'est une story née dans le dépôt (refonte technique, lot d'architecture ou correctif). Son périmètre est celui décrit ci-dessous. Si elle relève d'une story Notion, renseigner ce rattachement et régénérer cette section.
+
+### Cas de test fonctionnels rattachés (Notion)
+
+_Aucun cas de test rattaché dans la base Notion « 🧪 Cahiers de tests fonctionnels Magrit »._
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 Cadrage opposable : `docs/api/CONVENTIONS.md` §8.25, point **2.3ter**, et la
 ligne BCP-0c du decoupage (~ligne 4885). Correctif de securite et de cout :
 `GET /api/v1/diagnostics/clariprint` (appel `CheckAuth`, peut-etre facture) et

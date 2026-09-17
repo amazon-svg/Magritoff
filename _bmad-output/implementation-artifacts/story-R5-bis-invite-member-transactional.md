@@ -16,6 +16,22 @@ status: review
 
 # R5-bis — Edge function `invite-member` transactionnelle (fix race B4)
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> Aucune story du Sprint Board Notion n'est rattachée à ce story document : c'est une story née dans le dépôt (refonte technique, lot d'architecture ou correctif). Son périmètre est celui décrit ci-dessous. Si elle relève d'une story Notion, renseigner ce rattachement et régénérer cette section.
+
+### Cas de test fonctionnels rattachés (Notion)
+
+| TF | Cas de test | Statut | Priorité | Parcours | Cible | Stories liées |
+|---|---|---|---|---|---|---|
+| [TF-72](https://app.notion.com/35ed0131973c810c9981eecaa0ee750e) | R5-bis — Invitation transactionnelle (edge invite-member) : rollback atomique si email Resend échoue | Obsolète | P0 — Critique | P10 — Email invitation automatique | B5 | R5-bis |
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 ## Origine
 
 Follow-up de **R5 Phase B** (reportée). Résout le bug Élevé **B4** identifié en review adversariale §1.1 : race condition dans `DashboardUsers.sendInvite()` qui faisait 2 appels séparés (insert `tenant_invitations` puis fetch `send-invitation-email`). Si l'email Resend échouait, l'invitation existait en DB sans email envoyé.

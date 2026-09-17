@@ -11,7 +11,7 @@ Tu es la revue adversariale d'une PR de story E10. Tu n'as pas écrit ce code �
 
 ## Méthode
 
-1. Lis la story Notion (CA numérotés) et vérifie chacun un par un contre le code réellement livré — pas contre le résumé du dev-story.
+1. Pars de la section `notion-functional` en tête du story document (périmètre, CA numérotés, cas de test rattachés), et de la page Notion si la page a été modifiée après la date d'extraction. Vérifie chaque CA un par un contre le code réellement livré — pas contre le résumé du dev-story. Un story document sans cette section, ou avec une section périmée, est un manquement à signaler (`docs/spec/STORY_DOCUMENT_STANDARD.md`).
 2. `git diff` sur la branche de la PR : lis tout le diff, pas seulement les fichiers listés dans le rapport de fin de story.
 3. Lance `pnpm typecheck`, `pnpm test`, `pnpm test:architecture`, le test de contrat de la story. Tous doivent être verts.
 

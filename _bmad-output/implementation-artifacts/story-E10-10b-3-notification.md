@@ -8,6 +8,132 @@ blocks: [E10.10b-4]
 ---
 # E10.10b-3 — Notification (premier relais réel de l'outbox + courriel client)
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> **Source qui fait foi : Notion** — [E10.10b-3 — Notification (relais outbox + courriel client sur quote.sent)](https://app.notion.com/p/3d5d0131973c8173940ee64016487698) · extrait le 17/09/2026 · page modifiée le 08/09/2026.
+> Copie destinée à tout intervenant (développement, QA, revue, agent) : lire ce périmètre avant la partie implémentation. En cas d'écart, Notion prévaut. Le statut Notion peut retarder sur la livraison réelle, décrite plus bas.
+
+| Epic | Sprint | Priorité | Effort | Statut Notion | Assigné à | Offre | Source | Ordre |
+|---|---|---|---|---|---|---|---|---|
+| E10 — Gestion commerciale | Sprint 5 — Gestion commerciale | P1 | L | Terminé | Claude code | Pro+ | WM 01/09/2026 | — |
+
+### Description fonctionnelle (Notion)
+
+**En tant que** client boutique, **je veux** être averti par email quand un devis m'est adressé, **afin de** ne pas manquer une opportunité commerciale et de pouvoir réagir rapidement en acceptant ou refusant.
+
+##### Statut
+
+Terminé — qa-review round 1 (**Changes requested**, 2 bloquants B1/B2), qa-review round 2 **Approuvé, 0 bloquant**.
+
+##### Contexte produit
+
+Troisième sous-chantier d'E10.10b (§8.13sexies de `docs/api/CONVENTIONS.md`), à la suite d'**E10.10b-1** (lecture, Terminé) et **E10.10b-2** (décision client, Terminé). Premier **consommateur réel** de la file `outbox_events` créée par E10.10a : chaque événement `quote.sent` déclenche un drain périodique qui notifie le client par email Resend.
+
+Chaîne : atelier envoie un devis → événement `quote.sent` inscrit dans `outbox_events` → `pg_cron` appelle l'Edge Function `magrit-outbox-dispatcher` → `api_claim_outbox_events` réclame un lot → `OutboxDispatcher` remet chaque événement au consommateur `QuoteSentNotificationConsumer` → email à tous les comptes `active`/`invited` du client → statut marqué livré/échoué/rebuté.
+
+Cadré par l'architecte le 07/09/2026 (§8.13sexies), implémenté et validé le 08/09/2026 sur la même branche que b-1/b-2 (`feat/gescom-e10-4-entite-client`, non mergée).
+
+##### Critères d'acceptation (contrat §8.13sexies, tenus un par un)
+
+1. Drain périodique déclenché de l'extérieur (pas de trigger sur insert, pas de poll opportuniste, pas de process long-vivant) — **fait**, `pg_cron`+`pg_net`, migration + Edge Function dédiée.
+2. `pg_cron`/`pg_net` activés par migration versionnée, URL/secret du déclencheur lus depuis Supabase Vault, jamais en clair — **fait**, testé en local (branches secrets présents/absents).
+3. Aucun endpoint `/api/v1` nouveau, contrat en description seule — **fait**, `pnpm gen:api:check` inchangé.
+4. `api_claim_outbox_events` : `security definer`, grantée au seul `service_role`, `for update skip locked`, incrémente `delivery_attempts` et repousse `next_attempt_at` dans la même instruction que la réclamation — **fait**, vérifié en base réelle et en concurrence réelle (deux transactions simultanées, intersection des lignes réclamées vide).
+5. `next_attempt_at` (4ème colonne mutable) : garde d'immuabilité étendue, grant étendu, index partiel posé, `tests/sql/gescom-outbox-append-only.sql` mis à jour — **fait**.
+6. Passif mis au rebut au déploiement (`delivery_attempts=5`, `last_error` explicite), geste borné par un horodatage **littéral figé** (`created_at < '2026-09-08 00:00:00+00'`) — **fait**, corrigé au round 1 (B1), idempotent au rejeu, un événement postérieur à la borne n'est plus rebuté à tort.
+7. Isolation tenant — jointure explicite `shops.tenant_id` en plus de la chaîne `customer_id → customer_contacts → shop_customer_accounts` — **fait**, corrigé au round 1 (B2) par un test qui observe réellement les filtres posés, confirmé par test de mutation en round 2.
+8. Zéro destinataire n'est pas un échec (`quote.created`/`quote.accepted`/`quote.rejected` sans consommateur, ou `quote.sent` sans compte boutique ouvert) — **fait**, marqué livré sans erreur.
+9. Contenu de l'email : aucun montant, nom du client, nom de la boutique, numéro du devis, date de validité, lien — **fait**, textes des deux variantes (premier envoi/renvoi) validés par Arnaud et codés tels quels.
+10. `valid_until` lu sur le devis **à la remise**, jamais déduit de la charge utile de l'événement (`QuoteSentPayload` non élargi) — **fait**.
+11. Comptes `invited` notifiés comme `active` ; `suspended`/`delegated_only` exclus — **fait**, les quatre statuts exercés.
+12. Lien serveur littéral (`/shop/{slug}/account/quotes`), jamais `portalRuntimePaths` (registre navigateur) — **fait**, test de parité avec le chemin dérivé du registre.
+13. Client avec comptes dans deux boutiques → deux emails distincts, jamais un email à deux liens — **fait**, testé.
+14. Échec Resend / secret absent → l'adaptateur ne lève jamais, `last_error` écrit, reprise au tour suivant — **fait**, vérifié en exécution réelle de l'Edge Function sous Deno sans `RESEND_API_KEY`.
+15. Tentatives épuisées (5) ou événement trop vieux (24h) → rebut, pas de nouvel état ni nouvelle table — **fait**.
+16. Secret de l'Edge Function (`MAGRIT_OUTBOX_DISPATCH_SECRET`) vérifié en temps constant (`timingSafeEqual`), absent/faux → 401 sans corps — **fait**, testé en exécution réelle sous Deno.
+
+**Hors périmètre, confirmé** : aucune notification à l'atelier sur la décision du client (réserve d du cadrage — story future à ouvrir si Arnaud confirme le besoin), aucune UI (ni bouton « relancer » atelier, ni UI portail), aucune surface de supervision de la file au rebut (dette tracée, pas comblée ici).
+
+##### Contrat API
+
+Aucun endpoint `/api/v1` nouveau — le contrat n'a reçu que des changements de **description** (déjà écrits par l'architecte, §8.13sexies point 2) : `info.description` (principe de livraison au moins une fois + état réel de la livraison), commentaire d'en-tête de `webhooks:`, scope `events:subscribe` marqué RÉSERVÉ. `pnpm gen:api:check` reste vert, inchangé. Le relais est une Edge Function dédiée (`supabase/functions/magrit-outbox-dispatcher/`), hors façade `/api/v1`, protégée par secret partagé comparé en temps constant.
+
+##### Dev Agent Record
+
+###### Agent Model Used
+
+Architecte (cadrage §8.13sexies, Claude Opus) → `dev-story` (Claude Sonnet) → `qa-review` (Claude Opus) round 1 → `dev-story` (correctifs) → `qa-review` round 2.
+
+###### Completion Notes
+
+**QA-review round 1 — Changes requested, 2 bloquants**
+
+- **B1 — Rebut accidentel d'événements neufs.** Le geste de mise au rebut du passif n'était borné par aucune date (`where published_at is null and delivery_attempts < 5`), alors que la migration se prétendait rejouable et que le message d'avertissement (secrets Vault absents) instruisait explicitement de la rejouer — scénario nominal du premier déploiement réel, puisque les secrets ne peuvent être posés qu'après coup. qa-review a prouvé en exécution qu'un rejeu rebutait à tort un événement créé après le premier passage, avec un `last_error` mensonger sur son ancienneté.
+- **B2 — Garde-fou tenant non testé.** La jointure `shops.tenant_id` — seul rempart réel, le client étant `service_role` donc hors RLS — n'était couverte par aucun test qui observe réellement les filtres posés. qa-review l'a prouvé en cassant la garde en base (contre-preuve : un devis part bien chez un tiers sans le filtre).
+
+**Correctifs dev-story** : B1 fermé par une borne littérale figée (`created_at < '2026-09-08 00:00:00+00'`) + un bloc SQL de planification du déclencheur séparé du geste de rebut + prose corrigée (section « REJOUABILITÉ » distinguant les parties idempotentes du geste ponctuel). B2 fermé par un nouveau test (`quote-notification-gateway.test.ts`) qui enregistre réellement chaque appel `.eq()`/`.in()` du faux client PostgREST et vérifie que `tenant_id`, `customer_id` et le filtre de statut sont tous posés.
+
+**QA-review round 2 — Approuvé, 0 bloquant**
+
+- B1 revu par reproduction exacte du scénario cassé : un événement postérieur à la borne n'est plus rebuté, le comportement nominal (événements antérieurs) reste correct, rejeu confirmé idempotent.
+- B2 revu par **test de mutation réel** : trois mutants (retrait du filtre tenant, élargissement des statuts notifiables, mauvaise colonne de jointure) tués individuellement, code d'origine restauré et vérifié par empreinte SHA-256 identique.
+- Gates : `pnpm typecheck` 0 erreur, `pnpm gen:api:check` vert inchangé, `pnpm test:contract` 242/242, `pnpm test:architecture` 144/144, `npx vitest run` 1675 passés / 3 échecs préexistants sans rapport (`tests/storage/product_mockups_isolation.test.ts`, bucket Storage absent en local) / 36 skip. Cas SQL exécutés réellement contre Docker local.
+
+###### Réserves non bloquantes (7, aucune ne bloque le merge)
+
+| Réf. | Trou | Note |
+| --- | --- | --- |
+| **R1** | Secret du déclencheur cron persisté en clair dans `cron.job.command` malgré lecture Vault | Atténué par une RLS qui limite la visibilité à `postgres`/`supabase_admin`. Chemin de conformité : résoudre le secret à chaque exécution plutôt que de l'interpoler. |
+| **R2** | `pnpm test:storefront:sql` aveugle au nouveau cas (s'arrête avant sur `legacy-shop-only-write-freeze.sql`) | Porte cassée depuis au moins b-1, préexistante, sans rapport avec ce lot. |
+| **R3** | `occurred_at` non normalisé par `toIsoTimestamp()` dans l'adaptateur neuf | Sans conséquence (champ non sérialisé dans une réponse), dérive de convention. |
+| **R4** | Grant colonne décoratif — `service_role` a déjà `UPDATE` table-level par défaut Supabase | Préexistant à ce lot (défaut E10.0), la garde réelle est le trigger append-only. |
+| **R5** | Déclencheur jamais exercé de bout en bout via un vrai tour pg_cron→pg_net→Edge Function | À faire au premier déploiement réel, avec relecture de `cron.job_run_details`/`net._http_response`. |
+| **R6** | `OutboxDispatcher.runOnce()` interrompt tout le lot sur une erreur de marquage isolée | Sans perte (échéance déjà repoussée), mais le rapport de tour devient une exception plutôt qu'un compte rendu partiel. |
+| **R7** | `timingSafeEqual` fuit la longueur du secret par construction | Hérité d'`outbox.ts`, désigné par le cadrage comme la fonction à réutiliser, non actionnable. |
+
+###### File List
+
+**Migration et tests SQL** : `supabase/migrations/20260908000000_gescom_e10_10b_3_outbox_dispatcher.sql`, `tests/sql/gescom-e10-10b-3-outbox-dispatcher.sql`, `tests/sql/gescom-outbox-append-only.sql` (étendu), `scripts/test-storefront-sql.sh`.
+
+**Socle transverse** : `src/modules/_shared/application/outbox-dispatcher.ts`, `outbox.ts` (export `timingSafeEqual`), `index.ts`.
+
+**Adaptateurs** : `src/adapters/supabase/outbox-dispatch-repository.ts`, `src/adapters/resend/quote-sent-email-sender.ts`, `src/adapters/supabase/commercial-quotes-repository.ts` (+ `SupabaseQuoteNotificationGateway`), `tests/adapters/supabase/quote-notification-gateway.test.ts` (correctif B2).
+
+**Module commercial-quotes** : `src/modules/commercial-quotes/application/quote-sent-notification-consumer.ts`, `index.ts`.
+
+**Composition et Edge Function** : `src/server/api/outbox-dispatch-composition.ts`, `index.ts`, `supabase/functions/magrit-outbox-dispatcher/index.ts`, `supabase/config.toml`.
+
+**Tests** (35 nouveaux) : `tests/modules/_shared/outbox-dispatcher.test.ts`, `tests/adapters/resend/quote-sent-email-sender.test.ts`, `tests/modules/commercial-quotes/quote-sent-notification-consumer.test.ts`, `tests/server/api/outbox-dispatch-composition.test.ts`, `tests/adapters/supabase/outbox-dispatch-repository.test.ts`.
+
+Détail complet : `_bmad-output/implementation-artifacts/story-E10-10b-3-notification.md`.
+
+##### Notes opérationnelles — rien n'est déployé
+
+Migration et Edge Function testées **localement uniquement**. Avant tout déploiement réel sur le projet Supabase partagé `ightkxebexuzfjdbpsdg` (B4+B5) :
+
+1. **PAT Supabase** à régénérer (à demander à Arnaud).
+2. **Secrets Vault** : URL et secret du déclencheur (le job `pg_cron` ne se planifie que si les deux existent — sans eux, aucune erreur, juste aucun envoi).
+3. **Secrets Edge Function** : `MAGRIT_OUTBOX_DISPATCH_SECRET` (nouveau, à générer), `RESEND_API_KEY` (déjà existant sur ce compte Resend), `MAGRIT_FROM_EMAIL=Magrit <devis@magritapp.com>`, `MAGRIT_PUBLIC_APP_URL=https://magritapp.com`.
+4. Déployer la migration + l'Edge Function `magrit-outbox-dispatcher`.
+
+Domaine `magritapp.com` déjà vérifié sur Resend (confirmé par appel API direct le 07/09/2026).
+
+##### Change Log
+
+- 2026-09-07 — v1 — Cadrage architecte (§8.13sexies).
+- 2026-09-08 — v2 — Implémentation dev-story, qa-review round 1 Changes requested (B1/B2).
+- 2026-09-08 — v3 — Correctifs dev-story, qa-review round 2 Approuvé. Commit `a2dca84` (implémentation), `c9817a3` (contrat, architecte).
+
+### Cas de test fonctionnels rattachés (Notion)
+
+_Aucun cas de test rattaché dans la base Notion « 🧪 Cahiers de tests fonctionnels Magrit »._
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 Troisième sous-chantier d'E10.10b (le devis dans la boutique du client),
 scindé en quatre par l'architecte (§8.13 de `docs/api/CONVENTIONS.md`) : b-1
 lecture (livrée), b-2 accepter/refuser (livrée), b-3 notification email (ce

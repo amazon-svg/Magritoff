@@ -17,6 +17,22 @@ status: review
 
 # R1 — ProductCard décomposition 5 onglets + PIM Fiche enrichissement (priorité G satellite)
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> Aucune story du Sprint Board Notion n'est rattachée à ce story document : c'est une story née dans le dépôt (refonte technique, lot d'architecture ou correctif). Son périmètre est celui décrit ci-dessous. Si elle relève d'une story Notion, renseigner ce rattachement et régénérer cette section.
+
+### Cas de test fonctionnels rattachés (Notion)
+
+| TF | Cas de test | Statut | Priorité | Parcours | Cible | Stories liées |
+|---|---|---|---|---|---|---|
+| [TF-67](https://app.notion.com/35ed0131973c811391bdd78fce76959a) | R1 + R1-bis — ProductCard 5 onglets extraits + fix bug E1 sync localProduct | À jouer | P0 — Critique | P08 — Devis textuel vers prix Clariprint | B5 | R1, R1-bis |
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 ## Origine
 
 Story refacto issue de l'**Étape D Winston** combinant 2 priorités P0 post-review adversariale : **A** (ProductCard atelier 1281 L décomposition) et **G** (PIM enrichissement Fiche atelier — règle dure Arnaud signalée 2×).

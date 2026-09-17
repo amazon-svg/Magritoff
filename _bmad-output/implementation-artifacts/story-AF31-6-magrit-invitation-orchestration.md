@@ -9,6 +9,22 @@ depends_on: [AF31.5]
 
 # AF31.6 — Isoler la création d'invitation Magrit
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> Aucune story du Sprint Board Notion n'est rattachée à ce story document : c'est une story née dans le dépôt (refonte technique, lot d'architecture ou correctif). Son périmètre est celui décrit ci-dessous. Si elle relève d'une story Notion, renseigner ce rattachement et régénérer cette section.
+
+### Cas de test fonctionnels rattachés (Notion)
+
+| TF | Cas de test | Statut | Priorité | Parcours | Cible | Stories liées |
+|---|---|---|---|---|---|---|
+| [TF-148](https://app.notion.com/3c6d0131973c81dc96ddc6468c9664b4) | UM — Règles serveur de l invitation Magrit (scope, profil, options admin, déjà membre, doublon) | OK | P0 — Critique | P02 — Gestion utilisateurs | B5 | UM1, migrations 20260824000100 / 000700 (api_create_tenant_invitation), AF30-4, AF31-6 |
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 ## Intention
 
 La modale d'invitation chargeait les rôles, renouvelait la session, reconstruisait

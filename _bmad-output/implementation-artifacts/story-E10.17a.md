@@ -8,6 +8,118 @@ blocks: [E10.17b]
 ---
 # E10.17a — Fichiers d'une commande : contrat servi (base + API)
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> **Source qui fait foi : Notion** — [E10.17a — Base et API du dépôt de fichiers par commande](https://app.notion.com/p/3d6d0131973c8173b186ee43f41e3c53) · extrait le 17/09/2026 · page modifiée le 09/09/2026.
+> Copie destinée à tout intervenant (développement, QA, revue, agent) : lire ce périmètre avant la partie implémentation. En cas d'écart, Notion prévaut. Le statut Notion peut retarder sur la livraison réelle, décrite plus bas.
+
+| Epic | Sprint | Priorité | Effort | Statut Notion | Assigné à | Offre | Source | Ordre |
+|---|---|---|---|---|---|---|---|---|
+| E10 — Gestion commerciale | Sprint 5 — Gestion commerciale | P1 | M | Terminé | Claude code | Pro+ | WM 01/09/2026 | — |
+
+### Description fonctionnelle (Notion)
+
+**En tant que** module d'atelier (fiche commande), **je veux** une API de dépôt, confirmation, listage, bascule de visibilité et suppression de fichiers rattachés à une commande, **afin de** servir la couche métier avant son intégration dans un écran (E10.17b).
+
+##### Statut
+
+Terminé — qa-review round 2, Approuvé. Première moitié d'une décomposition en deux : E10.17a (ici, base + API, **aucun effet observable par un utilisateur**, attendu par le contrat) puis E10.17b (panneau UI sur la fiche commande, à suivre).
+
+##### Contexte produit
+
+Prochain maillon du sprint après la clôture complète d'E10.10b-4a/4b/4c, débloqué par E10.16 (fiche commande). L'architecte a repris le patron déjà éprouvé d'E10.10b-4a : billet d'upload signé, chemin de stockage recalculé SERVEUR (jamais lu d'une colonne), RLS sans capability dédiée.
+
+**Trois arbitrages produit d'Arnaud (2026-09-09), tous appliqués** :
+
+1. **Périmètre confirmé « fichiers légers uniquement »** — plafond 50 Mo, sert les échanges courants (BAT, justificatifs, visuel de référence). Le vrai fichier de production haute résolution est HORS périmètre, renvoyé à une story future E10.20 (lien public de dépôt, pas encore cadrée) — à ne pas rouvrir plus tard comme une ambiguïté.
+2. **ZIP autorisé** (`application/zip` ET `application/x-zip-compressed`, les deux car le MIME posé par le navigateur dépend de l'OS du déposant) malgré son opacité — impossible de valider le contenu côté serveur, risque connu et accepté (contenu arbitraire mitigé par le téléchargement toujours forcé ; bombe de décompression IMPOSSIBLE côté serveur car la confirmation ne lit que `info(path)`, ne télécharge et ne décompresse jamais). `application/octet-stream` reste refusé.
+3. **Suppression ouverte à tout membre du tenant** — aucune capability dédiée, cohérent avec `convertQuote`/`changeOrderProductionStep` déjà dans le contrat.
+
+##### Critères d'acceptation (contrat §8.19, tous tenus)
+
+1. **Migration + RLS testée réellement** — table `commercial_order_files`, bucket privé (50 Mo, 7 types MIME dont les deux ZIP), isolation inter-tenant prouvée par exécution (tenant B → 0 ligne visible), écriture PostgREST **entièrement fermée** (plus strict qu'E10.10b-4a : même un admin ne peut pas écrire directement en table, seule voie = les 3 fonctions `security definer`), clé étrangère composite `(order_id, order_line_id)` rendant une ligne d'une autre commande structurellement impossible.
+2. **Module `api/` + `application/`**, même patron que `document-templates`/`quote-documents`. Pas de `manifest.ts`/`ui/` (aucune capability, aucun écran dans ce lot).
+3. **Les six opérations telles que contractées** — `issueOrderFileUploadUrl`, `listOrderFiles`, `confirmOrderFileUpload`, `getOrderFile`, `updateOrderFile`, `deleteOrderFile`. Chemin de stockage `<tenant_id>/<order_id>/<file_id>` TOUJOURS recalculé, jamais lu d'une colonne.
+4. **Aucun composant React n'appelle Supabase directement** — sans objet direct (pas d'UI dans ce lot), le client API (`uploadOrderFile()`) est déjà en `fetch` nu, prêt pour 17b.
+5. **Suppression = octets détruits, ligne conservée**, ordre précis (ligne PUIS objet de stockage), échec journalisé jamais rendu à l'appelant. Pas de `sha256` (juste `info()` du stockage — imposer un hash ferait transiter jusqu'à 50 Mo à travers la façade, interdit par R5).
+6. **Correspondance extension→MIME FERMÉE** côté client : ne se fie jamais à `File.type` du navigateur (non fiable, dépend de l'OS) — `resolveOrderFileContentType()` pose le `Content-Type` du `PUT` depuis l'extension, refuse tout type inconnu (aucun repli permissif).
+7. **Visibilité `customer` persistée mais INERTE** — aucune surface storefront ne l'exploite dans ce lot (aucune référence sous `storefront-quotes`/`src/app`/`src/surfaces`), confirmé par grep.
+
+##### Dev Agent Record
+
+###### Agent Model Used
+
+Architecte (cadrage §8.19 + 3 arbitrages Arnaud, Claude Opus) → `dev-story` (implémentation, Claude Sonnet) → `qa-review` (Claude Opus, 2 rounds).
+
+###### Completion Notes
+
+**qa-review round 1 — Changes Requested, 1 réserve BLOQUANTE + 6 non bloquantes** :
+
+- **B1 — trace d'audit forgeable.** Un paramètre `p_actor_label` fourni par l'appelant ÉCRASAIT le libellé de l'auteur authentifié au lieu d'être un simple repli — alors que le contrat promettait explicitement une trace fiable (« le libellé figé survit à la suppression du compte, c'est sa raison d'être »). Prouvé par exploitation réelle : un membre ordinaire du tenant, appel direct à la RPC, pouvait faire apparaître n'importe quel nom comme auteur du dépôt ou de la suppression. Circonstance aggravante : dans ce lot, l'acteur est TOUJOURS authentifié, ce paramètre n'avait donc AUCUN usage légitime — pur vecteur de forgerie. **Corrigé en retirant entièrement le paramètre** des deux fonctions (`api_confirm_order_file_upload` 9→8 arguments, `api_delete_order_file` 4→3 arguments), de leurs corps, commentaires, grants, et des deux appels RPC de l'adaptateur.
+- **N1-N6, toutes traitées** : un scénario SQL qui ne prouvait pas la contrainte qu'il prétendait tester (corrigé, n'accepte plus que `foreign_key_violation`) ; un autre qui n'assertionnait jamais son résultat (corrigé) ; deux points de recalcul du chemin de stockage (`findById`/`toDetailDto`, `remove()`) sans test dédié alors que ce sont exactement les endroits où la faille B1 originale (E10.10b-4a) était réapparue lors d'un refactor (deux tests ajoutés) ; une colonne sélectionnée sans être consommée (retirée) ; une affirmation inexacte du rapport sur l'étendue des tests rejoués (corrigée) ; un appel réseau de stockage inutile pour calculer un ETag (éliminé via une nouvelle méthode `getRawById()`).
+
+**Incident de session** : une coupure réseau transitoire a interrompu le premier tour de correction. Repris proprement — l'agent a vérifié l'état réel du travail déjà fait (le retrait de `p_actor_label` était déjà en place) avant de continuer, plutôt que de supposer ou de tout refaire.
+
+**Correctif transverse découvert et corrigé** : le socle `gescom-middleware.ts` ne savait rendre AUCUN 204 réel avant `deleteOrderFile` (premier `operationId` de la façade à en avoir besoin) — `new Response(body, {status:204})` lève une exception si un corps est fourni, la spec Fetch l'interdit. Corrigé dans le socle transverse (pas contourné localement), changement additif, aucun autre endpoint affecté (vérifié par les 329 tests de contrat, aucune régression sur les lots antérieurs 4a/4b/4c).
+
+**qa-review round 2 — Approved.** Chaque correction vérifiée PAR MUTATION (désactiver délibérément la protection en base ou dans le code pour prouver que le test dedié échoue bien sans elle), pas par simple relecture — méthode plus rigoureuse que les rounds précédents du sprint. La faille B1 re-testée par exploitation réelle : l'appel forgé échoue désormais en `undefined_function` (signature à 8 paramètres, pas 9), le libellé enregistré reste toujours l'email authentifié. Aucune régression.
+
+###### Vérifications
+
+- `pnpm typecheck` : 0 erreur
+- `deno check supabase/functions/magrit-api/index.ts` : 0 erreur
+- `pnpm gen:api:check` : ✅ aligné (aucune touche à openapi/magrit-core.v1.yaml)
+- `pnpm test:architecture` : 146/146 (34 fichiers)
+- `pnpm test:contract` : 329/329 (18 fichiers, dont 20 nouveaux pour order-files)
+- `pnpm test` (suite complète) : 1938 passés / 36 skip, 3 échecs pré-existants sans rapport (projet Supabase distant, cause déjà établie par E10.10b-4a)
+- `tests/sql/gescom-e10-17a-order-files.sql` : exécuté réellement à plusieurs reprises (dont après `pnpm db:local:reset` complet, nécessaire suite au changement de signature des fonctions), 0 erreur à chaque fois, isolé et enchainé avec les cas SQL compatibles des lots précédents
+
+###### File List
+
+- Migration : `supabase/migrations/20260909060000_gescom_e10_17a_order_files.sql`
+- Module : `src/modules/order-files/api/contracts.ts`, `api/content-type-map.ts`, `api/client.ts`, `application/order-files-repository.ts`, `application/order-files-service.ts`, `index.ts`
+- Adaptateur : `src/adapters/supabase/order-files-repository.ts`
+- Routes : `src/server/api/order-files-routes.ts`, enregistrement dans `gescom-routes.ts`
+- Correctif transverse : `src/server/api/gescom-middleware.ts` (204 réel), `tests/contract/_harness.ts`
+- Câblage : `supabase/functions/magrit-api/index.ts`
+- Tests : `tests/contract/order-files.contract.test.ts`, `tests/contract/_fakes/order-files-repository.fake.ts`, `tests/adapters/supabase/order-files-repository.test.ts`, `tests/modules/order-files/content-type-map.test.ts`, `tests/sql/gescom-e10-17a-order-files.sql`
+
+##### QA Results
+
+**Verdict : Approuvé** — round 2. Une réserve bloquante (B1, trace d'audit forgeable) trouvée par exploitation empirique round 1, corrigée en retirant entièrement le vecteur (pas seulement neutralisée). Six réserves non bloquantes traitées. Round 2 : chaque correction validée par mutation (désactivation délibérée de la protection pour prouver que le test échoue sans elle) — pas seulement relue. Non-régression de la faille de traversee de tenant (modèle B1 d'E10.10b-4a) confirmée sur cinq vecteurs d'exploitation distincts. Aucune réserve bloquante restante.
+
+**Dettes tracées, non bloquantes, toutes héritées du patron déjà accepté sur E10.12/E10.14/E10.10b-4a (à traiter au niveau du sprint, pas de cette story)** :
+
+- Les fonctions serveur restent appelables directement par un membre du tenant via PostgREST, sans revalidation des métadonnées du fichier (nom, type, taille) contre le fichier réel — portée limitée au tenant de l'appelant.
+- Le billet d'upload reste valide \~2h après confirmation, permettant en théorie un remplacement tardif (borné par le type de fichier accepté et le téléchargement toujours forcé).
+- Mécanisme de clé de service inerte pour toute la façade E10, pas seulement ce lot.
+- Comportement réel du navigateur sur les fichiers `.zip` non mesuré (aucun navigateur disponible dans l'environnement du dev) — à vérifier par E10.17b sur au moins deux systèmes d'exploitation.
+- Aucun cahier de test Notion (TF-XX) pour cette story (attendu, sera créé avec l'UI de 17b).
+
+##### Change Log
+
+- 2026-09-09 — Cadrage architecte §8.19 + 3 arbitrages Arnaud (périmètre 50 Mo, ZIP autorisé, suppression tout membre).
+- 2026-09-09 — Livraison initiale, qa-review round 1, Changes Requested (B1 + N1-N6).
+- 2026-09-09 — Coupure réseau transitoire pendant la correction, reprise vérifiée sur l'état réel du travail.
+- 2026-09-09 — Corrections complètes, qa-review round 2 (vérification par mutation), Approuvé.
+- 2026-09-09 — Fiche créée dans Notion à partir du story document livré et du verdict qa-review final.
+
+### Cas de test fonctionnels rattachés (Notion)
+
+| TF | Cas de test | Statut | Priorité | Parcours | Cible | Stories liées |
+|---|---|---|---|---|---|---|
+| [TF-208](https://app.notion.com/3d7d0131973c8155a8bac9c54e5b04d8) | TF-001 — Emission de billet, depot et confirmation d'un fichier de commande (chemin nominal) | À jouer | P0 — Critique | P13 — Devis et gestion commerciale | B5 | E10.17a |
+| [TF-209](https://app.notion.com/3d7d0131973c818388f2d9906e8d5e6a) | TF-002 — Confirmation refusee : type hors liste ou poids superieur a 50 Mo | À jouer | P1 — Importante | P13 — Devis et gestion commerciale | B5 | E10.17a |
+| [TF-210](https://app.notion.com/3d7d0131973c81d0a8a9c0c9a5d89393) | TF-003 — Isolation RLS en lecture entre tenants | À jouer | P0 — Critique | P13 — Devis et gestion commerciale | B5 | E10.17a |
+| [TF-211](https://app.notion.com/3d7d0131973c81f0af44d442a24074f5) | TF-004 — Ecriture PostgREST directe totalement fermee, meme pour un admin | À jouer | P0 — Critique | P13 — Devis et gestion commerciale | B5 | E10.17a |
+| [TF-212](https://app.notion.com/3d7d0131973c81d3ace0ccb139963896) | TF-005 — Le libelle d'auteur reste celui du jeton authentifie, jamais usurpe | À jouer | P0 — Critique | P13 — Devis et gestion commerciale | B5 | E10.17a |
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 Contrat écrit par l'architecte (`docs/api/CONVENTIONS.md` §8.19, trois
 arbitrages d'Arnaud du 2026-09-09 : plafond de 50 Mo confirmé comme périmètre,
 ZIP autorisé, suppression ouverte à tout membre). Périmètre **strict** de

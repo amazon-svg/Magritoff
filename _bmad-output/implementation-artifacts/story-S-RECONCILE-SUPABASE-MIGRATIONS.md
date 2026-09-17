@@ -17,6 +17,20 @@ risk_level: élevé (touche `supabase_migrations.schema_migrations` — table de
 
 # Story S-RECONCILE-SUPABASE-MIGRATIONS — Mode opératoire de reconcile
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> Aucune story du Sprint Board Notion n'est rattachée à ce story document : c'est une story née dans le dépôt (refonte technique, lot d'architecture ou correctif). Son périmètre est celui décrit ci-dessous. Si elle relève d'une story Notion, renseigner ce rattachement et régénérer cette section.
+
+### Cas de test fonctionnels rattachés (Notion)
+
+_Aucun cas de test rattaché dans la base Notion « 🧪 Cahiers de tests fonctionnels Magrit »._
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 ## Contexte
 
 Depuis le démarrage du projet (avril 2026), les migrations SQL Magrit ont été appliquées **manuellement** via Dashboard Supabase SQL Editor sur le projet `ightkxebexuzfjdbpsdg`. Conséquence : la table de contrôle `supabase_migrations.schema_migrations` est **désynchronisée** — elle ne référence pas la plupart des fichiers `supabase/migrations/*.sql` existants. Du coup `supabase db push --linked` échoue systématiquement.

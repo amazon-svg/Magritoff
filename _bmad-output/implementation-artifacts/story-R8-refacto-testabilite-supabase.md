@@ -16,6 +16,22 @@ status: partial-review
 
 # R8 — Testabilité Supabase mock layer étendu + coverage zones froides
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> Aucune story du Sprint Board Notion n'est rattachée à ce story document : c'est une story née dans le dépôt (refonte technique, lot d'architecture ou correctif). Son périmètre est celui décrit ci-dessous. Si elle relève d'une story Notion, renseigner ce rattachement et régénérer cette section.
+
+### Cas de test fonctionnels rattachés (Notion)
+
+| TF | Cas de test | Statut | Priorité | Parcours | Cible | Stories liées |
+|---|---|---|---|---|---|---|
+| [TF-74](https://app.notion.com/35ed0131973c810cbf6fe0f40e8bbca9) | R8 — Coverage v8 baseline (~8% global, 75-100% zones froides) + factory createSupabaseMock | OK | P2 — Nice to have | P00 — Création espace tenant | B5 | R8 |
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 ## Origine
 
 Story refacto P0 issue de l'**Étape D Winston ADR-R5** + dette M2 manquée par review adversariale §1.2 : 0 mocking/injection sur les 14 callers `from()` + 8 callers `fetch('/functions/v1/...')`. Logique métier business (submitCart, library ops, devis, invitations) non testable en isolation.

@@ -18,6 +18,20 @@ adr_a_formaliser: §4.13 "Composition 3 layers shop-scoped pour mockup engine"
 
 # Story S-PIM-VISUELS (overview) — Gabarits visuels réalistes + fond personnalisable
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> Aucune story du Sprint Board Notion n'est rattachée à ce story document : c'est une story née dans le dépôt (refonte technique, lot d'architecture ou correctif). Son périmètre est celui décrit ci-dessous. Si elle relève d'une story Notion, renseigner ce rattachement et régénérer cette section.
+
+### Cas de test fonctionnels rattachés (Notion)
+
+_Aucun cas de test rattaché dans la base Notion « 🧪 Cahiers de tests fonctionnels Magrit »._
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 ## ⚠️ Cette story a été scindée le 2026-05-22
 
 Conformément au **principe DoD #7 qualité-first** (`docs/project-context.md` §5.2) — *"Story scindée si effort estimé > 3 jours"* — la story originale S-PIM-VISUELS (effort cumulé estimé 10-12 jours) a été scindée en **6 sous-stories indépendantes mais séquencées** :

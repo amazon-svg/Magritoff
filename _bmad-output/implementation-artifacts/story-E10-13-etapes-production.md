@@ -8,6 +8,241 @@ blocks: [E10.14, E10.15, E10.16]
 ---
 # E10.13 — Étapes de production configurables et ordonnançables
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> **Source qui fait foi : Notion** — [E10.13 — Étapes de production configurables et ordonnançables](https://app.notion.com/p/3cad0131973c81e08567f8c260c60207) · extrait le 17/09/2026 · page modifiée le 08/09/2026.
+> Copie destinée à tout intervenant (développement, QA, revue, agent) : lire ce périmètre avant la partie implémentation. En cas d'écart, Notion prévaut. Le statut Notion peut retarder sur la livraison réelle, décrite plus bas.
+
+| Epic | Sprint | Priorité | Effort | Statut Notion | Assigné à | Offre | Source | Ordre |
+|---|---|---|---|---|---|---|---|---|
+| E10 — Gestion commerciale | Sprint 5 — Gestion commerciale | P0 | M | Terminé | Claude code | Pro+ | RP 28/08/2026, WM 01/09/2026 | 14 |
+
+### Description fonctionnelle (Notion)
+
+**En tant qu'**administrateur d'espace, **je veux** définir et ordonner les étapes de production appliquées aux commandes, **afin d'**adapter le suivi au workflow réel de mon atelier.
+
+##### Statut
+
+Draft — prêt pour agent dev
+
+##### Contexte produit
+
+Décision RP du 28/08/2026 : un jeu standard d'étapes est fourni à la création du tenant, personnalisable et ordonnançable. Jeu standard retenu en séance : Fichier reçu → PAO → Fichier validé → En cours de production → En cours d'expédition → Livré. Point tranché : passer une commande à une étape avancée ne valide **pas** automatiquement les étapes précédentes, car certaines commandes ne passent pas par toutes les étapes.
+
+##### Critères d'acceptation
+
+1. Un jeu d'étapes par défaut est provisionné à la création du tenant, dans l'ordre listé ci-dessus.
+2. L'administrateur peut créer, renommer, désactiver et réordonner les étapes par glisser-déposer.
+3. Une étape utilisée par au moins une commande ne peut pas être supprimée ; elle est désactivable et reste lisible dans l'historique.
+4. Chaque étape porte un libellé, une position, une couleur et un indicateur « étape terminale ».
+5. Le passage à une étape n'implique aucune validation automatique des étapes antérieures : le franchissement d'étapes est autorisé et assumé.
+6. Le tableau de bord des commandes permet de filtrer et de trier par étape courante.
+7. Les étapes sont scopées au tenant.
+
+##### Tâches / Sous-tâches
+
+- [ ] Migration SQL `production_steps` (CA : 1, 4, 7)
+    - [ ] id, tenant_id, label, position, color, is_terminal, is_active
+    - [ ] Seed du jeu standard à la création du tenant
+- [ ] Page `src/pages/dashboard/config/production-steps/index.tsx` avec réordonnancement (CA : 2)
+- [ ] Contrainte FK `ON DELETE RESTRICT` depuis l'historique des commandes (CA : 3)
+- [ ] Filtres et tri sur le tableau de bord des commandes (CA : 6)
+
+##### Dev Notes
+
+###### Contraintes techniques
+
+- Ne pas modéliser les étapes comme un enum applicatif : elles sont des données de tenant, pas du code.
+- La position est un entier réindexé côté serveur après chaque réordonnancement, pour éviter la dérive des positions fractionnaires.
+
+###### data-testid
+
+`production-steps-page`, `production-step-row` (+ `data-step-id`), `production-step-add-btn`, `production-step-label-input`, `production-step-drag-handle`, `production-step-deactivate-btn`, `production-step-save-btn`
+
+###### Dépendances
+
+- Bloquée par : E10.12
+- Bloque : E10.14, E10.15
+
+##### Mise à jour — WM du 01/09/2026
+
+**Ajout d'un critère : chaque étape de production doit pouvoir porter des notifications.** Xavier Péchoultres : « il ne faut pas oublier de pouvoir associer des notifications au statut — un statut, une notification — et je crois que ce n'était pas marqué ».
+
+CA 8 (nouveau) : depuis l'écran de paramétrage des étapes, chaque étape affiche les modèles de notification qui lui sont rattachés (E10.15) et permet d'en créer un directement, sans passer par un autre écran. Le rattachement est porté par le modèle, pas par l'étape : l'étape reste une donnée de référence pure.
+
+##### Contrat API
+
+| Méthode | Route | Objet |
+| --- | --- | --- |
+| GET | `/api/v1/production-steps` | Liste ordonnée des étapes du tenant ; `?is_active=` |
+| POST | `/api/v1/production-steps` | Crée une étape |
+| PATCH | `/api/v1/production-steps/{id}` | Renomme, change couleur, active ou désactive (`If-Match`) |
+| PUT | `/api/v1/production-steps/order` | Réordonne : corps `{ ordered_ids: [uuid] }`, réindexation serveur |
+
+Le catalogue d'étapes est **lisible par clé de service** : Studio doit pouvoir afficher l'étape courante d'une commande sans coder en dur la liste.
+
+##### Tests
+
+Parcours P13 — ajout d'une étape « Façonnage », réordonnancement, contrôle de la reprise du nouvel ordre sur une commande existante.
+
+##### Change Log
+
+- 2026-08-28 — v1 — Création à partir de la séance du 28/08/2026 — Arnaud Mazon / Claude
+
+##### Dev Agent Record
+
+###### Agent Model Used
+
+Claude Sonnet 4.5-20250929 (implémentation, dev-story) / Claude Opus (vérification adversariale, qa-review rond 1 et 2)
+
+###### Debug Log References
+
+Aucun log fourni (pas de point d'extension Debug au contrat).
+
+###### Completion Notes
+
+**Rond 1 (Changes Requested, 1 bloquant)**
+
+- **B1 — Filtre appliqué au catalogue transmis au serveur** : l'écran de paramétrage envoyait la liste **filtrée** par le bouton « Actives » au lieu du catalogue complet lors d'un réordonnancement par glisser-déposer. Dès qu'une étape était désactivée et qu'un filtre « Actives » était actif, tout réordonnancement échouait systématiquement en 422 `positions_mismatch`. Intermittent, invisible si testé sans filtre actif, reproductible en deux clics. Cause : état React du filtre réutilisé pour construire le tableau `step_ids` transmis au PUT `/production-step-positions`.
+
+**Correctif appliqué** : catalogue complet conservé dans un état React séparé distinct du filtre d'affichage. L'affichage filtré devient une simple projection dérivée, jamais transmise au serveur. Logique extraite en fonctions pures testables (`computeReorderedStepIds`, `filterStepsForDisplay`), isolées et auditable du reste du composant.
+
+**Rond 2 (Approved)**
+
+Correctif vérifié par test de robustesse exhaustif : 1026 déplacements générés synthétiquement (toutes les tailles de catalogue de 2 à 6 étapes, toutes les combinaisons actif/désactivé, tous les filtres, tous les ordres possibles). Vérification que l'ensemble transmis au serveur est toujours complet et dans le bon ordre — aucun faux positif. Corps HTTP réellement envoyé par le client API tracé et validé (dépôt dépourvu de jsdom/testing-library complet, limitation documentée du projet).
+
+**Non-régression critique (E10.12)** : la fonction `api_convert_commercial_quote` a dû être recopiée pour y ajouter la pose de l'étape initiale. qa-review a revérifié en exécution réelle (deux sessions concurrentes via dblink) que le correctif de concurrence d'E10.12 (patron `FOR UPDATE`) n'a pas été réintroduit comme bug. Aucune régression confirmée.
+
+**Critères d'acceptation** (tenus un par un) :
+
+- **CA1** : Jeu standard des six étapes seedé à la création du tenant — **fait** (seed_tenant_catalogs() étendue, ordre exact, « Livré » seule terminale, vérifié SQL scénario 1)
+- **CA2** : Configuration complète d'une étape (création, renommage, couleur, marquer terminale, activer/désactiver) — **fait** (POST/PATCH /production-steps/\{stepId\}, testé contrat + SQL scénarios 3/4/6)
+- **CA3** : Une étape utilisée ne peut pas être supprimée ; désactivation reste possible — **fait** (ON DELETE RESTRICT tenu en base, 409 production_[step.in](http://step.in)_use, testé contrat + SQL scénario 8)
+- **CA4** : Le catalogue appartient au tenant du jeton, jamais un segment d'URL — **fait** (RLS testée par tenant, SQL scénario 2)
+- **CA5** : Aucune validation automatique des étapes antérieures ; franchissement libre — **fait par construction** (modèle porte un pointeur unique, aucune contrainte d'ordre)
+- **CA6** : Filtrer et trier le tableau de bord des commandes par étape courante — **fait au niveau API** (paramètres current_production_step_id, sort, testé contrat + SQL scénario 10). Aucun tableau de bord UI ne les consomme — **dette explicite pour E10.16**.
+- **CA7** : Une étape ne déménage jamais de tenant — **fait par construction** (tenant_id non modifiable)
+- **CA8 — HORS PÉRIMÈTRE** : Modèles de notification rattachés à une étape — arbitrage Arnaud (2026-09-08), reporté à E10.15. ProductionStep ne porte aucun champ de notification ; aucun point d'extension vide publié.
+
+**Gates finales** : pnpm typecheck ✓ 0 erreur, pnpm gen\:api\:check ✓ vert (inchangé), pnpm test:contract ✓ 261/261 (9 nouveaux pour production-steps), pnpm test:architecture ✓ 144/144, npx vitest run ✓ 1702 passés / 36 skip / 3 échecs pré-existants (Storage bucket local, sans rapport), cas SQL exécuté réellement contre Docker (38 assertions).
+
+**Commits** : 3b44458 (implémentation + correctif round 1), a0a4691 (contrat, déjà livré).
+
+**Réserves tracées (non bloquantes)** : R1 (fenêtre TOCTOU sur If-Match réordonnancement), R2 (décalage code/prose OpenAPI 400 vs 422), R3 (curseur pagination ne signe pas les filtres, dette héritée E10.12), R4 (trous de couverture test paramètres tri/filtre, comblés par qa-review), R5 (forme current_state sur 409), R6 (branche non conforme convention story, héritée E10.12), R7 (data-testid déclaré non posé, à vérifier cahier tests Notion), R8 (glisser-déposer échoue silencieusement sans If-Match), R9 (absence jsdom/testing-library dépôt, raison structurelle B1 pas attrapé automatiquement).
+
+###### File List
+
+**Migration et tests SQL**
+
+- `supabase/migrations/20260908020000_gescom_e10_13_production_steps.sql` (nouveau)
+- `tests/sql/gescom-e10-13-production-steps.sql` (nouveau)
+- `scripts/test-storefront-sql.sh` (ajout du cas)
+
+**Module production-steps (nouveau)**
+
+- `src/modules/production-steps/api/contracts.ts`
+- `src/modules/production-steps/api/client.ts`
+- `src/modules/production-steps/application/production-steps-repository.ts`
+- `src/modules/production-steps/application/production-steps-service.ts`
+- `src/modules/production-steps/index.ts`
+- `src/modules/production-steps/manifest.ts`
+- `src/modules/production-steps/surface-contributions.ts`
+- `src/modules/production-steps/ui/index.ts`
+- `src/modules/production-steps/ui/workspace/index.ts`
+- `src/modules/production-steps/ui/workspace/ProductionStepsPage.tsx`
+- `src/adapters/supabase/production-steps-repository.ts`
+- `src/server/api/production-steps-routes.ts`
+
+**Câblage**
+
+- `src/server/api/gescom-routes.ts` (enregistrement routes, service productionSteps)
+- `supabase/functions/magrit-api/index.ts` (instanciation ProductionStepsService)
+- `src/surfaces/application-registry.ts` (manifest + contribution)
+- `src/app/surfaces/workspaceRuntimeRoutes.tsx` (loader lazy)
+
+**Module commercial-orders (mis à jour)**
+
+- `src/modules/commercial-orders/api/contracts.ts` (current_production_step_id, CommercialOrderSort)
+- `src/modules/commercial-orders/index.ts` (exports tri)
+- `src/modules/commercial-orders/application/commercial-orders-repository.ts`
+- `src/adapters/supabase/commercial-orders-repository.ts` (listByProductionStep, mapping current_production_step_id)
+- `src/server/api/commercial-orders-routes.ts` (paramètres, validation 422, curseur encodé)
+
+**UI transverse**
+
+- `src/shared/presentation/testIds.ts` (scope productionStep + tous les identifiants)
+
+**Tests**
+
+- `tests/contract/production-steps.contract.test.ts` (nouveau, 9 tests)
+- `tests/contract/_fakes/production-steps-repository.fake.ts` (nouveau)
+- `tests/contract/commercial-orders.contract.test.ts` (mise à jour)
+- `tests/contract/_fakes/commercial-orders-repository.fake.ts` (mise à jour)
+
+**Story document**
+
+- `_bmad-output/implementation-artifacts/story-E10-13-etapes-production.md`
+
+##### QA Results
+
+###### Verdict Final : **Approved** (Rond 2 — 2026-09-09)
+
+**Agents** : dev-story (Sonnet), qa-review (Opus)  
+**Branche** : feat/gescom-e10-4-entite-client  
+**Commits** : 3b44458 (implémentation + correctif B1), a0a4691 (contrat)  
+**Verdict Rond 2** : Toutes les critères d'acceptation (CA1-CA7) sont tenus. CA8 (notifications) confirmé hors périmètre, reporté E10.15 par arbitrage Arnaud. Aucun correctif additionnel requis.
+
+**Changements demandés Rond 1 → Corrections apportées Rond 2** :
+
+- B1 (filtre appliqué au catalogue) → résolu par séparation état filtre / état catalogue complet, projection dérivée, fonctions pures.
+- Non-régression E10.12 → confirmée en concurrence réelle (dblink, sessions parallèles).
+
+**Réserves acceptées (non bloquantes)** :
+
+- R1 : Fenêtre TOCTOU sur If-Match réordonnancement (deux PUT strictement simultanés). Patron déjà en place ailleurs dans le dépôt, acceptable.
+- R2 : Contrat OpenAPI documente 400, implémentation rend 422 sur tri/curseur invalides. Cohérent avec précédent (listPriceRules), prose OpenAPI imprécise.
+- R3 : Curseur pagination commandes n'encode pas signature des filtres. Dette héritée E10.12, non régression ici.
+- R4 : Trous de couverture test paramètres tri/filtre par étape. Comblés par qa-review, non protégés durablement (limitation jsdom).
+- R5 : Forme current_state sur 409 réordonnancement. Décision implémentation (steps sous clé), acceptable.
+- R6 : Branche non conforme convention « une story = une branche ». Héritée E10.12.
+- R7 : data-testid production-step-add-submit-btn déclaré, jamais posé (utilisé addBtn réel). À vérifier cahier tests Notion.
+- R8 : Glisser-déposer échoue silencieusement sans If-Match ETag. Cas limité (collecte ETag avant toute action).
+- R9 : Absence jsdom/testing-library. Limitation structurelle dépôt, raison B1 pas attrapé automatiquement par CI.
+
+**Vérifications complétées** :
+
+- pnpm typecheck : 0 erreur
+- pnpm gen\:api\:check : vert, aucune modification contrat par ce lot
+- pnpm test:contract : 261/261 (+ 9 pour production-steps)
+- pnpm test:architecture : 144/144, inchangé
+- npx vitest run : 1702 passés / 36 skip / 3 échecs pré-existants (Storage, sans rapport S4.1a)
+- tests/sql/gescom-e10-13-production-steps.sql : exécuté réellement Docker, 10 scénarios, 0 erreur, 38 assertions
+
+**Dépendances confirmées** :
+
+- Bloquée par : E10.2, E10.6, E10.9, E10.11, E10.12 ✓ (tous livrés)
+- Bloque : E10.14 (historique + transitions d'étapes), E10.15 (notifications par étape), E10.16 (tableau de bord commandes, consomme filtre/tri CA6)
+
+**Dettes levées / acceptées** :
+
+- **E10.16** (confirmée) : aucun écran ne consomme listCommercialOrders avec filtre/tri par étape — CA6 livré API seulement. Tableau de bord des commandes reste une dette explicite.
+- **CA8** (acceptée hors périmètre) : notifications par étape — aucun champ ProductionStep, aucune extension vide. Reportée E10.15 sur arbitrage Arnaud.
+- Aucun événement émis (order.step_changed reste sans producteur) — conformément au contrat, poser l'étape initiale n'est pas un changement d'étape.
+
+### Cas de test fonctionnels rattachés (Notion)
+
+| TF | Cas de test | Statut | Priorité | Parcours | Cible | Stories liées |
+|---|---|---|---|---|---|---|
+| [TF-180](https://app.notion.com/3cad0131973c81dc9ca9d0a62b8d59aa) | GC — Personnaliser et réordonner les étapes de production | À jouer | P0 — Critique | P13 — Devis et gestion commerciale | B6 | E10.13 |
+| [TF-181](https://app.notion.com/3cad0131973c81f5b56afc00216e78fd) | GC — Modale de statut à deux colonnes, identique depuis la liste et depuis la fiche | À jouer | P0 — Critique | P13 — Devis et gestion commerciale | B6 | E10.14, E10.13 |
+| [TF-191](https://app.notion.com/3ced0131973c81048821c83ee8308abf) | GC — Rattacher une notification à une étape depuis l'écran des étapes de production | À jouer | P1 — Importante | P13 — Devis et gestion commerciale | B6 | E10.13, E10.15 |
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 Contrat écrit par l'architecte avant le démarrage (`docs/api/CONVENTIONS.md`
 §8.15), en deux passes : un cadrage initial (contrat + documentation seule,
 aucune migration posée), puis un arbitrage d'Arnaud du 2026-09-08 qui a

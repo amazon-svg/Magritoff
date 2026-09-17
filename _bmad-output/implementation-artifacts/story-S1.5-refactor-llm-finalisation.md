@@ -19,6 +19,20 @@ adr_covered: [ADR-5]
 
 # Story S1.5 — Refactor LLM finalisation (claude-proxy + claude-proxy-stream)
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> Aucune story du Sprint Board Notion n'est rattachée à ce story document : c'est une story née dans le dépôt (refonte technique, lot d'architecture ou correctif). Son périmètre est celui décrit ci-dessous. Si elle relève d'une story Notion, renseigner ce rattachement et régénérer cette section.
+
+### Cas de test fonctionnels rattachés (Notion)
+
+_Aucun cas de test rattaché dans la base Notion « 🧪 Cahiers de tests fonctionnels Magrit »._
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 > **Note de traçabilité.** Cette story finalise le travail entamé par S1.3 (livrée partielle 2026-05-09, 2/4 endpoints). Le fichier [story-S1.3-llm-migration-partial.md](story-S1.3-llm-migration-partial.md) reste le document historique du livrable partiel ; la présente story prend le relais sur les 2 endpoints non refactorés (`claude-proxy` standalone + endpoints `make-server-e3db71a4/claude-proxy*`) et finalise le cleanup OpenAI.
 
 ## Story

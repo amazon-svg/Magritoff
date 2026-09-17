@@ -8,6 +8,167 @@ blocks: []
 ---
 # E10.11 — Droit dédié `can_manage_pricing`
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> **Source qui fait foi : Notion** — [E10.11 — Séparation des droits Admin et Commercial sur la tarification](https://app.notion.com/p/3cad0131973c81ea98d3ea7a4e582ec8) · extrait le 17/09/2026 · page modifiée le 05/09/2026.
+> Copie destinée à tout intervenant (développement, QA, revue, agent) : lire ce périmètre avant la partie implémentation. En cas d'écart, Notion prévaut. Le statut Notion peut retarder sur la livraison réelle, décrite plus bas.
+
+| Epic | Sprint | Priorité | Effort | Statut Notion | Assigné à | Offre | Source | Ordre |
+|---|---|---|---|---|---|---|---|---|
+| E10 — Gestion commerciale | Sprint 5 — Gestion commerciale | P0 | M | Terminé | Claude code | Toutes | RP 28/08/2026, WM 01/09/2026 | 10 |
+
+### Description fonctionnelle (Notion)
+
+**En tant qu'**administrateur, **je veux** que la stratégie tarifaire me soit réservée et que le commercial n'agisse que dans le cadre qu'elle définit, **afin de** garder la maîtrise de la politique de prix.
+
+##### Statut
+
+Draft — prêt pour agent dev
+
+##### Contexte produit
+
+Décision RP du 28/08/2026 : deux niveaux distincts. L'administrateur ou le responsable commercial accède à la gestion des marges et des remises ; le commercial produit du prix dans le cadre hérité. La question du seuil de latitude laissé au commercial est traitée ici.
+
+##### Critères d'acceptation
+
+1. Deux permissions distinctes existent : `can_manage_pricing` (référentiel des règles) et `can_discount` (ajustement d'une ligne de devis).
+2. Sans `can_manage_pricing`, l'écran de gestion des règles de prix est inaccessible — masqué dans la navigation et refusé côté RLS.
+3. `can_discount` porte un seuil de remise maximal paramétrable par rôle, exprimé en points de marge ou en pourcentage de remise.
+4. Au-delà du seuil, la saisie est refusée avec un message explicite ; en deçà, elle passe et alimente l'audit.
+5. Le panneau d'audit du devis (E10.9) n'est visible qu'avec `can_manage_pricing`.
+6. Les permissions s'ajoutent au modèle existant de E9.3 sans en casser la sémantique.
+
+##### Tâches / Sous-tâches
+
+- [ ] Extension du `permissions jsonb` de `tenant_memberships` (CA : 1, 6)
+- [ ] Paramètre de seuil par rôle au niveau du tenant (CA : 3)
+- [ ] Politiques RLS sur `price_rules` et `quote_line_audit` (CA : 2, 5)
+- [ ] Guard de navigation et masquage des entrées de menu (CA : 2)
+- [ ] Contrôle serveur du seuil à l'écriture d'une ligne de devis (CA : 4)
+
+##### Dev Notes
+
+###### Contraintes techniques
+
+- Le contrôle de seuil doit être **serveur**. Un contrôle uniquement React se contourne par appel direct à l'API.
+- Reprendre le pattern `useAccessGuard()` de E9.3 plutôt que d'introduire un second mécanisme de droits.
+
+###### data-testid
+
+`nav-sidebar-pricing-link`, `pricing-access-denied`, `quote-line-discount-limit-error`, `quote-audit-panel`
+
+###### Dépendances
+
+- Liée à : E9.3
+- Bloque : E10.6, E10.9 (contrôles d'accès)
+
+##### Mise à jour — WM du 01/09/2026
+
+**Arbitrage rendu : le seuil de remise est alertant, pas bloquant.** Les CA 3 et 4 sont amendés :
+
+- `can_discount` reste une permission : sans elle, le commercial ne peut pas modifier le prix d'une ligne.
+- Le **seuil** rattaché à `can_discount` ne refuse plus la saisie. Il déclenche une alerte visible et une entrée d'audit typée `discount_threshold_exceeded`. La vente à marge négative est explicitement autorisée — c'est un besoin métier assumé (remplissage de parc machine, effort commercial ponctuel).
+- Le contrôle serveur subsiste, mais il **journalise** au lieu de refuser. Aucun 4xx sur ce motif.
+- Piste V2 notée en séance : circuit d'autorisation où un responsable valide un dépassement. Hors périmètre du sprint 5.
+
+##### Contrat API
+
+| Méthode | Route | Objet |
+| --- | --- | --- |
+| GET | `/api/v1/me/permissions` | Permissions effectives de l'utilisateur courant, dont `can_manage_pricing`, `can_discount`, `discount_alert_threshold` |
+| GET | `/api/v1/tenants/current/pricing-permissions` | Paramétrage des seuils par rôle |
+| PUT | `/api/v1/tenants/current/pricing-permissions` | Met à jour le paramétrage (`If-Match`) |
+
+Les permissions sont portées par le jeton et vérifiées côté serveur à chaque appel ; l'interface ne fait que masquer.
+
+##### Tests
+
+Parcours P13 — un commercial sans `can_manage_pricing` ne voit pas l'écran des règles de prix et se voit refuser une remise au-delà du seuil.
+
+##### Change Log
+
+- 2026-08-28 — v1 — Création à partir de la séance du 28/08/2026 — Arnaud Mazon / Claude
+
+##### Dev Agent Record
+
+###### Agent Model Used
+
+Dev : Claude Sonnet 4.5 (dev-story)
+
+QA : Claude Opus 4.1 (qa-review — 2 rounds)
+
+###### Debug Log References
+
+Aucun
+
+###### Completion Notes
+
+**Droit `can_manage_pricing` introduit et appliqué sur 4 opérations** — fermeture de la garde grossière « rôle admin » posée provisoirement en E10.6/E10.9.
+
+**CA1-3** : ✓ Refus (403 `identity.role_required`) pour les acteurs sans `can_manage_pricing` sur `createPriceRule`, `updatePriceRule`, `setProductRangeDefaultMargin`. Accès conservé pour tous les admins tenant (dérivation d'appartenance).
+
+**CA2** : ✓ `listQuoteAuditEntries` (GET `/quotes/{quoteId}/audit-entries`) refuse (403) tout acteur sans `can_manage_pricing`.
+
+**CA4-5** : ✓ RLS durcie sur `price_rules` (écriture), `product_range_default_margins` (écriture), `commercial_quote_line_audit` (lecture), `price_rules_audit` (lecture) — même garde que l'API. Correction B2 (round 2) : policies d'écriture incluent désormais vérification `tenant_id in (select public.current_user_tenant_ids())` pour interdire accès résiduel après quitter le tenant.
+
+**CA6** : ✓ Lectures `listPriceRules`, `getPriceRule`, `resolvePriceRule`, `getProductRangeDefaultMargin` restent ouvertes (aucune régression).
+
+**QA-review** : Round 1 — B1 (policies de lecture audit sans garde capability) + R5 (même sur price_rules_audit). Round 2 — B2 (policies d'écriture sans check tenant_members) + R1-R5 (réserves corner cases, doc corrections). Migrations jamais déployées au round 1 → ré-entrée directe dans la migration principale. Migrations déployées en prod le 2026-09-05 (supabase db push --linked). Deux nits résiduels corrigés sans nouveau tour (c8d6c43).
+
+**Déploiement** : 2 migrations appliquées sur `ightkxebexuzfjdbpsdg` · `supabase migration list --linked` confirme local = remote.
+
+**Dette t1 (non levée)** : SQL tests (`tests/sql/gescom-e10-11-can-manage-pricing.sql`) jamais exécutés faute de Docker. Relecture manuelle 3×. Chemin de résolution : `pnpm db:local:start && pnpm test:storefront:sql` sur poste équipé.
+
+###### File List
+
+supabase/migrations/20260904142026_gescom_e10_11_can_manage_pricing.sql
+
+supabase/migrations/20260904150000_gescom_e10_11_audit_select_capability.sql
+
+src/modules/commercial-quotes/application/commercial-quotes-repository.ts
+
+src/modules/commercial-quotes/application/commercial-quotes-service.ts
+
+src/adapters/supabase/commercial-quotes-repository.ts
+
+src/server/api/commercial-quotes-routes.ts
+
+src/modules/price-rules/application/price-rules-repository.ts
+
+src/adapters/supabase/price-rules-repository.ts
+
+src/server/api/price-rules-routes.ts
+
+src/modules/pricing/surface-contributions.ts
+
+tests/sql/gescom-e10-11-can-manage-pricing.sql
+
+##### QA Results
+
+**Verdict : Approuvé** (qa-review round 2 final, 2026-09-04)
+
+Tous les critères d'acceptation vérifiés. Deux tours de correction :
+
+- **Round 1** : B1 refusé (policies de lecture audit non gardées par capability) — corrigé.
+- **Round 2** : B2 refusé (policies d'écriture manquaient vérification tenant_members) — corrigé. Cinq réserves (R1-R5) traitées dans le même lot (corner cases SQL, doc outdated, ordre de vérifications API).
+
+Deux nits résiduels d'une ligne (owner périmé, promesse de délégation survivante) corrigés sans nouveau cycle complet (c8d6c43).
+
+**Capacité bloquante confirmée** : aucun mécanisme de délégation `can_manage_pricing` à un membre ordinaire dans cette story (cohérent avec « admin unique » du chantier UM, 14/08). Le trigger UM1 `restrict_magrit_assignments_to_options` (20260824000200:47-74) l'interdit d'office.
+
+### Cas de test fonctionnels rattachés (Notion)
+
+| TF | Cas de test | Statut | Priorité | Parcours | Cible | Stories liées |
+|---|---|---|---|---|---|---|
+| [TF-174](https://app.notion.com/3cad0131973c81d59ffff3edfee6be15) | GC — Remise par ligne : agir sur le prix de vente et contrôler l'audit | À jouer | P0 — Critique | P13 — Devis et gestion commerciale | B6 | E10.9, E10.11 |
+| [TF-177](https://app.notion.com/3cad0131973c8141b67edc455c6da9d2) | GC — Droits : écran tarifaire interdit au commercial, mais remise au-delà du seuil autorisée avec alerte | À jouer | P0 — Critique | P13 — Devis et gestion commerciale | B6 | E10.11, E10.9 |
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 Remplace la garde grossière « rôle `admin` du tenant », posée provisoirement
 par E10.6 (CA7, écran des règles de prix) et E10.9 (lecture du journal
 d'audit des lignes de devis), par un droit métier dédié `can_manage_pricing`,

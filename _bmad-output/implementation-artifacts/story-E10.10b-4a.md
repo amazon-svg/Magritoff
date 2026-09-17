@@ -8,6 +8,121 @@ blocks: [E10.10b-4b, E10.10b-4c]
 ---
 # E10.10b-4a — Import et stockage du gabarit PDF par tenant
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> **Source qui fait foi : Notion** — [E10.10b-4a — Import et stockage du gabarit PDF par tenant](https://app.notion.com/p/3d6d0131973c817d8c6ec02b97a06d39) · extrait le 17/09/2026 · page modifiée le 09/09/2026.
+> Copie destinée à tout intervenant (développement, QA, revue, agent) : lire ce périmètre avant la partie implémentation. En cas d'écart, Notion prévaut. Le statut Notion peut retarder sur la livraison réelle, décrite plus bas.
+
+| Epic | Sprint | Priorité | Effort | Statut Notion | Assigné à | Offre | Source | Ordre |
+|---|---|---|---|---|---|---|---|---|
+| E10 — Gestion commerciale | Sprint 5 — Gestion commerciale | P1 | M | Terminé | Claude code | Pro+ | WM 01/09/2026 | — |
+
+### Description fonctionnelle (Notion)
+
+**En tant que** imprimeur Pro+, **je veux** uploader mon propre gabarit PDF (fond design) pour chaque devis généré, **afin de** présenter les devis sous ma marque sans intervention manuelle.
+
+##### Statut
+
+Terminé — qa-review round 2, Approuvé (faille IDOR corrigée et verrouillée, re-testée empiriquement).
+
+##### Contexte produit
+
+Première étape du système de devis PDF personnalisés (E10.10b-4 décomposée en 4a/4b/4c par Arnaud, 09/09). Architecture choisie après renversement décision : `pdf-lib` (JS pur, tourne dans l'Edge Function existante, zéro hébergement dédié) remplace Gotenberg. Chaque tenant apporte son gabarit PDF ; le système détecte la géométrie (nombre de pages, dimensions) ; un éditeur de coordonnées (4b) et un moteur de génération (4c) suivront. Cette story livre le socle : preuve technique, infrastructure d'import/stockage privé, sept opérations OpenAPI.
+
+Renversement architectural décidé par Arnaud le 09/09 en session : Gotenberg (Docker + hébergement dédié) jugé disproportionné → `pdf-lib` associé à import gabarit par tenant + éditeur coordonnées différé (4b). Cadrage finalisé par l'architecte dans `docs/api/CONVENTIONS.md` §8.18.
+
+##### Critères d'acceptation (contrat §8.18, tous tenus)
+
+1. **Preuve d'exécution `pdf-lib` avant tout code de production, six mesures** — exécutée (import npm, ouverture PDF réel InDesign/Canva, écriture à coordonnée avec référentiel bas-gauche, accents FR/€ avec Helvetica standard sans repli, recopie pages, comparaison déterminisme). Aucune mesure n'a invalidé le cadrage.
+2. **Migration : table `document_pdf_templates`, bucket privé** — appliquée réellement en Docker local, RLS testée par exécution SQL réelle (pas seulement déclarée).
+3. **Module `document-templates` (`api/` + `application/`, convention dépôt)** — même patron que `production-steps`/`pricing`.
+4. **Adaptateur Supabase (JWT appelant + `service_role`)** — deux clients distincts, chemin de stockage TOUJOURS recalculé depuis `tenantId`/`id`, jamais lu en colonne (faille IDOR corrigée).
+5. **Sept opérations hors `fields` (4b)** — toutes implémentées : list, create, get, update, delete, issue-upload-url, confirm-upload.
+6. **Écran de paramétrage minimal** — lister, importer, nommer, défaut, activer, supprimer. Aucun appel Supabase direct (API module uniquement).
+7. **Aucun contrôle métier côté navigateur seul** — MIME, poids, géométrie, plafonds, unicité vérifiés serveur.
+8. **RLS testée, pas seulement déclarée** — isolation inter-tenant + garde capability vérifiées par SQL réelle (Docker).
+9. **Test contrat de chaque endpoint** — 17 tests (+1 au round 1 pour capability).
+10. **Tests unitaires logique de calcul** — 7 tests `pdf-template-inspector.ts` (exécution réelle `pdf-lib`).
+
+##### Dev Agent Record
+
+###### Agent Model Used
+
+Architecte (cadrage contrat, Claude Opus) → `dev-story` (implémentation, Claude Sonnet) → `qa-review` (Claude Opus, 2 rounds).
+
+###### Completion Notes
+
+**Preuve pdf-lib (6 mesures)** : Import npm sans permission réseau supplémentaire (JS pur). Ouverture PDF réel Canva/InDesign. Écriture à coordonnée avec référentiel bas-gauche confirmé. Accents FR (`é/à/ç/œ`) + `€` avec `StandardFonts.Helvetica` — aucun repli police libre nécessaire aujourd'hui. Recopie page vectorielle préservée. Déterminisme octet : non garanti entre deux générations séparées (une variable binaire diffère si délai \~1s entre générations).
+
+**Migration & RLS** : Table `document_pdf_templates` avec contraintes unicité/défaut/ready. Bucket privé `application/pdf` seul (10 Mo). Quatre fonctions `security definer` avec `pg_advisory_xact_lock`. RLS lecture ouverte à tout tenant member (contrat). Écriture par capability `can_manage_document_templates` (défense profondeur, chemin nominal par fonctions SQL). Appliquée réellement en Docker, 0 erreur.
+
+**Module `document-templates`** : `api/contracts.ts` (Zod), `api/client.ts` (fetch PUT nu), `application/pdf-template-inspector.ts` (pur, unique import `pdf-lib`), `application/document-templates-repository.ts`, `application/document-templates-service.ts`, adaptateur Supabase, routes.
+
+**qa-review round 1 — Changes Requested, corrigé** :
+
+- **B1 — Faille IDOR (traversée de tenant sur le chemin de stockage)** : `storage_path` (donnée colonne) déterminait l'objet réellement lu/écrit/supprimé au lieu d'un recalcul depuis `tenant_id`/`id`. **Corrigée à trois endroits** : (1) `toDetailDto()` signe `storagePathFor(tenantId, row.id)` (paramètre tenantId reçu, jamais colonne lue), (2) `api_confirm_document_pdf_template_upload` : paramètre `p_storage_path` supprimé de la signature, la fonction calcule elle-même le chemin, (3) migration : contrainte `check` en base `document_pdf_templates_storage_path_canonical` refusant toute valeur différente de `tenant_id::text || '/' || id::text || '.pdf'` même en écriture privilégiée. Scénario 8 SQL ajouté : chemin forgé vers un autre tenant refusé, traversée de répertoire refusée, chemin persisté exactement canonique.
+- **B2 — Gate `gen:api:check` rouge** : clôtures architecte présentes, fichier généré aligné, rejoué réellement.
+- **N2 — Couverture 403 capability** : test dédié pour les cinq opérations d'écriture, pas seulement `create`.
+- **N3 — Verrou manquant sur `api_confirm_document_pdf_template_upload`** : `pg_advisory_xact_lock` ajouté, même clé que les autres fonctions `api_*` du module.
+
+**qa-review round 2 — Approved** : faille IDOR re-testée empiriquement (exploitation réelle rejouée, pas relecture de rapport), confirmée fermée sur trois barrières indépendantes. Un cas de traversée de répertoire supplémentaire, non prévu par le dev, testé par la qa-review elle-même et refusé correctement. Aucune réserve bloquante.
+
+###### Vérifications
+
+- `pnpm typecheck` : 0 erreur
+- `pnpm gen:api:check` : ✅ aligné (rejoué réellement post-clôtures architecte)
+- `pnpm test:architecture` : 144/144
+- `pnpm test:contract` : 292/292 (+1 round 1 pour N2)
+- `pnpm exec vitest run tests/modules/document-templates/pdf-template-inspector.test.ts` : 7/7 (exécution réelle `pdf-lib`)
+- `pnpm test` (suite complète) : 1759 passés / 36 skip, 3 échecs pré-existants sans rapport (`product_mockups_isolation.test.ts`, cible le projet Supabase distant, pas l'instance locale)
+- `tests/sql/gescom-e10-10b-4a-document-pdf-templates.sql` : 8 scénarios, rejoué 3 fois après corrections B1/N3, 0 erreur (bucket privé, RLS lecture/écriture, create/update/confirm/delete, faille IDOR verrouillée)
+
+###### File List
+
+- Migration : `supabase/migrations/20260909020000_gescom_e10_10b_4a_document_pdf_templates.sql`
+- Module : `src/modules/document-templates/api/contracts.ts`, `api/client.ts`, `application/pdf-template-inspector.ts`, `application/document-templates-repository.ts`, `application/document-templates-service.ts`, `index.ts`, `manifest.ts`, `surface-contributions.ts`
+- Adaptateur : `src/adapters/supabase/document-templates-repository.ts`
+- Routes : `src/server/api/document-templates-routes.ts`, intégré dans `gescom-routes.ts`
+- UI : `src/app/components/dashboard/DocumentTemplatesPage.tsx`
+- Câblage edge function : `supabase/functions/magrit-api/index.ts`
+- Tests : `tests/contract/document-templates.contract.test.ts`, `tests/sql/gescom-e10-10b-4a-document-pdf-templates.sql`
+- Dépendances : `package.json` (pdf-lib 1.17.1), `supabase/functions/magrit-api/deno.json` (npm:pdf-lib@1.17.1), `deno.lock` (racine, tracké)
+
+##### QA Results
+
+**Verdict : Approuvé** — round 2. Faille IDOR testée empiriquement round 1, corrigée sur trois barrières indépendantes. Round 2 : faille re-testée, confirmée fermée ; cas de traversée de répertoire supplémentaire testé par la qa-review elle-même, refusé. Aucune réserve bloquante.
+
+**Dettes tracées, non bloquantes** :
+
+- **N1** (hérité E10.13) : plafond de 20 gabarits par tenant tenu par la fonction applicative seule, pas en base — à arbitrer au niveau du sprint, pas de cette story.
+- **N4** (décision d'architecte) : tension mineure sur l'idempotence de `create` — noté, pas une correction de code.
+- **D1** : `has_field_map` ne teste que `lines_block` — à compléter en 4b quand `document_pdf_template_fields` existera.
+
+**Points de suite** :
+
+- Aucun cahier de test Notion (TF-XX) créé pour cette story.
+- Amélioration UX possible, non requise : avertir avant de retirer le statut « par défaut » d'un gabarit.
+
+##### Change Log
+
+- 2026-09-09 — Cadrage architecte (§8.18) et livraison qa-review round 1, Changes Requested (faille IDOR + gate CI rouge).
+- 2026-09-09 — Corrections dev (B1/B2/N2/N3) et qa-review round 2, Approuvé.
+- 2026-09-09 — Fiche créée dans Notion à partir du story document livré et du verdict qa-review final.
+
+### Cas de test fonctionnels rattachés (Notion)
+
+| TF | Cas de test | Statut | Priorité | Parcours | Cible | Stories liées |
+|---|---|---|---|---|---|---|
+| [TF-192](https://app.notion.com/3d6d0131973c81928d5dd330f13f3d91) | TF-001 — Import d'un gabarit PDF valide et passage au statut « Prêt » | À jouer | P0 — Critique | P13 — Devis et gestion commerciale | B5 | E10.10b-4a |
+| [TF-193](https://app.notion.com/3d6d0131973c811dbfecf0cb13e380c4) | TF-002 — Rejet d'un fichier invalide (taille, format, chiffrement) | À jouer | P1 — Importante | P13 — Devis et gestion commerciale | B5 | E10.10b-4a |
+| [TF-194](https://app.notion.com/3d6d0131973c8167b903cf8e998c57f4) | TF-003 — Isolation inter-tenant des gabarits PDF | À jouer | P0 — Critique | P13 — Devis et gestion commerciale | B5 | E10.10b-4a |
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 Contrat écrit par l'architecte le 2026-09-09 (`docs/api/CONVENTIONS.md` §8.18,
 révision qui remplace §8.13septies — Gotenberg abandonné par arbitrage
 d'Arnaud, `pdf-lib` + gabarit PDF par tenant + éditeur de coordonnées).

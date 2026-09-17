@@ -8,6 +8,108 @@ blocks: [E10.10b-3, E10.10b-4]
 ---
 # E10.10b-2 — Décision du client (accepter/refuser un devis)
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> **Source qui fait foi : Notion** — [E10.10b-2 — Décision du client (accepter/refuser un devis)](https://app.notion.com/p/3d4d0131973c8130bfcafa7805d03357) · extrait le 17/09/2026 · page modifiée le 07/09/2026.
+> Copie destinée à tout intervenant (développement, QA, revue, agent) : lire ce périmètre avant la partie implémentation. En cas d'écart, Notion prévaut. Le statut Notion peut retarder sur la livraison réelle, décrite plus bas.
+
+| Epic | Sprint | Priorité | Effort | Statut Notion | Assigné à | Offre | Source | Ordre |
+|---|---|---|---|---|---|---|---|---|
+| E10 — Gestion commerciale | Sprint 5 — Gestion commerciale | P1 | M | Terminé | Claude code | Pro+ | WM 01/09/2026 | — |
+
+### Description fonctionnelle (Notion)
+
+**En tant que** client boutique, **je veux** accepter ou refuser un devis directement depuis mon espace client, **afin de** répondre à mon imprimeur sans échange d'email, avec une trace fiable de ma décision.
+
+##### Statut
+
+Terminé — qa-review round 1, **Approuvé, 0 bloquant**.
+
+##### Contexte produit
+
+Deuxième sous-chantier d'E10.10b (§8.13 de `docs/api/CONVENTIONS.md`), à la suite de **E10.10b-1** (lecture, Terminé). Premier chemin d'**écriture** jamais servi à un acteur non-membre du tenant : `sent → accepted` / `sent → rejected`, statuts réservés au schéma depuis E10.3 et jamais atteints jusqu'ici. Contrat cadré par l'architecte le 07/09/2026 (§8.13quinquies), implémenté et validé le même jour, sur la même branche que b-1 (recommandation de l'architecte : développer b-1/b-2 d'affilée, remonter ensemble).
+
+**Voir la réserve de numérotation notée sur la page E10.10b-1** : ce découpage b-1/b-2/b-3/b-4 est indépendant de la carte Notion « E10.10 », qui correspond en réalité au périmètre déjà livré par E10.10a.
+
+##### Critères d'acceptation (contrat §8.13quinquies, 17 tenus)
+
+1. `POST /storefront-quotes/{quoteId}/decisions` — ressource d'acte plutôt qu'un `PATCH` de statut, `Idempotency-Key` native.
+2. Une seule opération pour les deux sens (accepter/refuser au corps de la requête).
+3. Ordre des refus normatif : 404 (invisible) → 403 (session déléguée) → 409 (statut ≠ sent) → 409 (périmé) → 428/400/409 (précondition `If-Match`, en dernier).
+4. Un seul code d'erreur pour « le devis n'est plus `sent` », jamais un code par état rencontré.
+5. La réponse (201) rend `StorefrontQuoteDetail`, jamais la représentation atelier `QuoteDetail`.
+6. Événements `quote.accepted`/`quote.rejected` publiés dans l'outbox ; `customer_id` présent dans l'événement mais absent de la réponse HTTP au client.
+7. Audit d'entête : `decided_by_account_id`, `actor_label` (libellé figé du compte), `actor_id` **null** (un compte boutique n'est pas un `auth.users`).
+8. `decided_at` publié côté atelier sur `Quote`/`QuoteDetail`.
+9. Garde de péremption arbitrée par l'horloge **serveur**, dans la transaction d'écriture — pas par l'affichage client.
+10. Session déléguée (`sessionKind: 'delegated'`) refusée : elle ne peut ni accepter ni refuser.
+11. 11-12. Audit d'entête de forme correcte, aucun second `quote_snapshot` sur la décision (le snapshot de l'envoi fait déjà foi).
+12. Dette v3 héritée de b-1 (renforcement `tenant_id` sur les fonctions de lecture) **tranchée et close**, par une migration nouvelle, jamais une édition de la migration existante.
+13. Correctif de socle : idempotence dérivée du **compte** boutique, pas seulement de l'espace — deux acheteurs du même imprimeur ne se bloquent plus mutuellement.
+14. Fermeture de l'échappatoire d'immuabilité (GUC `quote_transition`/`change_set_id`) sur tous les chemins de sortie, y compris l'échec.
+15. Transition atomique (`update ... where status = 'sent'`, garde et écriture dans la même instruction) — **prouvée par une vraie course concurrente** en qa-review (deux transactions psql simultanées), pas seulement relue.
+16. UI : boutons Accepter/Refuser visibles seulement pour un devis `sent` non périmé, confirmation avant envoi, aucun contrôle métier côté navigateur.
+
+##### Contrat API
+
+| Méthode | Route | Objet |
+| --- | --- | --- |
+| POST | `/api/v1/storefront-quotes/{quoteId}/decisions` | `decideStorefrontQuote` — `Idempotency-Key` et `If-Match` exigés, rend `StorefrontQuoteDetail` (201) |
+
+Schémas ajoutés : `StorefrontQuoteDecision`, `StorefrontQuoteDecisionCommand`, `QuoteDecisionPayload`. Codes d'erreur : `quote.decision_forbidden_delegated` (403), `quote.decision_forbidden_status` (409), `quote.decision_expired` (409). Événements : `quote.accepted`, `quote.rejected`.
+
+##### Dev Agent Record
+
+###### Agent Model Used
+
+Architecte (cadrage §8.13quinquies) → `dev-story` → `qa-review` (1 round, adversarial — 13 gardes de sécurité sondées activement, y compris exécution réelle d'une course concurrente et d'un jeton de session déléguée réel contre la fonction SQL).
+
+###### Completion Notes
+
+Migration `20260907000000` : colonnes d'entête `decided_at`/`decided_by_account_id`, extension de l'audit, **dette v3 close** (jointure `tenant_id` explicite sur les fonctions de lecture, par `create or replace`), fonction `api_decide_storefront_quote` (transition atomique, `security definer`).
+
+Découverte imprévue traitée en cours de route : l'événement sortant a besoin de `customer_id`, absent de toute représentation servie au client — la fonction SQL le rend en plus de l'`id` (`returns table`), le service le garde côté application, la route ne le transmet jamais.
+
+###### Vérifications (rejouées indépendamment par qa-review, pas seulement annoncées par dev-story)
+
+`pnpm typecheck` 0 erreur. `pnpm test:contract` 242/242 (+19 storefront-quotes, +2 gescom-middleware). `pnpm test:architecture` 144/144. `npx vitest run` 1638 passés / 3 échecs préexistants sans rapport / 36 skip. `pnpm gen:api:check` aligné. `tests/sql/gescom-e10-10b-2-storefront-quote-decision.sql` exécuté réellement (Docker local), 9 scénarios, `ROLLBACK`. Rejeu de `gescom-e10-10b-1-storefront-quotes.sql`/`gescom-e10-10a-quote-send-duplicate.sql` après le renforcement `tenant_id` : inchangés, toujours verts.
+
+**Course concurrente exercée pour de vrai** (pas seulement relue) : deux transactions psql simultanées, interleaving forcé par un verrou de ligne tenu par une troisième transaction — la seconde décision rend `quote.decision_forbidden_status`, zéro double-écriture, état final cohérent (un seul statut, une seule entrée d'audit). La dette v4 signalée par dev-story comme « non testée » est donc considérée **levée** par le qa-review.
+
+###### Réserves non bloquantes (9, aucune ne bloque le merge)
+
+- **R1** (socle, à arbitrer par l'architecte) : `If-Match` malformé ou `*` rend 400 avant les 404/403/409 attendus par le contrat sur un devis invisible/périmé/en session déléguée. Pas de fuite d'information (le 400 est uniforme), mais dévie de l'ordre normatif annoncé.
+- **R2** (socle, préexistant, transverse à `sendQuote`/`verifyCustomerSiret`) : le 409 `idempotency_in_progress`/`idempotencyKeyReused` ne porte pas `current_state` comme le contrat le promet.
+- **R3** : le renforcement `tenant_id` (dette v3) n'est exercé par aucun cas SQL discriminant — le trigger E10.5 rend le cas contraire structurellement impossible à construire. Défense en profondeur non testable, pas un défaut de rigueur.
+- **R4** : dette v4 (atomicité) considérée **levée**, pas ouverte.
+- **R5** : `src/types/database.types.ts` édité à la main, à régénérer au déploiement réel de la migration.
+- **R6** (process) : deux commits distincts faits après coup (contrat architecte / implémentation dev-story) ; branche `feat/gescom-e10-4-entite-client` porte toujours E10.10a + b-1 + b-2 non mergés vers `main`.
+- **R7** : import inter-couches cosmétique, aucune violation de frontière modulaire.
+- **R8** : publication outbox best-effort (dérogation R5 §8 déjà actée) — deviendra visible en b-3.
+- **R9** : comptage de tests légèrement inexact dans le story document (+17 réels vs +19 annoncés).
+
+###### File List
+
+Migration `20260907000000_gescom_e10_10b_2_storefront_quote_decision.sql`, module `storefront-quotes` (contrats/service/repository/route/UI), correctif idempotence (`src/modules/_shared/application/idempotency.ts`, `gescom-middleware.ts`), UI `StorefrontQuoteDecisionConfirmDialog`. 26 fichiers modifiés, 4 nouveaux. Détail complet dans `_bmad-output/implementation-artifacts/story-E10-10b-2-decision-client.md`.
+
+##### QA Results
+
+**Verdict : Approuvé** (round 1, 0 bloquant). 13 gardes de sécurité sondées activement, aucune n'a cédé (garde session déléguée testée avec un jeton réel envoyé directement à la fonction `security definer`, atomicité prouvée par une vraie course concurrente à deux transactions). 9 réserves non bloquantes tracées ci-dessus, dont deux (R1, R2) touchent un défaut de socle transverse à arbitrer par l'architecte avant que d'autres modules ne s'appuient sur le même mécanisme `If-Match`/idempotence.
+
+##### Change Log
+
+- 2026-09-07 — v1 — Cadrage architecte (§8.13quinquies), implémentation dev-story et qa-review round 1 Approuvé, le même jour.
+
+### Cas de test fonctionnels rattachés (Notion)
+
+_Aucun cas de test rattaché dans la base Notion « 🧪 Cahiers de tests fonctionnels Magrit »._
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 Deuxième sous-chantier d'E10.10b (le devis dans la boutique du client),
 scindé en quatre par l'architecte (§8.13 de `docs/api/CONVENTIONS.md`) : b-1
 lecture (livrée), b-2 accepter/refuser (ce lot), b-3 notification email, b-4

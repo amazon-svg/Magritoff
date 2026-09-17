@@ -16,6 +16,22 @@ status: partial-review
 
 # R5 — Pattern Supabase unique (`functions.invoke()` exclusif edges) + fix race invitations
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> Aucune story du Sprint Board Notion n'est rattachée à ce story document : c'est une story née dans le dépôt (refonte technique, lot d'architecture ou correctif). Son périmètre est celui décrit ci-dessous. Si elle relève d'une story Notion, renseigner ce rattachement et régénérer cette section.
+
+### Cas de test fonctionnels rattachés (Notion)
+
+| TF | Cas de test | Statut | Priorité | Parcours | Cible | Stories liées |
+|---|---|---|---|---|---|---|
+| [TF-71](https://app.notion.com/35ed0131973c8151b6ecf4182a0ec9d0) | R5 — Pattern Supabase unique : 6 callers fetch hardcoded migrés vers functions.invoke | OK | P1 — Importante | P00 — Création espace tenant | B5 | R5 |
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 ## Origine
 
 Story refacto P0 issue de l'**Étape D Winston ADR-R3** sur priorité **E** + bug Élevé B4 (race condition `tenant_invitations`).
