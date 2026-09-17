@@ -6,10 +6,10 @@ status: round 3 — corrections D4/D5 + six inexactitudes documentaires round 2 
 branch: feat/gescom-q14a-ajout-direct-grise
 base_round1: worktree-agent-a36fe9d0d75f6af4a (3448193b) = main (f7326363) + docs/api/CONVENTIONS.md §8.25 réécrit le 2026-09-17
 base_round2: worktree-agent-a36fe9d0d75f6af4a (c5e07929) = base_round1 + amendements architecte du 2026-09-17 (D1, D2, réserves, (g)/Q17)
-base_round3: HEAD 796dace8 (round 2, commité) — round 3 n'a pas encore de commit propre au moment de la rédaction de cette section, voir « Commits »
+base_round3: HEAD 796dace8 (round 2, commité)
 agent: dev-story (Sonnet 5)
 cadrage_opposable: docs/api/CONVENTIONS.md §8.25 point 3.7 (a) à (g), point 6 (ligne Q14-a), point 9 (ligne Q14)
-commits: [f0f891d0 (round 1), 796dace8 (round 2)]
+commits: [f0f891d0 (round 1), 796dace8 (round 2), 8787d757 (round 3)]
 ---
 
 # Story Q14-a — bouton "+ Panier" grisé quand le prix n'est pas ferme
@@ -307,4 +307,4 @@ pnpm vitest run   (suite complète du dépôt)
 
 - `f0f891d0` — round 1 (rejeté par la qa-review), branche `feat/gescom-q14a-ajout-direct-grise`, créée depuis `worktree-agent-a36fe9d0d75f6af4a` (HEAD `3448193b` à l'époque).
 - `796dace8` — round 2 (rejeté par la qa-review sur D4 et D5), fix D1 (bandeau de renouvellement) et D2 (câblage non testé), réserves priceHT<=0 et onConfigure obligatoire, correction de l'affirmation fausse sur le serveur.
-- **Round 3 (ce round) : pas encore de commit au moment de la rédaction de cette phrase** — je l'écris donc sans hash, comme demandé, plutôt que d'en inventer un ou d'en nier un qui existerait déjà. Un commit sera créé après la finalisation de ce document, sur la même branche, au-dessus de `796dace8`. Si ce document est relu après ce commit sans que cette phrase ait été mise à jour, c'est un oubli à signaler — pas une preuve que le commit n'existe pas. Aucun push effectué, sur aucun round.
+- `8787d757` — round 3 (ce round) : fix D4 (verdict recopié au lieu d'appelé) et D5 (garde d'épinglage vulnérable au code commenté), correction des six inexactitudes documentaires relevées par le coordinateur. **Ajouté par un commit de documentation séparé** (celui-ci ne modifie que ce fichier, pour inscrire son propre hash sans le deviner avant qu'il existe). Aucun push effectué, sur aucun round.
