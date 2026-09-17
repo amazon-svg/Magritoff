@@ -26,6 +26,16 @@ import { StorefrontUnavailable } from '@/modules/shops/ui/storefront/StorefrontU
 import { useStorefrontSession } from '@/modules/shop-customers/ui/hooks';
 import { usePublicShopCatalog } from '@/modules/shops/ui/hooks/usePublicShopCatalog';
 import { useStorefrontOrderLifecycle } from '@/modules/orders/ui/hooks';
+import { ONE_PACK, copies, packLine, toPackLine, type PackCount } from '@/modules/orders/ui/storefront';
+
+/**
+ * BCP-11 (docs/api/CONVENTIONS.md §8.25 point 3.6) — contrat de `addToCart`
+ * (défini plus bas, fermeture locale du composant). Exporté pour que
+ * `PublicShop.typecheck.ts` puisse vérifier par compilation qu'un nombre nu
+ * ne compile plus en second argument (T8), sans avoir besoin d'accéder à la
+ * fermeture réelle — `addToCart` reste une fonction locale, non exportée.
+ */
+export type AddToCartFn = (product: ShopProduct, packCount?: PackCount) => void;
 
 // BCP-10 (docs/api/CONVENTIONS.md §8.25 point 3.5 (b)) — R7 : lazy-load le
 // ProductOverlay (configurateur lourd chargé seulement quand l'acheteur
@@ -182,15 +192,28 @@ export function PublicShop() {
     : undefined;
 
   // ─── Actions panier ──────────────────────────────────────────────────────
-  const addToCart = (product: ShopProduct, qty = 1) => {
+  // BCP-11 (docs/api/CONVENTIONS.md §8.25 point 3.6) — `addToCart` ne reçoit
+  // plus jamais un nombre nu : `packCount` est un `PackCount` (paquets),
+  // jamais un nombre d'exemplaires. Un produit CONFIGURÉ (exemplaires) doit
+  // passer par `toPackLine` avant d'atteindre cette fonction (voir
+  // `handleOverlayConfirm` ci-dessous et `GammePage.handleAdd`).
+  //
+  // Typée via `AddToCartFn` (déclaré en tête de fichier et exporté) plutôt
+  // que par inférence : cette fonction est locale au composant, donc jamais
+  // testable directement — l'assertion de compilation T8 vit dans
+  // `PublicShop.typecheck.ts`, qui importe `AddToCartFn` sans avoir besoin
+  // d'accéder à la fermeture réelle (qa-review round 2, défaut 5 : round 1
+  // gardait cette assertion en code mort DANS le corps du composant React,
+  // recréée à chaque rendu).
+  const addToCart: AddToCartFn = (product, packCount = ONE_PACK) => {
     setCart((prev) => {
       const existing = prev.find((l) => l.product.id === product.id);
       if (existing) {
         return prev.map((l) =>
-          l.product.id === product.id ? { ...l, qty: l.qty + qty } : l
+          l.product.id === product.id ? { ...l, qty: l.qty + packCount } : l
         );
       }
-      return [...prev, { product, qty }];
+      return [...prev, packLine(product, packCount)];
     });
   };
   const updateQty = (productId: string, delta: number) => {
@@ -208,18 +231,27 @@ export function PublicShop() {
   // Hôte UNIQUE de la surcouche de configuration produit `ProductOverlay`.
   // Toutes les surfaces (accueil, gamme, catalogue, suggestions de Magrit,
   // landing, fiche produit) appellent `onConfigure(product)` pour l'ouvrir
-  // PAR-DESSUS l'écran courant, sans navigation. La règle métier « qty =
-  // nombre d'exemplaires, on ajoute 1 PAQUET au panier » ne vit plus qu'ici :
-  // elle était écrite deux fois (PortalCatalog.tsx et PortalProduct.tsx), et
-  // c'est cette duplication qui a laissé la fiche produit jeter sa sélection.
+  // PAR-DESSUS l'écran courant, sans navigation.
+  //
+  // BCP-11 (docs/api/CONVENTIONS.md §8.25 point 3.6) — la règle métier « qty =
+  // nombre d'exemplaires, on ajoute 1 PAQUET au panier » (S-FIX-PANIER-11/05)
+  // ne vit PAS ici : le commentaire précédent l'affirmait et c'était faux — une
+  // troisième copie littérale vivait dans `GammePage.tsx`, non détectée par
+  // BCP-10. Le domicile unique de cette règle est `toPackLine`
+  // (`orders/ui/storefront/cartLine.ts`) ; ce composant se contente de
+  // l'appeler, comme `GammePage.handleAdd`.
   const [overlayProduct, setOverlayProduct] = useState<ShopProduct | null>(null);
   const onConfigure = (product: ShopProduct) => setOverlayProduct(product);
   const handleOverlayConfirm = (productConfigured: ShopProduct, qty: number) => {
-    const withQty: ShopProduct = {
-      ...productConfigured,
-      config: { ...(productConfigured.config ?? {}), quantity: qty },
-    };
-    addToCart(withQty, 1);
+    // `packCount` est désormais OBLIGATOIRE dans `toPackLine` (round 3,
+    // qa-review) : ce geste d'ajout normal déclare explicitement `ONE_PACK`
+    // au lieu de l'hériter d'une valeur par défaut. `line.qty` est un
+    // `number` ordinaire (CartLine.qty n'est pas typé PackCount, décision de
+    // l'architecte) : on repasse par `ONE_PACK` directement plutôt que par
+    // `line.qty`, pour que `addToCart` continue de rejeter tout ce qui n'est
+    // pas explicitement un `PackCount` (T8).
+    const line = toPackLine(productConfigured, copies(qty), ONE_PACK);
+    addToCart(line.product, ONE_PACK);
     setOverlayProduct(null);
   };
 
@@ -496,7 +528,7 @@ export function PublicShop() {
           products={filteredProducts}
           onView={goView}
           onSelectProduct={(p) => goView('product', p.id)}
-          onReorder={(p) => addToCart(p, 1)}
+          onAddToCart={(p) => addToCart(p)}
           onOpenGamme={(gSlug) => goView('gamme', gSlug)}
           onConfigure={onConfigure}
           pimGammes={pimGammes}
@@ -509,7 +541,7 @@ export function PublicShop() {
           shop={shop}
           products={filteredProducts}
           onSelectProduct={(p) => goView('product', p.id)}
-          onAddToCart={(p, qty) => addToCart(p, qty ?? 1)}
+          onAddToCart={(p) => addToCart(p)}
           onConfigure={onConfigure}
           onGoHome={() => goView('home')}
           pimGammes={pimGammes}
@@ -530,8 +562,8 @@ export function PublicShop() {
           products={products}
           pimGammes={pimGammes}
           pimDefinitions={pimDefinitions}
-          onAddToCart={(p, qty) => {
-            addToCart(p, qty);
+          onAddToCart={(p) => {
+            addToCart(p);
             // Drawer panier ouvert, l'acheteur RESTE sur la page (spec UX :
             // achat multi-gammes fréquent en B2B).
             setCartOpenRequest((n) => n + 1);

@@ -4286,6 +4286,12 @@ La fiche propose `src/services/exports/orders.ts`. **Il n'existe aucun dossier `
 > - **Le lot reste hors du périmètre des prix (E10.21)** : il ne crée aucun calcul, il en **supprime** un. Son seul empiètement, nommé et cadré, est l'affichage du prix de la fiche, qui adopte la règle déjà écrite du point 4 (a).
 > - **Le défaut n'était pas « l'accueil » mais cinq chemins sur six.** Détail, arbitrages et recette : **point 3.5**. C'est **BCP-10**, et il **ne dépend ni de la campagne, ni du contrat** : il est lançable tout de suite.
 > - **Ce que cela ne règle pas** : la surcouche invente elle aussi deux valeurs (`format: "A5"`, `paper: "135g"`). BCP-10 **ne les corrige pas** — c'est le normaliseur de BCP-2. **Q13**, point 9.
+>
+> **HUITIÈME ROUND — deux décisions d'Arnaud du 2026-09-16, opposables. La première corrige une affirmation du septième round.**
+>
+> - **BCP-11 — « on règle maintenant » : la règle du paquet n'a jamais vécu à un seul endroit.** Le commentaire posé par BCP-10 en `PublicShop.tsx:207-214` (« ne vit plus qu'ici ») **est faux** : `GammePage.tsx:148-161` porte la **troisième copie**, que BCP-10 n'a pas cherchée. Le point unique devient une fonction pure dans **`src/modules/orders/ui/storefront/cartLine.ts`**, le module qui possède déjà `CartLine` et le calcul de ligne. **`addToCart` ne reçoit plus jamais un nombre nu** : le canal est **retiré** là où il ne transportait rien (les cartes), et l'**unité est typée** là où un nombre doit voyager (`CopyCount` / `PackCount`). Le danger est **latent et non vivant** — aucun chemin ne transporte aujourd'hui d'exemplaires — mais il deviendrait irréparable une fois gravé dans le snapshot de commande. **Point 3.6.** Le lot **ne change aucun prix et n'ajoute aucune règle**.
+> - **Q14 — l'ajout direct au panier se CONDITIONNE, il ne se supprime pas.** Verbatim d'Arnaud : « Dans la mesure où le produit comporte les caractéristiques ayant permis de le chiffrer il peut être mis au panier tel quel, sinon il faut le configurer. » Critère à **deux conditions** : configuration chiffrable (**C1**, verdict du normaliseur de BCP-2) **et** prix d'origine imprimeur (**C2**, `resolvePrice(...).source ∈ {clariprint, library_cached}`). Critère non rempli → **le bouton « + Panier » n'est pas rendu**, l'acheteur ne voit que « Configurer ». **Le renouvellement de commande échappe à C2** : les caractéristiques priment, le prix se recalcule et sa perte de fermeté **se dit** dans le bandeau d'avertissements existant. **Point 3.7.**
+> - **Ce que cela ne débloque pas, et il faut le dire franchement** : **C1 n'est pas implémentable avant la campagne d'appels réels chez l'imprimeur**, et l'audit du 16/09 (`80c4c39d`) a déjà démontré la forme canonique fausse sur 9 produits. **C2 l'est aujourd'hui** : le lot se coupe en **Q14-a (maintenant)** et **Q14-b (après BCP-2)**, avec la même signature de prédicat des deux côtés. Q14-a se livre **après la correction des données ERAM**, sans quoi il masque « + Panier » sur 23 cartes sur 30.
 
 #### 1. Ce que le dépôt montre en plus des diagnostics — onze constats
 
@@ -5034,6 +5040,212 @@ Jouée par le coordinateur sur `/shop/eram`, **sans aucun agent qui écrive dans
 
 **(k) Contrat : `openapi/magrit-core.v1.yaml` n'est PAS concerné, et voici pourquoi.** Aucun endpoint n'est ajouté, modifié ni retiré. Aucun schéma ne change : la configuration voyage dans un champ qui la porte déjà (`config.clariprintData`), le chiffrage passe par la route existante, et le panier n'a jamais été une ressource d'API — il est en mémoire dans `PublicShop` (`:107`). **BCP-10 est un lot d'interface, entièrement contenu dans `src/modules/catalog/ui/` et `src/modules/shops/ui/`.** La fiche produit cessant d'appeler Clariprint, le lot **retire** un appelant de la route de chiffrage ; il n'en ajoute aucun, ce qui est neutre pour le contrat comme pour le limiteur de débit en service depuis le 16/09 au matin.
 
+##### 3.6 BCP-11 — la règle du paquet n'a JAMAIS vécu à un seul endroit, et le commentaire qui l'affirme est faux
+
+> **Numéro de story : BCP-11, même réserve qu'au point 3.5.** Aucun agent de cette session n'a d'accès Notion. Vérifié dans le dépôt : aucun `BCP-11` n'y existe. Si le backlog en porte déjà un, **seul le numéro change**.
+
+**Décision d'Arnaud du 2026-09-16, mot pour mot : « on règle maintenant ».** Ce qui suit tranche les cinq points ouverts pour qu'aucun ne retombe sur le dev-story.
+
+**(a) Le fait, d'abord : le commentaire de BCP-10 ment, et il ment sur la seule propriété qui compte.**
+
+`PublicShop.tsx:207-214` écrit : « La règle métier "qty = nombre d'exemplaires, on ajoute 1 PAQUET au panier" ne vit plus qu'ici ». **C'est faux.** `GammePage.tsx:148-161` porte la **troisième copie historique**, mot pour mot, sous son commentaire d'origine « S-FIX-PANIER-11/05 (même normalisation que PortalCatalog) ». BCP-10 a supprimé les deux copies qu'il connaissait (`PortalCatalog.tsx`, `PortalProduct.tsx`) et a écrit qu'il n'en restait aucune, **sans avoir cherché la troisième**. C'est la faute du §8.24 point 8 dans sa forme exacte : *une propriété que seul un commentaire affirme n'est pas une propriété.* Un commentaire faux est pire qu'un commentaire absent, parce qu'il dispense le lecteur suivant de vérifier.
+
+**Ce que la mesure du coordinateur disait, et ce que le dépôt dit.** Deux faits transmis sont inexacts, et les corriger change le périmètre :
+
+| Fait transmis | Ce que le dépôt montre | Conséquence |
+|---|---|---|
+| `src/modules/shops/ui/storefront/cartPricing.ts:27` | **Le fichier est `src/modules/orders/ui/storefront/cartPricing.ts`.** La ligne 27 est exacte : `lineTotalHt: resolution.priceHT * line.qty` | **Change la réponse au (b)** : le point unique ne peut pas vivre dans `shops`, qui ne possède ni `CartLine` ni le calcul de ligne |
+| « le renouvellement d'une commande (`PortalHome.tsx:167`, `onReorder`) » | `PortalHome.tsx:167` est la grille **« Nouveautés »** (`TEST_IDS.shop.homeNewProducts`), dont la carte est câblée sur une prop **nommée** `onReorder` — un nom hérité, sans rapport avec un renouvellement. `PublicShop.tsx:499` y branche `addToCart(p, 1)`. **Le vrai renouvellement est ailleurs** : `renewOrder` (`useStorefrontOrderLifecycle.ts:77-111`), atteint depuis `OrderHistoryTable.tsx:1102` | **Ajoute une porte que le mandat ne connaissait pas** (point (b) 4) et **déplace le sujet 2 (c)** : ce n'est pas `PortalHome` qu'il faut conditionner, c'est `renewOrder` |
+
+**Trois autres faits, vérifiés et exacts** : `handleOverlayConfirm` (`PublicShop.tsx:216-224`) construit bien `withQty` puis appelle `addToCart(withQty, 1)` ; `PublicShop.tsx:512` transmet `addToCart(p, qty ?? 1)` à `PortalCatalog` ; `PublicShop.tsx:533-537` transmet `addToCart(p, qty)` **brut** à `GammePage`.
+
+**(b) Qui peut aujourd'hui faire transiter un nombre d'exemplaires, et qui le fait. La distinction est capitale.**
+
+Le danger est **latent, pas vivant**. Quatre portes mènent au panier ; **aucune ne transporte aujourd'hui un nombre d'exemplaires**. Ce qui est cassé n'est pas le comportement : c'est l'**impossibilité de le prouver**.
+
+| # | Porte | Ce qui y transite aujourd'hui | Ce que le type autorise |
+|---|---|---|---|
+| 1 | Surcouche → `handleOverlayConfirm` → `addToCart(withQty, 1)` | 1 paquet, exemplaires dans `config.quantity` | correct, et **seule** application explicite de la règle côté `PublicShop` |
+| 2 | `PublicShop.tsx:512` → `PortalCatalog.onAddToCart` (`:51`, type `(p, qty?: number) => void`) → **seul producteur** `ShopProductCard.tsx:327` et `:363`, qui passent le littéral `1` | toujours 1 | **n'importe quel nombre.** Le `?? 1` est une défense contre un appelant qui n'existe pas, et ne défend rien contre un appelant qui passerait `500` |
+| 3 | `PublicShop.tsx:533` → `GammePage.onAddToCart` (`:42`, type `(product, qty: number) => void`, **non optionnel**) → deux producteurs : `handleAdd` (`:161`, passe `1` après avoir réécrit la règle) et la grille de cartes (`:325`, `qty ?? 1`) | toujours 1 | **n'importe quel nombre, sans défense du tout** : `PublicShop:534` fait `addToCart(p, qty)` sans repli |
+| 4 | **`renewOrder` → `setCart(lines)`** (`useStorefrontOrderLifecycle.ts:105`), lignes bâties par `rebuildCartFromOrderItems` (`orderRenewal.helpers.ts:99-102`, `qty: Math.max(1, Math.floor(item.quantity || 1))`) | 1 paquet, parce que `submitCart` (`:126-133`) a stocké `quantity: line.qty` (paquets) et les exemplaires dans `clariprintOptions.quantity` | **ce que la commande d'origine contient.** Cette porte **ne passe pas par `addToCart`** : une discipline posée sur `addToCart` seul la laisserait ouverte |
+
+**Le danger est donc exactement celui décrit — `lineTotalHt = priceHT × line.qty`, soit 17 500 € pour un forfait de 35 € à 500 exemplaires — mais il n'est atteignable qu'en ajoutant un appelant.** C'est la bonne raison d'agir maintenant, et non une raison de se presser : on ne répare pas un prix faux, on **ferme le chemin qui le produirait**, avant que BCP-2, BCP-3 et BCP-4 ne viennent réécrire ces mêmes fichiers.
+
+**Deux conséquences que personne n'avait relevées** :
+1. **`updateQty` (`PublicShop.tsx:196-202`) incrémente `line.qty`.** Le tiroir du panier laisse donc l'acheteur porter une ligne à 2, 3, 4 paquets, et `lineTotalHt = forfait × 2` est **correct**. `line.qty` n'est donc **pas invariablement 1** : toute discipline qui figerait `qty: 1` au niveau du type casserait le tiroir. **Ce qu'il faut distinguer, c'est l'unité, pas la valeur.**
+2. **La confusion a une suite en base.** `submitCart` écrit `tenant_order_items.quantity = line.qty` (paquets) et les exemplaires dans `clariprint_options.quantity`. Une fuite d'exemplaires dans `line.qty` n'afficherait pas seulement 17 500 € : elle **graverait 500 dans le snapshot immuable de la commande**, que `rebuildCartFromOrderItems` relirait à chaque renouvellement. Le défaut serait alors irréparable sans toucher à une table append-only.
+
+**(c) TRANCHÉ : le point unique vit dans `src/modules/orders/ui/storefront/cartLine.ts`, à côté de `cartPricing.ts`.**
+
+**Pourquoi le module `orders` et pas un autre.** Le module qui possède `CartLine` (`orders/ui/storefront/types.ts:32-35`) doit posséder la fonction qui en construit une. Ses deux seuls consommateurs y sont déjà : `resolveCartLinePricing` (`cartPricing.ts:19`) et `rebuildCartFromOrderItems` (`orderRenewal.helpers.ts:61`). Poser la règle dans `catalog` ferait posséder le panier par le catalogue ; la poser dans `shops` créerait **un second domicile** pour une notion déjà domiciliée — exactement ce que la règle « ne jamais dupliquer une notion existante sous un autre nom » interdit, et exactement ce que ce lot répare.
+
+**Pourquoi `ui/storefront/` et pas `application/`.** `orders/application/` existe, et la règle est du métier pur sans React. L'argument est réel ; il perd pour deux raisons. D'abord `resolveCartLinePricing` et `rebuildCartFromOrderItems`, aussi métier et aussi purs, vivent déjà dans `ui/storefront/` : y placer la troisième les met ensemble, tandis que l'inverse en éparpillerait trois. Ensuite déplacer la famille entière vers `application/` toucherait `PortalCart.tsx`, `CheckoutPage.tsx` et `useStorefrontOrderEditor.ts` — dont le premier appartient à BCP-8. **Ce déplacement est légitime et il n'appartient à aucun lot de ce chantier** : il est inscrit ici comme dette nommée, pas exécuté au passage.
+
+**(d) TRANCHÉ : `addToCart` ne reçoit plus jamais un nombre nu — et ce n'est PAS un simple helper partagé. Motif écrit.**
+
+Les deux options ont été instruites.
+
+**Option écartée — le helper partagé.** Exporter `buildPackLine()` et faire appeler les trois sites. Coût quasi nul. **Faiblesse dirimante : rien n'oblige le quatrième site à s'en servir.** Le compilateur reste muet, et c'est précisément ce silence que le point 3.5 (f) 3 de ce document désigne déjà comme la cause de la faute de `PortalProduct.tsx:446` — *« tant que la signature acceptait un argument que personne ne lisait, le compilateur ne pouvait rien dire »*. **Un helper qu'on peut décliner est une convention, pas une garantie.** Le répéter ici serait répondre à un défaut de commentaire par un autre commentaire.
+
+**Option retenue — combinaison de deux gestes, l'un retire le canal, l'autre type l'unité.**
+
+1. **Retirer le canal là où il ne transporte rien.** `ShopProductCard.onAddToCart` devient `(product: ShopProduct) => void` — **sans quantité**. Ses deux appels (`:327`, `:363`) passent le littéral `1` depuis toujours : le paramètre n'a jamais servi. `PortalCatalog.onAddToCart` (`:51`) et `GammePage.onAddToCart` (`:42`) suivent. `PublicShop.tsx:512` et `:533-537` cessent de relayer un nombre, et leurs `?? 1` disparaissent comme code mort. **Un canal supprimé est plus solide qu'un canal surveillé.**
+2. **Typer l'unité là où un nombre doit réellement voyager** : de la surcouche et de la barre de prix de la gamme vers le panier. Deux types nominaux, dans `cartLine.ts` :
+
+   - `CopyCount` — un nombre d'**exemplaires** ;
+   - `PackCount` — un nombre de **paquets**.
+
+   Chacun est un `number` marqué (`number & { readonly __unit: 'copies' | 'packs' }`), donc gratuit à l'exécution. Les **seuls** constructeurs sont `copies(n)`, `packs(n)` et `ONE_PACK`. **`addToCart(product, 500)` cesse de compiler**, `addToCart(product, copies(500))` aussi, et l'unique conversion vit dans une fonction :
+
+   `toPackLine(productConfigured: ShopProduct, quantity: CopyCount): CartLine` — elle écrit `config.quantity = quantity` et rend `qty: ONE_PACK`.
+
+3. **Fermer la quatrième porte.** `rebuildCartFromOrderItems` cesse de construire ses `CartLine` en littéral et passe par le même constructeur, de sorte que **les deux seules entrées du panier** — `addToCart` et `setCart` du renouvellement — traversent une unique fonction.
+
+**Ce que cette discipline garantit, et ce qu'elle ne garantit pas — à dire, pour que personne ne la croie plus large qu'elle n'est.** Elle rend **impossible** la faute de famille « ×500 » : aucun nombre d'exemplaires ne peut plus atteindre `line.qty`, donc `priceHT × line.qty` ne peut plus produire un total à 17 500 €. Elle ne rend **pas** impossible une erreur de *valeur* : un site qui passerait `copies(1)` au lieu de `copies(500)` compilerait, et l'acheteur recevrait 1 exemplaire au prix du paquet. **Ce résidu est nommé ici parce qu'il est celui que les tests du (e) doivent couvrir, faute de pouvoir le confier au compilateur.**
+
+**Frontière avec BCP-2, à ne pas franchir.** `useProductConfigurator.confirm()` (`:256-261`) rend `{ productConfigured, qty }` avec `qty: options.quantity`. **BCP-11 ne change pas ce type** : le fichier appartient à BCP-2 dans le tableau du point 6. Le marquage se fait **côté consommateur** — `copies(result.qty)` dans `PublicShop` et dans `GammePage`.
+
+**(e) Les tests opposables, et les mutations qu'une qa-review distincte doit rejouer.**
+
+Règle du §8.24 point 8 : chaque test **doit échouer sur le code d'avant**. Les tests unitaires portent sur `cartLine.ts`, `cartPricing.ts` et `orderRenewal.helpers.ts`, tous purs.
+
+| # | Test | Ce qu'il prouve |
+|---|---|---|
+| T1 | `toPackLine(p, copies(500))` rend `qty === 1` **et** `config.quantity === 500` | la règle elle-même, une fois |
+| T2 | `toPackLine` **préserve** le reste de `config` (`clariprintData`, `clariprintQuote`) | la famille de régression de BCP-10 : le choix ne doit pas être jeté |
+| T3 | pour un forfait à **35 €** et `copies(500)` : `resolveCartLinePricing(...).lineTotalHt === 35` | **le test des 17 500 €**, écrit comme assertion et non comme commentaire |
+| T4 | `computePortalCartTotalHt` de deux lignes configurées = somme des forfaits | le total du panier, pas seulement la ligne |
+| T5 | même produit ajouté deux fois : `qty === 2` et `lineTotalHt === 70` | les paquets **s'additionnent toujours** — garde contre la sur-correction |
+| T6 | `rebuildCartFromOrderItems([{ quantity: 1, clariprint_options: { quantity: 500 } }], …)` rend `qty === 1`, `config.quantity === 500`, `lineTotalHt === forfait` | la quatrième porte |
+| T7 | `rebuildCartFromOrderItems` sur un article `{ quantity: 500 }` — la forme qu'une fuite aurait gravée — rend le comportement **écrit** et non le comportement accidentel | une commande ancienne fautive ne doit pas se propager en silence |
+| T8 | `// @ts-expect-error` sur `addToCart(product, 500)` | le nombre nu ne compile plus |
+| T9 | `// @ts-expect-error` sur `toPackLine(product, ONE_PACK)` | l'unité est vérifiée, pas seulement le type `number` |
+| T10 | `// @ts-expect-error` sur un troisième argument passé à `ShopProductCard.onAddToCart` | le canal retiré ne peut pas revenir |
+
+**Mutations à rejouer par la qa-review — chacune DOIT faire rougir au moins un test nommé.** Une mutation qui laisse la suite verte est un trou dans le filet, et c'est ce constat, pas le test, qui remonte.
+
+| # | Mutation | Doit rougir |
+|---|---|---|
+| M1 | dans `toPackLine`, `qty: ONE_PACK` → `qty: quantity` | T1, T3, T4, T5 |
+| M2 | dans `toPackLine`, retirer l'écriture de `config.quantity` | T1, T2, T6 |
+| M3 | dans `toPackLine`, étaler `config` **après** `quantity` (inversion d'ordre) | T1 |
+| M4 | rendre `copies()` et `packs()` interchangeables (un seul type) | T8, T9, T10 — et **`pnpm typecheck` doit échouer**, pas seulement la suite |
+| M5 | dans `cartPricing.ts:27`, `* line.qty` → `* 1` | T5 |
+| M6 | dans `rebuildCartFromOrderItems`, `qty` ← `clariprint_options.quantity` | T6 |
+| M7 | **réintroduire la normalisation dans `GammePage.handleAdd`** (la troisième copie) | **aucun test unitaire ne la voit** — c'est le trou assumé, couvert par le test d'architecture ci-dessous |
+
+**Un test d'architecture, parce que M7 échappe aux tests unitaires par construction.** Dans `tests/architecture/`, une assertion textuelle stable : **aucun fichier sous `src/modules/*/ui/` autre que `orders/ui/storefront/cartLine.ts` ne construit d'objet portant à la fois une clé `product` et une clé `qty`.** C'est une vérification de texte, avec ses limites : elle doit être **écrite pour échouer sur la forme exacte de M7**, et la qa-review le vérifie en rejouant M7 avant de la déclarer utile. Une règle d'architecture qui ne rougit pas sur la faute qu'elle prétend interdire ne vaut pas la ligne qu'elle occupe.
+
+**(f) Ce que BCP-11 ne fait PAS.**
+
+- **Aucun changement de prix.** Il ne touche ni `priceResolver.ts`, ni `resolvePrice`, ni `estimateMarketPriceHT`, ni `gammeFloorPrices.ts`, ni le badge, ni le plancher. `cartPricing.ts:27` **garde sa formule** : BCP-11 la **prouve**, il ne la modifie pas.
+- **Aucune règle nouvelle.** « Forfait pour N exemplaires, 1 paquet au panier » est S-FIX-PANIER-11/05, en vigueur depuis mai. BCP-11 lui donne un domicile unique et un type ; il ne l'invente pas et ne l'amende pas.
+- **Il reste HORS du périmètre de `PricingEngine` (E10.21)** : aucun calcul, aucune marge, aucun arrondi.
+- **Il ne corrige pas `DEFAULT_OPTIONS`** (Q13, point 3.5 (e)) et ne touche pas au normaliseur.
+- **Il ne déplace pas la famille `cartPricing` / `orderRenewal` vers `orders/application/`** (dette nommée au (c)).
+- **Il ne touche à aucun fichier de `openapi/`.** Voir (h).
+- **Il ne conditionne aucun bouton** : c'est le sujet du point 3.7, mené séparément.
+
+**(g) Conflits de fichiers à arbitrer — dont ceux qui s'ouvriront le jour où BCP-2 sera lançable.**
+
+| Fichier | Ce que BCP-11 y touche | Propriétaire au point 6 | Arbitrage |
+|---|---|---|---|
+| `orders/ui/storefront/cartLine.ts` **(neuf)** | tout | **BCP-11** | libre |
+| `orders/ui/storefront/orderRenewal.helpers.ts` | construction des lignes (`:99-102`) | aucun lot | libre |
+| `orders/ui/storefront/types.ts` | rien aujourd'hui ; `CartLine.qty` **reste `number`** (voir ci-dessous) | aucun lot | libre |
+| `catalog/ui/storefront/gamme/GammePage.tsx` | `:42` (type de prop), `:148-161` (**suppression de la troisième copie**), `:325` | aucun lot — BCP-10 l'a rendu | libre |
+| `catalog/ui/storefront/PortalHome.tsx` | `:32`, `:167` — `onReorder` renommé `onAddToCart`, sans quantité | aucun lot | libre. **Le nom `onReorder` est un mensonge documentaire du même genre que celui du (a)** : il désigne la grille « Nouveautés ». Le corriger coûte deux lignes |
+| `shops/ui/storefront/PublicShop.tsx` | `:185-202`, `:216-224`, `:499`, `:512`, `:533-537` | **BCP-8** (retrait du budget, `:164-172`) | **blocs disjoints.** BCP-11 passe d'abord ; BCP-8 rebase sans conflit de contenu |
+| `catalog/ui/storefront/PortalCatalog.tsx` | **`:51` seule** — le type de la prop | **BCP-2 → 3 → 4** | **BCP-11 passe d'abord**, BCP-2 n'étant pas lançable. Une ligne à reporter |
+| `catalog/ui/storefront/ShopProductCard.tsx` | `:65` (type), `:327`, `:363` — **aucun rendu, aucun prix** | **BCP-4** (bloc prix `:291-312`) et **point 3.7** (bouton « + Panier », `:355-366`) | lignes disjointes de BCP-4. **Le vrai conflit est avec le point 3.7**, qui touche le même bouton : les deux se mènent dans le **même lot** ou, à défaut, 11 avant 14-a |
+
+**La chaîne de séquence du point 6 devient, pour `PortalCatalog.tsx` : 10 → 11 → 2 → 3 → 4.** Pour `ShopProductCard.tsx` : **11 → 14-a → 4**.
+
+**`CartLine.qty` reste `number`, et c'est délibéré.** Le marquer `PackCount` serait plus fort encore, et propagerait le type dans `PortalCart.tsx` (BCP-8), `CheckoutPage.tsx`, `useStorefrontOrderEditor.ts` et `submitCart`. **Le gain est faible** — une fois qu'aucun producteur ne peut y injecter d'exemplaires, `line.qty` ne peut contenir que des paquets — **et le coût est un conflit avec le fichier que BCP-8 possède**. Si Arnaud veut la forme maximale, elle se prend **avec BCP-8**, pas avant lui.
+
+**(h) Contrat : `openapi/magrit-core.v1.yaml` n'est PAS modifié, et voici pourquoi.** Aucun endpoint, aucun schéma. La commande de boutique n'est pas décrite dans ce fichier — il ne porte que `/storefront-quotes` pour la façade acheteur ; la création de commande passe par `OrdersApiClient` et la façade historique. Le panier n'a jamais été une ressource d'API (point 3.5 (k)). **Une seule chose mériterait d'y entrer, et elle n'y entre pas aujourd'hui** : le jour où la commande de boutique deviendra une ressource E10, son champ `quantity` devra porter **en description** l'unité (« nombre de paquets ; le nombre d'exemplaires vit dans `clariprint_options.quantity` »), faute de quoi la confusion réparée ici renaîtra côté intégrateur. **C'est un ajout de description, donc additif et non cassant** — il est **proposé**, pas écrit, et il attend le round de contrat de BCP-1b.
+
+**(i) Faut-il attendre BCP-2 ? NON, et aucun motif technique dirimant ne s'y oppose.**
+
+Arnaud a dit « maintenant » ; ce cadrage devait néanmoins remonter un motif contraire s'il en existait un. **Il n'en existe pas.** Quatre raisons, dans l'ordre de force :
+
+1. **BCP-11 ne dépend de rien de ce qui bloque BCP-2** : ni de la campagne d'appels, ni du contrat BCP-1b, ni du normaliseur. Il ne lit aucune forme canonique.
+2. **Attendre coûterait cher.** BCP-2, BCP-3 et BCP-4 réécrivent `PortalCatalog.tsx` et `ShopProductCard.tsx` en profondeur. Faire passer BCP-11 après reviendrait à typer des signatures que trois lots auront déjà recopiées telles quelles — donc à propager le nombre nu dans du code neuf.
+3. **BCP-2 est bloqué pour une durée que personne ne maîtrise** : la campagne appartient à Arnaud seul (point 6). BCP-11 occupe utilement ce temps mort, comme BCP-10 avant lui.
+4. **Le risque de conflit est minuscule et mesuré** : une ligne de `PortalCatalog.tsx`, trois de `ShopProductCard.tsx`.
+
+**La seule réserve, et elle ne justifie pas d'attendre :** BCP-11 est un lot de **typage**, dont le bénéfice est invisible en recette. Sa recette navigateur ne peut prouver qu'une **non-régression** — geste 4 et geste 5 de la recette de BCP-10 rejoués, plus un ajout depuis la page gamme et un renouvellement de commande, avec le même prix de ligne qu'avant. **La preuve du lot est dans `pnpm typecheck` et dans les dix mutations, pas dans le navigateur.** Une qa-review qui se contenterait de la recette n'aurait rien vérifié.
+
+##### 3.7 Q14 — l'ajout direct au panier n'est offert que si le produit porte les caractéristiques qui l'ont chiffré
+
+**Arbitrage d'Arnaud du 2026-09-16, verbatim :** « Dans la mesure où le produit comporte les caractéristiques ayant permis de le chiffrer il peut être mis au panier tel quel, sinon il faut le configurer. »
+
+**Les deux raccourcis concernés, vérifiés.** BCP-10 ne les a pas touchés, et Arnaud ne veut pas les supprimer : il veut les **conditionner**.
+- **Le bouton « + Panier » des cartes produit** (`ShopProductCard.tsx:355-366`) : ajoute sans passer par la surcouche, sur **toutes** les surfaces qui rendent une carte (accueil, catalogue, gamme).
+- **Le renouvellement de commande** — et **ce n'est pas `PortalHome.tsx:167`** (point 3.6 (a)) : c'est `renewOrder` (`useStorefrontOrderLifecycle.ts:77-111`), atteint par « Commander à nouveau » (`OrderHistoryTable.tsx:1102`), qui **contourne `addToCart`** et écrit directement dans le panier.
+
+**(a) Le critère technique opposable — deux conditions, une fonction, un motif pour chacune.**
+
+La phrase est au passé : « les caractéristiques **ayant permis** de le chiffrer ». Elle demande donc deux choses distinctes, et les confondre produirait un critère faux.
+
+| # | Condition | Énoncé opposable | Motif |
+|---|---|---|---|
+| **C1** | **Configuration chiffrable** | `product.config` porte, **dans les formes canoniques du point 3.2**, ce dont le chiffrage a besoin : format (ou `width`/`height`), support/papier, quantité, recto-verso. Absent ou non canonique → **échec** | C'est **exactement** le verdict que le normaliseur de BCP-2 calcule déjà (« absente → configuration **non chiffrable**, aucune qualité inventée »). **Ce critère ne s'invente pas ici : il s'expose.** En écrire un second serait recréer la faute que BCP-11 répare, un cran plus haut |
+| **C2** | **Prix d'origine imprimeur** | `resolvePrice(product, quote).source ∈ { 'clariprint', 'library_cached' }`. **`prix_marche` et `zero` échouent** | `prix_marche` **porte déjà un badge** et l'infobulle « Estimation Magrit. Le prix définitif est confirmé par l'imprimeur » (point 4 (e)). Autoriser l'ajout « tel quel » d'un prix que la carte elle-même déclare non ferme serait **contredire sur le bouton ce qu'on affirme sur le badge**. `zero` affiche « Prix à la configuration » : sa propre étiquette dit déjà ce qu'il faut faire |
+
+**Où il vit.** Dans **le module du normaliseur de BCP-2**, exporté comme **fonction pure** aux côtés du verdict de chiffrabilité — jamais dans un composant, jamais dupliqué. Signature prescrite :
+
+`canAddAsIs(product, quote): { ok: true } | { ok: false, reason: 'config-incomplete' | 'price-not-firm' }`
+
+**Elle rend un motif, pas un booléen.** Deux raisons : le libellé et le comportement du (b) en dépendent, et une qa-review a besoin d'un tableau de cas, pas d'un `false` unique dont on ne sait pas lequel des deux tests a échoué.
+
+**Qui l'évalue.** `ShopProductCard` l'appelle **une fois** et rend le résultat — il ne re-dérive rien, ne relit ni `price_ht` ni `config`. **Et ce n'est pas une garantie de prix** : c'est une **affordance d'interface**. La fermeté du prix est établie côté serveur au moment du chiffrage, et Q14 **ne crée aucune règle serveur nouvelle**. Écrit ici pour que personne ne lise ce critère comme un contrôle métier posé dans le navigateur — il n'en est pas un, il ne fait que cesser de proposer un geste que le serveur refuserait de valoriser.
+
+**(b) TRANCHÉ : le bouton n'est ni désactivé ni dédoublé — il n'est PAS RENDU quand le critère échoue.**
+
+Les trois comportements possibles ont été instruits.
+
+- **Désactivé avec infobulle** — **écarté**. Un bouton gris sans explication est la famille de défaut qu'Arnaud a déjà tranchée deux fois dans ce chantier : pas de « 0 € », pas de bloc d'options mort. Sur ERAM aujourd'hui, **23 produits sur 30** sont à `price_ht = 0.00` (point 4 (f)) : une boutique où 23 cartes sur 30 portent un bouton gris **a l'air cassée**, et l'infobulle ne se lit pas au tactile.
+- **Le clic ouvre la configuration pré-remplie** — **écarté, malgré son apparence de bon sens**. La carte porte **déjà** un bouton « Configurer » (`ShopProductCard.tsx:318-331`) qui fait exactement cela. Deux boutons de libellés différents produisant le même écran apprennent à l'acheteur que les libellés ne veulent rien dire. C'est la faute même que BCP-10 vient de réparer : *« le même libellé mène à deux écrans différents »* — on ne la répare pas en créant sa symétrique.
+- **Retenu : le bouton « + Panier » n'est pas rendu.** L'acheteur voit alors **un** bouton primaire, « Configurer », c'est-à-dire précisément ce que la phrase d'Arnaud prescrit — « sinon il faut le configurer ».
+
+**Motif côté acheteur, en une phrase : le raccourci est offert quand il est sûr, et simplement pas offert sinon.** L'acheteur n'a jamais su qu'un raccourci existait pour ce produit ; il ne perd rien, et il ne perd surtout pas son temps sur un bouton qui ne l'emmène nulle part. **Précédent dans ce même chantier** : Q3 a tranché « on MASQUE » pour les options sans code Clariprint plutôt que de les montrer inertes (point 3.4).
+
+**Ce que cette décision N'EST PAS.** Elle ne supprime pas le bouton « + Panier » : elle le **conditionne**, conformément à la demande d'Arnaud. Sur un produit conforme — configuration canonique et prix imprimeur — il est rendu exactement comme aujourd'hui et ajoute exactement comme aujourd'hui, via le chemin typé de BCP-11.
+
+**Réserve honnête, à l'attention d'Arnaud** : c'est un choix d'interface, et « désactivé avec libellé explicite » reste défendable si l'on tient à ce que l'acheteur **sache** qu'un raccourci existe ailleurs. Le cadrage tranche pour le masquage ; Arnaud peut le retourner en une phrase, sans que rien d'autre ne bouge.
+
+**(c) Le renouvellement de commande — TRANCHÉ : les caractéristiques priment, le prix se recalcule, et sa perte de fermeté se DIT.**
+
+Le cas est réellement différent, et la mesure le confirme. `rebuildCartFromOrderItems` (`orderRenewal.helpers.ts:90-102`) **fusionne le snapshot `clariprint_options` par-dessus la `config` catalogue courante** : les caractéristiques sont figées. Mais la ligne est ensuite valorisée par `resolveCartLinePricing`, donc **par `resolvePrice` d'aujourd'hui sur le produit d'aujourd'hui**. **Le prix flotte déjà** — ce n'est pas un risque à venir, c'est le comportement en vigueur.
+
+| Condition | Verdict pour le renouvellement | Motif |
+|---|---|---|
+| **C1** (configuration chiffrable) | **réputée remplie, sans être réévaluée** | Ces caractéristiques ont **réellement chiffré une commande réelle**. C'est la définition littérale de la phrase d'Arnaud. Les re-soumettre au critère canonique rendrait **irrenouvelables** des commandes anciennes parfaitement valides — l'audit du 16/09 a trouvé **9 produits dont la forme de `papers` n'est pas canonique** : ce sont exactement ceux qui échoueraient |
+| **C2** (prix ferme) | **ne s'hérite pas, et ne bloque pas** | Le renouvellement n'est pas un ajout « tel quel » : c'est la reprise d'un engagement passé. **Le bloquer parce que le prix a bougé serait punir l'acheteur d'un changement qui n'est pas le sien** |
+
+**Ce qui prime, donc : les caractéristiques.** Le renouvellement **reste autorisé sans condition**. En contrepartie, **une ligne dont la source re-résolue est `prix_marche` ou `zero` produit un avertissement**, un par ligne — **dans le canal qui existe déjà** : `renewalWarnings`, rendu par le bandeau de `PortalCart.tsx:113`. Aucune interface nouvelle, aucune table, aucun endpoint.
+
+**Constat à remonter, hors décision.** `OrderItemRow.unit_price_ht` est **déclaré** (`orderRenewal.helpers.ts:35`) et **jamais lu** — vérifié. Comparer le prix re-résolu au prix payé à l'origine, et le dire à l'acheteur (« ce produit était à 35 €, il est aujourd'hui à 38 € »), coûterait quelques lignes et utiliserait un champ déjà transporté. **Ce cadrage ne le tranche pas** : c'est une règle de prix, donc du territoire de BCP-4 et, à terme, de `PricingEngine` (E10.21). **Inscrit comme proposition à Arnaud, pas comme prescription.**
+
+**(d) La dépendance réelle — réponse franche : Q14 n'est PAS implémentable en entier avant la campagne, et la moitié qui l'est vaut déjà d'être prise.**
+
+| Condition | Implémentable aujourd'hui ? | Pourquoi |
+|---|---|---|
+| **C2** (source du prix) | **OUI, sans rien attendre** | `resolvePrice` existe (`priceResolver.ts:133`) et rend déjà `source` parmi `clariprint`, `library_cached`, `prix_marche`, `zero`. Aucune dépendance à la campagne, au contrat ni au normaliseur |
+| **C1** (configuration chiffrable) | **NON** | Elle est le verdict du normaliseur de **BCP-2**, qui dépend de BCP-1b, donc du contrat, donc de **la campagne d'appels réels chez l'imprimeur — que personne n'a jouée et qui n'appartient qu'à Arnaud** (point 6). **Pire** : l'audit du 2026-09-16 (`80c4c39d`, `story-BCP-2-audit.md`) a trouvé sur 131 produits de production **8 valeurs de `kind` sans mappage** et **9 produits dont la forme de `papers` n'est pas canonique**, ce qui a **déclenché la clause « une forme non prévue rouvre ce cadrage »**. La frontière exacte du prédicat **n'est pas connaissable aujourd'hui** : l'écrire maintenant reviendrait à figer une forme canonique que l'audit a déjà démontrée fausse sur 9 produits |
+
+**Découpage prescrit, en conséquence :**
+
+- **Q14-a — MAINTENANT.** **C2 seule.** `canAddAsIs` est écrite avec sa signature définitive et ne rend, pour l'instant, que `'price-not-firm'`. Elle est appelée par `ShopProductCard`, qui rend ou ne rend pas « + Panier ». **Aucun site d'appel n'aura à être réécrit quand C1 arrivera.** Q14-a règle déjà le pire cas — un produit à `zero` ou à estimation ajouté « tel quel », que l'acheteur commande sans qu'aucun imprimeur n'ait jamais vu sa configuration.
+- **Q14-b — APRÈS BCP-2.** **C1**, branchée sur le verdict du normaliseur, **sans le réécrire**. Le prédicat gagne son second motif, `'config-incomplete'`. Rien d'autre ne bouge.
+- **Le renouvellement (c)** : implémentable **maintenant**, il ne dépend que de `resolvePrice` et d'un canal d'avertissement existant.
+
+**Avertissement de séquence, à ne pas manquer.** L'effet de Q14-a sur ERAM dépend entièrement de **la correction humaine des données** (point 4 (f), 23 produits sur 30 à `price_ht = 0.00`, geste d'Arnaud ou de l'imprimeur dans l'écran de tarification). **Avant cette correction, Q14-a masque « + Panier » sur 23 cartes sur 30**, ce qui ressemblera à une régression pour quiconque ignore pourquoi. **Q14-a se livre donc après la correction des données, ou le même jour** — et sa recette ne se lit pas autrement. Après correction, ces produits passent en `library_cached` : le bouton revient.
+
+**(e) Ce que Q14 ne fait pas.** Aucun changement de prix, aucun changement de hiérarchie, aucun appel Clariprint nouveau, aucun endpoint. Il ne touche pas au normaliseur (il le **consomme**), ne corrige pas `DEFAULT_OPTIONS` (Q13), et ne modifie pas `openapi/magrit-core.v1.yaml` : c'est une condition d'affichage d'un bouton, et le panier n'est pas une ressource d'API.
+
 #### 4. Lot 4 — la règle exacte de `resolvePrice` dans la boutique
 
 **Règle générale : tout prix montré à l'acheteur sort de `resolvePrice(product, clariprintQuote)`** (`priceResolver.ts:133`). Aucun composant ne lit `price_ht` directement, et la hiérarchie n'est pas modifiée. La règle d'affichage est une **fonction pure**, « résolution → texte + badge », testée cas par cas. Elle est partagée par les trois emplacements ci-dessous.
@@ -5217,6 +5429,9 @@ Ce sont les cinq valeurs du prompt. **Les libellés sont une proposition**, vali
 | **BCP-8** | 8 — panier, budget | BCP-5 et BCP-7 (même fichier), Q5 pour la ligne livraison | `PortalCart.tsx`, `ShopLayout.tsx`, `PublicShop.tsx`, `PortalChrome.tsx` |
 | **BCP-9** | 9 — libellé acheteur | BCP-6 (même fichier) | `ShopLayout.tsx` (une ligne) |
 | **BCP-10** | — alignement des deux parcours de configuration (décision d'Arnaud du 2026-09-16, point 3.5) : surcouche unique hôtée par `PublicShop`, fiche produit descriptive, bloc d'options mort supprimé, coins gelés | **rien** — ni campagne, ni contrat, ni normaliseur. **Lançable tout de suite.** Conflits de fichiers seulement (ci-dessous) | `PublicShop.tsx` (hôte unique + prop `onConfigure`), `PortalProduct.tsx`, `PortalCatalog.tsx`, `PortalHome.tsx`, `GammePage.tsx`, `PortalCategoryLanding.tsx`, `ShopProductCard.tsx` (câblage seul), `testIds.ts`, la fonction pure « résolution → texte + badge » du point 4 |
+| **BCP-11** | — la règle du paquet enfin à un seul endroit (décision d'Arnaud du 2026-09-16, point 3.6) : fonction pure `toPackLine` dans le module `orders`, unités typées (`CopyCount` / `PackCount`), troisième copie de `GammePage` supprimée, quatrième porte (renouvellement) refermée sur le même constructeur | **rien** — ni campagne, ni contrat, ni normaliseur. **Lançable tout de suite**, et **à passer avant BCP-2** | `src/modules/orders/ui/storefront/cartLine.ts` **(neuf)**, `orderRenewal.helpers.ts`, `GammePage.tsx`, `PortalHome.tsx`, `PublicShop.tsx` (portes du panier), `PortalCatalog.tsx` (**ligne 51 seule**), `ShopProductCard.tsx` (**type de prop et deux appels, aucun rendu**), le test d'architecture « une seule fabrique de `CartLine` » |
+| **Q14-a** | — ajout direct conditionné, **moitié faisable** (point 3.7) : « + Panier » n'est rendu que si `resolvePrice(...).source ∈ {clariprint, library_cached}` ; avertissement de prix non ferme au renouvellement | BCP-11 (même bouton) ; **la correction humaine des données ERAM**, sans quoi le bouton disparaît de 23 cartes sur 30 | prédicat `canAddAsIs` (signature définitive, un seul motif rendu), `ShopProductCard.tsx` (`:355-366`), `useStorefrontOrderLifecycle.ts` (avertissements de renouvellement) |
+| **Q14-b** | — seconde condition : configuration chiffrable, branchée sur le **verdict du normaliseur** et non réécrite | **BCP-2**, donc BCP-1b, donc **la campagne** | le prédicat gagne son motif `'config-incomplete'` ; **aucun site d'appel n'est réécrit** |
 | *Clôture* | smoke E2E rejoué | tous | — |
 
 **Réponse à « le lot 2 dépend-il des lots 1 et 4 ? »** Oui du lot 1, entier : de BCP-1a pour les formes, de BCP-1b pour la barrière. **Non du lot 4 dans le code.** Le lot 4 ne fait qu'afficher ce que le lot 2 chiffre. Seul le smoke de clôture exige les deux.
@@ -5235,7 +5450,8 @@ Ce sont les cinq valeurs du prompt. **Les libellés sont une proposition**, vali
 **Verdict : BCP-2 n'est pas lançable.** Il dépend de BCP-1b pour la barrière, donc du contrat, donc de la campagne — que personne n'a jouée. **Le chemin critique n'est pas Q3 : c'est la campagne d'appels réels chez l'imprimeur, qui n'appartient qu'à Arnaud.** Un dev-story qui commencerait BCP-2 maintenant écrirait un normaliseur sans le serveur qui le fait respecter, c'est-à-dire exactement le défaut du smoke : une charge fautive partant sans que rien ne la refuse.
 
 **Ordre par défaut : celui d'Arnaud.** Trois conflits de fichiers imposent leur propre séquence :
-- `PortalCatalog.tsx` : **10 → 2 → 3 → 4** ;
+- `PortalCatalog.tsx` : **10 → 11 → 2 → 3 → 4** — BCP-11 n'y touche que la **ligne 51** (type de prop) ;
+- `ShopProductCard.tsx` : **11 → 14-a → 4** — BCP-11 y touche le type de prop et deux appels, Q14-a la condition de rendu du bouton, BCP-4 le bloc prix (`:291-312`). Trois zones disjointes, une seule séquence ;
 - `PortalProduct.tsx` : **10 → 2** — et après 10, il ne reste presque rien à y faire pour 2 ;
 - `PortalCart.tsx` : 5 → 7 → 8 ;
 - `ShopLayout.tsx` : 6 → 9 → 8.
@@ -5289,6 +5505,8 @@ Ce sont les cinq valeurs du prompt. **Les libellés sont une proposition**, vali
    - aucune carte à 0 €, aucun « dès 1,00 € » ;
    - les dimensions sont justes en mm, aucune finition n'apparaît en code ;
    - **aucune option « dorure » ni « soft-touch » n'est proposée**, sur aucune des surfaces du point 3.4 (a) — **quatre avant BCP-10, trois après** —, et **aucune finition autre que `aucun` n'est présélectionnée** à l'ouverture de la configuration (point 3.5 (d)) ;
+   - **le total d'une ligne de panier est le FORFAIT du paquet**, jamais le forfait multiplié par le nombre d'exemplaires — vérifié sur un produit ajouté depuis la surcouche, depuis la page gamme et par renouvellement d'une commande, avec le **même** total de ligne dans les trois cas (BCP-11, point 3.6) ;
+   - **« + Panier » n'apparaît que sur les produits dont le prix vient de l'imprimeur** (`clariprint` ou `library_cached`) ; sur les autres, l'acheteur ne voit que « Configurer » (Q14-a, point 3.7) ;
    - le panier est en HT par ligne, sans budget, et le tiroir est fermé au checkout ;
    - les libellés de remerciement et de « Mes commandes » sont conformes ;
    - l'`aria-label` du compte est conforme.
@@ -5297,7 +5515,7 @@ Ce sont les cinq valeurs du prompt. **Les libellés sont une proposition**, vali
 
 #### 9. Ce qui remonte à Arnaud
 
-**État au 2026-09-15, second round** : Q1, Q2 et Q7 sont tranchées. Q3, Q4, Q5, Q6 et Q8 ne sont **pas arbitrées**, et leurs recommandations par défaut tiennent jusqu'à leur arbitrage, posé au moment du lot concerné. Q9 et Q10, nées de la décision Q2, sont tranchées au troisième round. Q11 naît du cadrage de BCP-0b.
+**État au 2026-09-15, second round** : Q1, Q2 et Q7 sont tranchées. Q3, Q4, Q5, Q6 et Q8 ne sont **pas arbitrées**, et leurs recommandations par défaut tiennent jusqu'à leur arbitrage, posé au moment du lot concerné. Q9 et Q10, nées de la décision Q2, sont tranchées au troisième round. Q11 naît du cadrage de BCP-0b. **Complété au 2026-09-16** : Q3 et Q12 sont tranchées (sixième et septième rounds), Q13 naît du cadrage de BCP-10, et **Q14 est tranchée au huitième round** (point 3.7). **Q14 est la seule question de ce tableau dont l'application est COUPÉE EN DEUX** : sa moitié faisable passe maintenant, sa moitié bloquée attend la campagne.
 
 | # | Question | État, ou ce qu'elle bloque | Décision, ou recommandation |
 |---|---|---|---|
@@ -5313,6 +5531,7 @@ Ce sont les cinq valeurs du prompt. **Les libellés sont une proposition**, vali
 | **Q11** | **Un plafond quotidien propre à l'atelier (L3a)**, et la validation de l'étage membre à 120 par 10 min. L'exemption de L3 se contourne, puisque compte et espace se créent en libre-service (point 2.3bis (4)) | ne bloque pas BCP-0b. Sans L3a, la facture de la voie atelier n'est bornée que par le nombre de comptes | un plafond quotidien pour l'atelier, dont la valeur se fixe contre le prix d'un appel. À défaut, restreindre l'exemption aux espaces vérifiés, selon un critère à définir |
 | **Q12** | **Le bloc d'options de la fiche produit est décoratif** : `PortalProduct.tsx:446` passe `selectedOpts`, mais `addToCart` (`PublicShop.tsx:176`) n'a que deux paramètres et le jette. Papier, finition et coins choisis là n'atteignent ni le chiffrage, ni le panier, ni la commande (point 3.4 (e)) | **TRANCHÉE le 2026-09-16 : on aligne les deux parcours sur la surcouche**, conformément à la recommandation, et **le bloc est retiré**. En l'instruisant, le défaut s'est révélé bien plus large que « l'accueil » : **cinq chemins d'entrée sur six** mènent à la fiche et à son bloc mort | la surcouche devient la seule surface de configuration ; la fiche produit **survit** comme fiche descriptive avec son URL `/p/:id` et son référencement ; `addToCart` garde sa signature ; les coins sont **gelés**, faute de code Clariprint. **Règle complète, hôte unique, périmètre des prix et recette : point 3.5.** C'est BCP-10 |
 | **Q13** | **La surcouche invente deux valeurs par défaut**, sur l'écran même vers lequel les parcours convergent : `DEFAULT_OPTIONS` pose `format: "A5"` et `paper: "135g"` quand la configuration stockée est muette (`ProductOverlay.helpers.ts:223-231`, repli en `:247-257`). Même famille de faute que `finish: 'Soft touch'` | ne bloque pas BCP-10, qui **ne les corrige pas** (point 3.5 (e)). **Conséquence à ne pas contourner** : la recette de BCP-10 prouve l'alignement des parcours, **pas** le respect complet de Q3 | les traiter dans **BCP-2**, par la règle déjà opposable du point 3.2 (« absente → configuration non chiffrable, aucune valeur inventée »). Les corriger avant demanderait le normaliseur, donc BCP-1b, donc la campagne |
+| **Q14** | **L'ajout direct au panier, qui contourne la surcouche** : le bouton « + Panier » des cartes (`ShopProductCard.tsx:355-366`) et le renouvellement de commande (`renewOrder`, `useStorefrontOrderLifecycle.ts:77-111` — **et non `PortalHome.tsx:167`**, qui est la grille « Nouveautés » sous une prop mal nommée). BCP-10 ne les a pas touchés | **TRANCHÉE le 2026-09-16.** Verbatim d'Arnaud : **« Dans la mesure où le produit comporte les caractéristiques ayant permis de le chiffrer il peut être mis au panier tel quel, sinon il faut le configurer. »** Arnaud ne veut **pas** les supprimer : il veut les **conditionner** | critère à deux conditions — **C1** configuration chiffrable (verdict du normaliseur de BCP-2) **et** **C2** prix d'origine imprimeur (`source ∈ {clariprint, library_cached}`) — exposé en **une fonction pure rendant un motif**, jamais un booléen recalculé dans le JSX. Critère non rempli → **le bouton n'est pas rendu** (ni désactivé, ni dédoublé) : l'acheteur ne voit que « Configurer », ce que la phrase prescrit. **Le renouvellement échappe à C2** : les caractéristiques priment, le prix se recalcule, et sa perte de fermeté se dit dans le bandeau existant. **C1 n'est PAS implémentable avant la campagne** — d'où **Q14-a** (C2, maintenant, après la correction des données ERAM) et **Q14-b** (C1, après BCP-2). **Règle complète, motifs et découpage : point 3.7** |
 | **Q8** | *Pour information, hors chantier* : le chiffrage est montré à l'acheteur **sans marge** (point 1 (4)) ; le fournisseur, affiché aujourd'hui à l'acheteur, **disparaît** en BCP-1b ; la zone de livraison `FR-75` est codée en dur dans tous les chiffrages, qui incluent donc une livraison à Paris | rien | à inscrire au backlog |
 
 #### 10. État des gates
@@ -5328,6 +5547,8 @@ Ce sont les cinq valeurs du prompt. **Les libellés sont une proposition**, vali
 **Cinquième round (BCP-0c, routes de diagnostic)** : même état. `openapi/magrit-core.v1.yaml` est inchangé. L'ajout du 403 à `docs/architecture/api/openapi.yaml` est un livrable de BCP-0c, dans le même commit que son code.
 
 **Septième round (Q12 tranchée, alignement des deux parcours de configuration — BCP-10)** : même état. **Aucune ligne d'`openapi/magrit-core.v1.yaml` ni de `src/`** — seul ce document change. Le motif est écrit au point 3.5 (k) : BCP-10 n'ajoute, ne modifie ni ne retire aucun endpoint et aucun schéma ; la configuration voyage dans un champ qui la porte déjà, le chiffrage emprunte la route existante, et le panier n'a jamais été une ressource d'API. Le lot **retire** un appelant de la route de chiffrage (la fiche cesse d'appeler Clariprint) et n'en ajoute aucun : c'est neutre pour le contrat comme pour le limiteur de débit entré en production le 2026-09-16 au matin. **Aucune dérogation R5 nouvelle.**
+
+**Huitième round (BCP-11, la règle du paquet ; Q14, l'ajout direct conditionné)** : même état. **Aucune ligne d'`openapi/magrit-core.v1.yaml` ni de `src/`** — seul ce document change. Motif écrit au point 3.6 (h) : BCP-11 n'ajoute, ne modifie ni ne retire aucun endpoint et aucun schéma ; la commande de boutique **n'est pas décrite dans ce fichier** (il ne porte, pour la façade acheteur, que `/storefront-quotes`), et le panier n'a jamais été une ressource d'API. Q14 est une **condition d'affichage d'un bouton**, sans effet de contrat. **Une seule chose est PROPOSÉE et non écrite** : le jour où la commande de boutique deviendra une ressource E10, son champ `quantity` devra porter **en description** son unité — « nombre de paquets ; le nombre d'exemplaires vit dans `clariprint_options.quantity` » —, faute de quoi la confusion réparée par BCP-11 renaîtrait côté intégrateur. C'est **additif, donc non cassant**, et cela attend le round de contrat de BCP-1b. **Aucune dérogation R5 nouvelle.** Une dette est en revanche **nommée** au point 3.6 (c) : `cartPricing.ts`, `orderRenewal.helpers.ts` et le nouveau `cartLine.ts` sont du métier pur logés sous `ui/storefront/` plutôt que sous `orders/application/` ; les déplacer toucherait `PortalCart.tsx`, que BCP-8 possède, et n'appartient donc à aucun lot de ce chantier.
 
 **Sixième round (Q3 tranchée, masquage dorure et soft-touch)** : même état. **Aucune ligne d'`openapi/magrit-core.v1.yaml` ni de `src/`** — seul ce document change. C'est cohérent : le contrat de chiffrage n'est pas encore écrit (il attend la campagne, point 2.1), et il ne décrira de toute façon **que les formes canoniques du point 3.2**, où ni `dorure` ni `soft-touch` ne figurent. **Le masquage ne retire donc rien du contrat : il retire une option d'interface qui n'y est jamais entrée.** Aucune dérogation R5 nouvelle.
 

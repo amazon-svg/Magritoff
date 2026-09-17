@@ -7,6 +7,7 @@ import {
   rebuildCartFromOrderItems,
   type OrderItemRow,
 } from '@/modules/orders/ui/storefront/orderRenewal.helpers';
+import { resolveCartLinePricing } from '@/modules/orders/ui/storefront/cartPricing';
 import type { ShopProduct } from '@/modules/shops/ui/runtime/ShopsContext';
 
 function makeProduct(overrides: Partial<ShopProduct>): ShopProduct {
@@ -130,5 +131,66 @@ describe('rebuildCartFromOrderItems', () => {
     const items = [makeItem({ product_id: null, product_label: null })];
     const r = rebuildCartFromOrderItems(items, []);
     expect(r.warnings[0]).toContain('Produit sans libellé');
+  });
+
+  // BCP-11 (docs/api/CONVENTIONS.md §8.25 point 3.6 (e)) — quatrième porte.
+
+  it('T6 — clariprint_options.quantity present : reconstruit LE nombre de paquets commande (pas fige a 1), exemplaires dans config.quantity', () => {
+    // BCP-11 round 2 (qa-review, defaut 1) : quantity=2 ICI, pas 1. Round 1
+    // figeait qty a ONE_PACK sans condition dans toPackLine, un test avec
+    // quantity=1 ne pouvait pas voir la difference (1 ou fige a 1, meme
+    // resultat). Un acheteur ayant commande 2 paquets a 70 EUR retrouvait
+    // 1 paquet a 35 EUR apres un renouvellement, sans avertissement.
+    const items = [
+      makeItem({
+        product_id: 'prod-1',
+        quantity: 2,
+        clariprint_options: { quantity: 500 },
+        unit_price_ht: 35,
+      }),
+    ];
+    const products = [makeProduct({ id: 'prod-1', price_ht: 35 })];
+    const r = rebuildCartFromOrderItems(items, products);
+    expect(r.lines).toHaveLength(1);
+    expect(r.lines[0].qty).toBe(2);
+    expect((r.lines[0].product.config as any).quantity).toBe(500);
+    expect(resolveCartLinePricing(r.lines[0]).lineTotalHt).toBe(70);
+  });
+
+  it('T6b — clariprint_options.quantity present avec quantity=1 (cas normal, un seul paquet)', () => {
+    const items = [
+      makeItem({
+        product_id: 'prod-1',
+        quantity: 1,
+        clariprint_options: { quantity: 500 },
+        unit_price_ht: 35,
+      }),
+    ];
+    const products = [makeProduct({ id: 'prod-1', price_ht: 35 })];
+    const r = rebuildCartFromOrderItems(items, products);
+    expect(r.lines).toHaveLength(1);
+    expect(r.lines[0].qty).toBe(1);
+    expect((r.lines[0].product.config as any).quantity).toBe(500);
+    expect(resolveCartLinePricing(r.lines[0]).lineTotalHt).toBe(35);
+  });
+
+  it('T7 — quantity suspecte SANS clariprint_options.quantity : pas de reinterpretation silencieuse en exemplaires', () => {
+    // Forme qu'une fuite d'exemplaires dans tenant_order_items.quantity aurait
+    // gravee AVANT ce lot (aucun signal clariprint_options.quantity separe).
+    // Le residu doit rester VISIBLE (paquets = 500, total visiblement faux),
+    // jamais "reparé" en silence en le relisant comme un CopyCount.
+    const items = [
+      makeItem({
+        product_id: 'prod-1',
+        quantity: 500,
+        clariprint_options: null,
+        unit_price_ht: 35,
+      }),
+    ];
+    const products = [makeProduct({ id: 'prod-1', price_ht: 35 })];
+    const r = rebuildCartFromOrderItems(items, products);
+    expect(r.lines).toHaveLength(1);
+    expect(r.lines[0].qty).toBe(500);
+    expect(resolveCartLinePricing(r.lines[0]).lineTotalHt).toBe(35 * 500);
   });
 });
