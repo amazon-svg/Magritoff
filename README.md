@@ -114,19 +114,33 @@
   pnpm db:seed:ux
   ```
 
-  Sans argument, la commande crée **100 clients** et **200 commandes** dans le
-  tenant `pressetout`. Pour choisir le tenant et les volumes :
+  Sans argument, la commande crée trois tenants (`pressetout`,
+  `atelier-lumiere`, `imprimerie-du-parc`), deux boutiques par tenant, puis
+  **100 clients** et **200 commandes par tenant**. Elle crée aussi le compte
+  local `demo@magrit.local` (mot de passe `magrit-demo`), administrateur des
+  trois espaces, ainsi que trois utilisateurs par tenant :
+
+  - `commandes.<tenant>@magrit.local` avec l'option Commandes ;
+  - `boutiques.<tenant>@magrit.local` avec l'option Boutiques ;
+  - `equipe.<tenant>@magrit.local` sans option fonctionnelle.
+
+  Tous les comptes de démonstration utilisent le mot de passe `magrit-demo`.
+
+  Pour choisir un seul tenant et les volumes, ou changer les volumes du jeu
+  multi-tenant :
 
   ```bash
   pnpm db:seed:ux <tenant-slug> <nombre-clients> <nombre-commandes>
+  pnpm db:seed:ux --all <nombre-clients-par-tenant> <nombre-commandes-par-tenant>
 
   # Exemple
   pnpm db:seed:ux pressetout 250 500
   ```
 
-  Le tenant ciblé doit déjà posséder au moins un administrateur et une
-  boutique. Le générateur est réservé à la base locale et peut être relancé :
-  ses identifiants déterministes évitent de dupliquer les mêmes fixtures. Les
+  Le générateur est autonome : il crée au besoin les comptes Auth, les tenants,
+  leurs membres, leurs options et leurs boutiques. Il est réservé à la base
+  locale et peut être relancé : ses
+  identifiants déterministes évitent de dupliquer les mêmes fixtures. Les
   données produites couvrent plusieurs types de clients, statuts, boutiques et
   dates pour tester les recherches, filtres, paginations et listes denses.
 
