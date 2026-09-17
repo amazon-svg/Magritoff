@@ -62,11 +62,15 @@ export interface ShopProductCardProps {
   /** Boutique courante : utilise pour theming (primaryColor) + tenant scoping mockup. */
   shop: Shop;
   /**
-   * Handler bouton "Configurer & ajouter" (CTA primary). Optionnel.
-   * En S2.3 MVP, le caller le fait pointer vers onAddToCart direct.
-   * En S2.4, ouvrira l'overlay Clariprint.
+   * Handler bouton "Configurer" (CTA primary) : ouvre la surcouche
+   * `ProductOverlay` (BCP-10). REQUIS depuis Q14-a round 2 (docs/api/CONVENTIONS.md
+   * §8.25 point 3.7, réserve "repli sur onAddToCart", tranchée le
+   * 2026-09-17) : le repli silencieux sur `onAddToCart` masquait un défaut
+   * de câblage sans qu'aucun test ne le voie — les trois appelants
+   * (`PortalCatalog.tsx`, `PortalHome.tsx`, `GammePage.tsx`) le passent déjà
+   * tous en prop obligatoire, vérifié.
    */
-  onConfigure?: (product: ShopProduct) => void;
+  onConfigure: (product: ShopProduct) => void;
   /**
    * Handler bouton secondaire "Ajouter au panier" rapide. Requis.
    *
@@ -349,18 +353,17 @@ export function ShopProductCard({
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5">
-            {/* CTA primary (S2.3 placeholder pour S2.4 overlay) */}
+            {/* CTA primary : ouvre la surcouche de configuration (BCP-10).
+                Q14-a round 2 : `onConfigure` est desormais OBLIGATOIRE, le
+                repli sur `onAddToCart` a disparu (aucun site d'appel ne
+                pouvait plus l'atteindre — les trois appelants le passent). */}
             <button
               type="button"
               data-testid={TEST_IDS.shop.productCardConfigureBtn}
               aria-label={`Configurer et ajouter ${product.name}`}
               onClick={(e) => {
                 e.stopPropagation();
-                if (onConfigure) {
-                  onConfigure(product);
-                } else {
-                  onAddToCart(product);
-                }
+                onConfigure(product);
               }}
               className="px-3 py-1.5 bg-ink text-paper rounded-md hover:bg-black transition-all"
               style={{ fontSize: "12.5px", fontWeight: 500 }}

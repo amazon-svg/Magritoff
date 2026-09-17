@@ -337,6 +337,12 @@ export const TEST_IDS = {
     orderRenewBtn: 'shop-order-renew-btn',
     cartRenewalWarningsBanner: 'shop-cart-renewal-warnings-banner',
     cartRenewalWarningsDismissBtn: 'shop-cart-renewal-warnings-dismiss-btn',
+    // Q14-a round 2 (docs/api/CONVENTIONS.md §8.25 point 3.7 (c-bis)) — le
+    // bandeau de renouvellement se scinde en deux sections, jamais un seul
+    // titre pour "non ajouté" et "prix non ferme". Valeurs fixees par le
+    // cadrage (architecte), pas le prefixe habituel "shop-".
+    cartRenewalNotAddedSection: 'cart-renewal-not-added-section',
+    cartRenewalPriceNotFirmSection: 'cart-renewal-price-not-firm-section',
     // S3.4 (Sprint 5, 2026-05-23) : annulation commande draft + modal AlertDialog.
     orderCancelBtn: 'shop-order-cancel-btn',
     // 2026-07-08 : édition commande draft (acheteur) — miroir éditeur de devis.

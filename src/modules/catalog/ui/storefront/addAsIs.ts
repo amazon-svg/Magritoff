@@ -23,13 +23,20 @@
  * une configuration incomplète.
  *
  * **Ce n'est pas une garantie de prix, c'est une affordance d'interface**
- * (point 3.7 (a), "Qui l'évalue") : la fermeté du prix est établie côté
- * serveur au moment du chiffrage. Ce fichier ne crée aucune règle serveur
- * nouvelle — il cesse seulement de proposer un geste que le serveur ne
- * valoriserait pas comme définitif. Un contournement direct de l'API
- * (bouton HTML forgé, appel direct à la création de commande) n'est PAS
- * empêché par ce module : seule l'API/la base font foi sur ce qu'une
- * commande peut valoriser.
+ * (point 3.7 (a), "Qui l'évalue"). **CORRIGÉ le 2026-09-17 (constat de la
+ * qa-review de Q14-a round 1, vérifié par l'architecte, point 3.7 (a) et
+ * (g)) : la phrase d'origine, « la fermeté du prix est établie côté serveur
+ * au moment du chiffrage », était FAUSSE.** Le serveur **ne revalorise pas**
+ * le prix d'une commande boutique : `api_create_storefront_order` accepte
+ * le `unitPriceHt` que le navigateur lui envoie et se contente de refuser
+ * `unit_price_ht < 0` (`20260817000100_storefront_order_identity.sql`),
+ * sans le rapprocher de `product_library.price_ht` ni de
+ * `shop_product_pricing`. **Ce module ne crée et ne corrige aucune règle
+ * serveur** — il cesse seulement de proposer un geste que l'interface juge
+ * imprudent. Un contournement direct de l'API (bouton HTML forgé, appel
+ * direct à la création de commande) n'est PAS empêché par ce module, et ne
+ * l'a jamais été : cette dette est nommée et remontée à Arnaud sous
+ * **Q17** (point 9 du cadrage), pas traitée ici.
  *
  * Où il vit : `src/modules/catalog/ui/storefront/addAsIs.ts`, à côté de
  * `productPriceDisplay.ts` (BCP-10), et non dans
@@ -40,7 +47,7 @@
  * module clariprint (point 3.7 (a), "Précision du 2026-09-17").
  */
 
-import { resolvePrice } from '@/modules/clariprint/ui/helpers';
+import { resolvePrice, type PriceResolution } from '@/modules/clariprint/ui/helpers';
 import type { ClariprintQuoteResult } from '@/modules/clariprint';
 import type { ShopProduct } from '@/modules/shops';
 
@@ -70,16 +77,39 @@ export const ADD_AS_IS_REASON_LABELS: Readonly<Record<AddAsIsReason, string>> = 
 };
 
 /**
+ * Liste BLANCHE, jamais liste noire (réserve non bloquante de la qa-review
+ * round 1) : seules les deux sources qui garantissent une origine imprimeur
+ * rendent `true`. Une liste noire (`!== 'prix_marche' && !== 'zero'`) serait
+ * équivalente tant que `PriceSource` compte quatre valeurs, mais rendrait
+ * `true` par défaut si un cinquième membre apparaissait un jour (bug de
+ * `resolvePrice`, évolution future) — l'inverse du principe « échec fermé »
+ * de ce module. La liste blanche rend `false` par défaut.
+ */
+export function isFirmPriceSource(source: PriceResolution['source']): boolean {
+  return source === 'clariprint' || source === 'library_cached';
+}
+
+/**
  * C2 seule (Q14-a). `product` et `quote` sont exactement les arguments de
  * `resolvePrice` : ce prédicat ne recalcule rien, il expose le verdict déjà
  * calculé par la hiérarchie de prix existante.
+ *
+ * **Réserve de la qa-review round 1, tranchée par l'architecte (point 3.7
+ * (b-ter), "Réserves") : un devis Clariprint réussi à `priceHT: 0` échoue
+ * TOUJOURS, quelle que soit la source.** Un prix à 0 € actif contredirait la
+ * règle « jamais 0 € » du point 4 — c'est `BCP-4` qui doit, lui, empêcher
+ * `resolvePrice` de rendre `clariprint` sur un prix nul ; ce module se
+ * protège en attendant, par une garde explicite plutôt que d'en dépendre.
  */
 export function canAddAsIs(
   product: ShopProduct,
   quote: ClariprintQuoteResult | null,
 ): AddAsIsEligibility {
   const resolution = resolvePrice(product, quote);
-  if (resolution.source === 'clariprint' || resolution.source === 'library_cached') {
+  if (resolution.priceHT <= 0) {
+    return { ok: false, reason: 'price-not-firm' };
+  }
+  if (isFirmPriceSource(resolution.source)) {
     return { ok: true };
   }
   return { ok: false, reason: 'price-not-firm' };

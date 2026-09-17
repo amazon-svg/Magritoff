@@ -50,6 +50,69 @@ import type { CartLine } from '@/modules/orders/ui/storefront/types';
 import { copies, packLine, packs, toPackLine } from '@/modules/orders/ui/storefront/cartLine';
 
 /**
+ * Q14-a round 2 (docs/api/CONVENTIONS.md §8.25 point 3.7 (c-bis)) — défaut D1
+ * de la qa-review, corrigé par l'architecte.
+ *
+ * `PortalCart.tsx` titrait TOUT le bandeau de renouvellement « N produit(s)
+ * indisponible(s) (non ajouté(s) au panier) », y compris les avertissements
+ * de prix non ferme que Q14-a round 1 y avait versés : une ligne
+ * effectivement AJOUTÉE au panier s'affichait comme non ajoutée. La faute
+ * était au cadrage, qui prescrivait le canal sans lire son titre.
+ *
+ * Deux catégories, jamais un seul titre pour les deux : cette fonction pure
+ * rend les sections non vides, DANS CET ORDRE (non ajoutés, puis prix non
+ * ferme), avec leurs textes déjà composés. `PortalCart` ne compose AUCUN
+ * texte : il ne fait que parcourir le tableau rendu ici.
+ */
+export type RenewalBannerSectionKind = 'not-added' | 'price-not-firm';
+
+export interface RenewalBannerSection {
+  kind: RenewalBannerSectionKind;
+  /** Titre de la section — accordé au singulier/pluriel selon le nombre d'items. */
+  title: string;
+  /** Phrase secondaire sous le titre — seulement pour 'price-not-firm'. */
+  detail?: string;
+  items: readonly string[];
+}
+
+/**
+ * Reprend mot pour mot l'infobulle du badge « Prix marché » (point 4 (e) du
+ * cadrage) : la même phrase partout où le prix n'est pas définitif.
+ */
+const PRICE_NOT_FIRM_DETAIL =
+  "Le prix définitif est confirmé par l'imprimeur à la validation de la commande.";
+
+export function renewalBannerSections(
+  notAdded: readonly string[],
+  priceNotFirm: readonly string[],
+): RenewalBannerSection[] {
+  const sections: RenewalBannerSection[] = [];
+
+  if (notAdded.length > 0) {
+    const n = notAdded.length;
+    sections.push({
+      kind: 'not-added',
+      // Libellé INCHANGÉ (sens d'origine S3.3) : c'est la même phrase que le
+      // bandeau à une seule section rendait avant ce lot.
+      title: `${n} produit${n > 1 ? 's' : ''} indisponible${n > 1 ? 's' : ''} (non ajouté${n > 1 ? 's' : ''} au panier)`,
+      items: notAdded,
+    });
+  }
+
+  if (priceNotFirm.length > 0) {
+    const n = priceNotFirm.length;
+    sections.push({
+      kind: 'price-not-firm',
+      title: `${n} produit${n > 1 ? 's' : ''} ajouté${n > 1 ? 's' : ''} au panier avec un prix non définitif`,
+      detail: PRICE_NOT_FIRM_DETAIL,
+      items: priceNotFirm,
+    });
+  }
+
+  return sections;
+}
+
+/**
  * DTO d'un item de commande tel que renvoyé par la query Supabase
  * SELECT * FROM tenant_order_items WHERE order_id = ?
  */

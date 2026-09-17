@@ -9,10 +9,12 @@ import {
   ADD_AS_IS_REASON_LABELS,
   addToCartButtonState,
   canAddAsIs,
+  isFirmPriceSource,
   type AddAsIsEligibility,
 } from '@/modules/catalog/ui/storefront/addAsIs';
 import type { ShopProduct } from '@/modules/shops';
 import type { ClariprintQuoteResult } from '@/modules/clariprint';
+import type { PriceResolution } from '@/modules/clariprint/ui/helpers';
 
 function makeProduct(overrides: Partial<ShopProduct> = {}): ShopProduct {
   return {
@@ -78,6 +80,45 @@ describe('canAddAsIs — point 3.7 (a), C2 seule (Q14-a)', () => {
     const failedQuote: ClariprintQuoteResult = { success: false, error: 'not_priced' };
     const eligibility = canAddAsIs(product, failedQuote);
     expect(eligibility).toEqual({ ok: false, reason: 'price-not-firm' });
+  });
+
+  // Reserve tranchee par l architecte (point 3.7 (b-ter), "Reserves",
+  // 2026-09-17) : un devis Clariprint REUSSI a priceHT: 0 doit echouer,
+  // quelle que soit la source — un bouton actif sur une carte a 0 EUR
+  // contredirait la regle "jamais 0 EUR" du point 4.
+  it('devis Clariprint reussi a priceHT: 0 -> price-not-firm, MEME source clariprint', () => {
+    const product = makeProduct({ price_ht: 0 });
+    const zeroQuote: ClariprintQuoteResult = { success: true, priceHT: 0 };
+    const eligibility = canAddAsIs(product, zeroQuote);
+    expect(eligibility).toEqual({ ok: false, reason: 'price-not-firm' });
+  });
+
+  it('devis Clariprint reussi a priceHT positif -> ok (non-regression de la reserve precedente)', () => {
+    const product = makeProduct({ price_ht: 0 });
+    const eligibility = canAddAsIs(product, successfulQuote);
+    expect(eligibility).toEqual({ ok: true });
+  });
+});
+
+describe('isFirmPriceSource — reserve non bloquante de la qa-review round 1', () => {
+  it('clariprint et library_cached -> true', () => {
+    expect(isFirmPriceSource('clariprint')).toBe(true);
+    expect(isFirmPriceSource('library_cached')).toBe(true);
+  });
+
+  it('prix_marche et zero -> false', () => {
+    expect(isFirmPriceSource('prix_marche')).toBe(false);
+    expect(isFirmPriceSource('zero')).toBe(false);
+  });
+
+  it('une source HORS enumeration (defense en profondeur, liste blanche jamais liste noire) -> false', () => {
+    // Une liste NOIRE (`!== 'prix_marche' && !== 'zero'`) rendrait `true` ici
+    // — c'est exactement la mutation que la reserve de la qa-review vise a
+    // empecher de survivre. Le forçage de type est deliberement force par
+    // `as` : ce cas ne peut survenir qu'en defense en profondeur (bug de
+    // resolvePrice, evolution future de PriceSource).
+    const forgedSource = 'unknown_future_source' as unknown as PriceResolution['source'];
+    expect(isFirmPriceSource(forgedSource)).toBe(false);
   });
 });
 

@@ -133,6 +133,7 @@ export function PublicShop() {
     lastOrderId,
     lastOrder,
     renewalWarnings,
+    renewalPriceNotFirm,
     dismissRenewalWarnings,
     renewOrder: handleRenewOrder,
     submitCart,
@@ -509,6 +510,9 @@ export function PublicShop() {
           createOrderBlockedMessage={createOrderBlockedMessage}
           // S3.3 : banner warnings affiché si dernier renew a skip des items.
           renewalWarnings={renewalWarnings}
+          // Q14-a round 2 (point 3.7 (c-bis)) : seconde section du meme
+          // bandeau, produits ajoutes a prix non ferme.
+          renewalPriceNotFirm={renewalPriceNotFirm}
           onDismissRenewalWarnings={dismissRenewalWarnings}
         />
       }

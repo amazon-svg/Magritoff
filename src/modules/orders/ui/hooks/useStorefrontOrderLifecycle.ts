@@ -15,32 +15,36 @@ import { resolveCartLinePricing } from '@/modules/orders/ui/storefront/cartPrici
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * Q14-a (docs/api/CONVENTIONS.md §8.25 point 3.7 (c)) — le renouvellement
- * ECHAPPE à C2 : les caractéristiques snapshotées priment (C1 est réputée
- * remplie sans être réévaluée), et le prix se recalcule par
+ * Q14-a round 2 (docs/api/CONVENTIONS.md §8.25 point 3.7 (c) et (c-bis)) — le
+ * renouvellement ECHAPPE à C2 : les caractéristiques snapshotées priment (C1
+ * est réputée remplie sans être réévaluée), et le prix se recalcule par
  * `resolveCartLinePricing` sur le produit d'AUJOURD'HUI. Ce n'est pas un
  * blocage, c'est une INFORMATION : une ligne dont la source re-résolue est
  * `prix_marche` ou `zero` (donc PAS `clariprint` ni `library_cached`, la
- * même frontière que C2) produit un avertissement, un par ligne, dans le
- * canal `renewalWarnings` qui existe déjà — aucune interface nouvelle,
- * aucune table, aucun endpoint.
+ * même frontière que C2 — réserve `priceHT <= 0` de `canAddAsIs` comprise,
+ * voir `addAsIs.ts`) produit un avertissement, un par ligne.
+ *
+ * **Défaut D1, corrigé (c-bis) : ce n'est PLUS versé dans `renewalWarnings`.**
+ * Round 1 les fusionnait dans ce canal, dont le titre affiché par
+ * `PortalCart` (« N produit(s) indisponible(s), non ajouté(s) au panier »)
+ * fait dire à l'acheteur qu'une ligne bien AJOUTÉE ne l'a pas été. Cette
+ * fonction rend donc les NOMS seuls (pas des phrases), consommés par
+ * `renewalBannerSections` (`orderRenewal.helpers.ts`) qui compose le texte de
+ * sa propre section — jamais mélangés à `renewalWarnings`.
  *
  * Fonction pure, testée cas par cas : le hook ne fait que l'appeler et
- * fusionner son résultat avec les avertissements de correspondance déjà
- * produits par `rebuildCartFromOrderItems`.
+ * exposer son résultat dans un état séparé, `renewalPriceNotFirm`.
  */
-export function buildPriceNotFirmWarnings(lines: readonly CartLine[]): string[] {
-  const warnings: string[] = [];
+export function collectPriceNotFirmProductNames(lines: readonly CartLine[]): string[] {
+  const names: string[] = [];
   for (const line of lines) {
     const { resolution } = resolveCartLinePricing(line);
     if (resolution.source === 'clariprint' || resolution.source === 'library_cached') {
       continue;
     }
-    warnings.push(
-      `${line.product.name} : prix non définitif — confirmé par l'imprimeur à la validation de la commande.`,
-    );
+    names.push(line.product.name);
   }
-  return warnings;
+  return names;
 }
 
 export function useStorefrontOrderLifecycle({
@@ -69,6 +73,10 @@ export function useStorefrontOrderLifecycle({
   const [lastOrderId, setLastOrderId] = useState<string | null>(null);
   const [lastOrder, setLastOrder] = useState<ResumeLastOrder | null>(null);
   const [renewalWarnings, setRenewalWarnings] = useState<string[]>([]);
+  // Q14-a round 2, point 3.7 (c-bis) — canal SÉPARÉ, jamais fusionné dans
+  // renewalWarnings (défaut D1). Porte les NOMS des produits ajoutés dont le
+  // prix n'est pas définitif.
+  const [renewalPriceNotFirm, setRenewalPriceNotFirm] = useState<string[]>([]);
 
   useEffect(() => {
     const hasStorefrontSession = sessionShopId === shop?.id;
@@ -100,6 +108,7 @@ export function useStorefrontOrderLifecycle({
     setLastOrderId(null);
     setLastOrder(null);
     setRenewalWarnings([]);
+    setRenewalPriceNotFirm([]);
     checkoutCommandKey.current = crypto.randomUUID();
   }, [slug]);
 
@@ -137,10 +146,14 @@ export function useStorefrontOrderLifecycle({
       return;
     }
     setCart(lines);
-    // Q14-a, point 3.7 (c) — avertissements de correspondance (produit
-    // retiré/indisponible) PUIS avertissements de prix non ferme, dans le
-    // même canal, jamais deux bandeaux.
-    setRenewalWarnings([...warnings, ...buildPriceNotFirmWarnings(lines)]);
+    // Q14-a round 2, point 3.7 (c-bis) — DEUX canaux séparés : les
+    // avertissements de correspondance (produit retiré/indisponible) restent
+    // dans `renewalWarnings`, sens d'origine, inchangé ; les noms des lignes
+    // ajoutées à prix non ferme vont dans `renewalPriceNotFirm`. Ne JAMAIS
+    // les fusionner (défaut D1) — `renewalBannerSections` compose les deux
+    // sections séparément.
+    setRenewalWarnings(warnings);
+    setRenewalPriceNotFirm(collectPriceNotFirmProductNames(lines));
     onCartRenewed();
   }, [cart.length, onCartRenewed, ordersApi, products, setCart]);
 
@@ -178,6 +191,7 @@ export function useStorefrontOrderLifecycle({
       checkoutCommandKey.current = crypto.randomUUID();
       setCart([]);
       setRenewalWarnings([]);
+      setRenewalPriceNotFirm([]);
       onOrderCreated();
     } catch (cause) {
       console.error('[StorefrontOrderLifecycle] création impossible:', cause);
@@ -193,7 +207,11 @@ export function useStorefrontOrderLifecycle({
     lastOrderId,
     lastOrder,
     renewalWarnings,
-    dismissRenewalWarnings: () => setRenewalWarnings([]),
+    renewalPriceNotFirm,
+    dismissRenewalWarnings: () => {
+      setRenewalWarnings([]);
+      setRenewalPriceNotFirm([]);
+    },
     renewOrder,
     submitCart,
   } as const;
