@@ -11,18 +11,22 @@ import {
   type OrderItemRow,
 } from '@/modules/orders/ui/storefront/orderRenewal.helpers';
 import { resolveCartLinePricing } from '@/modules/orders/ui/storefront/cartPricing';
+// Q14-a round 3 (docs/api/CONVENTIONS.md §8.25 point 3.7 (c-bis), défaut D4)
+// — le verdict de fermeté de prix s'APPELLE, il ne se recopie pas. C'est
+// exactement le même import que `CheckoutPage.tsx`/`ResumeBanner.tsx`
+// (entrée publique du module `catalog`), le garde d'architecture refusant
+// l'import direct de `addAsIs.ts` depuis `orders`.
+import { canAddAsIs } from '@/modules/catalog/ui/storefront';
+import type { ClariprintQuoteResult } from '@/modules/clariprint';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Q14-a round 2 (docs/api/CONVENTIONS.md §8.25 point 3.7 (c) et (c-bis)) — le
  * renouvellement ECHAPPE à C2 : les caractéristiques snapshotées priment (C1
- * est réputée remplie sans être réévaluée), et le prix se recalcule par
- * `resolveCartLinePricing` sur le produit d'AUJOURD'HUI. Ce n'est pas un
- * blocage, c'est une INFORMATION : une ligne dont la source re-résolue est
- * `prix_marche` ou `zero` (donc PAS `clariprint` ni `library_cached`, la
- * même frontière que C2 — réserve `priceHT <= 0` de `canAddAsIs` comprise,
- * voir `addAsIs.ts`) produit un avertissement, un par ligne.
+ * est réputée remplie sans être réévaluée), et le prix se recalcule sur le
+ * produit d'AUJOURD'HUI. Ce n'est pas un blocage, c'est une INFORMATION :
+ * une ligne dont `canAddAsIs` échoue produit un avertissement, un par ligne.
  *
  * **Défaut D1, corrigé (c-bis) : ce n'est PLUS versé dans `renewalWarnings`.**
  * Round 1 les fusionnait dans ce canal, dont le titre affiché par
@@ -32,14 +36,31 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * `renewalBannerSections` (`orderRenewal.helpers.ts`) qui compose le texte de
  * sa propre section — jamais mélangés à `renewalWarnings`.
  *
+ * **Défaut D4, corrigé (round 3) : le critère s'APPELLE, il ne se recopie
+ * PAS.** Round 2 retestait `resolution.source === 'clariprint' ||
+ * resolution.source === 'library_cached'` directement ici, en prétendant
+ * (faussement) que la réserve `priceHT <= 0` de `canAddAsIs` était
+ * « comprise » — elle ne l'était pas : un devis Clariprint réussi à
+ * `priceHT: 0` faisait rendre `[]` ici (aucun avertissement) alors que la
+ * même ligne, sur la carte, aurait un bouton grisé. La qa-review a reproduit
+ * l'écart exact. Le verdict vient maintenant de `canAddAsIs`
+ * (`@/modules/catalog/ui/storefront`, la même entrée publique déjà importée
+ * ailleurs dans ce module) : une seule règle, appelée deux fois, jamais deux
+ * règles qui peuvent diverger.
+ *
  * Fonction pure, testée cas par cas : le hook ne fait que l'appeler et
  * exposer son résultat dans un état séparé, `renewalPriceNotFirm`.
  */
 export function collectPriceNotFirmProductNames(lines: readonly CartLine[]): string[] {
   const names: string[] = [];
   for (const line of lines) {
-    const { resolution } = resolveCartLinePricing(line);
-    if (resolution.source === 'clariprint' || resolution.source === 'library_cached') {
+    // Même extraction que `cartPricing.ts` (`resolveCartLinePricing`) : le
+    // devis stocké, s'il existe, vit dans `product.config.clariprintQuote`.
+    const clariprintQuote = (
+      line.product.config as { clariprintQuote?: ClariprintQuoteResult } | null | undefined
+    )?.clariprintQuote ?? null;
+    const eligibility = canAddAsIs(line.product, clariprintQuote);
+    if (eligibility.ok) {
       continue;
     }
     names.push(line.product.name);

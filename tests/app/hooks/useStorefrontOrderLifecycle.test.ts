@@ -78,4 +78,22 @@ describe('collectPriceNotFirmProductNames — point 3.7 (c-bis)', () => {
   it('aucune ligne -> aucun nom', () => {
     expect(collectPriceNotFirmProductNames([])).toEqual([]);
   });
+
+  // Défaut D4 (round 3, qa-review) : round 2 retestait la source directement
+  // ici, en ignorant la réserve `priceHT <= 0` de `canAddAsIs`. Un devis
+  // Clariprint réussi mais à `priceHT: 0` faisait rendre `[]` (aucun
+  // avertissement), alors que la MÊME ligne, sur la carte, porte un bouton
+  // grisé (`canAddAsIs` y échoue). Ce test échoue sur le code d'avant round 3
+  // (vérifié manuellement contre `796dace8`) et passe depuis que la fonction
+  // appelle `canAddAsIs` au lieu de recopier son critère.
+  it('devis Clariprint reussi a priceHT: 0 -> le NOM est liste (meme verdict que canAddAsIs sur la carte)', () => {
+    const product = makeProduct({
+      name: 'Brochure a prix nul',
+      price_ht: 0,
+      config: { clariprintQuote: { success: true, priceHT: 0 } },
+    });
+    const line = packLine(product, ONE_PACK);
+    const names = collectPriceNotFirmProductNames([line]);
+    expect(names).toEqual(['Brochure a prix nul']);
+  });
 });

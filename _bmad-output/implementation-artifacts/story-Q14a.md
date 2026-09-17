@@ -2,16 +2,33 @@
 story_id: Q14-a
 epic: Sprint 5 — chantier boutique « chaîne des prix Magrit → panier et qualité d'affichage » (hors E10, docs/api/CONVENTIONS.md §8.25)
 title: Bouton "+ Panier" désactivé et grisé quand le prix n'est pas ferme (C2 seule)
-status: round 2 — corrections D1/D2/D3 + réserves appliquées, en attente de nouvelle qa-review distincte
+status: round 3 — corrections D4/D5 + six inexactitudes documentaires round 2 corrigées, en attente de nouvelle qa-review distincte
 branch: feat/gescom-q14a-ajout-direct-grise
 base_round1: worktree-agent-a36fe9d0d75f6af4a (3448193b) = main (f7326363) + docs/api/CONVENTIONS.md §8.25 réécrit le 2026-09-17
 base_round2: worktree-agent-a36fe9d0d75f6af4a (c5e07929) = base_round1 + amendements architecte du 2026-09-17 (D1, D2, réserves, (g)/Q17)
+base_round3: HEAD 796dace8 (round 2, commité) — round 3 n'a pas encore de commit propre au moment de la rédaction de cette section, voir « Commits »
 agent: dev-story (Sonnet 5)
 cadrage_opposable: docs/api/CONVENTIONS.md §8.25 point 3.7 (a) à (g), point 6 (ligne Q14-a), point 9 (ligne Q14)
-commits: [f0f891d0 (round 1)]
+commits: [f0f891d0 (round 1), 796dace8 (round 2)]
 ---
 
 # Story Q14-a — bouton "+ Panier" grisé quand le prix n'est pas ferme
+
+## ROUND 3 — corrections après rejet qa-review (D4, D5, six inexactitudes documentaires)
+
+Le round 2 (commit `796dace8`) a été **rejeté** sur deux défauts courts, tout en confirmant que D1 et D2 étaient corrigés sur le fond, que W1-W6 mouraient chacune sur un test nommé, que les trois réserves durcies mouraient, que le rendu vu par l'acheteur était juste dans les quatre cas de figure du bandeau, et que les chiffres (3172 / 88 / 0) étaient exacts.
+
+**DÉFAUT D4 (bloquant, corrigé)** — `collectPriceNotFirmProductNames` **recopiait** le critère C2 (`source === 'clariprint' || source === 'library_cached'`) au lieu d'**appeler** `canAddAsIs`, alors que le commentaire prétendait (faussement) que la réserve `priceHT <= 0` était « comprise ». Un devis Clariprint réussi à `priceHT: 0` faisait grisouiller le bouton de la carte (`canAddAsIs` → `price-not-firm`) sans avertir l'acheteur au renouvellement (`collectPriceNotFirmProductNames` → `[]`). **Corrigé exactement selon les cinq points prescrits par le coordinateur** : `canAddAsIs` exporté depuis l'entrée publique `@/modules/catalog/ui/storefront` (une ligne ajoutée à `index.ts`, seul fichier hors de la ligne Q14-a du point 6 que je touche, autorisé explicitement) ; le hook importe et appelle cette même fonction ; le commentaire menteur est réécrit ; un test « devis à `priceHT: 0` → nom listé » a été écrit, vérifié ROUGE sur `796dace8`, puis vert après le fix.
+
+**DÉFAUT D5 (bloquant, corrigé)** — mon garde d'épinglage (D2, round 2) lisait le texte BRUT des fichiers sources, commentaires compris : une ligne commentée (`// disabled={...}`) contient toujours, comme sous-chaîne, le motif que ma regex cherchait — le test restait vert alors que l'attribut réel avait disparu. Même faille pour un spread mis en commentaire de bloc, un `id` déplacé vers un élément conteneur, une constante figée à `null`, et un `merged` reversé dans `renewalWarnings` qui réintroduit D1. **Corrigé** : `read()` retire désormais les commentaires (bloc et ligne) avant toute recherche de motif ; deux assertions sont resserrées pour ne plus matcher n'importe où dans le fichier (`id` rattaché au `<p>` du libellé, `clariprintQuote` rattaché à une déclaration dérivée de `product.config`) ; une assertion positive ET négative ferme le cas du `merged`. Les cinq évasions (E1, E1b, E6, E7, E9) ont été rejouées par moi, une par une, ROUGE ; W1 à W6 (les mutations originales, pas les évasions) ont été rejouées à nouveau avec le garde durci : toujours ROUGE.
+
+**Six inexactitudes du story doc round 2 corrigées** — détaillées à l'endroit de chacune ci-dessous, avec la mention explicite « ROUND 3 » : le commit `796dace8` avait été nié (répétition du défaut D3 du round 1) ; le critère 15 était périmé (le `onClick` de « Configurer » est modifié, autorisé, et neuf fichiers sous `src/` bougent au total round 1+2+3) ; le critère 2 était périmé (la garde `priceHT <= 0` change la frontière) ; le critère 10 affirmait à tort qu'une divergence demandait deux lignes séparées (W3/E6 la produisent en une seule) ; la mutation « reverser dans `renewalWarnings` » décrite au round 2 n'était pas celle réellement rejouée (j'avais joué une mutation voisine, W6a, pas W6b) ; et le commentaire du hook affirmait la réserve `priceHT <= 0` « comprise » sans l'être (D4).
+
+Deux ajouts non déclarés au round 2 sont documentés ici, tolérés par la qa mais qu'il fallait nommer : dans `PortalCart.tsx`, l'import de `renewalBannerSections` et la constante `renewalSections` (nécessaires pour appeler la fonction pure, hors de la lettre stricte du (c-bis) qui ne prescrivait que « le type de props et le bloc du bandeau », mais indissociables de ce bloc). Et l'ajout round 3 dans `src/modules/catalog/ui/storefront/index.ts`, explicitement autorisé par le coordinateur pour D4.
+
+**Non bloquant, signalé sans être corrigé (consigne du coordinateur)** :
+- Si l'acheteur retire une ligne du panier après un renouvellement, la section « prix non définitif » du bandeau continue de lister le nom de cette ligne jusqu'au prochain renouvellement ou à la fermeture du bandeau — `renewalPriceNotFirm` n'est recalculé qu'à ces deux moments, jamais sur un retrait de ligne.
+- Un produit sans nom (`product.name === ''`) produit une puce vide dans la section « prix non définitif » — `renewalBannerSections`/`collectPriceNotFirmProductNames` ne filtrent ni ne substituent un libellé de repli.
 
 ## ROUND 2 — corrections après rejet qa-review
 
@@ -62,11 +79,17 @@ Condition **C2** (prix ferme, `resolvePrice(...).source ∈ {clariprint, library
 - `src/modules/catalog/ui/storefront/addAsIs.ts` — en-tête corrigé (phrase fausse retirée, voir plus bas) ; `canAddAsIs` échoue si `priceHT <= 0` ; nouvelle fonction `isFirmPriceSource` (liste blanche explicite, réserve non bloquante).
 - `tests/components/shop/portal/orderRenewal.helpers.test.ts` — 7 tests ajoutés pour `renewalBannerSections` (11→18, `grep -c "  it("` vérifié), dont le scénario exact demandé par la qa-review (1 produit retiré + 2 prix non fermes).
 
+**Round 3 (nouveau, défauts D4 et D5) :**
+- `src/modules/catalog/ui/storefront/index.ts` — **une ligne ajoutée** : `export { canAddAsIs } from './addAsIs';`. Seul fichier hors de la ligne Q14-a du point 6 du cadrage que je touche, **explicitement autorisé par le coordinateur** pour corriger D4 (le garde d'architecture refuse l'import direct de `addAsIs.ts` depuis `orders`).
+- `src/modules/orders/ui/hooks/useStorefrontOrderLifecycle.ts` (suite) — `collectPriceNotFirmProductNames` appelle désormais `canAddAsIs` (importé depuis `@/modules/catalog/ui/storefront`) au lieu de retester la source ; commentaire menteur corrigé.
+- `tests/app/hooks/useStorefrontOrderLifecycle.test.ts` — 1 test ajouté (6→7) : « devis Clariprint réussi à `priceHT: 0` → le NOM est listé ».
+- `tests/components/shop/ShopProductCard.addAsIsWiring.test.ts` — `read()` retire désormais les commentaires avant de chercher un motif (défaut D5) ; deux assertions resserrées (W3 : `id` rattaché au `<p>`, pas n'importe où ; W4 : `clariprintQuote` dérivé de `product.config`, pas figé) ; une assertion positive/négative ajoutée sur `setRenewalWarnings(warnings)` (évasion E9). Effectif inchangé (13 tests), contenu durci.
+
 ## Critères vérifiés un par un
 
 1. **Le bouton « + Panier » est TOUJOURS rendu**, jamais absent, sur toutes les surfaces de carte (`ShopProductCard` est partagé par accueil/catalogue/gamme). — **FAIT.** Le JSX ne conditionne plus la présence du bouton, seulement son attribut `disabled` et sa classe. Vérifié par lecture du diff : le `<button>` reste un unique nœud toujours rendu.
 
-2. **Actif quand `resolvePrice(product, quote).source ∈ {clariprint, library_cached}`.** — **FAIT.** `canAddAsIs` rend `{ ok: true }` exactement dans ces deux cas ; testé (`addAsIs.test.ts`, 2 cas).
+2. **Actif quand `resolvePrice(product, quote).source ∈ {clariprint, library_cached}`.** — **FAIT au round 1, PÉRIMÉ depuis (ROUND 2/3, correction du critère).** « Exactement dans ces deux cas » n'est plus vrai depuis la réserve `priceHT <= 0` (round 2) : `canAddAsIs` rend `{ ok: true }` quand la source est `clariprint` OU `library_cached` **ET** `priceHT > 0`. Un devis `clariprint` réussi à `priceHT: 0` échoue désormais (testé, `addAsIs.test.ts`). Formulation correcte : actif quand `isFirmPriceSource(resolution.source) && resolution.priceHT > 0`.
 
 3. **Désactivé par l'attribut natif `disabled`, jamais `aria-disabled` seul, quand la source est `prix_marche` ou `zero`.** — **FAIT.** `addToCartButtonState` rend `disabled: true` dans ce cas, posé sur l'attribut React natif `disabled={addToCartState.disabled}`. Aucune garde manuelle de clic n'a donc à être écrite : un bouton `disabled` natif ne déclenche pas `onClick`.
 
@@ -82,7 +105,7 @@ Condition **C2** (prix ferme, `resolvePrice(...).source ∈ {clariprint, library
 
 9. **Table fermée : un motif sans libellé ne compile pas.** — **FAIT** par construction TypeScript (`Readonly<Record<AddAsIsReason, string>>`) ; `pnpm typecheck` (`tsconfig.modular.json`, strict) confirme.
 
-10. **Accessibilité : `aria-describedby` sur le bouton désactivé, pointant un identifiant unique par INSTANCE de carte (pas seulement par produit) ; `aria-label` inchangé ; aucun `title`.** — **FAIT.** `useId()` (React 18, déjà utilisé ailleurs dans le dépôt — `ShopMegaMenu.tsx`) génère un identifiant stable et unique par position dans l'arbre de rendu, donc distinct entre deux instances simultanées de la même carte produit. Le même identifiant (`addAsIsReasonId`) alimente à la fois l'argument `reasonId` de `addToCartButtonState` et l'attribut `id` du `<p>` : les deux ne peuvent pas diverger sans modifier visiblement deux lignes séparées du composant. `aria-describedby` n'est posé QUE quand `addToCartState.describedBy` est défini (spread conditionnel) — absent sur un bouton actif.
+10. **Accessibilité : `aria-describedby` sur le bouton désactivé, pointant un identifiant unique par INSTANCE de carte (pas seulement par produit) ; `aria-label` inchangé ; aucun `title`.** — **FAIT, mais une phrase de la justification round 1/2 était fausse (ROUND 3, correction du critère, défaut D5).** `useId()` (React 18, déjà utilisé ailleurs dans le dépôt — `ShopMegaMenu.tsx`) génère un identifiant stable et unique par position dans l'arbre de rendu, donc distinct entre deux instances simultanées de la même carte produit. J'affirmais que « les deux ne peuvent pas diverger sans modifier visiblement deux lignes séparées » : **c'est faux**, la qa-review l'a démontré avec deux mutations d'**une seule ligne chacune** (W3 : `id={String(addAsIsReasonId) + "-x"}` sur le `<p>` ; E6 : déplacement de `id={addAsIsReasonId}` du `<p>` vers le `<div>` conteneur des boutons et du prix). Ce n'est **pas une garantie structurelle** : c'est un test dédié (`W3` de `ShopProductCard.addAsIsWiring.test.ts`, durci en round 3 pour exiger `<p\s+id=\{addAsIsReasonId\}` et non n'importe quel `id=\{addAsIsReasonId\}` dans le fichier) qui tient ce comportement, comme toute autre propriété du câblage. `aria-describedby` n'est posé QUE quand `addToCartState.describedBy` est défini (spread conditionnel) — absent sur un bouton actif.
 
 11. **`data-testid` : `productCardQuoteBtn` conservé tel quel (pas renommé) ; nouvelle clé `productCardAddAsIsReason` déclarée dans `testIds.ts`, jamais écrite en dur dans le composant ; élément du motif porte `data-reason`.** — **FAIT.**
 
@@ -92,7 +115,7 @@ Condition **C2** (prix ferme, `resolvePrice(...).source ∈ {clariprint, library
 
 14. **Renouvellement de commande : C1 réputée remplie sans réévaluation (comportement INCHANGÉ, pas recodé), C2 n'hérite pas et ne bloque pas ; une ligne dont la source re-résolue est `prix_marche` ou `zero` produit un avertissement, un par ligne.** — **FAIT, mais le canal a changé en round 2 (défaut D1).** `rebuildCartFromOrderItems` n'a pas été touché (le matching et la reconstruction des lignes restent identiques, aucune barrière ajoutée). **Round 1** fusionnait les avertissements de prix dans `renewalWarnings`, dont le titre affiché par `PortalCart` (« N produit(s) indisponible(s), non ajouté(s) au panier ») **contredisait le fait que ces lignes avaient bien été ajoutées** — défaut D1, bloquant, relevé par la qa-review. **Round 2 (point 3.7 (c-bis)) : deux canaux séparés.** `collectPriceNotFirmProductNames` (renommée depuis `buildPriceNotFirmWarnings`) rend maintenant les NOMS seuls (pas des phrases), exposés dans un état séparé `renewalPriceNotFirm`. `renewalBannerSections` (nouvelle fonction pure, `orderRenewal.helpers.ts`) compose les DEUX sections du bandeau — titre exact fixé par le cadrage pour chacune, jamais composé dans `PortalCart`. Voir section « D1 » ci-dessous pour le détail complet et les mutations rejouées.
 
-15. **Aucun empiètement hors périmètre** : bouton « Configurer », bouton « Personnaliser », bloc prix (BCP-4), `openapi/magrit-core.v1.yaml` non touchés. — **FAIT**, vérifié par `git diff --stat` (3 fichiers modifiés, tous attendus par le point 6 du cadrage) et par relecture ligne à ligne du diff de `ShopProductCard.tsx`.
+15. **Aucun empiètement hors périmètre non autorisé** : bouton « Personnaliser », bloc prix (BCP-4), `openapi/magrit-core.v1.yaml` non touchés. — **PÉRIMÉ au round 1 (« 3 fichiers modifiés »), CORRIGÉ ici (ROUND 3).** Round 1 affirmait « bouton Configurer non touché » et « 3 fichiers modifiés » : les deux sont faux depuis le round 2 et le contredisent déjà à la ligne 60 de ce document (`onConfigure` obligatoire touche le `onClick` du bouton « Configurer », changement **autorisé** par la réserve de la qa-review — le libellé, la position et le style du bouton ne changent pas). Au round 3, **neuf fichiers sous `src/` bougent au total** (round 1+2+3 cumulés : `ShopProductCard.tsx`, `ShopProductCard.typecheck.ts`, `addAsIs.ts`, `useStorefrontOrderLifecycle.ts`, `PortalCart.tsx`, `orderRenewal.helpers.ts`, `PublicShop.tsx`, `testIds.ts`, `catalog/ui/storefront/index.ts`), tous attendus par le point 6 du cadrage à l'exception du dernier, **explicitement autorisé par le coordinateur** pour D4. Ni « Personnaliser » ni le bloc prix (BCP-4) ne sont touchés, vérifié par relecture ligne à ligne des diffs cumulés.
 
 16. **BCP-11 (garde `CartLine`) reste vert** — aucune ligne de panier construite à la main, `packLine`/`toPackLine` intacts. — **FAIT**, non touché ; `tests/architecture/cart-line-single-constructor.test.ts` passe (voir suite complète).
 
@@ -103,6 +126,10 @@ Condition **C2** (prix ferme, `resolvePrice(...).source ∈ {clariprint, library
 19. **(ROUND 2) Un devis Clariprint réussi à `priceHT: 0` échoue toujours, quelle que soit la source (réserve tranchée par l'architecte).** — **FAIT.** `canAddAsIs` retourne `price-not-firm` dès que `resolution.priceHT <= 0`, avant même de consulter la source. Testé, mutation rejouée (section « Mutations round 2 »).
 
 20. **(ROUND 2) `onConfigure` devient obligatoire, le repli sur `onAddToCart` disparaît (réserve tranchée par l'architecte).** — **FAIT.** `ShopProductCardProps.onConfigure` n'est plus optionnel ; les trois appelants (`PortalCatalog.tsx`, `PortalHome.tsx`, `GammePage.tsx`) le passaient déjà, confirmé par `pnpm typecheck` à 0 erreur immédiatement après le changement (aucun site d'appel à modifier). Assertion de compilation ajoutée dans `ShopProductCard.typecheck.ts`, mutation rejouée (un retour à `onConfigure?:` fait échouer `pnpm typecheck` à deux endroits distincts, voir section dédiée).
+
+21. **(ROUND 3) Le verdict de fermeté de prix consommé au renouvellement est le MÊME que celui de la carte — appelé, jamais recopié (défaut D4).** — **FAIT.** `collectPriceNotFirmProductNames` appelle `canAddAsIs` (importé depuis `@/modules/catalog/ui/storefront`, entrée publique déjà utilisée par `orders`). Un devis Clariprint réussi à `priceHT: 0` est désormais listé au renouvellement, comme sur la carte. Test écrit, vérifié ROUGE sur le code d'avant (`796dace8`), vert après correction.
+
+22. **(ROUND 3) Le garde d'épinglage du câblage (D2) résiste au code commenté et aux évasions structurelles (défaut D5).** — **FAIT.** `read()` retire les commentaires avant recherche de motif. Cinq évasions (E1 : `disabled` commenté ; E1b : spread `aria-describedby` en commentaire de bloc ; E6 : `id` déplacé vers le conteneur ; E7 : `clariprintQuote` figé à `null` ; E9 : `merged` reversé dans `renewalWarnings`) rejouées par moi, ROUGE chacune. W1 à W6 (mutations originales) rejouées avec le garde durci : toujours ROUGE.
 
 ## Ce que Q14-a n'empêche PAS (rappel opposable, point 3.7 (a)/(g) du cadrage)
 
@@ -170,7 +197,16 @@ renewalBannerSections(
 ```
 Vérifié vert (voir chiffres ci-dessous).
 
-**Mutation exigée par le cadrage — « reverser les prix dans `renewalWarnings` doit faire échouer un test »** : rejouée en retirant l'appel à `setRenewalPriceNotFirm` dans `renewOrder` (revert à `setRenewalWarnings(warnings)` seul, sans le second état). **Verdict : ROUGE** — le test `tests/components/shop/ShopProductCard.addAsIsWiring.test.ts > le hook appelle REELLEMENT collectPriceNotFirmProductNames…` échoue. Fichier restauré, vérifié identique par `diff`.
+**Mutation exigée par le cadrage — « reverser les prix dans `renewalWarnings` doit faire échouer un test ».** **ROUND 3, correction d'une inexactitude (une des six relevées par le coordinateur) :** ce que j'ai décrit ici au round 2 comme la mutation rejouée — retirer l'appel à `setRenewalPriceNotFirm` dans `renewOrder` (revert à `setRenewalWarnings(warnings)` seul, sans le second état) — **n'est PAS la mutation littéralement exigée**. C'est une mutation voisine (nommée **W6a** ci-dessous, D2) : elle débranche le volet prix non ferme, elle ne « reverse » rien DANS `renewalWarnings`. **La mutation réellement exigée par le cadrage (W6b)** construit une variable `merged` qui fusionne les deux listes et la passe à `setRenewalWarnings` :
+```ts
+const merged = [...warnings, ...collectPriceNotFirmProductNames(lines)];
+setRenewalWarnings(merged);
+```
+**Les deux meurent, vérifié séparément en round 3** :
+- W6a (retirer `setRenewalPriceNotFirm`) : **ROUGE** — `le hook appelle REELLEMENT collectPriceNotFirmProductNames…` échoue.
+- W6b (`merged` reversé dans `renewalWarnings`, la mutation exacte du cadrage) : **ROUGE** — `le hook appelle REELLEMENT collectPriceNotFirmProductNames…` échoue également, sur la première assertion durcie en round 3 (`toMatch(/setRenewalWarnings\(warnings\);/)`).
+
+Les deux fichiers ont été restaurés, vérifiés identiques par `diff` après chaque mutation.
 
 ## Défaut D2 — câblage non lu par un test, corrigé
 
@@ -185,7 +221,7 @@ Vérifié vert (voir chiffres ci-dessous).
 | W3 | `id` du libellé différent de l'identifiant passé à l'état (`id={String(addAsIsReasonId) + "-x"}`) | **ROUGE** — **contrairement à ce que j'affirmais en round 1, cette mutation ÉTAIT détectable** dès qu'un test lit le texte source ; je n'avais simplement pas écrit ce test | `W3 — … le libelle porte le MEME identifiant en id` |
 | W4 | `canAddAsIs(product, null)` en dur au lieu du quote extrait | **ROUGE** | `W4 — canAddAsIs est appele avec le quote extrait…` |
 | W5 | libellé jamais rendu (`{false && (`) | **ROUGE** | `W5 — le libelle est rendu conditionnellement…` |
-| W6 (adaptée round 2) | supprimer l'appel `setRenewalPriceNotFirm(...)` dans `renewOrder`, débranchant tout le volet prix non ferme (la forme round 1 de cette mutation, `setRenewalWarnings(warnings)` seul, n'a plus de sens depuis que D1 a scindé les deux canaux) | **ROUGE** | `le hook appelle REELLEMENT collectPriceNotFirmProductNames…` |
+| W6a (adaptée round 2 — **nommée ainsi depuis le round 3**, distincte de W6b ci-dessous) | supprimer l'appel `setRenewalPriceNotFirm(...)` dans `renewOrder`, débranchant tout le volet prix non ferme | **ROUGE** | `le hook appelle REELLEMENT collectPriceNotFirmProductNames…` |
 | D1-1 | retirer `renewalPriceNotFirm={renewalPriceNotFirm}` dans `PublicShop.tsx` | **ROUGE** | `PublicShop transmet REELLEMENT renewalPriceNotFirm…` |
 | D1-2 | `PortalCart` revient à `{renewalWarnings.length > 0 && (` (masque la section prix non ferme quand aucun produit n'est indisponible) | **ROUGE** | `le bandeau entier est conditionne sur renewalSections.length…` |
 
@@ -196,28 +232,52 @@ Vérifié vert (voir chiffres ci-dessous).
 - **`priceHT <= 0` → toujours `price-not-firm`** : mutation = retirer la garde (`if (resolution.priceHT <= 0) { ... }`) de `canAddAsIs`. **Verdict : ROUGE** — le test `devis Clariprint reussi a priceHT: 0 -> price-not-firm, MEME source clariprint` échoue (`expected { ok: true } to deeply equal { ok: false, reason: 'price-not-firm' }`).
 - **`onConfigure` obligatoire** : mutation = rendre `onConfigure?:` optionnel de nouveau dans `ShopProductCardProps`. **Verdict : ROUGE, à DEUX endroits distincts** de `pnpm typecheck` : `Cannot invoke an object which is possibly 'undefined'` sur l'appel direct `onConfigure(product)` (le repli protecteur ayant été retiré), ET `Unused '@ts-expect-error' directive` sur l'assertion de compilation ajoutée dans `ShopProductCard.typecheck.ts`. Fichier restauré, vérifié identique par `diff`.
 
-## Tests exécutés — chiffres réels (round 2, après restauration de TOUTES les mutations)
+## Défaut D4 — le verdict se recopiait au lieu de s'appeler, corrigé
+
+**Constat de la qa-review, reproduit, vérifié.** `collectPriceNotFirmProductNames` (round 2) retestait `resolution.source === 'clariprint' || resolution.source === 'library_cached'` directement, en prétendant dans son commentaire que la réserve `priceHT <= 0` de `canAddAsIs` était « comprise ». Elle ne l'était pas : un produit avec `config.clariprintQuote = { success: true, priceHT: 0 }` fait rendre `price-not-firm` à `canAddAsIs` (bouton grisé sur la carte) mais `[]` à `collectPriceNotFirmProductNames` (aucun avertissement au renouvellement) — deux règles qui divergent alors qu'elles doivent être UNE seule règle. La cause : le garde d'architecture refuse l'import direct de `addAsIs.ts` depuis `orders`. **Le cadrage prévoyait exactement ce cas : remonter, pas recopier.**
+
+**Correction, dans l'ordre prescrit par le coordinateur :**
+1. `src/modules/catalog/ui/storefront/index.ts` : `export { canAddAsIs } from './addAsIs';` (une ligne, seul fichier hors périmètre Q14-a touché, autorisé explicitement).
+2. `useStorefrontOrderLifecycle.ts` importe `canAddAsIs` depuis `@/modules/catalog/ui/storefront` — le même import que `CheckoutPage.tsx`/`ResumeBanner.tsx`.
+3. `collectPriceNotFirmProductNames` appelle `canAddAsIs(line.product, clariprintQuote)`, avec la MÊME extraction du devis que `cartPricing.ts` (`resolveCartLinePricing`).
+4. Le commentaire est réécrit pour dire ce qui est vrai (le critère s'appelle, il ne se recopie pas).
+5. Test ajouté : « devis Clariprint réussi à `priceHT: 0` → le NOM est listé ».
+
+**Mutation-preuve, rejouée dans les deux sens** (méthode exigée par le coordinateur) :
+- **Sur `796dace8` (code d'avant round 3)** : le nouveau test échoue — `expected [] to deeply equal [ 'Brochure a prix nul' ]`. Reproduit manuellement en réappliquant temporairement l'ancien corps de `collectPriceNotFirmProductNames` sur le code round 3, avec restauration vérifiée par `diff`.
+- **Sur le code round 3 corrigé** : le test passe (7/7 sur `useStorefrontOrderLifecycle.test.ts`).
+
+`pnpm typecheck` : 0 erreur (le garde d'architecture accepte l'import par l'entrée publique). `tests/architecture/` : 288/288, inchangé.
+
+## Défaut D5 — le garde d'épinglage (D2) passait sur du code commenté, corrigé
+
+**Constat de la qa-review, reproduit, vérifié.** Round 2 lisait le texte BRUT des fichiers sources. Une ligne commentée (`// disabled={addToCartState.disabled}`) contient, comme sous-chaîne, exactement le motif que ma regex cherchait : le test restait vert alors que l'attribut réel avait disparu du bouton (« + Panier » actif sur toutes les cartes). Même faille pour un spread `aria-describedby` mis en commentaire de bloc. Trois autres évasions structurelles : `id` déplacé du `<p>` vers le `<div>` conteneur (aria-describedby pointerait alors vers un élément qui englobe aussi le prix et les trois boutons) ; `clariprintQuote` figé à une constante `null` ; et un `merged` qui réintroduit D1 dans `renewalWarnings`.
+
+**Correction :** `read()` retire les commentaires de bloc ET de ligne avant toute recherche de motif. Deux assertions resserrées pour ne plus matcher n'importe où dans le fichier (W3 : `<p\s+id=\{addAsIsReasonId\}`, l'id doit être porté par le `<p>` lui-même ; W4 : `const clariprintQuote = \(\s*product\.config as`, la constante doit être dérivée de `product.config`). Une assertion positive ET négative sur le hook (`setRenewalWarnings(warnings);` doit être présent tel quel, `setRenewalWarnings([...warnings` et `setRenewalWarnings(merged)` ne doivent jamais apparaître).
+
+**Cinq évasions rejouées par moi, une par une, avec restauration vérifiée par `diff` entre chaque :**
+
+| # | Évasion | Verdict | Test qui rougit |
+|---|---|---|---|
+| E1 | `disabled={addToCartState.disabled}` mis en commentaire de ligne (`// disabled={...}`) | **ROUGE** | `W1 — disabled est pose depuis addToCartState.disabled…` |
+| E1b | spread `aria-describedby` mis en commentaire de bloc (`/* {...} */`) | **ROUGE** | `W2 — aria-describedby est pose depuis addToCartState.describedBy…` |
+| E6 | `id={addAsIsReasonId}` déplacé du `<p>` du libellé vers le `<div className="flex flex-col gap-2 mt-1.5">` conteneur (prix + boutons + libellé) | **ROUGE** | `W3 — … le libelle (le <p>, pas un conteneur) porte le MEME identifiant en id` |
+| E7 | `clariprintQuote` figé (`const clariprintQuote: ClariprintQuoteResult \| null = null;`) au lieu d'être dérivé de `product.config` | **ROUGE** | `W4 — canAddAsIs est appele avec le quote extrait…` |
+| E9 | `const merged = [...warnings, ...collectPriceNotFirmProductNames(lines)]; setRenewalWarnings(merged);` (réintroduit D1) | **ROUGE** | `le hook appelle REELLEMENT collectPriceNotFirmProductNames…` (première assertion durcie, `setRenewalWarnings(warnings);` absent) |
+
+**W1 à W6 (les six mutations originales, pas les évasions) rejouées une seconde fois avec le garde durci** : toutes encore **ROUGE**, la suppression des commentaires n'a fait perdre aucune détection existante (13/13 verts sur le code sain avant chaque mutation, restaurations vérifiées par `diff`).
+
+## Tests exécutés — chiffres réels (round 3, après restauration de TOUTES les mutations et évasions)
 
 ```
 pnpm typecheck
   $ tsc --noEmit -p tsconfig.modular.json
   → 0 erreur (sortie vide, code de sortie 0)
 
-pnpm vitest run tests/modules/catalog/addAsIs.test.ts
-  → Test Files  1 passed (1)
-  → Tests  19 passed (19)
-
-pnpm vitest run tests/app/hooks/useStorefrontOrderLifecycle.test.ts
-  → Test Files  1 passed (1)
-  → Tests  6 passed (6)
-
-pnpm vitest run tests/components/shop/portal/orderRenewal.helpers.test.ts
-  → Test Files  1 passed (1)
-  → Tests  18 passed (18)
-
-pnpm vitest run tests/components/shop/ShopProductCard.addAsIsWiring.test.ts
-  → Test Files  1 passed (1)
-  → Tests  13 passed (13)
+pnpm vitest run tests/modules/catalog/addAsIs.test.ts tests/app/hooks/useStorefrontOrderLifecycle.test.ts tests/components/shop/portal/orderRenewal.helpers.test.ts tests/components/shop/ShopProductCard.addAsIsWiring.test.ts
+  → Test Files  4 passed (4)
+  → Tests  57 passed (57)
+  (détail : addAsIs.test.ts 19, useStorefrontOrderLifecycle.test.ts 7 (+1 round 3, D4), orderRenewal.helpers.test.ts 18, ShopProductCard.addAsIsWiring.test.ts 13 → 19+7+18+13 = 57)
 
 pnpm vitest run tests/architecture/
   → Test Files  46 passed (46)
@@ -225,11 +285,13 @@ pnpm vitest run tests/architecture/
 
 pnpm vitest run   (suite complète du dépôt)
   → Test Files  321 passed | 12 skipped (333)
-  → Tests  3172 passed | 88 skipped (3260)
+  → Tests  3173 passed | 88 skipped (3261)
   → 0 échec
 ```
 
-**Correction D3 sur les skips** : round 1 affirmait que 88 skips étaient « du même ordre » que le baseline sans l'avoir vérifié par comparaison directe. **Vérifié maintenant, précisément** : la qa-review round 1 a elle-même rapporté 88 skips sur le HEAD round 1 (`f0f891d0`) ; la suite complète round 2 (ci-dessus, sur `c5e07929` + mes corrections) rapporte **également 88 skips, chiffre identique**. Le nombre de fichiers de test verts est passé de 320 à **321** (le nouveau fichier `ShopProductCard.addAsIsWiring.test.ts`), et le nombre de tests verts de 3147 à **3172** (**+25, décompte exact par `grep -c "  it("` sur chaque fichier, avant/après** : `addAsIs.test.ts` 14→19 (+5), `orderRenewal.helpers.test.ts` 11→18 (+7), `useStorefrontOrderLifecycle.test.ts` 6→6 (réécrit, effectif inchangé), `ShopProductCard.addAsIsWiring.test.ts` 0→13 (+13, nouveau fichier) ; 5+7+13 = **25**, exactement le delta observé).
+**Chiffres exacts, correspondant à ceux annoncés par la qa-review pour sa correction à blanc de D4** (« typecheck 0, 3173 passés / 88 skippés, architecture comprise »). Delta vs round 2 (3172 → 3173) : **+1**, exactement le nouveau test de `useStorefrontOrderLifecycle.test.ts` (défaut D4). Les skips restent à **88**, chiffre identique aux rounds 1 et 2 — round 3 ne touche aucun test conditionné par des variables d'environnement.
+
+**Correction D3 (round 2) sur les skips, rappel** : round 1 affirmait que 88 skips étaient « du même ordre » que le baseline sans l'avoir vérifié par comparaison directe. Vérifié depuis le round 2 : 88 skips identiques sur `f0f891d0`, `796dace8` et le round 3.
 
 ## Ce que je n'ai PAS fait, et pourquoi
 
@@ -241,5 +303,8 @@ pnpm vitest run   (suite complète du dépôt)
 
 ## Commits
 
+**ROUND 3 — correction d'un défaut RÉPÉTÉ (le coordinateur le signale comme « exactement D3 du round 1, répété »).** Round 2 avait écrit dans ce document, en front-matter ET dans cette section, que le commit round 2 n'existait pas (« aucun commit créé… HEAD `c5e07929` »), **alors que ce commit existait déjà au moment où j'ai écrit cette phrase** (`796dace8`, créé avant la rédaction du rapport de fin de round 2). Je n'ai pas relu cette section contre l'état réel du dépôt avant de la livrer. Corrigé ci-dessous, et dans le front-matter en tête de ce document.
+
 - `f0f891d0` — round 1 (rejeté par la qa-review), branche `feat/gescom-q14a-ajout-direct-grise`, créée depuis `worktree-agent-a36fe9d0d75f6af4a` (HEAD `3448193b` à l'époque).
-- **Round 2 : aucun commit créé à ce stade de la rédaction de ce rapport.** Les corrections D1, D2, D3 et les réserves sont dans l'arbre de travail (modifiées/non suivies), sur la même branche, HEAD actuel `c5e07929` (fusion de l'amendement architecte par `git merge --ff-only`) + les changements non commités listés dans « Fichiers créés/modifiés ». Aucun push effectué.
+- `796dace8` — round 2 (rejeté par la qa-review sur D4 et D5), fix D1 (bandeau de renouvellement) et D2 (câblage non testé), réserves priceHT<=0 et onConfigure obligatoire, correction de l'affirmation fausse sur le serveur.
+- **Round 3 (ce round) : pas encore de commit au moment de la rédaction de cette phrase** — je l'écris donc sans hash, comme demandé, plutôt que d'en inventer un ou d'en nier un qui existerait déjà. Un commit sera créé après la finalisation de ce document, sur la même branche, au-dessus de `796dace8`. Si ce document est relu après ce commit sans que cette phrase ait été mise à jour, c'est un oubli à signaler — pas une preuve que le commit n'existe pas. Aucun push effectué, sur aucun round.
