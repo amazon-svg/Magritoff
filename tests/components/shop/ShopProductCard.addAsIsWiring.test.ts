@@ -50,7 +50,31 @@ const root = resolve(__dirname, '../../..');
  * code contenant `//` dans une chaîne (URL, par exemple).
  */
 const stripComments = (src: string): string =>
-  src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  // Durcissement H3 du coordinateur (qa-review round 3, N3) : la version
+  // precedente retirait TOUT `/* ... */`, y compris dans une chaine. Un
+  // attribut correct comme `data-accept="image/*"` avalait alors le code
+  // jusqu au prochain `*/` et faisait echouer W1/W2 avec un diagnostic
+  // trompeur. On ne retire plus que les commentaires JSX `{/* ... */}` et les
+  // blocs ouverts en debut de ligne. Limite declaree : un `/* ... */` en
+  // milieu de ligne apres du code n est pas retire (evasion deliberee).
+  src
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+    .replace(/^\s*\/\*[\s\S]*?\*\//gm, '')
+    .replace(/^\s*\/\/.*$/gm, '');
+
+/**
+ * Durcissement H2 du coordinateur (qa-review round 3, N2) : W1 et W2
+ * cherchaient leur motif dans TOUT le fichier. Poser `disabled` et
+ * `aria-describedby` sur le bouton « Configurer » au lieu de « + Panier » —
+ * une erreur de copier-coller plausible — les laissait verts. On borne donc la
+ * recherche a la balise du bouton « + Panier », reperee par son `data-testid`.
+ * Limite : la balise est bornee au `onClick` ; un attribut place apres
+ * `onClick` ferait rougir le test (echec du cote sur).
+ */
+const addToCartTag = (src: string): string => {
+  const i = src.indexOf('TEST_IDS.shop.productCardQuoteBtn');
+  return src.slice(src.lastIndexOf('<button', i), src.indexOf('>', src.indexOf('onClick', i)));
+};
 const read = (relPath: string) => stripComments(readFileSync(resolve(root, relPath), 'utf-8'));
 
 const CARD_PATH = 'src/modules/catalog/ui/storefront/ShopProductCard.tsx';
@@ -61,14 +85,14 @@ const PUBLIC_SHOP_PATH = 'src/modules/shops/ui/storefront/PublicShop.tsx';
 describe('ShopProductCard — le cablage du bouton + Panier lit REELLEMENT les fonctions pures (W1-W5)', () => {
   it('W1 — disabled est pose depuis addToCartState.disabled, jamais un litteral', () => {
     const src = read(CARD_PATH);
-    expect(src).toMatch(/disabled=\{addToCartState\.disabled\}/);
+    expect(addToCartTag(src)).toMatch(/disabled=\{addToCartState\.disabled\}/);
     // Un litteral fige (mutation W1) ne doit jamais apparaitre sur ce bouton.
     expect(src).not.toMatch(/disabled=\{false\}/);
   });
 
   it('W2 — aria-describedby est pose depuis addToCartState.describedBy, sous condition', () => {
     const src = read(CARD_PATH);
-    expect(src).toMatch(/"aria-describedby":\s*addToCartState\.describedBy/);
+    expect(addToCartTag(src)).toMatch(/"aria-describedby":\s*addToCartState\.describedBy/);
   });
 
   it('W3 — addToCartButtonState recoit EXACTEMENT addAsIsReasonId, et le libelle (le <p>, pas un conteneur) porte le MEME identifiant en id', () => {
@@ -109,6 +133,11 @@ describe('Volet renouvellement — le cablage D1 (deux canaux separes) tient de 
   it('le hook appelle REELLEMENT collectPriceNotFirmProductNames et pose son resultat dans renewalPriceNotFirm', () => {
     const src = read(LIFECYCLE_PATH);
     expect(src).toMatch(/setRenewalPriceNotFirm\(collectPriceNotFirmProductNames\(lines\)\)/);
+    // Durcissement H1 du coordinateur (qa-review round 3, N0) : le hook doit
+    // APPELER le verdict de la carte. Le test D4 ne voit une recopie que si
+    // elle diverge sur le prix a 0 EUR ; une recopie FIDELE — exactement la
+    // faute du round 2 — passait tout. Seul l appel garantit une regle unique.
+    expect(src).toMatch(/canAddAsIs\(line\.product,\s*clariprintQuote\)/);
     // Round 3 (evasion E9, qa-review) : `renewalWarnings` doit recevoir
     // EXACTEMENT `warnings` (la liste brute de `rebuildCartFromOrderItems`),
     // jamais une variable intermediaire qui aurait pu re-fusionner les deux

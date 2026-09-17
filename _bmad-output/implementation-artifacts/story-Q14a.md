@@ -72,7 +72,7 @@ Condition **C2** (prix ferme, `resolvePrice(...).source ∈ {clariprint, library
 
 **Round 2 (nouveau ou étendu) :**
 - `src/modules/orders/ui/storefront/orderRenewal.helpers.ts` — nouvelle fonction pure `renewalBannerSections(notAdded, priceNotFirm)` (D1).
-- `src/modules/orders/ui/storefront/PortalCart.tsx` — **seulement** le type de props (`renewalPriceNotFirm` ajouté) et le bloc du bandeau S3.3 (D1). Rien d'autre : ni lignes, ni totaux, ni budget, ni format.
+- `src/modules/orders/ui/storefront/PortalCart.tsx` — le type de props (`renewalPriceNotFirm` ajouté), le bloc du bandeau S3.3 (D1), **et deux ajouts hors de la lettre du (c-bis), indispensables** : la ligne d import de `renewalBannerSections` et `const renewalSections = …` dans le corps du composant. Ni lignes, ni totaux, ni budget, ni format. *(Corrigé par le coordinateur : cette phrase disait « seulement … rien d autre », ce qui contredisait la section Fichiers.)*
 - `src/modules/shops/ui/storefront/PublicShop.tsx` — **seulement** la transmission de `renewalPriceNotFirm` (destructure du hook + prop passée à `PortalCart`), 4 lignes ajoutées, aucune ligne retirée (`git diff --stat`).
 - `src/modules/catalog/ui/storefront/ShopProductCard.tsx` (suite) — `onConfigure` devient un prop obligatoire, repli sur `onAddToCart` supprimé (réserve qa-review).
 - `src/modules/catalog/ui/storefront/ShopProductCard.typecheck.ts` — assertion de compilation ajoutée : un objet de props sans `onConfigure` ne doit plus satisfaire `ShopProductCardProps`.
@@ -91,7 +91,7 @@ Condition **C2** (prix ferme, `resolvePrice(...).source ∈ {clariprint, library
 
 2. **Actif quand `resolvePrice(product, quote).source ∈ {clariprint, library_cached}`.** — **FAIT au round 1, PÉRIMÉ depuis (ROUND 2/3, correction du critère).** « Exactement dans ces deux cas » n'est plus vrai depuis la réserve `priceHT <= 0` (round 2) : `canAddAsIs` rend `{ ok: true }` quand la source est `clariprint` OU `library_cached` **ET** `priceHT > 0`. Un devis `clariprint` réussi à `priceHT: 0` échoue désormais (testé, `addAsIs.test.ts`). Formulation correcte : actif quand `isFirmPriceSource(resolution.source) && resolution.priceHT > 0`.
 
-3. **Désactivé par l'attribut natif `disabled`, jamais `aria-disabled` seul, quand la source est `prix_marche` ou `zero`.** — **FAIT.** `addToCartButtonState` rend `disabled: true` dans ce cas, posé sur l'attribut React natif `disabled={addToCartState.disabled}`. Aucune garde manuelle de clic n'a donc à être écrite : un bouton `disabled` natif ne déclenche pas `onClick`.
+3. **Désactivé par l'attribut natif `disabled`, jamais `aria-disabled` seul, quand le prix n est pas ferme : source `prix_marche` ou `zero`, OU prix `priceHT <= 0` quelle que soit la source (devis Clariprint réussi à 0 € compris).** — **FAIT.** `addToCartButtonState` rend `disabled: true` dans ce cas, posé sur l'attribut React natif `disabled={addToCartState.disabled}`. Aucune garde manuelle de clic n'a donc à être écrite : un bouton `disabled` natif ne déclenche pas `onClick`.
 
 4. **Grisé par les jetons atténués EXISTANTS, aucun jeton de couleur nouveau.** — **FAIT.** Classe conditionnelle utilisant `border-line` (border « très fine », déjà défini dans `tokens.css`) et `text-ink-muted` (déjà utilisé ailleurs dans ce même composant — description, mention « / N ex. », badges FSC). Contraste calculé (pas mesuré au navigateur, calcul manuel WCAG) : `#52525B` sur `#FFFFFF` (thème clair) ≈ **7,7:1** ; `#A1A1AA` sur `#111113` (thème sombre) ≈ **7,35:1**. Les deux dépassent le seuil de 4,5:1 exigé par le cadrage. **Mesure au vrai navigateur non faite par moi** (hors de mon accès) — mentionnée comme recette au coordinateur, mais le calcul mathématique sur les tokens déclarés donne une marge large.
 
@@ -105,7 +105,7 @@ Condition **C2** (prix ferme, `resolvePrice(...).source ∈ {clariprint, library
 
 9. **Table fermée : un motif sans libellé ne compile pas.** — **FAIT** par construction TypeScript (`Readonly<Record<AddAsIsReason, string>>`) ; `pnpm typecheck` (`tsconfig.modular.json`, strict) confirme.
 
-10. **Accessibilité : `aria-describedby` sur le bouton désactivé, pointant un identifiant unique par INSTANCE de carte (pas seulement par produit) ; `aria-label` inchangé ; aucun `title`.** — **FAIT, mais une phrase de la justification round 1/2 était fausse (ROUND 3, correction du critère, défaut D5).** `useId()` (React 18, déjà utilisé ailleurs dans le dépôt — `ShopMegaMenu.tsx`) génère un identifiant stable et unique par position dans l'arbre de rendu, donc distinct entre deux instances simultanées de la même carte produit. J'affirmais que « les deux ne peuvent pas diverger sans modifier visiblement deux lignes séparées » : **c'est faux**, la qa-review l'a démontré avec deux mutations d'**une seule ligne chacune** (W3 : `id={String(addAsIsReasonId) + "-x"}` sur le `<p>` ; E6 : déplacement de `id={addAsIsReasonId}` du `<p>` vers le `<div>` conteneur des boutons et du prix). Ce n'est **pas une garantie structurelle** : c'est un test dédié (`W3` de `ShopProductCard.addAsIsWiring.test.ts`, durci en round 3 pour exiger `<p\s+id=\{addAsIsReasonId\}` et non n'importe quel `id=\{addAsIsReasonId\}` dans le fichier) qui tient ce comportement, comme toute autre propriété du câblage. `aria-describedby` n'est posé QUE quand `addToCartState.describedBy` est défini (spread conditionnel) — absent sur un bouton actif.
+10. **Accessibilité : `aria-describedby` sur le bouton désactivé, pointant un identifiant unique par INSTANCE de carte (pas seulement par produit) ; `aria-label` inchangé ; aucun `title`.** — **FAIT, mais une phrase de la justification round 1/2 était fausse (ROUND 3, correction du critère, défaut D5).** `useId()` (React 18, déjà utilisé ailleurs dans le dépôt — `ShopMegaMenu.tsx`) génère un identifiant stable et unique par position dans l'arbre de rendu, donc distinct entre deux instances simultanées de la même carte produit. J'affirmais que « les deux ne peuvent pas diverger sans modifier visiblement deux lignes séparées » : **c'est faux**, la qa-review l'a démontré avec deux mutations d'**une seule ligne chacune** (W3 : `id={`reason-${product.id}`}` sur le `<p>`, forme jouée par la qa-review ; E6 : déplacement de `id={addAsIsReasonId}` du `<p>` vers le `<div>` conteneur des boutons et du prix). Ce n'est **pas une garantie structurelle** : c'est un test dédié (`W3` de `ShopProductCard.addAsIsWiring.test.ts`, durci en round 3 pour exiger `<p\s+id=\{addAsIsReasonId\}` et non n'importe quel `id=\{addAsIsReasonId\}` dans le fichier) qui tient ce comportement, comme toute autre propriété du câblage. `aria-describedby` n'est posé QUE quand `addToCartState.describedBy` est défini (spread conditionnel) — absent sur un bouton actif.
 
 11. **`data-testid` : `productCardQuoteBtn` conservé tel quel (pas renommé) ; nouvelle clé `productCardAddAsIsReason` déclarée dans `testIds.ts`, jamais écrite en dur dans le composant ; élément du motif porte `data-reason`.** — **FAIT.**
 
@@ -113,7 +113,7 @@ Condition **C2** (prix ferme, `resolvePrice(...).source ∈ {clariprint, library
 
 13. **`addToCartButtonState` est une seconde fonction pure séparée**, fournissant tout ce que le JSX pose sur le bouton et sous lui ; **le composant ne choisit aucun texte, ne lit ni `reason` ni `source`.** — **FAIT.** Vérifié par lecture : le JSX ne fait que `addToCartState.disabled`, `addToCartState.describedBy`, `addToCartState.label`, `addToCartState.reason` (pour `data-reason` seul, jamais pour choisir un texte).
 
-14. **Renouvellement de commande : C1 réputée remplie sans réévaluation (comportement INCHANGÉ, pas recodé), C2 n'hérite pas et ne bloque pas ; une ligne dont la source re-résolue est `prix_marche` ou `zero` produit un avertissement, un par ligne.** — **FAIT, mais le canal a changé en round 2 (défaut D1).** `rebuildCartFromOrderItems` n'a pas été touché (le matching et la reconstruction des lignes restent identiques, aucune barrière ajoutée). **Round 1** fusionnait les avertissements de prix dans `renewalWarnings`, dont le titre affiché par `PortalCart` (« N produit(s) indisponible(s), non ajouté(s) au panier ») **contredisait le fait que ces lignes avaient bien été ajoutées** — défaut D1, bloquant, relevé par la qa-review. **Round 2 (point 3.7 (c-bis)) : deux canaux séparés.** `collectPriceNotFirmProductNames` (renommée depuis `buildPriceNotFirmWarnings`) rend maintenant les NOMS seuls (pas des phrases), exposés dans un état séparé `renewalPriceNotFirm`. `renewalBannerSections` (nouvelle fonction pure, `orderRenewal.helpers.ts`) compose les DEUX sections du bandeau — titre exact fixé par le cadrage pour chacune, jamais composé dans `PortalCart`. Voir section « D1 » ci-dessous pour le détail complet et les mutations rejouées.
+14. **Renouvellement de commande : C1 réputée remplie sans réévaluation (comportement INCHANGÉ, pas recodé), C2 n'hérite pas et ne bloque pas ; une ligne dont le prix re-résolu n est pas ferme — source `prix_marche` ou `zero`, OU `priceHT <= 0` quelle que soit la source, soit exactement le verdict `price-not-firm` de `canAddAsIs` — produit un avertissement, un par ligne.** — **FAIT, mais le canal a changé en round 2 (défaut D1).** `rebuildCartFromOrderItems` n'a pas été touché (le matching et la reconstruction des lignes restent identiques, aucune barrière ajoutée). **Round 1** fusionnait les avertissements de prix dans `renewalWarnings`, dont le titre affiché par `PortalCart` (« N produit(s) indisponible(s), non ajouté(s) au panier ») **contredisait le fait que ces lignes avaient bien été ajoutées** — défaut D1, bloquant, relevé par la qa-review. **Round 2 (point 3.7 (c-bis)) : deux canaux séparés.** `collectPriceNotFirmProductNames` (renommée depuis `buildPriceNotFirmWarnings`) rend maintenant les NOMS seuls (pas des phrases), exposés dans un état séparé `renewalPriceNotFirm`. `renewalBannerSections` (nouvelle fonction pure, `orderRenewal.helpers.ts`) compose les DEUX sections du bandeau — titre exact fixé par le cadrage pour chacune, jamais composé dans `PortalCart`. Voir section « D1 » ci-dessous pour le détail complet et les mutations rejouées.
 
 15. **Aucun empiètement hors périmètre non autorisé** : bouton « Personnaliser », bloc prix (BCP-4), `openapi/magrit-core.v1.yaml` non touchés. — **PÉRIMÉ au round 1 (« 3 fichiers modifiés »), CORRIGÉ ici (ROUND 3).** Round 1 affirmait « bouton Configurer non touché » et « 3 fichiers modifiés » : les deux sont faux depuis le round 2 et le contredisent déjà à la ligne 60 de ce document (`onConfigure` obligatoire touche le `onClick` du bouton « Configurer », changement **autorisé** par la réserve de la qa-review — le libellé, la position et le style du bouton ne changent pas). Au round 3, **neuf fichiers sous `src/` bougent au total** (round 1+2+3 cumulés : `ShopProductCard.tsx`, `ShopProductCard.typecheck.ts`, `addAsIs.ts`, `useStorefrontOrderLifecycle.ts`, `PortalCart.tsx`, `orderRenewal.helpers.ts`, `PublicShop.tsx`, `testIds.ts`, `catalog/ui/storefront/index.ts`), tous attendus par le point 6 du cadrage à l'exception du dernier, **explicitement autorisé par le coordinateur** pour D4. Ni « Personnaliser » ni le bloc prix (BCP-4) ne sont touchés, vérifié par relecture ligne à ligne des diffs cumulés.
 
@@ -247,7 +247,7 @@ Les deux fichiers ont été restaurés, vérifiés identiques par `diff` après 
 - **Sur `796dace8` (code d'avant round 3)** : le nouveau test échoue — `expected [] to deeply equal [ 'Brochure a prix nul' ]`. Reproduit manuellement en réappliquant temporairement l'ancien corps de `collectPriceNotFirmProductNames` sur le code round 3, avec restauration vérifiée par `diff`.
 - **Sur le code round 3 corrigé** : le test passe (7/7 sur `useStorefrontOrderLifecycle.test.ts`).
 
-`pnpm typecheck` : 0 erreur (le garde d'architecture accepte l'import par l'entrée publique). `tests/architecture/` : 288/288, inchangé.
+`pnpm typecheck` : 0 erreur. `tests/architecture/` : 288/288, inchangé — c est CE garde, et non le typecheck, qui prouve que l import par l entrée publique est accepté.
 
 ## Défaut D5 — le garde d'épinglage (D2) passait sur du code commenté, corrigé
 
@@ -308,3 +308,56 @@ pnpm vitest run   (suite complète du dépôt)
 - `f0f891d0` — round 1 (rejeté par la qa-review), branche `feat/gescom-q14a-ajout-direct-grise`, créée depuis `worktree-agent-a36fe9d0d75f6af4a` (HEAD `3448193b` à l'époque).
 - `796dace8` — round 2 (rejeté par la qa-review sur D4 et D5), fix D1 (bandeau de renouvellement) et D2 (câblage non testé), réserves priceHT<=0 et onConfigure obligatoire, correction de l'affirmation fausse sur le serveur.
 - `8787d757` — round 3 (ce round) : fix D4 (verdict recopié au lieu d'appelé) et D5 (garde d'épinglage vulnérable au code commenté), correction des six inexactitudes documentaires relevées par le coordinateur. **Ajouté par un commit de documentation séparé** (celui-ci ne modifie que ce fichier, pour inscrire son propre hash sans le deviner avant qu'il existe). Aucun push effectué, sur aucun round.
+
+## Durcissements du coordinateur apres approbation (qa-review round 3)
+
+La qa-review approuve le round 3 sous trois durcissements du garde et quatre
+corrections de texte, a livrer avant fusion. Appliques par le coordinateur,
+chacun prouve par une mutation rejouee et annulee (worktree propre apres
+chaque annulation).
+
+1. **H1 — le hook doit APPELER le verdict de la carte** (faute N0 de la qa).
+   Le test D4 ne voyait une recopie que si elle divergeait sur le prix a 0 EUR.
+   **Mutation jouee** : corps de `collectPriceNotFirmProductNames` remplace par
+   une recopie FIDELE (`resolveCartLinePricing(line).resolution` puis
+   `priceHT > 0 && (source === "clariprint" || source === "library_cached")`,
+   sans appel a `canAddAsIs`). Resultat : `pnpm typecheck` 0 erreur, **les 19
+   autres tests verts**, un seul echec — le test « le hook appelle
+   REELLEMENT… », sur l assertion ajoutee
+   `canAddAsIs\(line\.product,\s*clariprintQuote\)`. C est donc la SEULE
+   chose dans le depot qui voie une recopie fidele, c est-a-dire exactement la
+   faute du round 2.
+
+2. **H2 — W1 et W2 bornes a la balise du bouton « + Panier »** (faute N2).
+   `addToCartTag()` reperee par `TEST_IDS.shop.productCardQuoteBtn`.
+   **Mutation jouee** : `disabled={addToCartState.disabled}` retire de
+   « + Panier » et pose sur « Configurer » (le spread `aria-describedby` a ete
+   retire dans le meme mutant). Resultat : typecheck 0, **W1 et W2 rouges**.
+   Limite : la balise est bornee au `onClick` ; un attribut place apres
+   `onClick` ferait rougir le test (echec du cote sur).
+
+3. **H3 — retrait des commentaires resserre** (faute N3). L ancienne version
+   retirait tout `/* ... */`, y compris dans une chaine.
+   **Mutation jouee** : `data-accept="image/*"` ajoute sur « + Panier ».
+   Resultat : **13/13 verts** (echouait avant, avec un diagnostic trompeur).
+   **Non-regression** : `// disabled={addToCartState.disabled}` (E1) fait
+   toujours rougir W1. Limite declaree : un `/* ... */` en milieu de ligne apres
+   du code n est pas retire (evasion deliberee).
+
+4. **Quatre phrases fausses corrigees** : section Fichiers round 2
+   (`PortalCart.tsx` « seulement… rien d autre », alors que l import et
+   `const renewalSections` ont aussi ete ajoutes) ; criteres 3 et 14 (la
+   frontiere n incluait pas le devis Clariprint a `priceHT: 0`, cas meme de
+   D4) ; critere 10 (la mutation W3 attribuee a la qa n etait pas la sienne) ;
+   resultats round 3 (c est `pnpm test:architecture`, non le typecheck, qui
+   prouve l acceptation de l import par l entree publique).
+
+**Reserve pour Q14-b, relevee par la qa et non traitee ici** : le hook teste
+`eligibility.ok`. Quand Q14-b fera rendre `config-incomplete` a `canAddAsIs`,
+un produit a configuration incomplete mais a prix ferme sera annonce « prix
+non definitif » au renouvellement, alors que le (c) dit que le renouvellement
+echappe a C1. Q14-b devra exposer un verdict C2 seul, ou le cadrage trancher.
+
+Gates apres durcissements : `pnpm typecheck` 0 erreur ; `pnpm test` 321
+fichiers passes / 12 skip, **3173 tests passes / 88 skip, 0 echec** ;
+`pnpm test:architecture` 288/288.
