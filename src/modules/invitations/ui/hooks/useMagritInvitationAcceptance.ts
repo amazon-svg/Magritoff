@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router';
 import type { SessionBootstrap } from '@/modules/session';
 import { ApiClientError } from '@/platform/api';
 import { useSessionBootstrap } from '@/modules/session/ui/bootstrap';
-
-export const PENDING_MAGRIT_INVITATION_KEY = 'magrit:pending-invitation';
+import {
+  clearPendingMagritInvitation,
+  rememberPendingMagritInvitation,
+} from '@/modules/invitations/ui/pendingMagritInvitation';
 
 export type MagritInvitationStatus = 'idle' | 'accepting' | 'success' | 'error';
 
@@ -20,17 +22,29 @@ export function resolveMagritInvitationDestination(
 
 function writePendingInvitation(token: string): void {
   try {
-    window.localStorage.setItem(PENDING_MAGRIT_INVITATION_KEY, token);
+    rememberPendingMagritInvitation(window.sessionStorage, token);
   } catch {
     // Le stockage peut être désactivé ; le lien courant conserve encore le token.
+  }
+  try {
+    // Nettoyage de la version historique, persistante et sans expiration.
+    clearPendingMagritInvitation(window.localStorage);
+  } catch {
+    // Les stockages sont indépendants : un localStorage bloqué ne doit pas
+    // empêcher la reprise temporaire via sessionStorage.
   }
 }
 
 function clearPendingInvitation(): void {
   try {
-    window.localStorage.removeItem(PENDING_MAGRIT_INVITATION_KEY);
+    clearPendingMagritInvitation(window.sessionStorage);
   } catch {
     // Aucun impact sur l'acceptation déjà confirmée côté serveur.
+  }
+  try {
+    clearPendingMagritInvitation(window.localStorage);
+  } catch {
+    // Tente chaque stockage indépendamment, même si l'autre est désactivé.
   }
 }
 
@@ -79,6 +93,7 @@ export function useMagritInvitationAcceptance({
         redirectTimer = setTimeout(() => navigate(destination.path), 1500);
       } catch (cause) {
         if (!active) return;
+        clearPendingInvitation();
         const mismatch = cause instanceof ApiClientError
           && cause.problem.code === 'session.invitation_email_mismatch';
         const rawMessage = cause instanceof Error ? cause.message : String(cause);

@@ -3,9 +3,23 @@ set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DATABASE_CONTAINER="supabase_db_magritoff-v5"
-TENANT_SLUG="${1:-pressetout}"
-CUSTOMER_COUNT="${2:-100}"
-ORDER_COUNT="${3:-200}"
+SEED_ALL=false
+
+if [[ $# -eq 0 ]]; then
+  SEED_ALL=true
+  TENANT_SLUG="pressetout"
+  CUSTOMER_COUNT="100"
+  ORDER_COUNT="200"
+elif [[ "$1" == "--all" ]]; then
+  SEED_ALL=true
+  TENANT_SLUG="pressetout"
+  CUSTOMER_COUNT="${2:-100}"
+  ORDER_COUNT="${3:-200}"
+else
+  TENANT_SLUG="$1"
+  CUSTOMER_COUNT="${2:-100}"
+  ORDER_COUNT="${3:-200}"
+fi
 
 if [[ ! "$TENANT_SLUG" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
   echo "Slug tenant invalide: $TENANT_SLUG" >&2
@@ -34,4 +48,5 @@ docker exec -i "$DATABASE_CONTAINER" \
     -v tenant_slug="$TENANT_SLUG" \
     -v customer_count="$CUSTOMER_COUNT" \
     -v order_count="$ORDER_COUNT" \
+    -v seed_all="$SEED_ALL" \
   < scripts/seed-ux-volume.sql

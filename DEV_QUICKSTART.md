@@ -86,18 +86,25 @@ Le script peut être appelé sans passer par pnpm :
 
 ### Données volumiques pour les tests UX
 
-Le générateur crée par défaut 100 clients et 200 commandes dans le tenant
-`pressetout`. Les identifiants sont déterministes : la commande peut être
-relancée sans dupliquer les fixtures.
+Le générateur autonome crée par défaut trois tenants (`pressetout`,
+`atelier-lumiere`, `imprimerie-du-parc`), deux boutiques par tenant, puis 100
+clients et 200 commandes par tenant. Les identifiants sont déterministes : la
+commande peut être relancée sans dupliquer les fixtures.
 
 ```bash
 pnpm db:seed:ux
 pnpm db:seed:ux <tenant-slug> <nombre-clients> <nombre-commandes>
+pnpm db:seed:ux --all <nombre-clients-par-tenant> <nombre-commandes-par-tenant>
 ```
 
-Le tenant doit déjà posséder au moins un administrateur et une boutique. Les
-fixtures couvrent plusieurs types de clients, statuts, boutiques et dates afin
-d'exercer recherche, filtres, pagination et listes denses.
+Le compte local `demo@magrit.local` / `magrit-demo` est créé comme
+administrateur de tous les espaces. Chaque tenant reçoit aussi trois comptes
+connectables avec le même mot de passe : `commandes.<tenant>@magrit.local`,
+`boutiques.<tenant>@magrit.local` et `equipe.<tenant>@magrit.local`. Ils
+permettent de tester respectivement l'option Commandes, l'option Boutiques et
+un membre sans option. Les fixtures couvrent plusieurs types de clients,
+statuts, boutiques et dates afin d'exercer recherche, filtres, pagination et
+listes denses.
 
 ## Ports utilisés sur les autres branches
 

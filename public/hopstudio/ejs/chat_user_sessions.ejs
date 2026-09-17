@@ -1,0 +1,37 @@
+<section class="hs-history" aria-label="Historique des conversations">
+  <button
+    type="button"
+    class="hs-history-new"
+    onclick="window.hopes_suite.chat.chatAdmin.manager.close(); window.hopes_suite.chat.chatReset(); window.dispatchEvent(new CustomEvent('hopstudio:conversation-reset'));"
+  >
+    <span aria-hidden="true">＋</span>
+    Nouvelle conversation
+  </button>
+
+  <div class="hs-history-list">
+  <%
+    sessions.forEach((session) => {
+      const title = sessions_titles[session.session_key] || 'Conversation sans titre';
+  %>
+    <article class="hs-history-entry" data-session-key="<%= session.session_key %>">
+      <button
+        type="button"
+        class="hs-history-open"
+        onclick="window.hopes_suite.chat.chatAdmin.manager.close(); window.hopes_suite.chat.chatReset(undefined, '<%= session.session_key %>'); window.dispatchEvent(new CustomEvent('hopstudio:conversation-start'));"
+      >
+        <strong><%= title %></strong>
+        <span><%= HChat.displayClaireTimeStamp(session.created) %></span>
+      </button>
+      <button
+        type="button"
+        class="hs-history-delete"
+        title="Supprimer la conversation"
+        aria-label="Supprimer <%= title %>"
+        onclick="window.hopes_suite.chat.showChatConfirmDeleteSession(this)"
+      >
+        ×
+      </button>
+    </article>
+  <% }); %>
+  </div>
+</section>

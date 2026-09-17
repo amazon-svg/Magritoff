@@ -1,0 +1,34 @@
+  <div class="sheet">
+    <div class="card">
+      <!-- HEADER: image + basics -->
+      <div class="header">
+        <div class="image-wrap">
+            <img src="<%= sugarcrepeHL.getRootImg("base") %>shopping-cart.png">
+        </div>
+      </div>
+      <!-- BODY -->
+      <div class="body">
+        <h2 class="section-title"><%= HCSR.tMCtx('Cards') %></h2>
+        <div class="content3">
+<%
+    console.log(basketCards);
+    var total=0;
+    basketCards.forEach(card=>{
+      cardPrice = card.clicked_intent?.getPrice?.response;
+      total += cardPrice %>
+          <div class="cell prompt" data-card-key="<%= card.DBK %>"><%= card.prompt %></div>
+          <div class="cell price" data-card-key="<%= card.DBK %>"><%= sugarcrepeHL.formatPrice(cardPrice) %></div>
+          <div class="cell action" data-card-key="<%= card.DBK %>">
+            <a class="bi-trash" 
+              style="cursor: pointer; display: block; width: 25px;height: 25px;"
+              data-card-key="<%= card.DBK %>"
+              onclick="window.hopes_suite.chat.showChatConfirmRemoveToBasket(this)"
+              alt="<%= HCSR.tMCtx('delete') %>"></a>
+          </div>
+<% }); %>        
+          <div class="cell label"><b><%= HCSR.tMCtx('Total HT') %></b></div>
+          <div class="cell price"><b><%= sugarcrepeHL.formatPrice(total) %></b></div>
+        </div>
+      </div>
+    </div>
+  </div>

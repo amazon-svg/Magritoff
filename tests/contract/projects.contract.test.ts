@@ -447,4 +447,52 @@ describe('module Projets (E10.1) contre le contrat', () => {
     const body = (await response.json()) as { code: string };
     expect(body.code).toBe('identity.scope_required');
   });
+
+  it('importe une offre HopeStudio dans le projet et rejoue la meme cle sans doublon', async () => {
+    const customer = await createCustomer();
+    const { data: project } = await createProject(customer.id);
+    const path = `/api/v1/projects/${project.id}/hopstudio-items`;
+    const body = JSON.stringify({ card: {
+      DBK: 'card-123', prompt: 'Dépliants 3 volets', selected: 'Folded flyers',
+      configuration: { quantity: 500, format: 'A4' },
+      clicked_intent: { getPrice: { response: '90.00' } },
+    } });
+    const init = {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'Idempotency-Key': 'hopstudio-card-123' },
+      body,
+    };
+    const first = await call(path, init);
+    await expectContract(first, { status: 201, dataSchema: 'ProjectItem' });
+    const item = (await first.json()) as { data: ProjectItemDto };
+    expect(item.data.quote_payload).toMatchObject({
+      quantity: 500,
+      amounts: { clariprint_price_ht: '90.00' },
+      hopstudio: { card_key: 'card-123' },
+    });
+    const replay = await call(path, init);
+    expect(replay.status).toBe(201);
+    const detail = await call(`/api/v1/projects/${project.id}`, { headers: asUser });
+    expect(((await detail.json()) as { data: ProjectDetailDto }).data.items).toHaveLength(1);
+  });
+
+  it('refuse une offre invalide et une cle Studio sans ecriture', async () => {
+    const customer = await createCustomer();
+    const { data: project } = await createProject(customer.id);
+    const path = `/api/v1/projects/${project.id}/hopstudio-items`;
+    const body = JSON.stringify({ card: {
+      DBK: 'card-err', prompt: 'Dépliants', configuration: { quantity: 500 },
+      clicked_intent: { getPrice: { response: '-1.00' } },
+    } });
+    const rejected = await call(path, {
+      method: 'POST', headers: { ...jsonHeaders, 'Idempotency-Key': 'hopstudio-card-err' }, body,
+    });
+    await expectContract(rejected, { status: 422 });
+    const studio = await call(path, {
+      method: 'POST',
+      headers: { 'X-Magrit-Service-Key': 'cle-studio', 'Content-Type': 'application/json', 'Idempotency-Key': 'hopstudio-studio-err' },
+      body,
+    });
+    await expectContract(studio, { status: 403 });
+  });
 });

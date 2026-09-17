@@ -1,0 +1,1 @@
+              <input type="number" id="<%=fid%>" class="form-control <% if (typeof locals.unit === "string") { %>text-end<% } %>" name="<%= fid %>" style="min-width: 50px" placeholder="" min="<%=locals["min"]%>" max="<%=locals["max"]%>" step="<%=locals["step"]%>" value="<%= value %>" <% if (locals.require == true) { %>required<% } %> aria-labelledby="label<%= fid %>">

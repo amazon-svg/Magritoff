@@ -1,0 +1,87 @@
+<body>
+  <div class="sheet">
+    <div class="card">
+      <!-- HEADER: image + basics -->
+      <div class="header">
+        <div class="image-wrap">
+          <% if (product.name) { %>
+            <img src="<%= sugarcrepeHL.getRootImg("base") %>products_img/<%= product.name %>.png" alt="<%= (product.title || product.name || 'Produit') %>">
+          <% } else { %>
+            <div class="placeholder">Emplacement image produit</div>
+          <% } %>
+        </div>
+        <br>
+        <div>
+          <h1 class="title"><%= HCSR.tMCtx(product.title || product.name || "Produit",["products","clariprint"]) %></h1>
+          <% if (product.name) { %>
+            <p class="sku">SKU&nbsp;: <strong><%= CryptoJS.MD5(product.name + '~' + JSON.stringify(values)) %></strong></p>
+          <% } %>
+          <% if (product.ai_summary) { %>
+            <p class="summary"><%= product.ai_summary %></p>
+          <% } %>
+          <% if (product.ai_match) { %>
+            <p class="tags">Match&nbsp;: <span class="muted"><%= product.ai_match %></span></p>
+          <% } %>
+        </div>
+      </div>
+
+      <!-- BODY: specs from required_fields only (2 columns: key : value) -->
+      <div class="body">
+        <h2 class="section-title"><%= HCSR.tMCtx('Offres') %></h2>
+        <div class="prices">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th scope="col">#</th>
+                        <th scope="col"><%= HCSR.transl("Printer") %></th>
+                <!--        <th scope="col"><%= HCSR.transl("Material") %></th>
+                        <th scope="col"><%= HCSR.transl("Print") %></th>
+                        <th scope="col"><%= HCSR.transl("Makeready") %></th>
+                        <th scope="col"><%= HCSR.transl("Delivery") %></th> -->
+                        <th scope="col"><%= HCSR.transl("Amount") %></th>
+                        <th scope="col"><%= HCSR.transl("Delay") %></th>
+                        <th scope="col"><%= HCSR.transl("Doc") %></th>
+                    </tr>
+                </thead>
+                <tbody>
+            <% var i = 0;
+                function compareProcesses(p1,p2) {
+                    return parseInt(p1.total) - parseInt(p2.total);
+                }
+
+                all_process.sort(compareProcesses).forEach(p => {i++; %>
+                    <tr>
+                        <th scope="row"><%= i %></th>
+                        <td><%= p.printer %></td>
+            <!--            <td><%= p.paper %></td>
+                        <td><%= p.print %></td>
+                        <td><%= p.makeready %></td>
+                        <td><%= p.delivery %></td> -->
+                        <td><%= sugarcrepeHL.formatPrice(p.total) %></td>
+                        <td><%= p.delais %> <%= HCSR.transl("jour(s)") %></td>
+                        <td>
+                            <a onclick="
+                                const pdfDBK = '<%= quote_process_key %>';
+                                var pdfEncoded = '<%= quote_process %>';
+                                pdfEncoded = pdfEncoded !== '' ? pdfEncoded 
+                                    : HChat.getAttachment(pdfDBK);
+                                HChat.downloadAttachment(pdfEncoded,'<%= p.printer %>.pdf', 'pdf');
+                                " 
+                                style='cursor: pointer' ><img src="<%= sugarcrepeHL.getRootImg() %>pdf.png" title="Détails de gamme"></a></td>
+                        <td><input type="radio" name="rank" value="<%= i %>"
+                                onclick="document.getElementById('button-add-to-basket').dataset.rankSelected='<%= i %>'"></td>
+                    </tr>
+            <% }); %>
+                </tbody>
+            </table>       
+        </div>
+        <div class="footer">
+            <button id="button-add-to-basket"
+                type="button"
+                data-card-key="<%= cardKey %>" 
+                data-rank-selected="1"
+                onclick="window.hopes_suite.chat.onAddToBasket(this)"
+            ><%= HCSR.tMCtx('Ajouter au panier') %></button></div>
+      </div>
+    </div>
+  </div>

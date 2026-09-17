@@ -1,0 +1,35 @@
+<body>
+  <div class="sheet">
+    <div class="card">
+      <!-- HEADER: image + basics -->
+      <div class="header">
+        <div class="image-wrap">
+          <% if (product.name) { %>
+            <img src="<%= sugarcrepeHL.getRootImg("base") %>products_img/<%= product.name %>.png" alt="<%= (product.title || product.name || 'Produit') %>">
+          <% } else { %>
+            <div class="placeholder">Emplacement image produit</div>
+          <% } %>
+        </div>
+        <br>
+        <div>
+          <h1 class="title"><%= HCSR.tMCtx(product.title || product.name || "Produit",["products","clariprint"]) %></h1>
+          <% if (product.name) { %>
+            <p class="sku">SKU&nbsp;: <strong><%= CryptoJS.MD5(product.name + '~' + JSON.stringify(values)) %></strong></p>
+          <% } %>
+          <% if (product.ai_summary) { %>
+            <p class="summary"><%= product.ai_summary %></p>
+          <% } %>
+          <% if (product.ai_match) { %>
+            <p class="tags">Match&nbsp;: <span class="muted"><%= product.ai_match %></span></p>
+          <% } %>
+        </div>
+      </div>
+
+      <!-- BODY: specs from required_fields only (2 columns: key : value) -->
+      <div class="body" id="chat-form">
+      </div>
+      <div class="footer">
+        <button class="configuration-update"><%= HCSR?.tMCtx('Valider les modifications',['products','Chat']) || 'Valider les modification' %></button>
+      </div>
+    </div>
+  </div>

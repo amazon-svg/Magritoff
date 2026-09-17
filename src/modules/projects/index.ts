@@ -3,6 +3,7 @@ export type { ListProjectsQuery, ListProjectsResponse } from './api/client';
 export {
   createProjectCommandSchema,
   createProjectItemCommandSchema,
+  importHopeStudioBasketItemCommandSchema,
   projectDetailSchema,
   projectItemSchema,
   projectSchema,
@@ -13,6 +14,7 @@ export {
   updateProjectCommandSchema,
   type CreateProjectCommand,
   type CreateProjectItemCommand,
+  type ImportHopeStudioBasketItemCommand,
   type ProjectDetailDto,
   type ProjectDto,
   type ProjectItemDto,

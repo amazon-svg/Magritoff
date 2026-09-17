@@ -3,6 +3,7 @@ import { createBrowserRouter, Navigate } from "react-router";
 import { workspaceRuntimeRoutes } from "@/app/surfaces/workspaceRuntimeRoutes";
 import { WorkspaceCapabilityGate } from "@/app/surfaces/WorkspaceCapabilityGate";
 import { portalRuntimePaths } from "@/app/surfaces/portalRuntimePaths";
+import { RouteErrorPage } from "@/app/layouts/RouteErrorPage";
 
 const AppShell = lazy(() =>
   import("@/app/AppShell").then((m) => ({ default: m.AppShell })),
@@ -69,6 +70,11 @@ const MachineParkWizard = lazy(() =>
     default: m.MachineParkWizard,
   })),
 );
+const HopeStudioIntegrationTestPage = lazy(() =>
+  import('@/modules/hopstudio/ui').then((module) => ({
+    default: module.HopeStudioIntegrationTestPage,
+  })),
+);
 
 function RouteFallback() {
   return (
@@ -109,8 +115,12 @@ function lazyRoute(element: React.ReactNode) {
  * télécharge aucune composition Magrit avant navigation vers cette surface.
  */
 export const router = createBrowserRouter([
+  ...(import.meta.env.DEV
+    ? [{ path: '/dev/hopstudio', element: lazyRoute(<HopeStudioIntegrationTestPage />) }]
+    : []),
   {
     element: lazyRoute(<StorefrontRuntimeBoundary />),
+    errorElement: <RouteErrorPage />,
     children: [
       // Boutique publique — anonyme, pas de tenant.
       // S7.1 (ADR §4.19-1) : catch-all — les vues du portail sont des URLs
@@ -131,6 +141,7 @@ export const router = createBrowserRouter([
   },
   {
     element: lazyRoute(<WorkspaceRuntimeBoundary />),
+    errorElement: <RouteErrorPage />,
     children: [
       {
         element: lazyRoute(<AppShell />),

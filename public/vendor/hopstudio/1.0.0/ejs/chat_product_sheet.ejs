@@ -1,0 +1,69 @@
+<body>
+  <div class="sheet">
+    <div class="card">
+      <!-- HEADER: image + basics -->
+      <div class="header">
+        <div class="image-wrap">
+          <% if (product.name) { %>
+            <img src="<%= sugarcrepeHL.getRootImg("base") %>products_img/<%= product.name %>.png" alt="<%= (product.title || product.name || 'Produit') %>">
+          <% } else { %>
+            <div class="placeholder">Emplacement image produit</div>
+          <% } %>
+        </div>
+        <br>
+        <div>
+          <h1 class="title"><%= HCSR.tMCtx(product.title || product.name || "Produit",["products","clariprint"]) %></h1>
+          <% if (product.name) { %>
+            <p class="sku">SKU&nbsp;: <strong><%= CryptoJS.MD5(product.name + '~' + JSON.stringify(values)) %></strong></p>
+          <% } %>
+          <% if (product.ai_summary) { %>
+            <p class="summary"><%= product.ai_summary %></p>
+          <% } %>
+          <% if (product.ai_match) { %>
+            <p class="tags">Match&nbsp;: <span class="muted"><%= product.ai_match %></span></p>
+          <% } %>
+        </div>
+      </div>
+
+      <!-- BODY: specs from required_fields only (2 columns: key : value) -->
+      <div class="body">
+        <h2 class="section-title">Caractéristiques</h2>
+        <div class="specs">
+          <% 
+            const rf = Array.isArray(product.required_fields) ? product.required_fields : [];
+            const of = Array.isArray(product.optional_fields) ? product.optional_fields : [];
+            const df = Array.isArray(product.delivery_fields) ? product.delivery_fields : [];
+            const vals = typeof values === 'object' && values ? values : {};
+            
+            rf.concat(of,df).forEach(function(field) {
+              console.log(field);
+              // Determine label and value (no options, no min/max/default, no completion_datas)
+              const label = HCSR.tMCtx(field.title || field.name || field.id || "Caractéristique");
+              console.log(label);
+              console.log(vals[field.name]);
+              let rawVal = (field && field.name && (vals[field.name] !== undefined && vals[field.name] !== null)) ? vals[field.name] : null;
+              // If value is an array or object, stringify minimally
+              if (Array.isArray(rawVal)) {
+                var str = "";
+                rawVal.forEach(val=>{
+                  str += HCSR.tMCtx(val,["products","clariprint"]) + " ";
+                });
+                rawVal = str;
+              }
+              else if (typeof rawVal === "string") rawVal = HCSR.tMCtx(rawVal,["products","clariprint"])
+              else if (rawVal && typeof rawVal === 'object') { rawVal = JSON.stringify(rawVal); }
+              if (typeof rawVal === "string") rawVal = rawVal.split(";").join(" ");
+              const unit = field.unit ? ` ${field.unit}` : '';
+              const display = (rawVal === null || rawVal === '') ? '—' : (String(rawVal) + unit);
+          %>
+              <div class="cell key"><%= label %></div>
+              <div class="cell val"><%= display %></div>
+          <% }); %>
+          <% if (!rf.length) { %>
+              <div class="cell key">Aucune caractéristique requise</div>
+              <div class="cell val">—</div>
+          <% } %>
+        </div>
+      </div>
+    </div>
+  </div>

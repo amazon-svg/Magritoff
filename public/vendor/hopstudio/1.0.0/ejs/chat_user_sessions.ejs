@@ -1,0 +1,35 @@
+  <div class="sheet">
+    <div class="card">
+      <!-- HEADER: image + basics -->
+      <div class="header">
+      </div>
+      <!-- BODY -->
+      <div class="body">
+        <h2 class="section-title"><%= HCSR.tMCtx('History')%></h2>
+        <div class="content3">
+<%
+    console.log(sessions);
+    console.log(sessions_titles);
+    sessions.forEach(sess=>{ 
+      const title = sessions_titles[sess.session_key];  %>
+      <div class="cell label" data-session-key="<%= sess.session_key %>">
+        <input type="text" class="sess-title" data-session-key="<%= sess.session_key %>" value="<%= title %>"
+        onchange="
+        window.hopes_suite.chat.setSessionTitle('<%= sess.session_key %>',this.value);
+        this.classList.remove('edit');"
+        onclick="this.classList.add('edit')">
+      </div>
+      <div class="cell date" data-session-key="<%= sess.session_key %>">
+        <a style="cursor: pointer;"
+          onclick="window.hopes_suite.chat.chatReset(undefined,'<%= sess.session_key %>')"><%= HChat.displayClaireTimeStamp(sess.created) %></a></div>
+      <div class="cell action" data-session-key="<%= sess.session_key %>">
+        <a class="bi-trash"  
+          style="cursor: pointer; display: block; width: 25px;height: 25px;"
+          onclick="window.hopes_suite.chat.showChatConfirmDeleteSession(this)"
+          alt="<%= HCSR.tMCtx('delete') %>"></a>
+      </div>
+<% }); %>        
+        </div>
+      </div>
+    </div>
+  </div>

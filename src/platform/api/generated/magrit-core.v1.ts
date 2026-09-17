@@ -273,6 +273,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{projectId}/hopstudio-items": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Importe une ligne de panier HopeStudio dans un projet actif. */
+        post: operations["importHopeStudioBasketItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{projectId}/items/{itemId}": {
         parameters: {
             query?: never;
@@ -3110,6 +3138,28 @@ export interface components {
             clariprint_config?: {
                 [key: string]: unknown;
             } | null;
+        };
+        /** ImportHopeStudioBasketItemCommand */
+        ImportHopeStudioBasketItemCommand: {
+            card: {
+                DBK: string;
+                prompt?: string;
+                selected?: string;
+                configuration: {
+                    [key: string]: unknown;
+                };
+                clicked_intent: {
+                    getPrice: {
+                        response: number | string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                } & {
+                    [key: string]: unknown;
+                };
+            } & {
+                [key: string]: unknown;
+            };
         };
         /**
          * QuoteStatus
@@ -6486,6 +6536,7 @@ export type ProjectTag = components['schemas']['ProjectTag'];
 export type CreateProjectTagCommand = components['schemas']['CreateProjectTagCommand'];
 export type ReplaceProjectTagsCommand = components['schemas']['ReplaceProjectTagsCommand'];
 export type CreateProjectItemCommand = components['schemas']['CreateProjectItemCommand'];
+export type ImportHopeStudioBasketItemCommand = components['schemas']['ImportHopeStudioBasketItemCommand'];
 export type QuoteStatus = components['schemas']['QuoteStatus'];
 export type QuoteLine = components['schemas']['QuoteLine'];
 export type Quote = components['schemas']['Quote'];
@@ -7424,6 +7475,60 @@ export interface operations {
         };
         responses: {
             /** @description Element de chiffrage ajoute au projet. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["ProjectItem"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    importHopeStudioBasketItem: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+                /**
+                 * @description Cle d idempotence fournie par l appelant sur tout POST creant une ressource metier (CA8). Rejouer la meme cle avec la meme requete renvoie la reponse initiale, accompagnee de l en-tete `Idempotency-Replayed: true` ; la rejouer avec une requete differente renvoie 409 `api.idempotency_key_reused`.
+                 *
+                 *     L identite d une requete couvre la methode, le chemin, LA QUERY et le corps : deux POST au meme chemin avec des query differentes ne sont pas la meme requete.
+                 *
+                 *     Sur un rejeu, seul `meta.request_id` est recale sur la requete courante ; `data` est rendu inchange.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description Identifiant technique du projet, dans le tenant du jeton. */
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportHopeStudioBasketItemCommand"];
+            };
+        };
+        responses: {
+            /** @description Ligne importée dans le projet. */
             201: {
                 headers: {
                     [name: string]: unknown;

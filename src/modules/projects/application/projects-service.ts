@@ -14,6 +14,7 @@ import type { ProjectTagsRepository } from '../../project-tags/application/proje
 import type {
   CreateProjectCommand,
   CreateProjectItemCommand,
+  ImportHopeStudioBasketItemCommand,
   ProjectDetailDto,
   ProjectDto,
   ProjectItemDto,
@@ -138,6 +139,48 @@ export class ProjectsService {
     const exists = await this.repository.findById(tenantId, projectId);
     if (!exists) throw new ProjectNotFoundError();
     return this.repository.addItem(tenantId, projectId, command);
+  }
+
+  async importHopeStudioBasketItem(
+    tenantId: TenantId,
+    projectId: string,
+    command: ImportHopeStudioBasketItemCommand,
+  ): Promise<ProjectItemDto> {
+    const project = await this.repository.findById(tenantId, projectId);
+    if (!project) throw new ProjectNotFoundError();
+    if (project.status !== 'active') {
+      throw new ProjectCommandRejectedError('project.archived', 'Un projet archivé ne peut recevoir de chiffrage.');
+    }
+    const card = command.card;
+    const label = (card.prompt?.trim() || card.selected?.trim() || '').slice(0, 300);
+    if (!label) {
+      throw new ProjectCommandRejectedError('project.hopstudio_card_invalid', 'Le produit HopeStudio n a pas de libellé.');
+    }
+    const rawAmount = card.clicked_intent.getPrice.response;
+    const amount = typeof rawAmount === 'string' ? Number(rawAmount) : rawAmount;
+    if (!Number.isFinite(amount) || amount < 0 || amount > 9_999_999_999.99 ||
+      (typeof rawAmount === 'string' && !/^\d+(?:\.\d{1,2})?$/.test(rawAmount))) {
+      throw new ProjectCommandRejectedError('project.hopstudio_price_invalid', 'Le montant HopeStudio doit être un montant HT valide.');
+    }
+    const money = amount.toFixed(2);
+    const rawQuantity = card.configuration['quantity'] ?? card.configuration['Quantity'] ?? 1;
+    const quantity = Number(rawQuantity);
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 1_000_000) {
+      throw new ProjectCommandRejectedError('project.hopstudio_quantity_invalid', 'La quantité HopeStudio est invalide.');
+    }
+    return this.repository.addItem(tenantId, projectId, {
+      label,
+      quote_payload: {
+        ...card.configuration,
+        name: card.selected || label,
+        quantity,
+        price: amount,
+        clariprintQuote: { priceHT: amount },
+        amounts: { price: money, clariprint_price_ht: money },
+        hopstudio: { card_key: card.DBK, selected: card.selected ?? null, configuration: card.configuration },
+      },
+      clariprint_config: card.configuration,
+    });
   }
 
   async removeItem(tenantId: TenantId, projectId: string, itemId: string): Promise<void> {

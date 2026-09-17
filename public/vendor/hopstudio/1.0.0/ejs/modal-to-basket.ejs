@@ -1,0 +1,109 @@
+<!-- Modal Printer Infos -->
+<div class="modal fade" id="printerInfosModal" tabindex="-1" role="dialog" aria-labelledby="printerInfosModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="printerInfosModalLabel"><%= HCSR.transl("QYP Present you :") %></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <label for="name"><%= HCSR.transl("Printer name : ") %></label>
+        <input type="text" class="form-control" name="printer" id="printer" disabled placeholder="" value="">
+        <label for="mail"><%= HCSR.transl("Contact : ") %></label>
+        <input type="text" class="form-control" name="mail" id="mail" disabled placeholder="" value="">
+      </div>
+      <div class="modal-footer mx-auto" id="#footerbutton">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><%= HCSR.transl("Close") %></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal add line to basket -->
+<div class="modal fade modal-xl" id="toBasketModal" tabindex="-1" role="dialog" aria-labelledby="toBasketModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="toBasketModalLabel"><%= HCSR.transl("Add to basket ...") %></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="card border mt-2 mb-2">  
+          <div class="card-header h6">
+            <label for="basketname"><%= HCSR.transl("New line name : ") %></label>
+          </div>
+          <div class="card-body">
+              <div class="input-group">
+                <input type="text" class="form-control" name="linename" id="linename" placeholder="<%= HCSR.transl("Please fill a reference") %>" value="">
+              </div>
+          </div>
+        </div>
+        <div class="card border mt-2 mb-2">  
+          <div class="card-header h6"><%= HCSR.transl("Order resume : ") %>
+          </div>
+          <div class="card-body">
+            <div role="modal-resume"></div>
+          </div>
+        </div>
+
+    <% if (sugarcrepeHL.marketplace) { %>    
+        <div role="list-container"></div>
+        <label for="basketname"><%= HCSR.transl("New basket name : ") %></label>
+        <input type="text" class="form-control" name="basketname" id="basketname" placeholder="" value="New basket">
+    <% } else { %>
+        <input type="hidden" class="form-control" name="basketname" id="basketname" placeholder="" value="New basket">
+    <% } %>
+      </div>
+      <div class="modal-footer mx-auto" id="#footerbutton">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><%= HCSR.transl("Close") %></button>
+        <button type="button" class="btn btn-primary" role="addToBasket"><%= HCSR.transl("Add to basket") %></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal update current line -->
+<div class="modal fade" id="updateLineModal" tabindex="-1" role="dialog" aria-labelledby="updateLineModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="updateLineModalLabel"><%= HCSR.transl("Update line in current basket ...") %></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p><%= HCSR.transl("Click save to confirm and update the line in current basket !") %></p>
+      </div>
+      <div class="modal-footer mx-auto">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><%= HCSR.transl("Close") %></button>
+        <button type="button" class="btn btn-primary" role="updateCurrentLine"><%= HCSR.transl("Save") %></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal goto basket or continue -->
+<div class="modal fade" id="gotoBasketModal" tabindex="-1" role="dialog" aria-labelledby="gotoBasketModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="gotoBasketModalLabel"><%= HCSR.transl("Line added successfuly...") %></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p><%= HCSR.transl("What do you want to do ?") %></p>
+      </div>
+      <div class="modal-footer mx-auto">
+        <button type="button" class="btn btn-secondary" role="continue"><%= HCSR.transl("Continue") %></button>
+        <button type="button" class="btn btn-primary" role="gotoBasket"><%= HCSR.transl("Go to basket") %></button>
+      </div>
+    </div>
+  </div>
+</div>
