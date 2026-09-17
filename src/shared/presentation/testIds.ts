@@ -388,6 +388,9 @@ export const TEST_IDS = {
     // A4.1 (2026-06-15) — Bannière hero + tagline en tête de boutique publique.
     heroBanner: 'shop-hero-banner',
     heroTagline: 'shop-hero-tagline',
+    // Q14-a (docs/api/CONVENTIONS.md §8.25 point 3.7) — motif du bouton
+    // "+ Panier" desactive, ecrit en permanence sous la rangee de boutons.
+    productCardAddAsIsReason: 'product-card-add-as-is-reason',
   },
 
   // ─── Workflow & rôles de commande (S-ORDER-ROLES-3-UI) ────────────────

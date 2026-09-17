@@ -14,6 +14,35 @@ import { resolveCartLinePricing } from '@/modules/orders/ui/storefront/cartPrici
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/**
+ * Q14-a (docs/api/CONVENTIONS.md §8.25 point 3.7 (c)) — le renouvellement
+ * ECHAPPE à C2 : les caractéristiques snapshotées priment (C1 est réputée
+ * remplie sans être réévaluée), et le prix se recalcule par
+ * `resolveCartLinePricing` sur le produit d'AUJOURD'HUI. Ce n'est pas un
+ * blocage, c'est une INFORMATION : une ligne dont la source re-résolue est
+ * `prix_marche` ou `zero` (donc PAS `clariprint` ni `library_cached`, la
+ * même frontière que C2) produit un avertissement, un par ligne, dans le
+ * canal `renewalWarnings` qui existe déjà — aucune interface nouvelle,
+ * aucune table, aucun endpoint.
+ *
+ * Fonction pure, testée cas par cas : le hook ne fait que l'appeler et
+ * fusionner son résultat avec les avertissements de correspondance déjà
+ * produits par `rebuildCartFromOrderItems`.
+ */
+export function buildPriceNotFirmWarnings(lines: readonly CartLine[]): string[] {
+  const warnings: string[] = [];
+  for (const line of lines) {
+    const { resolution } = resolveCartLinePricing(line);
+    if (resolution.source === 'clariprint' || resolution.source === 'library_cached') {
+      continue;
+    }
+    warnings.push(
+      `${line.product.name} : prix non définitif — confirmé par l'imprimeur à la validation de la commande.`,
+    );
+  }
+  return warnings;
+}
+
 export function useStorefrontOrderLifecycle({
   slug,
   shop,
@@ -108,7 +137,10 @@ export function useStorefrontOrderLifecycle({
       return;
     }
     setCart(lines);
-    setRenewalWarnings(warnings);
+    // Q14-a, point 3.7 (c) — avertissements de correspondance (produit
+    // retiré/indisponible) PUIS avertissements de prix non ferme, dans le
+    // même canal, jamais deux bandeaux.
+    setRenewalWarnings([...warnings, ...buildPriceNotFirmWarnings(lines)]);
     onCartRenewed();
   }, [cart.length, onCartRenewed, ordersApi, products, setCart]);
 

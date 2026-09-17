@@ -18,11 +18,17 @@
  * Le composant remplace le rendering inline de PortalCatalog (S2.3 Task 6).
  */
 
-import { useMemo } from "react";
+import { useId, useMemo } from "react";
 import type { Shop, ShopProduct } from '@/modules/shops';
 import type { Gamme, ProductDefinition } from "@/modules/catalog/ui/helpers/productEnrichment";
 import { resolveProductGamme } from "@/modules/catalog/ui/helpers/productEnrichment";
 import { TEST_IDS } from "@/shared/presentation/testIds";
+// Q14-a (docs/api/CONVENTIONS.md §8.25 point 3.7) — le bouton "+ Panier" est
+// toujours rendu, mais desactive et grise quand le produit n a pas de prix
+// d origine imprimeur (C2). Fonctions pures : ce composant ne fait que
+// parcourir leur resultat, il ne choisit ni etat ni texte lui-meme.
+import { canAddAsIs, addToCartButtonState } from "@/modules/catalog/ui/storefront/addAsIs";
+import type { ClariprintQuoteResult } from "@/modules/clariprint";
 import { resolveCustomMockup, type MockupTemplateType } from '@/modules/mockups/ui/components';
 import { resolveMockupTemplate } from "@/modules/catalog/ui/storefront/ShopProductCard.helpers";
 // S2.11 + cohérence nav (2026-07-07) : le repère famille (liseré + picto +
@@ -147,6 +153,28 @@ export function ShopProductCard({
     /^(leaflet|folded|book|cover|section)$/i.test(product.category);
   const categoryLabel = gammeName
     ?? (isRawClariprintKind ? "Template" : (product.category || "Template"));
+
+  // Q14-a (point 3.7 (a)) — meme extraction de quote que PortalProduct.tsx
+  // et cartPricing.ts : `resolvePrice(product, product.config.clariprintQuote
+  // ?? null)`.
+  const clariprintQuote = (
+    product.config as { clariprintQuote?: ClariprintQuoteResult } | null | undefined
+  )?.clariprintQuote ?? null;
+  const addAsIsEligibility = useMemo(
+    () => canAddAsIs(product, clariprintQuote),
+    [product, clariprintQuote],
+  );
+  // Identifiant DOM propre a CETTE instance de carte (point 3.7 (b-ter) 2) :
+  // `product.id` seul ne suffit pas, la meme carte peut se rendre deux fois
+  // sur une page (grille "Nouveautes" + une autre liste). `useId()` (React
+  // 18) garantit un identifiant unique par position dans l arbre de rendu,
+  // stable pour la duree de vie du composant, jamais recycle entre deux
+  // instances simultanees.
+  const addAsIsReasonId = useId();
+  const addToCartState = useMemo(
+    () => addToCartButtonState(addAsIsEligibility, addAsIsReasonId),
+    [addAsIsEligibility, addAsIsReasonId],
+  );
 
   return (
     <article
@@ -360,21 +388,53 @@ export function ShopProductCard({
               Personnaliser
             </button>
 
-            {/* S-FIX-BTNS-11/05 (bug #2a) : bouton + Panier persistant */}
+            {/* S-FIX-BTNS-11/05 (bug #2a) : bouton + Panier persistant.
+                Q14-a (point 3.7 (b) a (b-ter)) : le bouton reste TOUJOURS
+                rendu, mais devient inoperant (attribut `disabled` natif,
+                jamais `aria-disabled` seul — un clic sur un bouton `disabled`
+                natif n a AUCUN effet, aucune garde a tenir a la main) et
+                grise quand le produit n a pas de prix d origine imprimeur.
+                Aucun `title` : le motif est un texte du document, pas une
+                infobulle (illisible au tactile). */}
             <button
               type="button"
               data-testid={TEST_IDS.shop.productCardQuoteBtn}
               aria-label={`Ajouter ${product.name} au panier`}
+              {...(addToCartState.describedBy
+                ? { "aria-describedby": addToCartState.describedBy }
+                : {})}
+              disabled={addToCartState.disabled}
               onClick={(e) => {
                 e.stopPropagation();
                 onAddToCart(product);
               }}
-              className="px-3 py-1.5 bg-paper border border-line-2 text-ink rounded-md hover:bg-bg transition-all"
+              className={
+                addToCartState.disabled
+                  ? "px-3 py-1.5 bg-paper border border-line text-ink-muted rounded-md cursor-not-allowed transition-all"
+                  : "px-3 py-1.5 bg-paper border border-line-2 text-ink rounded-md hover:bg-bg transition-all"
+              }
               style={{ fontSize: "12.5px", fontWeight: 500 }}
             >
               + Panier
             </button>
           </div>
+
+          {/* Q14-a (point 3.7 (b-bis) 3, (b-ter) 2) — motif ECRIT en
+              permanence sous la rangee de boutons, jamais au survol/focus,
+              jamais masque aux petites largeurs. Absent quand le critere est
+              rempli : aucune ligne vide reservee. Associe au bouton par
+              `aria-describedby` (id ci-dessus), jamais par `title`. */}
+          {addToCartState.label && (
+            <p
+              id={addAsIsReasonId}
+              data-testid={TEST_IDS.shop.productCardAddAsIsReason}
+              data-reason={addToCartState.reason}
+              className="text-ink-muted m-0"
+              style={{ fontSize: "11.5px", fontWeight: 400, lineHeight: 1.4 }}
+            >
+              {addToCartState.label}
+            </p>
+          )}
         </div>
 
         {/* ─── Badges trust (retro-compat visuelle) ────────────────── */}
