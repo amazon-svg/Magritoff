@@ -7,6 +7,22 @@ depends_on: [UM8.1, UM8.3]
 ---
 # UM9.1 — Auto-inscription sur une boutique publique
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> Aucune story du Sprint Board Notion n'est rattachée à ce story document : c'est une story née dans le dépôt (refonte technique, lot d'architecture ou correctif). Son périmètre est celui décrit ci-dessous. Si elle relève d'une story Notion, renseigner ce rattachement et régénérer cette section.
+
+### Cas de test fonctionnels rattachés (Notion)
+
+| TF | Cas de test | Statut | Priorité | Parcours | Cible | Stories liées |
+|---|---|---|---|---|---|---|
+| [TF-151](https://app.notion.com/3c6d0131973c8148a459e5fbe3aca0e7) | P12 — Boutique privée (invite_only) : aucun branding, aucun catalogue, pas de création libre, connexion seule | OK | P0 — Critique | P12 — Comptes clients boutique | B5 | UM8-4, UM9-1, SHOP_ACCESS_CONTROL invariants 1-2 et 9 |
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 ## Objectif
 
 Rétablir le parcours `self_signup` sans recréer de profil mixte : le visiteur

@@ -22,6 +22,20 @@ wireframes:
 
 # Story S-ORDER-ROLES-3 — UI PortalOrders tabs filtrés + admin catalog rôles
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> Aucune story du Sprint Board Notion n'est rattachée à ce story document : c'est une story née dans le dépôt (refonte technique, lot d'architecture ou correctif). Son périmètre est celui décrit ci-dessous. Si elle relève d'une story Notion, renseigner ce rattachement et régénérer cette section.
+
+### Cas de test fonctionnels rattachés (Notion)
+
+_Aucun cas de test rattaché dans la base Notion « 🧪 Cahiers de tests fonctionnels Magrit »._
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 ## Résumé exécutif (Sally — 2026-06-08)
 
 **Objectif** : rendre user-facing la couche workflow paramétrable (`tenant_role_definitions` + `tenant_order_roles`) déjà livrée Sprint 6. Trois écrans à construire — (1) refonte **PortalOrders** côté boutique avec 4 tabs filtrés ("Mes commandes" / "À valider" / "À approuver" / "À produire") + boutons actions contextuels résolus par `useOrderRoles + canDoAction` ; (2) nouvelle page admin tenant **`/t/:slug/admin/order-roles`** qui matérialise le catalog rôles + un rail visuel du circuit + une matrice users×rôles (lecture seule renvoyant vers page Users existante) ; (3) **modale unique** `<RoleEditorDialog>` qui gère création et édition d'un rôle (nom auto "Validateur X" éditable, 4 toggles capabilities, 3 options notify_policy, segmented control scope tenant/boutique avec Combobox boutique). Pattern UI : shadcn Tabs/Dialog/ToggleGroup/Combobox, lucide-react icons, Tailwind v4. Microcopy FR direct sans jargon ("Suivant" plutôt que `chain_next`, "Tout l'espace" plutôt que `scope=tenant`).

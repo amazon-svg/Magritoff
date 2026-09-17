@@ -8,6 +8,198 @@ blocks: [E10.17, E10.19, E10.20]
 ---
 # E10.16 — Écran de détail d'une commande
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> **Source qui fait foi : Notion** — [E10.16 — Écran de détail d'une commande](https://app.notion.com/p/3cad0131973c819a87f8c9427f99c80e) · extrait le 17/09/2026 · page modifiée le 09/09/2026.
+> Copie destinée à tout intervenant (développement, QA, revue, agent) : lire ce périmètre avant la partie implémentation. En cas d'écart, Notion prévaut. Le statut Notion peut retarder sur la livraison réelle, décrite plus bas.
+
+| Epic | Sprint | Priorité | Effort | Statut Notion | Assigné à | Offre | Source | Ordre |
+|---|---|---|---|---|---|---|---|---|
+| E10 — Gestion commerciale | Sprint 5 — Gestion commerciale | P0 | M | Terminé | Claude code | Pro+ | RP 28/08/2026, WM 01/09/2026 | 16 |
+
+### Description fonctionnelle (Notion)
+
+**En tant que** gestionnaire de commandes, **je veux** un écran de commande complet, **afin de** disposer de toutes les informations commerciales et techniques sans sortir de Magrit.
+
+##### Statut
+
+Draft — prêt pour agent dev
+
+##### Contexte produit
+
+Décision RP du 28/08/2026 : l'écran de commande actuel est qualifié de rustique, il manque le détail. La séance acte un écran portant le client, les dates, les articles, les détails techniques, les informations commerciales, la gamme de fabrication issue de Clariprint, la génération du lien de dépôt de fichiers et l'action de changement de statut.
+
+##### Critères d'acceptation
+
+1. La fiche commande présente : numéro, statut courant, client et interlocuteur, dates (création, dernière transition, livraison prévue), devis d'origine.
+2. Le détail des lignes affiche libellé produit, configuration technique complète, quantité, prix de vente et remise appliquée.
+3. La gamme de fabrication et les données techniques produit récupérées de Clariprint sont accessibles depuis la ligne, y compris le PDF de gamme lorsqu'il existe.
+4. La fiche expose le bouton de changement de statut (E10.14) et le panneau d'historique.
+5. La fiche expose la génération du lien de dépôt de fichiers (E10.17) et le lien vers l'emplacement des fichiers déposés.
+6. La fiche est accessible depuis la grille des commandes et par URL directe `/t/:slug/dashboard/orders/:id`.
+7. Aucun écran ne permet de modifier les prix d'une commande : ils sont figés à la conversion (E10.12).
+
+##### Tâches / Sous-tâches
+
+- [ ] Page `src/pages/dashboard/orders/[id].tsx` (CA : 1, 2, 6)
+- [ ] Composant `src/components/orders/OrderLinesTable.tsx` (CA : 2)
+- [ ] Récupération et affichage de la gamme de fabrication Clariprint (CA : 3)
+- [ ] Intégration du dialogue de statut et de l'historique (CA : 4)
+- [ ] Intégration du bloc fichiers (CA : 5)
+
+##### Dev Notes
+
+###### Contraintes techniques
+
+- Les données techniques produit et la gamme de fabrication proviennent de Clariprint : les récupérer via le service existant, ne pas les redupliquer dans le schéma Magrit au-delà du snapshot de commande.
+- L'écran est en lecture seule sur les montants (CA 7) — c'est une conséquence directe du gel de E10.12, pas une option d'affichage.
+
+###### data-testid
+
+`order-detail-page`, `order-customer-block`, `order-lines-table`, `order-line-row` (+ `data-line-id`), `order-line-tech-details-btn`, `order-manufacturing-range-link`, `order-status-btn`, `order-files-block`, `order-file-link-generate-btn`
+
+###### Dépendances
+
+- Bloquée par : E10.12
+- Intègre : E10.14, E10.17
+
+##### Mise à jour — WM du 01/09/2026
+
+- **Bon de commande PDF extrait en story dédiée : E10.19.** La fiche commande expose le bouton, la génération et le gabarit sont traités là-bas.
+- **Bloc fichiers revu.** Le CA 5 est remplacé : la fiche n'expose plus « un lien de dépôt » mais le **panneau de fichiers groupé par item** (E10.17), avec dépôt direct depuis le back-office, bascule public / privé et suppression par fichier, plus la génération du lien public de dépôt à transmettre au client (E10.20).
+- Le prix affiché sur les lignes provient du snapshot de commande, formaté selon `PricedLine` (**E10.21**).
+
+##### Contrat API
+
+| Méthode | Route | Objet |
+| --- | --- | --- |
+| GET | `/api/v1/orders/{orderId}` | Détail complet : commande, client, interlocuteur, lignes, étape courante, devis d'origine |
+| GET | `/api/v1/orders/{orderId}/lines` | Lignes avec configuration technique et `PricedLine` |
+| GET | `/api/v1/orders/{orderId}/lines/{lineId}/manufacturing-range` | Gamme de fabrication Clariprint (302 vers une URL signée) |
+
+**Aucune écriture de prix n'est exposée sur une commande** : le gel des montants à la conversion (E10.12) est une propriété du contrat, pas seulement de l'interface. Il n'existe pas de PATCH sur `order_lines.sale_price`.
+
+##### Tests
+
+Parcours P13 — ouverture d'une commande issue d'un devis, contrôle de la présence du client, des lignes, des détails techniques et de l'impossibilité de modifier un prix.
+
+##### Change Log
+
+- 2026-08-28 — v1 — Création à partir de la séance du 28/08/2026 — Arnaud Mazon / Claude
+
+##### Dev Agent Record
+
+###### Agent Model Used
+
+Sonnet (dev-story), Opus (qa-review)
+
+###### Debug Log References
+
+(aucun fourni)
+
+###### Completion Notes
+
+**qa-review : Approved — 1 seul round, 0 bloquant**
+
+**Critères d'acceptation vérifiés :**
+
+- **CA1** (numéro, statut, client, interlocuteur, dates, devis) : ✓ Livré. Interlocuteur recopié automatiquement via `shop_customer_accounts.customer_contact_id` à la conversion depuis `commercial_quotes.decided_by_account_id` (découverte notable évitant saisie manuelle inventée). Date de livraison prévue affichée « Non renseignée » (colonne posée sans écrivain, debt tracée).
+- **CA2** (lignes au format PricedLine) : ✓ Livré. Table `order-lines-table`, `order-line-row` (+`data-line-id`).
+- **CA3** (gamme Clariprint) : ✓ Hors périmètre confirmé — aucune capacité disponible dans dépôt, différé rapproché d'E10.8 (gelée).
+- **CA4** (bouton Statut + historique) : ✓ Livré, câblé pour première fois sur écran réel. `OrderStatusButton` relance `refresh()` après transition. Aucun panneau historique séparé (arbitrage E10.14).
+- **CA5** (fichiers/E10.17) : ✓ Hors périmètre — aucun bloc.
+- **CA6** (URL directe `/t/:slug/dashboard/commercial-orders/:orderId`) : ✓ Livré. Route cohérente avec reste dépôt, pas collision domaine avec `orders` boutique existant.
+- **CA7** (lecture seule prix) : ✓ Livré. Aucun `<input>` ni bouton édition montant.
+- **CA8** (PDF bon de commande/E10.19) : ✓ Hors périmètre — aucun bouton.
+
+**Points sensibles testés :**
+
+- Fonction `api_convert_commercial_quote` (3ème recopie ce sprint, après b-2 puis E10.13) : diff mécanique exact (4 changements attendus, rien d'autre). Verrou `FOR UPDATE` volontairement retiré en test pour confirmer bug B1 (corrigé round 1 b-2) réapparaît → test reconnaît bug → verrou restauré. Régression détectée fiablement.
+- Isolation inter-tenant (RLS `commercial_orders_select`) : couverture complète sur colonnes neuves sans modification.
+- Suppression interlocuteur → `on delete set null` correct, aucun heurt `commercial_orders_immutable()`.
+
+**Tests passés :**
+
+- `pnpm typecheck` : 0 erreur
+- `pnpm test:contract` : 275/275 (contrat déjà écrit architecte, aucune route nouvelle)
+- `pnpm test:architecture` : 144/144 (module respecte frontières, imports via façade)
+- `npx vitest run` : 1735 pass / 36 skip / 3 pré-existants sans rapport
+- Suite SQL spécifique (`tests/sql/gescom-e10-16-order-contact-and-delivery.sql`) : 8 scénarios exécutés Docker local, 0 erreur
+
+**10 réserves non bloquantes tracées (détail story-document) :**
+
+R1 (taux remise multiplication flottante) · R2 (message UX confus si lecture secondaire échoue) · R3 (date livraison format ISO brut) · R4 (UI admin-only vs API ouverte, écart pré-existant) · R5 (branche unique non respectée, série complète) · R6 (harnais SQL bloqué fixtures antérieures) · R7 (CA Notion non confrontées, accès limité) · R8 (testid `order-` partagé) · R9-R10 (dette test mineure).
+
+###### File List
+
+**Migration et tests SQL**
+
+- `supabase/migrations/20260909010000_gescom_e10_16_order_contact_and_delivery.sql` (nouveau)
+- `tests/sql/gescom-e10-16-order-contact-and-delivery.sql` (nouveau)
+- `scripts/test-storefront-sql.sh` (ajout cas nouveau)
+
+**Module commercial-orders (étendu)**
+
+- `src/modules/commercial-orders/api/contracts.ts` (CA1/CA2 schema)
+- `src/modules/commercial-orders/index.ts`
+- `src/modules/commercial-orders/manifest.ts` (nouveau)
+- `src/modules/commercial-orders/surface-contributions.ts` (nouveau)
+- `src/adapters/supabase/commercial-orders-repository.ts` (findDetailById())
+
+**UI (nouveau)**
+
+- `src/modules/commercial-orders/ui/index.ts` (export)
+- `src/modules/commercial-orders/ui/hooks/useOrderDetail.ts` (5 lectures)
+- `src/modules/commercial-orders/ui/workspace/OrderDetailPage.tsx` (CA1-CA2, CA4, CA6-CA7)
+- `src/modules/commercial-orders/ui/workspace/order-detail.helpers.ts` (formatage affichage)
+- `src/shared/presentation/testIds.ts` (scope `commercialOrder`)
+- `src/surfaces/application-registry.ts` (enregistrement)
+- `src/app/surfaces/workspaceRuntimeRoutes.tsx` (loader lazy)
+
+**Tests**
+
+- `tests/contract/commercial-orders.contract.test.ts` (CA1/CA2 asserés)
+- `tests/contract/_fakes/commercial-orders-repository.fake.ts` (convertQuote fixture)
+- `tests/contract/_fakes/commercial-quotes-repository.fake.ts` (decidedByAccountId)
+- `tests/modules/commercial-orders/order-detail.helpers.test.ts` (11 tests, nouveau)
+
+**Story document**
+
+- `_bmad-output/implementation-artifacts/story-E10-16-fiche-commande.md`
+
+##### QA Results
+
+**Verdict : Approved**
+
+**Résumé :**
+
+Lot livré complet pour ce qui est disponible aujourd'hui (fiche commande avec CA1-CA2, CA4, CA6-CA7 tenus). CA3 (gamme Clariprint), CA5 (fichiers/E10.17), CA8 (PDF/E10.19) hors périmètre confirmé — aucune capacité Clariprint, aucun bloc, aucun bouton inventé.
+
+**Découverte notable en cours de cadrage :**
+
+L'interlocuteur est recopiable automatiquement à la conversion depuis `commercial_quotes.decided_by_account_id` → `shop_customer_accounts.customer_contact_id` — pas une saisie manuelle à inventer, chaîne de données existante réellement exercée (8 scénarios SQL).
+
+**Fonction api_convert_commercial_quote (3ème recopie ce sprint) :**
+
+Recopie exacte du corps. Verrou `FOR UPDATE` volontairement retiré en test pour confirmer que le bug B1 (corrigé en b-2 round 1) réapparaît immédiatement si quelqu'un le retire par erreur un jour — c'est arrivé, la fonction a été restaurée, empreinte vérifiée identique. Régression clairement détectée par le test.
+
+**Zéro bloquant. 10 réserves non bloquantes tracées dans le backlog (R1-R10, voir Completion Notes).**
+
+### Cas de test fonctionnels rattachés (Notion)
+
+| TF | Cas de test | Statut | Priorité | Parcours | Cible | Stories liées |
+|---|---|---|---|---|---|---|
+| [TF-178](https://app.notion.com/3cad0131973c8132a731d392e5da61fe) | GC — Valider un devis et le transformer en commande | À jouer | P0 — Critique | P13 — Devis et gestion commerciale | B6 | E10.12, E10.16 |
+| [TF-184](https://app.notion.com/3cad0131973c81dd9925ec7a18081c38) | GC — Fiche commande complète et prix non modifiables | À jouer | P0 — Critique | P13 — Devis et gestion commerciale | B6 | E10.16, E10.12, E10.14 |
+| [TF-187](https://app.notion.com/3cad0131973c811081d5ec192b193681) | GC — Export XLSX des commandes au détail ligne pour la comptabilité | OK | P1 — Importante | P13 — Devis et gestion commerciale | B6 | E10.18, E10.16 |
+| [TF-190](https://app.notion.com/3ced0131973c8190a49cd5856b374556) | GC — Génération du PDF Bon de commande et révision | À jouer | P0 — Critique | P13 — Devis et gestion commerciale | B6 | E10.19, E10.16, E10.17 |
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 Contrat écrit par l'architecte avant le démarrage (`docs/api/CONVENTIONS.md`
 §8.17). **Résultat en une ligne, repris du contrat lui-même** : ce lot
 n'ajoute aucune opération, aucun schéma, et deux champs

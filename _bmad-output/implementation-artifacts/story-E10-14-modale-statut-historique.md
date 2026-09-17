@@ -8,6 +8,206 @@ blocks: [E10.15, E10.16]
 ---
 # E10.14 — Modale unifiée de changement de statut et historique horodaté
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> **Source qui fait foi : Notion** — [E10.14 — Modale unifiée de changement de statut et historique horodaté](https://app.notion.com/p/3cad0131973c81118dccfe0343be3263) · extrait le 17/09/2026 · page modifiée le 08/09/2026.
+> Copie destinée à tout intervenant (développement, QA, revue, agent) : lire ce périmètre avant la partie implémentation. En cas d'écart, Notion prévaut. Le statut Notion peut retarder sur la livraison réelle, décrite plus bas.
+
+| Epic | Sprint | Priorité | Effort | Statut Notion | Assigné à | Offre | Source | Ordre |
+|---|---|---|---|---|---|---|---|---|
+| E10 — Gestion commerciale | Sprint 5 — Gestion commerciale | P0 | M | Terminé | Claude code | Pro+ | RP 28/08/2026, WM 01/09/2026 | 15 |
+
+### Description fonctionnelle (Notion)
+
+**En tant qu'**opérateur, **je veux** changer le statut d'une commande depuis une fenêtre dédiée identique en liste et en fiche, **afin de** ne pas me tromper de ligne dans une grille dense.
+
+##### Statut
+
+Draft — prêt pour agent dev
+
+##### Contexte produit
+
+Décision RP du 28/08/2026 : le changement de statut directement dans la grille est écarté, jugé trop dangereux — « le risque de connerie est trop gros ». La solution retenue est une modale unique, déclenchée par un bouton « Statut » ou un menu d'action, identique depuis la liste et depuis la fiche commande. Xavier Péchoultres pose l'historique horodaté comme indispensable.
+
+##### Critères d'acceptation
+
+1. Aucune modification de statut n'est possible en édition inline dans la grille des commandes.
+2. Un bouton « Statut » sur la ligne et un bouton identique dans la fiche commande ouvrent **le même composant modal**.
+3. La modale affiche les étapes du tenant dans l'ordre configuré (E10.13), l'étape courante mise en évidence et les étapes déjà franchies distinguées visuellement.
+4. Un clic sur une étape la sélectionne ; la validation applique le changement. Le passage direct à une étape avancée est autorisé sans valider les étapes intermédiaires.
+5. Chaque changement crée une entrée d'historique : commande, étape précédente, nouvelle étape, auteur, horodatage.
+6. L'historique est consultable depuis la fiche commande, en ordre chronologique, non modifiable.
+7. Le changement de statut déclenche l'évaluation des notifications (E10.15).
+
+##### Tâches / Sous-tâches
+
+- [ ] Migration SQL `order_status_history` append-only (CA : 5, 6)
+- [ ] Composant partagé `src/components/orders/OrderStatusDialog.tsx` (CA : 2, 3, 4)
+- [ ] Bouton déclencheur en ligne de grille et en fiche (CA : 2)
+- [ ] Panneau d'historique dans la fiche commande (CA : 6)
+- [ ] Émission de l'événement `order.step_changed` (CA : 7)
+- [ ] Suppression de tout sélecteur de statut inline existant (CA : 1)
+
+##### Dev Notes
+
+###### Contraintes techniques
+
+- Un seul composant modal, deux points d'appel. Dupliquer le composant pour la liste et pour la fiche reproduirait exactement la divergence que la séance a voulu éviter.
+- `order_status_history` est append-only : REVOKE UPDATE et DELETE.
+- Le changement de statut et l'écriture de l'historique sont dans la même transaction.
+
+###### data-testid
+
+`orders-table`, `order-row` (+ `data-order-id`), `order-status-btn`, `order-status-dialog`, `order-status-option` (+ `data-step-id`, `data-state="done"|"current"|"pending"`), `order-status-confirm-btn`, `order-status-history-panel`, `order-status-history-row` (+ `data-history-id`)
+
+###### Dépendances
+
+- Bloquée par : E10.13
+- Bloque : E10.15, E10.17
+
+##### Mise à jour — WM du 01/09/2026
+
+**Précision d'interface demandée par Xavier Péchoultres : une seule modale, deux colonnes.** « Ce que je propose, c'est que cette modale ait les deux choses dessus : à gauche l'historique, à droite les boutons. Comme ça, quand tu cliques sur statut, tu vois l'historique des statuts, tu as les boutons, tu as une jolie interface propre. »
+
+CA 3 amendé et CA 6 fusionné : la modale de changement de statut est **un seul écran à deux colonnes**.
+
+- Colonne gauche : l'historique horodaté des transitions de la commande, du plus récent au plus ancien, avec auteur.
+- Colonne droite : les étapes du tenant dans l'ordre configuré, l'étape courante mise en évidence, les étapes franchies distinguées, chacune cliquable.
+- Il n'y a plus de panneau d'historique séparé sur la fiche commande : l'historique vit dans cette modale, atteignable des deux points d'appel (grille et fiche).
+- Le comportement de fond est inchangé : le saut d'étape reste autorisé et ne valide pas les étapes antérieures.
+
+##### Contrat API
+
+| Méthode | Route | Objet |
+| --- | --- | --- |
+| GET | `/api/v1/orders/{orderId}/status-history` | Historique horodaté, ordre antichronologique |
+| POST | `/api/v1/orders/{orderId}/status` | Change l'étape ; corps `{ step_id, note? }` ; `Idempotency-Key` honoré |
+
+La transition et l'écriture de l'historique sont dans la **même transaction**, et l'événement `order.step_changed` est déposé dans l'outbox de E10.0 — jamais un appel direct au moteur de notifications. L'auteur d'une transition peut être un utilisateur, une clé de service (`module:studio`) ou le système (`system:upload_link`, cf. E10.20).
+
+##### Tests
+
+Parcours P13 — changement de statut depuis la liste puis depuis la fiche, contrôle que la modale est identique et que l'historique enregistre les deux transitions horodatées.
+
+##### Change Log
+
+- 2026-08-28 — v1 — Création à partir de la séance du 28/08/2026 — Arnaud Mazon / Claude
+
+##### Dev Agent Record
+
+###### Agent Model Used
+
+- **dev-story** (implémentation) : claude-sonnet-4-5-20250929
+- **qa-review** (révision) : claude-opus-4-1-20250805
+
+###### Debug Log References
+
+Aucun debug log fourni par dev-story.
+
+###### Completion Notes
+
+**Verdict qa-review : Approuvé directement, 1 round, 0 bloquant.**
+
+Reviseur a spécifiquement vérifié le chemin d'autorisation Studio (clé de service, scope `orders:write`) en exécution réelle postgreSQL : appels PostgREST directs sous rôles `anon` et `authenticated`, tentative d'usurpation entre tenants, vérification des grants Postgres. Tout refusé correctement (anon exclu, authenticated/service_role seuls).
+
+Atomicité de la transition vérifiée sous concurrence réelle (deux sessions psql indépendantes) : verrouillage + écriture d'historique + mise à jour projection dans la même transaction, aucune divergence.
+
+**Critères d'acceptation tenus, un par un** :
+
+- **CA1** : aucune modification inline dans grille (E10.16 non livrée, aucune grille n'existe) — tenu par construction
+- **CA2** : un seul composant `OrderStatusDialog`, deux points d'appel via `OrderStatusButton` — implémenté
+- **CA3** : écran deux colonnes (historique antichronologique à gauche / étapes du tenant à droite), étape courante mise en évidence, franchies distinguées visuellement — implémenté
+- **CA4** : saut direct et recul autorisés, aucune validation d'étapes intermédiaires — tenu par construction (aucune garde SQL/métier)
+- **CA5** : chaque transition crée une entrée d'historique, le journal et la mise à jour de statut dans la même transaction — implémenté, testé sous concurrence
+- **CA6** : historique lisible, antichronologique, horodaté, append-only (revoke insert/update/delete en base) — implémenté
+- **CA7** : événement `order.step_changed` publié après la transition, aucune évaluation de notification dans ce lot — implémenté
+
+**8 réserves non bloquantes tracées par qa-review** :
+
+- **R1** (la plus notable) : grant `service_role`, pas `anon`, sur la fonction ; aucun registre de clés de service n'est encore câblé en production — capacité ouverte au contrat mais façade ne l'utilise pas encore. Mapping d'erreur à corriger au moment du câblage réel.
+- **R2** : garde de tenant teste l'appartenance directe, pas les enfants (dormant, aucun enfant en base)
+- **R3** : `occurred_at` horodaté au début de la transaction plutôt qu'au moment exact du passage — fenêtre théorique d'inversion d'historique inoffensive (contrat interdit dériver l'étape courante du journal)
+- **R4, R5** : dettes systémiques préexistantes (curseur non validé, TRUNCATE sur table d'audit)
+- **R6** : branche non conforme convention (héritée de toute la série E10.12-E10.14)
+- **R7** : critères d'acceptation Notion non confrontés (limite d'accès dev-story/qa-review)
+- **R8** : modale sur-lit (`getCommercialOrder` complet) pour n'afficher qu'un champ — sans fuite de capability, à reconsidérer pour E10.16
+
+Gates finales : `pnpm typecheck` ✓, `pnpm gen:api:check` ✓ aligné (contrat déjà livré architecte), `pnpm test:contract` 275/275 (+14), `pnpm test:architecture` 144/144, `npx vitest run` 1724 passés (3 pré-existants sans rapport, 36 skip). Tests SQL 12 scénarios exécutés en Docker, y compris concurrence réelle à deux sessions, aucun écart.
+
+###### File List
+
+**Migration et SQL**
+
+- `supabase/migrations/20260909000000_gescom_e10_14_order_step_changes.sql`
+- `tests/sql/gescom-e10-14-order-step-changes.sql`
+- `scripts/test-storefront-sql.sh`
+
+**Module commercial-orders (étendu)**
+
+- `src/modules/commercial-orders/api/contracts.ts`
+- `src/modules/commercial-orders/api/client.ts`
+- `src/modules/commercial-orders/index.ts`
+- `src/modules/commercial-orders/application/commercial-orders-repository.ts`
+- `src/modules/commercial-orders/application/commercial-orders-service.ts`
+- `src/adapters/supabase/commercial-orders-repository.ts`
+- `src/server/api/commercial-orders-routes.ts`
+
+**UI (nouveau)**
+
+- `src/modules/commercial-orders/ui/index.ts`
+- `src/modules/commercial-orders/ui/components/index.ts`
+- `src/modules/commercial-orders/ui/components/OrderStatusDialog.tsx`
+- `src/modules/commercial-orders/ui/components/OrderStatusButton.tsx`
+- `src/modules/commercial-orders/ui/components/order-status.helpers.ts`
+- `src/shared/presentation/testIds.ts` (scope `orderStatus`)
+
+**Tests**
+
+- `tests/contract/commercial-order-step-changes.contract.test.ts` (+14 tests)
+- `tests/contract/_fakes/commercial-orders-repository.fake.ts`
+- `tests/modules/commercial-orders/order-status.helpers.test.ts` (+8 tests)
+
+**Story document**
+
+- `_bmad-output/implementation-artifacts/story-E10-14-modale-statut-historique.md`
+
+##### QA Results
+
+**Verdict : Accepté** ✓
+
+**1 round de révision, 0 bloquant.**
+
+Points vérifiés en profondeur :
+
+- Autorisation Studio (clé de service, scope `orders:write`) : grants Postgres confirmés, anon exclu, tentatives d'usurpation entre tenants refusées correctement
+- Atomicité : transition de statut + écriture d'historique + mise à jour projection dans la même transaction, vérifiée sous concurrence réelle (deux sessions postgreSQL indépendantes)
+- Append-only du journal : `revoke insert, update, delete` en base confirmé, aucune voie d'écriture directe
+- CA1-CA7 tous tenus
+
+8 réserves non bloquantes (R1-R8) tracées pour suivi futur — aucune n'empêche la validation. R1 (registre de clés de service non câblé en production) est la plus notable, mais la décision d'Arnaud du 09/09 était assumée au moment du cadrage.
+
+Contrat API stable (écrit avant démarrage, inchangé par ce lot — arbitrage 09/09 ne touche que la prose/JSDoc). Dépôt de l'événement `order.step_changed` dans l'outbox confirmé (aucun appel direct au moteur de notifications). 
+
+Composants UI prêts et testés au niveau du contrat d'API, non câblés nulle part — dette explicite pour E10.16 (grille de commandes) et future fiche commande.
+
+Commit : fce0580 (implémentation) + 0c275af (cadrage)
+
+### Cas de test fonctionnels rattachés (Notion)
+
+| TF | Cas de test | Statut | Priorité | Parcours | Cible | Stories liées |
+|---|---|---|---|---|---|---|
+| [TF-181](https://app.notion.com/3cad0131973c81f5b56afc00216e78fd) | GC — Modale de statut à deux colonnes, identique depuis la liste et depuis la fiche | À jouer | P0 — Critique | P13 — Devis et gestion commerciale | B6 | E10.14, E10.13 |
+| [TF-182](https://app.notion.com/3cad0131973c81f3ab64f0a2de1a7b2d) | GC — Limite : l'historique de statut n'est ni modifiable ni supprimable | À jouer | P1 — Importante | P13 — Devis et gestion commerciale | B6 | E10.14, E10.9 |
+| [TF-183](https://app.notion.com/3cad0131973c81ceb41efc9665c0fb5d) | GC — Modèle de notification à balises, aperçu et envoi sur transition d'étape | À jouer | P0 — Critique | P13 — Devis et gestion commerciale | B6 | E10.15, E10.14, E10.4 |
+| [TF-184](https://app.notion.com/3cad0131973c81dd9925ec7a18081c38) | GC — Fiche commande complète et prix non modifiables | À jouer | P0 — Critique | P13 — Devis et gestion commerciale | B6 | E10.16, E10.12, E10.14 |
+| [TF-185](https://app.notion.com/3cad0131973c81f9ae74ef0b3ddb2092) | GC — Dépôt de fichiers en deux sessions par item, puis validation explicite | À jouer | P0 — Critique | P13 — Devis et gestion commerciale | B6 | E10.20, E10.17, E10.14 |
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 Contrat écrit par l'architecte avant le démarrage (`docs/api/CONVENTIONS.md`
 §8.16), appliqué dans sa **version amendée du 01/09/2026 (Xavier
 Péchoultres)** : un seul écran à deux colonnes (historique horodaté à

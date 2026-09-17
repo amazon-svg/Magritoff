@@ -7,6 +7,20 @@ depends_on: [UM6.2]
 ---
 # UM6.3 — Lire et modifier ses brouillons boutique
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> Aucune story du Sprint Board Notion n'est rattachée à ce story document : c'est une story née dans le dépôt (refonte technique, lot d'architecture ou correctif). Son périmètre est celui décrit ci-dessous. Si elle relève d'une story Notion, renseigner ce rattachement et régénérer cette section.
+
+### Cas de test fonctionnels rattachés (Notion)
+
+_Aucun cas de test rattaché dans la base Notion « 🧪 Cahiers de tests fonctionnels Magrit »._
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 - routes de détail et d'édition compatibles avec le cookie storefront HttpOnly ;
 - contexte serveur conservant séparément cookie boutique et session Magrit ;
 - autorisation SQL si le compte et la boutique de la session correspondent à

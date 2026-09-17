@@ -8,6 +8,105 @@ blocks: []
 ---
 # E10.17b — Panneau de dépôt et gestion des fichiers sur la fiche commande
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> **Source qui fait foi : Notion** — [E10.17b — Panneau de dépôt et gestion des fichiers sur la fiche commande](https://app.notion.com/p/3d6d0131973c81fc92a6e67dfa977f87) · extrait le 17/09/2026 · page modifiée le 09/09/2026.
+> Copie destinée à tout intervenant (développement, QA, revue, agent) : lire ce périmètre avant la partie implémentation. En cas d'écart, Notion prévaut. Le statut Notion peut retarder sur la livraison réelle, décrite plus bas.
+
+| Epic | Sprint | Priorité | Effort | Statut Notion | Assigné à | Offre | Source | Ordre |
+|---|---|---|---|---|---|---|---|---|
+| E10 — Gestion commerciale | Sprint 5 — Gestion commerciale | P1 | M | Terminé | Claude code | Pro+ | WM 01/09/2026 | — |
+
+### Description fonctionnelle (Notion)
+
+**En tant qu'** imprimeur accedant a une fiche de commande, **je veux** deposer, consulter, telecharger, supprimer et basculer la visibilite de fichiers (BAT, justificatifs, visuels de reference), **afin de** centraliser mes echanges autour de chaque commande.
+
+##### Statut
+
+Termine — qa-review round 2, Approuve. Seconde et derniere moitie d'une decomposition en deux : E10.17a (base + API, aucun effet observable) puis E10.17b (ici, panneau UI). **L'ensemble E10.17 est clos.**
+
+##### Contexte produit
+
+Suite d'E10.17a (livre et approuve precedemment). Design valide par Sally (UX) et Arnaud le 09/09 (`.design-handoff/wireframes/E10.17b-panneau-fichiers-commande.md`), microcopie FR reprise mot pour mot. Deux arbitrages appliques a la lettre : (1) bloc « Fichiers » en troisieme section de la fiche commande, apres « Lignes », meme gabarit visuel que les sections existantes ; (2) pas de bandeau d'alerte proactif au plafond de 30 fichiers, le compteur suffit.
+
+##### Criteres d'acceptation (contrat §8.19, tous tenus)
+
+1. **Bloc « Fichiers », testid `order-files-block`, troisieme section** — `OrderDetailPage.tsx`, positionne apres « Lignes », classes identiques aux sections existantes.
+2. **Zone de depot glisser-depose + Parcourir, validation client immediate** (extension, taille \<= 50 Mo, compteur \< 30) via `validateOrderFileForUpload()`, avant tout appel reseau.
+3. **Liste des fichiers** : icone par famille, nom, taille, auteur/date, menu de bascule de visibilite avec avertissement PERMANENT (aucun effet client aujourd'hui), telechargement force, suppression.
+4. **Dialogue de confirmation de suppression**, texte exact, un seul bouton de confirmation — meme patron que `CancelOrderConfirmDialog`.
+5. **Barre de progression REELLE** (`XMLHttpRequest.upload.onprogress`, pas une simulation), etat « Envoi en cours… », reessai adapte a l'etape qui a echoue.
+6. **Tous les messages d'erreur du wireframe §4.3**, mot pour mot, fixes en chaines litterales independantes dans les tests (5 sur 7 — 2 restent non proteges contre une paraphrase future, dette tracee).
+7. **Cas limite §4.4 (objet de stockage disparu)** — corrige par B1 : le bouton de telechargement n'est plus jamais desactive definitivement, `missingObjectIds` purge a chaque rechargement.
+
+##### Dev Agent Record
+
+###### Agent Model Used
+
+Sally UX (design, wireframe valide par Arnaud) → `dev-story` (implementation, Claude Sonnet) → `qa-review` (Claude Opus, 2 rounds).
+
+###### Completion Notes
+
+**qa-review round 1 — Changes Requested, 2 reserves BLOQUANTES + 7 non bloquantes** :
+
+- **B1 — impasse permanente sur un fichier sain apres un simple alea reseau.** Le `catch {}` autour du telechargement marquait N'IMPORTE QUELLE erreur (coupure reseau, 500, jeton expire) comme « objet disparu », desactivait DEFINITIVEMENT le bouton de telechargement, sans qu'aucun rechargement ne purge l'etat. Un fichier parfaitement sain devenait injoignable sans recharger toute la page. **Corrige** : le bouton n'est plus jamais desactive, `loadFiles()` purge `missingObjectIds` a chaque rechargement (automatique ou manuel), un message distinct informe de l'echec sans bloquer un nouvel essai.
+- **B2 — plafond de 30 fichiers affiche comme une erreur reseau, avec un « Reessayer » qui ne peut jamais aboutir.** Scenario reproduit : commande a 29 fichiers, depot simultane de 3 — le serveur en accepte un (409 `order_file.limit_reached` sur les deux autres), l'UI affichait « verifiez votre connexion » au lieu du message dedie deja prevu au wireframe. **Corrige** : nouveau helper pur `describeOrderFileUploadFailure()` qui discrimine `ApiClientError.problem.code` — `order_file.limit_reached` -\> message dedie, bouton Reessayer RETIRE (ne peut pas aboutir) ; `order_file.rejected` -\> message de format ; le reste -\> message generique inchange.
+- **N1-N7, six traitees, une partiellement** : commentaire de code corrige pour ne plus affirmer un CA plus large que ce qui est livre (groupement par item non rendu) ; retry de confirmation seule (pas tout le cycle) avec le MEME billet et la MEME cle d'idempotence, evitant une duplication de fichier si la reponse serveur se perd apres une confirmation reellement reussie ; bouton « Fermer » sur les cartes d'upload en erreur pour qu'elles ne consomment plus indefiniment une place du plafond client ; texte « Chargement… » centralise ; « un membre du tenant » remplace par « un membre de l'espace » (jargon technique retire) ; dropzone compacte + indicateur de selection visible sur le menu de visibilite. Le test anti-paraphrase (N6) ne couvre que 5 des 7 messages, deux restent non proteges — dette tracee.
+
+**qa-review round 2 — Approved.** Chaque correction verifiee EN CONDITIONS REELLES jusqu'au comportement serveur, pas seulement en test unitaire. Le mecanisme anti-duplication (N2) a ete verifie jusqu'au vrai magasin d'idempotence de la facade (`gescom-middleware.ts`) : une confirmation reellement reussie cote serveur mais dont la reponse se perd ne produit plus de seconde ligne, confirme par un `Idempotency-Replayed: true` reel. Le format RFC 7807 des erreurs a ete verifie transiter reellement jusqu'au client (`problem.code` bien accessible), pas seulement construit a la main dans un test.
+
+###### Verifications
+
+- `pnpm typecheck` : 0 erreur
+- `deno check supabase/functions/magrit-api/index.ts` : 0 erreur
+- `pnpm gen:api:check` : aligne (aucune touche au contrat)
+- `pnpm test:architecture` : 146/146
+- `pnpm test:contract` : 329/329 (inchange)
+- `tests/modules/order-files/order-files.helpers.test.ts` : 44/44
+- `pnpm test` (suite complete) : 1969 passes / 36 skip, 3 echecs pre-existants sans rapport (projet Supabase distant)
+
+###### File List
+
+**Crees** : `src/modules/order-files/ui/order-files.helpers.ts`, `OrderFilesBlock.tsx`, `index.ts`, `tests/modules/order-files/order-files.helpers.test.ts`
+
+**Modifies** : `src/modules/order-files/api/client.ts`, `src/modules/commercial-orders/ui/workspace/OrderDetailPage.tsx`, `src/shared/presentation/testIds.ts`
+
+##### QA Results
+
+**Verdict : Approuve** — round 2. Deux reserves bloquantes (B1 impasse de telechargement, B2 plafond mal signale) trouvees par reproduction empirique round 1, corrigees et re-verifiees jusqu'au comportement reel du serveur en round 2 — y compris le mecanisme d'idempotence qui protege contre la duplication de fichier. Six des sept reserves non bloquantes traitees. Aucune reserve bloquante restante.
+
+**Dettes tracees, non bloquantes** :
+
+- L'icone d'alerte « fichier introuvable » reste affichee pour tout echec de telechargement, pas seulement un objet reellement supprime du stockage — necessiterait un code d'erreur serveur dedie, a arbitrer avec l'architecte plus tard.
+- Un cas rare de conflit (409 « deja confirme ») n'est pas encore traite specifiquement.
+- Aucun delai d'expiration/annulation sur un depot bloque indefiniment en cours d'envoi.
+- Deux messages d'erreur (sur sept) non proteges par un test anti-paraphrase.
+- Aucun cahier de test Notion (TF-XX) pour E10.17a ni E10.17b.
+- Comportement reel de `.zip` sur au moins deux systemes d'exploitation toujours non mesure (aucun navigateur disponible en developpement).
+
+##### Change Log
+
+- 2026-09-09 — Design valide par Arnaud + Sally (UX), deux arbitrages tranches.
+- 2026-09-09 — Livraison initiale, qa-review round 1, Changes Requested (B1 + B2 + N1-N7).
+- 2026-09-09 — Corrections completes, qa-review round 2, Approuve.
+- 2026-09-09 — Fiche creee dans Notion a partir du story document livre et du verdict qa-review final. **Cloture de l'ensemble E10.17a+17b.**
+
+### Cas de test fonctionnels rattachés (Notion)
+
+| TF | Cas de test | Statut | Priorité | Parcours | Cible | Stories liées |
+|---|---|---|---|---|---|---|
+| [TF-213](https://app.notion.com/3d7d0131973c8195a84afd33262d48b4) | TF-001 — Depot d'un fichier valide avec barre de progression reelle (chemin nominal) | À jouer | P0 — Critique | P13 — Devis et gestion commerciale | B5 | E10.17b |
+| [TF-214](https://app.notion.com/3d7d0131973c816fbf7ae754018cb83a) | TF-002 — Fichier hors format accepte ou trop volumineux, refuse avant tout envoi reseau | À jouer | P1 — Importante | P13 — Devis et gestion commerciale | B5 | E10.17b |
+| [TF-215](https://app.notion.com/3d7d0131973c8103a652fb302d903911) | TF-003 — Plafond de 30 fichiers atteint : message dedie sans bouton Reessayer | À jouer | P1 — Importante | P13 — Devis et gestion commerciale | B5 | E10.17b |
+| [TF-216](https://app.notion.com/3d7d0131973c81dabda6c31b6bf58644) | TF-004 — Suppression d'un fichier avec confirmation explicite | À jouer | P0 — Critique | P13 — Devis et gestion commerciale | B5 | E10.17b |
+| [TF-217](https://app.notion.com/3d7d0131973c81259564ef3a805d8a59) | TF-005 — Bascule de visibilite avec avertissement permanent | À jouer | P1 — Importante | P13 — Devis et gestion commerciale | B5 | E10.17b |
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 **Cette story a fait l'objet d'un round de `qa-review` "Changes Requested"**
 (deux réserves bloquantes B1/B2, huit non bloquantes N1-N8), traité en
 intégralité sauf N8 (hors ressort du dev-story, constat de process déjà

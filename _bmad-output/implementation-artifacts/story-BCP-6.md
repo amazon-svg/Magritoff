@@ -9,6 +9,37 @@ parallelisable_avec: [BCP-5, BCP-9 (meme fichier ShopLayout.tsx, ordre 6 -> 9 im
 ---
 # BCP-6 — Console propre : forwardRef sur la famille des wrappers Radix, description du tiroir panier
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> **Source qui fait foi : Notion** — [BCP-6 — Console propre sur la boutique](https://app.notion.com/p/3ddd0131973c81a0a4ede72e0b1cceb0) · extrait le 17/09/2026 · page modifiée le 16/09/2026.
+> Copie destinée à tout intervenant (développement, QA, revue, agent) : lire ce périmètre avant la partie implémentation. En cas d'écart, Notion prévaut. Le statut Notion peut retarder sur la livraison réelle, décrite plus bas.
+
+| Epic | Sprint | Priorité | Effort | Statut Notion | Assigné à | Offre | Source | Ordre |
+|---|---|---|---|---|---|---|---|---|
+| E10 — Gestion commerciale | Sprint 5 — Gestion commerciale | P2 | M | Terminé | Claude code | — | — | — |
+
+### Description fonctionnelle (Notion)
+
+Chantier boutique, lot 6. Suppression des avertissements de la console du navigateur sur la boutique : passage de références sur dix primitives d'interface, et description accessible manquante sur les fenêtres et tiroirs.
+
+**Livré** : correction des composants, plus une garde automatique qui empêche de réintroduire une fenêtre sans description.
+
+**Relecture adversariale** : approuvée au round 3, après réécriture de la garde.
+
+**Contrôle navigateur du 16/09** : console propre. Seuls subsistent des signalements mineurs et antérieurs, sans rapport avec ce lot.
+
+Détail : `story-BCP-6.md`.
+
+### Cas de test fonctionnels rattachés (Notion)
+
+_Aucun cas de test rattaché dans la base Notion « 🧪 Cahiers de tests fonctionnels Magrit »._
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 Cadrage opposable : `docs/api/CONVENTIONS.md` §8.25, point **5.2** (lots 5 a 9,
 libelles exacts) et le decoupage §6 (BCP-6, fichiers possedes : `src/shared/ui/`,
 `ShopLayout.tsx` pour la description).

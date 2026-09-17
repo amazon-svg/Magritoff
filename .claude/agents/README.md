@@ -70,6 +70,10 @@ Pour lister les agents disponibles dans une session, taper `/agents`.
 - **Le `secure-reviewer` peut tourner sans risque** sur n'importe quelle branche : il ne peut rien casser (lecture seule). Pas de raison de s'en priver avant un merge.
 - **Pour les tests Magrit**, le `test-engineer` connaît déjà la DoD (testid stables, multi-tenant, base réelle). Pas besoin de re-rappeler les conventions à chaque session.
 
+## Story documents — périmètre fonctionnel d'abord (17/09/2026)
+
+Tout story document de `_bmad-output/implementation-artifacts/` s'ouvre sur le périmètre fonctionnel de sa story Notion, avant l'implémentation. Tous les agents qui interviennent sur une story (`dev-story`, `qa-review`, `test-engineer`, `code-reviewer`) partent de cette section ; le `scribe` la régénère. Règle : [`docs/spec/STORY_DOCUMENT_STANDARD.md`](../../docs/spec/STORY_DOCUMENT_STANDARD.md).
+
 ## Modifier ou proposer un nouvel agent
 
 - Modification d'un agent existant → édit direct du fichier `.md`, commit, PR. Discussion sur Notion ou en weekly.

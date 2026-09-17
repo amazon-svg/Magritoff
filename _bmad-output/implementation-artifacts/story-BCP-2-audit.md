@@ -7,6 +7,20 @@ bloque_rien: cet audit ne bloque plus la levee du prerequis "audit des configura
 ---
 # BCP-2-audit — Audit des configurations produit stockees (prerequis BCP-2)
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> Aucune story du Sprint Board Notion n'est rattachée à ce story document : c'est une story née dans le dépôt (refonte technique, lot d'architecture ou correctif). Son périmètre est celui décrit ci-dessous. Si elle relève d'une story Notion, renseigner ce rattachement et régénérer cette section.
+
+### Cas de test fonctionnels rattachés (Notion)
+
+_Aucun cas de test rattaché dans la base Notion « 🧪 Cahiers de tests fonctionnels Magrit »._
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 Cadrage opposable : `docs/api/CONVENTIONS.md` §8.25, point **3.2** ("Prerequis
 de BCP-2, en lecture seule : l'audit des configurations stockees") et point
 **3.4 (d) 2** (comptage dorure / soft-touch). **Aucune ecriture en base,

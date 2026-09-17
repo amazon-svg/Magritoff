@@ -8,6 +8,117 @@ blocks: []
 ---
 # E10.10b-4c — Moteur de génération du document et branchement sur l'envoi
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> **Source qui fait foi : Notion** — [E10.10b-4c — Moteur de génération du document et branchement sur l'envoi](https://app.notion.com/p/3d6d0131973c81918048cffbacab4885) · extrait le 17/09/2026 · page modifiée le 09/09/2026.
+> Copie destinée à tout intervenant (développement, QA, revue, agent) : lire ce périmètre avant la partie implémentation. En cas d'écart, Notion prévaut. Le statut Notion peut retarder sur la livraison réelle, décrite plus bas.
+
+| Epic | Sprint | Priorité | Effort | Statut Notion | Assigné à | Offre | Source | Ordre |
+|---|---|---|---|---|---|---|---|---|
+| E10 — Gestion commerciale | Sprint 5 — Gestion commerciale | P1 | L | Terminé | Claude code | Pro+ | WM 01/09/2026 | — |
+
+### Description fonctionnelle (Notion)
+
+**En tant que** imprimeur Pro+, **je veux** que mon devis PDF soit automatiquement rempli sur mon gabarit et joint à l'email envoyé au client, **afin de** ne plus produire ce document manuellement.
+
+##### Statut
+
+Terminé — qa-review round 2, Approuvé (5 failles bloquantes + 1 bug supplémentaire trouvé en cours de correction, tous fermés et re-testés empiriquement). **Dernière sous-story de la décomposition E10.10b-4a/4b/4c — les trois sont maintenant terminées et approuvées.**
+
+##### Contexte produit
+
+Troisième et dernière étape du système de devis PDF personnalisés, né d'un renversement architectural décidé par Arnaud le 09/09 : Gotenberg (Docker + hébergement dédié) jugé disproportionné, remplacé par `pdf-lib` (tourne dans l'Edge Function existante, zéro hébergement) + gabarit PDF importé par tenant (4a) + éditeur visuel de positionnement (4b). Cette story branche le moteur de génération sur l'envoi réel du devis (E10.10b-3) : au moment où le devis part au client, le PDF est rempli avec les vraies données et joint à l'email.
+
+**Ce que l'ensemble 4a→4b→4c a livré** : un imprimeur importe son gabarit PDF, positionne visuellement chaque donnée du devis dessus (y compris un tableau de lignes à répétition), et voit ce gabarit automatiquement rempli et joint à l'email envoyé à son client — sans aucune infrastructure supplémentaire à héberger.
+
+##### Critères d'acceptation (contrat §8.18, tous tenus)
+
+1. **Moteur `renderQuoteDocument`** — pdf-lib pur, `drawText` aux coordonnées enregistrées en 4b, AUCUN AcroForm. Logique de placement extraite en fonction pure décorrélée de pdf-lib (`document-layout-planner.ts`), testable indépendamment, réutilise le même calcul de pagination que l'aperçu client de 4b (aucune divergence possible entre les deux).
+2. **Table `quote_documents`** — append-only, `template_id not null on delete restrict`, trigger de cohérence tenant, RLS testée réellement (15 scénarios SQL contre Postgres local).
+3. **Branchement sur `sendQuote`** — génération UNIQUEMENT au premier envoi (`status === 'draft'` strict, jamais sur un renvoi), AVANT l'écriture de l'événement outbox. Échec technique avec gabarit configuré = envoi bloqué en entier (500 `quote.document_generation_failed`, devis reste `draft`) — pas de repli silencieux.
+4. **Condition d'attachement à quatre termes** — gabarit `ready` + actif + défaut du tenant + mapping non vide (`has_field_map`). Absence de gabarit = pas de blocage de l'envoi, mais un second corps de texte générique (déjà existant en production depuis E10.10b-3) au lieu du corps "avec pièce jointe".
+5. **Extension `ResendQuoteSentEmailSender`** — corps "sans pièce jointe" INCHANGÉ caractère pour caractère (vérifié par diff), deux NOUVEAUX corps "avec pièce jointe" (premier envoi/renvoi) — combinatoire 2×2 avec `isResend, 4 libellés au total. Format Resend (`attachments: \[\{filename, content (base64), content_type\}\]\`) vérifié sur la documentation officielle (le dev n'avait pas Context7 dans son environnement, a lu directement le schema OpenAPI Resend ; corroboré indépendamment par l'orchestrateur via Context7).
+6. **`GET .../documents`** — deux opérations (atelier + portail), 404 permanent pour tout devis envoyé avant ce lot ou sans document généré (aucune reprise rétroactive, aucun mécanisme de régénération n'existe).
+
+##### Dev Agent Record
+
+###### Agent Model Used
+
+Architecte (cadrage contrat + 2 arbitrages en cours de route, Claude Opus) → `dev-story` (implémentation, Claude Sonnet) → `qa-review` (Claude Opus, 2 rounds).
+
+###### Completion Notes
+
+**qa-review round 1 — Changes Requested, 5 réserves BLOQUANTES** (le lot le plus critique de toute la décomposition) :
+
+- **B1 — story ENTIÈREMENT non fonctionnelle.** Le code écrivait le document généré avec le client `authenticated`, à qui la migration venait justement de révoquer `INSERT` sur `quote_documents` (garantie d'audit). Dès qu'un tenant configurait correctement son gabarit — le cas nominal que toute la décomposition visait à servir — l'envoi de devis échouait systématiquement en 500, devis bloqué en `draft` pour toujours. Corrigé : le repository reçoit désormais un client `service_role` (réutilisé, pas nouveau), plus jamais `authenticated`. Prouvé par exécution réelle : le nouveau chemin réussit, l'ancien échoue TOUJOURS (le test reste discriminant).
+- **B2 — régénération/génération rétroactive possibles.** La condition "premier envoi" testait `status !== 'sent'` au lieu de `status === 'draft'`, donc était vraie aussi pour `accepted/rejected/converted`. Un rejeu d'appel sur un devis déjà accepté aurait régénéré et écrasé silencieusement le PDF (avec `upsert:true`). Corrigé : condition stricte, `upsert` retiré (échec explicite au lieu d'écrasement). Vérifié sur les 5 statuts un par un.
+- **B3 — panne de stockage confondue avec "pas de gabarit".** Toute erreur de téléchargement du fond PDF (réseau, 5xx) était traitée comme "aucun gabarit éligible", provoquant un envoi silencieux sans pièce jointe, sans trace, même si les 4 conditions d'attachement étaient remplies. Corrigé : seul un 404 explicite (`statusCode === '404'`) reste silencieux, toute autre erreur est levée. Vérifié sur les deux formes d'erreur réelles.
+- **B5 — caractère hors CP1252 = devis définitivement inenvoyable.** Un nom comme "Łukasz" ou une coche "✓" collectionnée faisait planter la génération (`WinAnsi cannot encode`). Corrigé : nouveau module de sanitisation (translittération + décomposition NFKD + repli `?`), accents FR/€/œ préservés intacts. Vérifié dans les deux sens (caractères problématiques neutralisés, caractères français jamais altérés).
+- **B4 — arbitré par l'architecte.** Le PDF pouvait être généré avant que la date de validité par défaut du devis (configurable par tenant, E10.10a) soit calculée en base — le document partait sans date alors que l'email en annonçait une. Décision : extraire le calcul dans une fonction SQL unique (`resolve_quote_default_valid_until`), ajouter un lecteur `security definer`+`stable` SANS AUCUNE ÉCRITURE (`api_resolve_commercial_quote_valid_until`), transmettre la même valeur résolue à la génération ET à l'envoi (`api_send_commercial_quote` à 5 arguments, ancienne signature à 4 arguments SUPPRIMÉE). Vérifié : même date sur le PDF et en base dans tous les cas, y compris "aucune validité du tout".
+- **B4-bis — NOUVEAU, trouvé par l'architecte en instruisant B4.** Le document était persisté (fichier + ligne) AVANT confirmation de l'envoi. Un échec d'envoi ultérieur laissait un document orphelin sur un devis resté `draft` (donc modifiable) : un rejeu après correction risquait de renvoyer le PDF de la version périmée. Corrigé : génération scindée en `renderForFirstSend()` (mémoire seule) + `persistRendered()` (appelée uniquement après succès CONFIRMÉ de l'envoi). Vérifié : un envoi qui échoue après génération réussie ne persiste RIEN.
+
+**qa-review round 2 — Approved.** Chaque faille RE-TESTÉE par exploitation réelle (pas relecture de rapport), y compris des vecteurs non demandés initialement. Non-régression 4a/4b confirmée après réinitialisation complète de la base locale (\~100 migrations rejouées, 0 erreur). Un point mineur non bloquant (R1, journalisation manquante sur un cas rare de dégradation gracieuse : échec de persistance APRÈS un envoi déjà réussi) fermé dans la foulée — comportement jugé défendable (faire échouer casserait aussi la notification email), journalisation ajoutée, troisième mode d'échec documenté au contrat par l'architecte (§8.18 #11 : "échouer tant qu'échouer est encore gratuit, jamais après le point de non-retour").
+
+###### Vérifications
+
+- `pnpm typecheck` : 0 erreur
+- `pnpm gen:api:check` : ✅ aligné
+- `pnpm test:architecture` : 146/146 (34 fichiers, +2 pour la garde de composition B1)
+- `pnpm test:contract` : 309/309 (17 fichiers)
+- `pnpm vitest run tests` (suite complète hors storage/e2e) : 1899/1899 passés (36 skip)
+- `deno check` sur les deux Edge Functions : 0 erreur
+- Base de données locale réinitialisée à zéro (`pnpm db:local:reset`, \~100 migrations) : 0 erreur
+- SQL réel 4a/4b/4c (18 scénarios pour 4c) : 0 erreur, aucune régression
+- `gescom-e10-10a-quote-send-duplicate.sql` : rejoué intégralement après adaptation aux 5 arguments, 0 erreur
+- Scénarios dblink e10-12/e10-13/e10-14/e10-16 : 0 erreur × 4, aucune régression du passage à 5 arguments
+
+###### File List
+
+- Migrations : `supabase/migrations/20260909040000_gescom_e10_10b_4c_quote_documents.sql`, `20260909050000_gescom_e10_10b_4c_qa_b4_valid_until_resolution.sql`
+- Module (nouveau) : `src/modules/quote-documents/**` (api/contracts.ts, application/document-value-formatting.ts, document-field-value-resolver.ts, document-layout-planner.ts, quote-document-renderer.ts, document-text-sanitization.ts, quote-documents-repository.ts, quote-documents-service.ts, customer-document-data-gateway.ts)
+- Adaptateurs : `src/adapters/supabase/quote-documents-repository.ts`, `quote-document-attachment-gateway.ts`, extensions de `document-templates-repository.ts` et `commercial-quotes-repository.ts`
+- Routes : `src/server/api/quote-documents-routes.ts`, extensions `commercial-quotes-routes.ts`, `outbox-dispatch-composition.ts`
+- Extension Resend : `src/adapters/resend/quote-sent-email-sender.ts`, `src/modules/commercial-quotes/application/quote-sent-notification-consumer.ts`
+- Câblage : `supabase/functions/magrit-api/index.ts`
+- Tests : `tests/sql/gescom-e10-10b-4c-quote-documents.sql` (18 scénarios), `tests/architecture/quote-documents-composition-boundaries.test.ts`, `tests/modules/commercial-quotes/commercial-quotes-service.test.ts`, `tests/adapters/supabase/document-templates-repository.test.ts`, `tests/modules/quote-documents/document-text-sanitization.test.ts`
+
+##### QA Results
+
+**Verdict : Approuvé** — round 2, après correction de 5 réserves bloquantes + 1 bug supplémentaire trouvé en cours de route. C'est le lot le plus critique de la décomposition 4a/4b/4c : sans B1, la fonctionnalité entière était inopérante dès qu'un tenant configurait correctement son gabarit — le scénario nominal. Chaque correction re-testée par exploitation réelle, pas par relecture. Aucune réserve bloquante restante.
+
+**Dettes tracées, non bloquantes** :
+
+- **Textes email "avec pièce jointe" (premier envoi/renvoi) NON VALIDÉS commercialement par Arnaud** — explicitement exclu du verdict technique de la qa-review, décision qui appartient à Arnaud seul. Textes déjà soumis en cours de session.
+- Aucune UI de téléchargement du document côté atelier/portail dans ce lot — à confirmer si réduction de périmètre assumée ou critère manquant.
+- `quote.customer_reference` ne peut jamais être imprimé (aucune colonne source sur les devis) — reste silencieusement vide.
+- `line.product_config_summary` : repli générique (paires clé/valeur), pas de mapping métier par gamme.
+- Fichier de test SQL préexistant (`gescom-e10-10a-quote-send-duplicate.sql`) fragile en environnement fraîchement réinitialisé (dépendance à des utilisateurs Auth pré-existants) — dette d'environnement préexistante, sans rapport avec ce lot.
+- Aucun cahier de test Notion (TF-XX) pour 4a, 4b, ni 4c.
+
+##### Change Log
+
+- 2026-09-09 — Livraison initiale, qa-review round 1, Changes Requested (5 bloquants B1/B2/B3/B5 + B4/B4-bis).
+- 2026-09-09 — Corrections dev + arbitrages architecte (B4, documentation du 3e mode d'échec), qa-review round 2, Approuvé.
+- 2026-09-09 — Fermeture point mineur R1 (journalisation) et documentation contractuelle du 3e mode d'échec.
+- 2026-09-09 — Fiche créée dans Notion à partir du story document livré et du verdict qa-review final. **Clôture de la décomposition complète E10.10b-4a/4b/4c.**
+
+### Cas de test fonctionnels rattachés (Notion)
+
+| TF | Cas de test | Statut | Priorité | Parcours | Cible | Stories liées |
+|---|---|---|---|---|---|---|
+| [TF-202](https://app.notion.com/3d6d0131973c81bf927fd61cffd1bb63) | TF-011 — Envoi d'un devis avec gabarit configuré : email reçu avec PDF joint correct | À jouer | P0 — Critique | P13 — Devis et gestion commerciale | B5 | E10.10b-4c |
+| [TF-203](https://app.notion.com/3d6d0131973c812cad61da1b333af755) | TF-012 — Envoi d'un devis sans gabarit éligible : email reçu sans pièce jointe | À jouer | P1 — Importante | P13 — Devis et gestion commerciale | B5 | E10.10b-4c |
+| [TF-204](https://app.notion.com/3d6d0131973c81d18e1ef2688073c35f) | TF-013 — Non-régression B2 : un devis accepté ne régénère jamais son document | À jouer | P0 — Critique | P13 — Devis et gestion commerciale | B5 | E10.10b-4c |
+| [TF-205](https://app.notion.com/3d6d0131973c81d782e1db0e6981f07d) | TF-014 — Non-régression B5 : caractères hors CP1252 dans le nom du client n'empêchent pas l'envoi | À jouer | P1 — Importante | P13 — Devis et gestion commerciale | B5 | E10.10b-4c |
+| [TF-206](https://app.notion.com/3d6d0131973c81c7a75efdb5f1dd260f) | TF-015 — Non-régression B4 : date de validité identique entre l'email et le PDF joint | À jouer | P1 — Importante | P13 — Devis et gestion commerciale | B5 | E10.10b-4c |
+| [TF-207](https://app.notion.com/3d6d0131973c8195a524ea4feba80867) | TF-016 — Consultation du document d'un devis envoyé (atelier et portail client) | À jouer | P1 — Importante | P13 — Devis et gestion commerciale | B5 | E10.10b-4c |
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 **Ce document couvre DEUX passes** : la livraison initiale, puis le round 2
 de qa-review ("Changes Requested", 5 bloquants B1/B2/B3/B5 + B4 tranché par
 l'architecte avec un bug additionnel B4-bis) et ses corrections — détaillées

@@ -8,6 +8,37 @@ parallelisable_avec: [BCP-6, BCP-9]
 ---
 # BCP-5 — Une table de libellés de statut, une seule (lot 5, avancé pendant le banc Clariprint)
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> **Source qui fait foi : Notion** — [BCP-5 — Libellés de statut des commandes unifiés](https://app.notion.com/p/3ddd0131973c814eb8c7cfd3fef80635) · extrait le 17/09/2026 · page modifiée le 16/09/2026.
+> Copie destinée à tout intervenant (développement, QA, revue, agent) : lire ce périmètre avant la partie implémentation. En cas d'écart, Notion prévaut. Le statut Notion peut retarder sur la livraison réelle, décrite plus bas.
+
+| Epic | Sprint | Priorité | Effort | Statut Notion | Assigné à | Offre | Source | Ordre |
+|---|---|---|---|---|---|---|---|---|
+| E10 — Gestion commerciale | Sprint 5 — Gestion commerciale | P1 | M | Terminé | Claude code | — | — | — |
+
+### Description fonctionnelle (Notion)
+
+Chantier boutique, lot 5. Un seul libellé pour un seul état : une commande passée par un acheteur s'affiche « En attente de validation », dans la boutique comme dans l'atelier. Le mot « Brouillon » ne désigne plus qu'un devis.
+
+**Livré** : table unique des statuts, badges, filtres, dialogues de validation et d'annulation, écran de remerciement, historique, bandeau de reprise.
+
+**Relecture adversariale** : approuvée au round 2.
+
+**Contrôle navigateur du 16/09** : conforme. Aucun « Brouillon » résiduel côté commandes.
+
+Détail : `SPRINT_HANDOFF.md` et `_bmad-output/implementation-artifacts/story-BCP-5.md`.
+
+### Cas de test fonctionnels rattachés (Notion)
+
+_Aucun cas de test rattaché dans la base Notion « 🧪 Cahiers de tests fonctionnels Magrit »._
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 Cadrage opposable : `docs/api/CONVENTIONS.md` §8.25, point **5.1** (« BCP-5 —
 une table de statuts, une seule »), le constat 1(5) (« il y a QUATRE tables
 de libellés de statut, pas deux »), et les décisions **Q1** (« l'atelier lit

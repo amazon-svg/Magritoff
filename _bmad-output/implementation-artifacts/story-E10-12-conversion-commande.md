@@ -8,6 +8,226 @@ blocks: [E10.13, E10.16]
 ---
 # E10.12 — « Bouton Valider » : le devis devient une commande
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> **Source qui fait foi : Notion** — [E10.12 — Bouton Valider : transformation d'un devis en commande côté back-office Magrit](https://app.notion.com/p/3cad0131973c81adbf27e20225e3f6ce) · extrait le 17/09/2026 · page modifiée le 08/09/2026.
+> Copie destinée à tout intervenant (développement, QA, revue, agent) : lire ce périmètre avant la partie implémentation. En cas d'écart, Notion prévaut. Le statut Notion peut retarder sur la livraison réelle, décrite plus bas.
+
+| Epic | Sprint | Priorité | Effort | Statut Notion | Assigné à | Offre | Source | Ordre |
+|---|---|---|---|---|---|---|---|---|
+| E10 — Gestion commerciale | Sprint 5 — Gestion commerciale | P0 | M | Terminé | Claude code | Pro+ | RP 28/08/2026, WM 01/09/2026 | 13 |
+
+### Description fonctionnelle (Notion)
+
+**En tant que** commercial, **je veux** transformer un devis en commande par un bouton « Valider » explicite, **afin d'**éviter les changements d'état accidentels d'un menu déroulant.
+
+##### Statut
+
+Draft — prêt pour agent dev
+
+##### Contexte produit
+
+Décision RP du 28/08/2026 : Xavier Péchoultres recommande un bouton de validation explicite et vert plutôt qu'un changement de statut par liste déroulante, pour l'ergonomie et pour éviter les modifications après validation. Arnaud Mazon acte le bouton qui transforme le devis en commande et l'alimente dans le tableau de bord des commandes. Corollaire : une commande entrée dans le système — boutique ou devis converti — est réputée validée, il n'y a pas de seconde validation.
+
+##### Critères d'acceptation
+
+1. Un bouton « Valider et passer en commande » est présent dans l'en-tête du devis, en style primaire, actif uniquement au statut « Brouillon » ou « Envoyé ».
+2. Le clic ouvre une confirmation récapitulant le client, le nombre de lignes et le total.
+3. Après confirmation : création d'une commande reprenant client, lignes, prix et remises figés ; le devis passe au statut « Converti » et devient non modifiable.
+4. Un numéro de commande unique et séquentiel par tenant est attribué (format `CMD-AAAA-NNNNN`).
+5. La commande créée est réputée validée : aucune étape de validation supplémentaire n'est requise ; elle entre directement dans le circuit des étapes de production (E10.13).
+6. La commande conserve la référence `quote_id` et le devis la référence `order_id`.
+7. Un devis converti ne peut plus être validé une seconde fois ; le bouton disparaît et l'opération est refusée côté serveur.
+8. Le statut « Refusé » reste accessible sur un devis non converti.
+
+##### Tâches / Sous-tâches
+
+- [ ] Migration SQL `orders` et `order_lines` (CA : 3, 4, 6)
+    - [ ] `orders` : id, tenant_id, customer_id, quote_id, number, source ('quote'\|'shop'), current_step_id, created_at
+    - [ ] `order_lines` : snapshot figé des lignes de devis (libellé, config, quantité, prix, remise)
+- [ ] Fonction transactionnelle `convertQuoteToOrder(quoteId)` (CA : 3, 4, 5, 6, 7)
+- [ ] Composant `src/components/quotes/ValidateQuoteDialog.tsx` (CA : 1, 2)
+- [ ] Verrouillage en écriture du devis converti, côté UI et côté RLS (CA : 3, 7)
+- [ ] Alimentation du tableau de bord des commandes (CA : 5)
+
+##### Dev Notes
+
+###### Contraintes techniques
+
+- Les lignes de commande sont un **snapshot figé**, pas une jointure vers `quote_lines` : une règle de prix modifiée plus tard ne doit jamais changer rétroactivement une commande.
+- `convertQuoteToOrder` doit être idempotente sur `quote_id` : un double clic ou un rejeu réseau ne doit pas produire deux commandes. Contrainte UNIQUE sur `orders.quote_id`.
+
+###### data-testid
+
+`quote-validate-btn`, `quote-validate-dialog`, `quote-validate-confirm-btn`, `quote-validate-cancel-btn`, `quote-status-badge` (+ `data-status`), `order-number-display`
+
+###### Dépendances
+
+- Bloquée par : E10.3, E10.8, E10.9
+- Bloque : E10.13, E10.16
+- Recoupe : E4.2 (transformation devis → commande côté mini-shop) — arbitrer la fusion des deux stories avant développement
+
+##### Mise à jour — WM du 01/09/2026
+
+**Arbitrage rendu : E4.2 et E10.12 ne fusionnent pas. Ce sont deux workflows distincts.**
+
+- **E10.12 (cette story) — côté back-office Magrit.** Un utilisateur Magrit (commercial) transforme un devis qu'il a produit en commande, par le bouton de validation explicite. C'est **la story de référence du workflow commercial Magrit**.
+- **E4.2 — côté boutique.** Un utilisateur « Pro » de la boutique valide le panier d'un utilisateur lambda pour qu'il devienne une commande. La notion d'utilisateur Pro appartient au storefront, pas à Magrit.
+- Les deux workflows convergent sur **le même objet Commande**. La transformation d'un panier boutique en commande Magrit est un sujet à traiter séparément, avec au besoin un statut standard « en attente de validation client ». Xavier Péchoultres : « il faut travailler flux par flux, workflow par workflow ; la E10 concerne le workflow de gestion commerciale, il faut travailler là-dessus ».
+- Le titre de cette story est précisé en conséquence, et E4.2 est reprécisée de son côté. **Le CA de dépendance « arbitrer la fusion avec E4.2 » est levé.**
+- Le prix des lignes de commande provient de `PricingEngine` (**E10.21**), E10.8 étant gelée.
+
+##### Contrat API
+
+| Méthode | Route | Objet |
+| --- | --- | --- |
+| POST | `/api/v1/quotes/{quoteId}/convert` | Transforme le devis en commande ; `Idempotency-Key` **obligatoire** ; renvoie la commande créée |
+| GET | `/api/v1/orders` | Liste des commandes ; `?status=`, `?step_id=`, `?customer_id=`, pagination par curseur |
+| GET | `/api/v1/orders/{orderId}` | Détail |
+
+Contrainte d'unicité sur `orders.quote_id` : un second appel de conversion renvoie **200 avec la commande existante**, pas une erreur ni un doublon. Événement émis : `quote.converted` (`{ quote_id, order_id, customer_id }`).
+
+##### Tests
+
+Parcours P13 — validation d'un devis, contrôle de la création de la commande, du gel du devis et de l'unicité du numéro. Cas limite : double clic sur le bouton, une seule commande attendue.
+
+##### Change Log
+
+- 2026-08-28 — v1 — Création à partir de la séance du 28/08/2026 — Arnaud Mazon / Claude
+
+##### Dev Agent Record
+
+###### Agent Model Used
+
+Claude Sonnet 4.5 (dev-story, implémentation) + Claude Opus 4 (qa-review round 2, validation)
+
+###### Debug Log References
+
+(aucune fournie par dev-story)
+
+###### Completion Notes
+
+**Round 1 (qa-review, Changes Requested)** :
+
+- **B1 (grave, bloquant)** : fonction transactionnelle utilisait un patron CTE (`WITH previous AS ... SELECT ... FROM ... FOR UPDATE, transitioned AS (UPDATE RETURNING) SELECT ...`) qui lisait un instantané périmé au lieu de verrouiller. Reproduction en vraie concurrence (deux sessions psql) : le client acceptait le devis PENDANT que l'atelier le convertissait → `source_quote_status` enregistrait `'sent'` alors que `'accepted'` était entré en base entre-temps. Donnée immuable une fois écrite (preuve juridique, aucune correction possible après création).
+- **B2 (bloquant)** : code d'erreur 409 renvoyait `current_state.status` périmé (lu avant l'UPDATE au lieu d'après son échec).
+
+**Correctif livré (dev-story)** :
+
+- **B1 fermé** : retour au patron d'E10.10a (`SELECT ... FOR UPDATE` dès le départ, verrou tenu jusqu'à fin de transaction). Nouveau test SQL avec dblink pour vraie concurrence (rejoué aussi sur ancien patron CTE pour confirmer qu'il le détecte). Résultat : 5 conversions simultanées du même devis → 1 seule commande, 4 rejets propres, aucun deadlock, aucun numéro brûlé.
+- **B2 fermé** : relecture de l'état du devis dans la branche d'échec (`quote.not_found`/`quote.conversion_forbidden_status`), pas avant l'UPDATE.
+
+**Round 2 (qa-review, Approved)** :
+
+- **B1 re-vérification** : révision advers détient deux sessions psql propres (pg_stat_activity observe le verrou, wait_event = transactionid), rejoue le contrôle négatif (ancien patron toujours détecté), teste vraiment 5 conversions concurrentes : 1 commande, 4 rejets nets, aucune anomalie.
+- **B2 re-vérification** : sonde sur réponse HTTP réelle (handler), vérification que la relecture se fait bien à partir de l'état post-échec.
+- **Réserves non bloquantes** tracées (R1-R8) : idempotence régénérée côté client (préexistant à E10.3), filtre de statut ignoré silencieusement, schéma d'événement non validé en exécution, branche hors convention (héritée de b-1/b-2/b-3), incohérence traduction erreur inter-adaptateurs, vocabulaire `CDE-AAAA-NNNNN`/`validated` non tranchés Arnaud (en attente confirmation avant mise en service), contrat assoupli potentiellement, privil. TRUNCATE sur table d'audit (pré-existant).
+
+**Critères d'acceptation tenus** (contrat §8.14) :
+
+- (1) OpenAPI fait foi, non modifié par ce lot.
+- (2) Conversion depuis `sent` ET `accepted`.
+- (3) Aucune garde de capability (tout tenant member valide).
+- (4) Prix copiés, jamais recalculés.
+- (5-12) Ressource POST, événement unique, idempotence, immuabilité base, codes d'erreur, numérotation, audit d'entête.
+- (13-14) Conséquences sur PortalQuotes/decideStorefrontQuote — aucune régression, déjà cohérent sans modif.
+- (15-16) CustomerDetail, aucun appel Supabase direct du navigateur.
+
+**Gates finales** :
+
+- `pnpm typecheck` : 0 erreur
+- `pnpm gen:api:check` : inchangé (contrat déjà publié)
+- `pnpm test:architecture` : 144/144
+- `pnpm test:contract` : 252/252 (+10 nouveaux, commercial-orders.contract.test.ts)
+- `npx vitest run` : 1685 passés, 3 pre-existants non liés, 36 skip
+- `tests/sql/gescom-e10-12-quote-conversion.sql` : 11 scénarios (docker local, atomic/isolation/RLS/immuabilité/GUC), tous réussis en rollback
+
+**Commit local** : `423f52e` (non poussé, en attente merge)
+
+###### File List
+
+**Migrations et tests SQL**
+
+- `supabase/migrations/20260908010000_gescom_e10_12_quote_conversion.sql`
+- `tests/sql/gescom-e10-12-quote-conversion.sql`
+- `scripts/test-storefront-sql.sh`
+
+**Module commercial-orders (nouveau)**
+
+- `src/modules/commercial-orders/api/contracts.ts`
+- `src/modules/commercial-orders/api/client.ts`
+- `src/modules/commercial-orders/application/commercial-orders-repository.ts`
+- `src/modules/commercial-orders/application/commercial-orders-service.ts`
+- `src/modules/commercial-orders/index.ts`
+- `src/adapters/supabase/commercial-orders-repository.ts`
+- `src/server/api/commercial-orders-routes.ts`
+
+**Câblage**
+
+- `src/server/api/gescom-routes.ts`
+- `supabase/functions/magrit-api/index.ts`
+
+**Module commercial-quotes (modifications)**
+
+- `src/modules/commercial-quotes/api/contracts.ts`
+- `src/adapters/supabase/commercial-quotes-repository.ts`
+- `src/modules/commercial-quotes/ui/workspace/QuoteEditorPage.tsx`
+
+**UI transverse**
+
+- `src/shared/presentation/testIds.ts`
+
+**Tests**
+
+- `tests/contract/commercial-orders.contract.test.ts`
+- `tests/contract/_fakes/commercial-orders-repository.fake.ts`
+- `tests/contract/_fakes/commercial-quotes-repository.fake.ts`
+
+**Artefact**
+
+- `_bmad-output/implementation-artifacts/story-E10-12-conversion-commande.md`
+
+##### QA Results
+
+###### Verdict : ACCEPTÉ (Round 2 — Approved)
+
+**Bloquants fermés** :
+
+- **B1** : CTE pattern périmé → FOR UPDATE (verrou de ligne, lecture garantie post-commit). Testé concurrence réelle (dblink) : 5 conversions simultanées → 1 commande, 4 rejets nets.
+- **B2** : `current_state.status` périmé sur 409 → relecture après échec.
+
+**Réserves non bloquantes** (8, tracées, aucune action requise pour clôture) :
+
+- **R1** : Idempotence côté client (uuid régénéré à chaque appel) — préexistant E10.3, même patron E10.10a.
+- **R2** : Filtre `status` invalide ignoré silencieusement (400 attendu) — identique behavior existing `commercial-quotes-routes.ts`.
+- **R3** : Schéma charge utile événement déclaré non validé à l'exécution.
+- **R4** : Branche non conforme convention (hors «une story = une branche») — héritée b-1/b-2/b-3.
+- **R5** : Incohérence traduction erreur Supabase vs HTTP adapter (chemin injoignable en pratique).
+- **R6** : Vocabulaire `CDE-AAAA-NNNNN` + statut initial `validated` gravés en base — **confirmation Arnaud nécessaire avant mise en service** (non bloquant pour tech review, bloquant avant déploiement production).
+- **R7** : Contrat promet `current_state` toujours présent, code peut l'omettre si relecture échoue — assouplissement contrat potentiel.
+- **R8** : Privilège TRUNCATE sur table audit (anon/authenticated) — pré-existant Supabase, sans rapport.
+
+**Dettes tracées** (hors périmètre accepté) :
+
+- **(d)** Aucune annulation de commande — à traiter E10.13+ (confirmation Arnaud si besoin d'UI « êtes-vous sûr ? » avancée).
+- **(e)** Vocabulaire R6 (voir ci-dessus).
+- **(f)** Confrontation CA Notion vs contrat par scribe/humain (en cours).
+- **M2** Publication `quote.converted` best-effort hors transaction (dette socle E10.0, inchangée).
+
+### Cas de test fonctionnels rattachés (Notion)
+
+| TF | Cas de test | Statut | Priorité | Parcours | Cible | Stories liées |
+|---|---|---|---|---|---|---|
+| [TF-178](https://app.notion.com/3cad0131973c8132a731d392e5da61fe) | GC — Valider un devis et le transformer en commande | À jouer | P0 — Critique | P13 — Devis et gestion commerciale | B6 | E10.12, E10.16 |
+| [TF-179](https://app.notion.com/3cad0131973c818e8516e8053baedac8) | GC — Limite : double validation d'un devis, une seule commande créée | À jouer | P0 — Critique | P13 — Devis et gestion commerciale | B6 | E10.12 |
+| [TF-184](https://app.notion.com/3cad0131973c81dd9925ec7a18081c38) | GC — Fiche commande complète et prix non modifiables | À jouer | P0 — Critique | P13 — Devis et gestion commerciale | B6 | E10.16, E10.12, E10.14 |
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 Contrat écrit par l'architecte avant le démarrage (`docs/api/CONVENTIONS.md`
 §8.14), avec deux arbitrages d'Arnaud tranchés le 2026-09-08 avant que
 `dev-story` ne commence : (a) la conversion part de `sent` **et** `accepted`,

@@ -9,6 +9,20 @@ depends_on: [AF3.1]
 
 # AF3.2 — Correctif création espace et bootstrap local
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> Aucune story du Sprint Board Notion n'est rattachée à ce story document : c'est une story née dans le dépôt (refonte technique, lot d'architecture ou correctif). Son périmètre est celui décrit ci-dessous. Si elle relève d'une story Notion, renseigner ce rattachement et régénérer cette section.
+
+### Cas de test fonctionnels rattachés (Notion)
+
+_Aucun cas de test rattaché dans la base Notion « 🧪 Cahiers de tests fonctionnels Magrit »._
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 ## Incident
 
 La RPC crée correctement le tenant et son membership, mais le bootstrap Edge échoue ensuite avec `permission denied for table tenant_members`. Les migrations reposaient sur les anciens privilèges automatiques Supabase, alors que les nouveaux projets locaux révoquent les opérations Data API par défaut. Par ailleurs, `/tenants/new` restait accessible sans session et présentait une erreur de création générique.

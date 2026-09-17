@@ -12,6 +12,23 @@ unblocks: [MUX2, MUX3, MUX4]
 
 # MUX1 — Pilote UX modulaire du domaine Members
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> Aucune story du Sprint Board Notion n'est rattachée à ce story document : c'est une story née dans le dépôt (refonte technique, lot d'architecture ou correctif). Son périmètre est celui décrit ci-dessous. Si elle relève d'une story Notion, renseigner ce rattachement et régénérer cette section.
+
+### Cas de test fonctionnels rattachés (Notion)
+
+| TF | Cas de test | Statut | Priorité | Parcours | Cible | Stories liées |
+|---|---|---|---|---|---|---|
+| [TF-145](https://app.notion.com/3c6d0131973c8132ae63ed6487bcb209) | UM — Un utilisateur sans option ne voit que Devis, Devis en attente et Mon compte | OK | P0 — Critique | P02 — Gestion utilisateurs | B5 | UM1, UM2, MUX1, migration 20260824000400 |
+| [TF-159](https://app.notion.com/3c6d0131973c8168b135d5ef1e8ad647) | UM — Page Utilisateurs : deux sections (Équipe Magrit / Utilisateurs des boutiques) et deux parcours d invitation distincts | À jouer | P1 — Importante | P02 — Gestion utilisateurs | B5 | UM3 (1ee36bf), MUX1, AF31-5, AF32-1 |
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 ## User story
 
 En tant qu'équipe Magrit, nous voulons que le module `members` possède

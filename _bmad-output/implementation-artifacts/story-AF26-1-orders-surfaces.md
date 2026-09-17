@@ -8,6 +8,22 @@ depends_on: [AF25.4]
 ---
 # AF26.1 — Déclarer les sorties multi-surfaces du module Orders
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> Aucune story du Sprint Board Notion n'est rattachée à ce story document : c'est une story née dans le dépôt (refonte technique, lot d'architecture ou correctif). Son périmètre est celui décrit ci-dessous. Si elle relève d'une story Notion, renseigner ce rattachement et régénérer cette section.
+
+### Cas de test fonctionnels rattachés (Notion)
+
+| TF | Cas de test | Statut | Priorité | Parcours | Cible | Stories liées |
+|---|---|---|---|---|---|---|
+| [TF-146](https://app.notion.com/3c6d0131973c8175bb95f8df989be5eb) | UM — Option Commandes : accès à l écran Commandes et aux transitions ; sans option, aucune lecture | En cours | P0 — Critique | P03 — Droits granulaires | B5 | UM1 §1.3, migration 20260824000400 (can_manage_tenant_orders), AF26-1 |
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 ## Résultat livré
 
 Le module Orders déclare désormais ses fonctionnalités et capabilities sans
