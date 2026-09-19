@@ -74,6 +74,55 @@ describe('OrdersService', () => {
     expect(repository.listLegacyOrders).not.toHaveBeenCalled();
   });
 
+  // MAJEUR 4 (qa-review round 1) — l acheteur (session boutique) ne doit
+  // JAMAIS lire `price_origin`/`has_unverified_prices` sur sa propre
+  // commande, même quand elle est réellement marquée en base. Avant cette
+  // correction, `toTenantSummary` était appliquée tel quel sur la branche
+  // storefront_session : ce test échoue sur le code d avant (les deux
+  // champs y auraient porté les valeurs sensibles).
+  it("cache price_origin/has_unverified_prices a l acheteur (session boutique), meme sur une commande reellement marquee", async () => {
+    const repository = repositoryStub();
+    repository.getStorefrontPortalOrders = vi.fn(async () => ({
+      orders: [{
+        id: 'v11-marked', shopId: 'shop-1', createdAt: '2026-09-19T10:00:00.000Z',
+        customerName: 'Acheteur', customerEmail: 'acheteur@test.fr',
+        items: [{ name: 'Flyers', quantity: 3, unitPriceHt: 10, priceOrigin: 'client_unverified' as const }],
+        totalHt: 30, status: 'draft', hasUnverifiedPrices: true,
+      }],
+      taxRegime: 'dom_tom' as const,
+    }));
+    const service = new OrdersService(repository);
+
+    const result = await service.listPortalOrders('shop-1', {
+      kind: 'storefront_session', opaqueToken: 'opaque-storefront-token',
+    });
+
+    const order = result.datasets.mine.find((candidate) => candidate.id === 'v11-marked');
+    expect(order?.hasUnverifiedPrices).toBe(false);
+    expect(order?.items.every((item) => item.priceOrigin === null)).toBe(true);
+  });
+
+  // Non-régression : le masquage ci-dessus est SCOPÉ à la branche
+  // storefront_session — l atelier (magrit_user) doit continuer à recevoir
+  // les vraies valeurs, faute de quoi la pastille Q17-c (point 12 (h))
+  // redeviendrait aveugle pour tout le monde.
+  it("n affecte PAS listPortalOrders(magrit_user) — l atelier recoit toujours les vraies valeurs", async () => {
+    const repository = repositoryStub();
+    repository.listTenantOrdersByIds = vi.fn(async () => [{
+      id: 'v11-1', shopId: 'shop-1', createdAt: '2026-08-11T12:00:00.000Z',
+      customerName: 'Xav 12', customerEmail: 'xav.12@laposte.net',
+      items: [{ name: 'Flyers', quantity: 3, unitPriceHt: 10, priceOrigin: 'client_unverified' as const }],
+      totalHt: 30, status: 'draft', hasUnverifiedPrices: true,
+    }]);
+    const service = new OrdersService(repository);
+
+    const result = await service.listPortalOrders('shop-1', { kind: 'magrit_user', userId: id('user-1') });
+
+    const order = result.datasets.mine.find((candidate) => candidate.id === 'v11-1');
+    expect(order?.hasUnverifiedPrices).toBe(true);
+    expect(order?.items[0]?.priceOrigin).toBe('client_unverified');
+  });
+
   it('normalise le trail d audit au format HTTP camelCase', async () => {
     const service = new OrdersService(repositoryStub());
     await expect(service.getAuditTrail('v11-1')).resolves.toEqual({

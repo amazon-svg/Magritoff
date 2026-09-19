@@ -41,7 +41,16 @@ export class OrdersService {
   async listPortalOrders(shopId: string, authorization: PortalOrdersAuthorization): Promise<PortalOrdersResponse> {
     if (authorization.kind === 'storefront_session') {
       const storefront = await this.repository.getStorefrontPortalOrders(shopId, authorization.opaqueToken);
-      const mine = sortOrders(storefront.orders.map((order) => toTenantSummary(order, taxRateFor(storefront.taxRegime))));
+      // MAJEUR 4 (qa-review round 1) — l acheteur (session boutique) ne
+      // reçoit JAMAIS `price_origin`/`has_unverified_prices` sur sa propre
+      // commande : ce sont des marqueurs de confiance INTERNES (point 12
+      // (h), « ce que voit l acheteur : rien de nouveau »), et le cadrage
+      // refuse explicitement de les graver dans un contrat publié parce
+      // qu ils doivent DISPARAÎTRE (point 12 (f)). `hideUnverifiedPriceMarkers`
+      // neutralise les deux champs sur CETTE branche uniquement — jamais sur
+      // `listTenantOrders` ni sur la branche `magrit_user` ci-dessous,
+      // consommées par l atelier.
+      const mine = sortOrders(storefront.orders.map((order) => hideUnverifiedPriceMarkers(toTenantSummary(order, taxRateFor(storefront.taxRegime)))));
       return {
         counters: { mine: mine.length, to_validate: 0, to_approve: 0, to_produce: 0 },
         datasets: { mine, to_validate: [], to_approve: [], to_produce: [] },
@@ -154,6 +163,19 @@ function toTenantSummary(order: TenantOrderRecord, taxRate: number): OrderSummar
     items: [...order.items], totalHt: order.totalHt,
     totalTtc: order.totalHt * (1 + taxRate), status: order.status,
     hasUnverifiedPrices: order.hasUnverifiedPrices,
+  };
+}
+
+/**
+ * MAJEUR 4 (qa-review round 1) — neutralise `price_origin`/`hasUnverifiedPrices`
+ * avant de servir une commande à l acheteur (session boutique). Exportée
+ * pour être testée directement, sans dépendre du câblage de `listPortalOrders`.
+ */
+export function hideUnverifiedPriceMarkers(order: OrderSummary): OrderSummary {
+  return {
+    ...order,
+    hasUnverifiedPrices: false,
+    items: order.items.map((item) => ({ ...item, priceOrigin: null })),
   };
 }
 

@@ -30,24 +30,28 @@ import type { Database, Json } from '../../types/database.types.ts';
 
 type UserScopedClient = SupabaseClient<Database>;
 /**
- * Q17-c (point 12 (h)) — `has_unverified_prices` et `tenant_order_items.price_origin`
- * sont des colonnes ajoutées par la migration Q17-a
- * (`20260919000100_gescom_q17a_storefront_order_price_revaluation.sql`), pas
- * encore reflétées dans `database.types.ts` généré (déploiement Supabase
- * distinct de ce lot, front seul). Même convention que `customer_name`/
- * `customer_email` juste en dessous : type élargi à la main plutôt qu une
- * régénération qui exigerait un déploiement.
+ * Q17-c (qa-review round 1, BLOQUANT 1) — `database.types.ts` a été
+ * régénéré (`src/types/database.types.ts`, tables `tenant_orders` et
+ * `tenant_order_items`) contre la pile Supabase locale, où la migration
+ * Q17-a (`20260919000100_gescom_q17a_storefront_order_price_revaluation.sql`)
+ * est appliquée — vérifié par requête directe (`information_schema.columns`)
+ * avant toute écriture de ce fichier. `has_unverified_prices` et
+ * `price_origin` sont donc désormais des colonnes RÉELLES du type généré,
+ * `not null` côté SQL. Le seul élargissement manuel qui reste ici porte sur
+ * `tenant_order_items`, dont le SELECT ne remonte que quatre colonnes (pas le
+ * Row complet) et sur `customer_name`/`customer_email`, injectées par une
+ * RPC et absentes de tout `select()` — deux raisons disjointes, pas une
+ * analogie entre elles.
  */
 type TenantOrderRow = Database['public']['Tables']['tenant_orders']['Row'] & {
   tenant_order_items?: Array<{
     product_label: string;
     quantity: number;
     unit_price_ht: number;
-    price_origin?: string | null;
+    price_origin: string;
   }> | null;
   customer_name?: string | null;
   customer_email?: string | null;
-  has_unverified_prices?: boolean | null;
 };
 
 const TENANT_ORDER_SELECTION =

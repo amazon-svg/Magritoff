@@ -342,16 +342,44 @@ export function applySort(
 // React, suivant le pattern déjà en place ici (applyFilters/applySort).
 
 /**
- * La pastille "Prix non vérifié" ne concerne QUE la grille de l atelier
- * (`appearance === 'dashboard'`, DashboardOrders). `OrderHistoryTable` sert
- * aussi l acheteur (`appearance === 'portal'`, PortalOrders.tsx — "Mes
- * commandes") : Q17 n ajoute aucun libellé sur cette surface-là.
+ * Q17-c (qa-review round 1, BLOQUANT 3) — SEULE fonction qui decide si une
+ * surface est « atelier » au sens de ce lot. La pastille, le bouton de
+ * detail et la ligne de detail appellent TOUS celle-ci — jamais une
+ * condition reecrite (`appearance === 'dashboard'` copiee ailleurs), pour
+ * qu une seule fonction, testee une fois, gouverne les trois sites d appel.
+ * `OrderHistoryTable` sert aussi l acheteur (`appearance === 'portal'`,
+ * PortalOrders.tsx — « Mes commandes ») : Q17 n ajoute aucun affichage sur
+ * cette surface-la.
+ */
+export function isAtelierAppearance(appearance: 'portal' | 'dashboard'): boolean {
+  return appearance === 'dashboard';
+}
+
+/**
+ * La pastille "Prix non vérifié" ne concerne QUE la grille de l atelier.
  */
 export function showsUnverifiedPriceBadge(
   order: Pick<OrderUI, 'hasUnverifiedPrices'>,
   appearance: 'portal' | 'dashboard',
 ): boolean {
-  return appearance === 'dashboard' && order.hasUnverifiedPrices === true;
+  return isAtelierAppearance(appearance) && order.hasUnverifiedPrices === true;
+}
+
+/**
+ * Q17-c (qa-review round 1, BLOQUANT 3) — le detail de commande (bouton +
+ * ligne depliee) est reserve a l atelier, EXACTEMENT comme la pastille.
+ * Fonction unique appelee aux DEUX sites de rendu concernes (le choix
+ * bouton/texte statique, et le rendu de la ligne de detail elle-meme) :
+ * la qa a demontre qu une mutation qui retire la garde a l un des deux
+ * sites (isDashboardAppearance recopie a la main) restait invisible aux
+ * tests tant que chaque site portait sa propre condition non testee.
+ */
+export function showsOrderDetail(
+  order: Pick<OrderUI, 'id'>,
+  appearance: 'portal' | 'dashboard',
+  expandedOrderIds: ReadonlySet<string>,
+): boolean {
+  return isAtelierAppearance(appearance) && expandedOrderIds.has(order.id);
 }
 
 /**
@@ -360,6 +388,13 @@ export function showsUnverifiedPriceBadge(
  * a rien d utile à affirmer (cohorte legacy, ou ligne `legacy` antérieure à
  * la règle Q17-a — point 12 (g) : une commande antérieure se valide comme
  * avant, sans qu on prétende avoir vérifié son prix).
+ *
+ * MAJEUR 5 (qa-review round 1), corrigé — `client_unverified` rendait
+ * « Prix catalogue non vérifiable », qui AFFIRME une provenance catalogue
+ * qui n existe pas : ce marqueur signifie que le serveur n a AUCUN moyen de
+ * vérifier (le cas le plus fréquent est une ligne CONFIGURÉE, dont le prix
+ * n a jamais été un prix de catalogue). Le libellé dit maintenant ce qui est
+ * vrai : le prix vient du client, le serveur ne l a pas vérifié.
  */
 export function describePriceOrigin(
   priceOrigin: OrderUI['items'][number]['priceOrigin'],
@@ -370,7 +405,7 @@ export function describePriceOrigin(
     case 'quoted':
       return 'Prix issu d un devis';
     case 'client_unverified':
-      return 'Prix catalogue non vérifiable';
+      return 'Prix non vérifié par le serveur (transmis par le client)';
     case 'legacy':
     case null:
     case undefined:
@@ -1059,7 +1094,7 @@ export function OrderHistoryTable({
                     )}
                     <td className="py-3 pr-4 text-ink truncate">{o.customer_name || '—'}</td>
                     <td className="py-3 pr-4 text-ink-muted whitespace-nowrap">
-                      {isDashboardAppearance ? (
+                      {isAtelierAppearance(appearance) ? (
                         <button
                           type="button"
                           onClick={() => toggleOrderDetail(o.id)}
@@ -1067,7 +1102,7 @@ export function OrderHistoryTable({
                           data-order-id={o.id}
                           aria-expanded={expandedOrderIds.has(o.id)}
                           aria-label={`Détail des lignes de la commande ${o.id}`}
-                          title="Voir le détail des lignes (prix reçu et prix catalogue)"
+                          title="Voir le détail des lignes (prix reçu et provenance du prix)"
                           className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-line bg-paper text-ink-2 hover:border-ink-mute-2 transition-colors"
                           style={{ fontSize: '11.5px' }}
                         >
@@ -1262,7 +1297,7 @@ export function OrderHistoryTable({
                       </td>
                     )}
                   </tr>
-                  {isDashboardAppearance && expandedOrderIds.has(o.id) && (
+                  {showsOrderDetail(o, appearance, expandedOrderIds) && (
                     <tr
                       data-testid={TEST_IDS.shop.orderDetailRow}
                       data-order-id={o.id}

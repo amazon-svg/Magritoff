@@ -10,6 +10,8 @@ import {
   applyFilters,
   applySort,
   describePriceOrigin,
+  isAtelierAppearance,
+  showsOrderDetail,
   showsUnverifiedPriceBadge,
 } from '@/modules/orders/ui/storefront/OrderHistoryTable';
 import type { OrderUI } from '@/modules/orders/ui/storefront/PortalOrders.helpers';
@@ -321,10 +323,17 @@ describe('describePriceOrigin (Q17-c)', () => {
     expect(describePriceOrigin('catalog')).toBe('Prix catalogue vérifié');
   });
 
-  it("'client_unverified' -> libelle imprimeur, jamais le nom technique", () => {
+  // MAJEUR 5 (qa-review round 1), corrige — l ancien libelle (« Prix
+  // catalogue non verifiable ») AFFIRMAIT une provenance catalogue qui n
+  // existe pas : `client_unverified` designe precisement le cas ou le
+  // serveur n a AUCUN moyen de verifier (le plus souvent une ligne
+  // CONFIGUREE, jamais un prix de catalogue). Le libelle dit maintenant ce
+  // qui est vrai.
+  it("'client_unverified' -> libelle imprimeur honnete, jamais le nom technique ni une fausse provenance catalogue", () => {
     const label = describePriceOrigin('client_unverified');
-    expect(label).toBe('Prix catalogue non vérifiable');
+    expect(label).toBe('Prix non vérifié par le serveur (transmis par le client)');
     expect(label).not.toContain('client_unverified');
+    expect(label).not.toContain('catalogue');
   });
 
   it("'quoted' -> libelle imprimeur", () => {
@@ -338,5 +347,39 @@ describe('describePriceOrigin (Q17-c)', () => {
   it('null/undefined (cohorte legacy shop_orders) -> null', () => {
     expect(describePriceOrigin(null)).toBeNull();
     expect(describePriceOrigin(undefined)).toBeNull();
+  });
+});
+
+// Q17-c (qa-review round 1, BLOQUANT 3) — ces deux fonctions n existaient
+// pas avant la correction : ce describe echoue sur le code d avant.
+describe('isAtelierAppearance (Q17-c, BLOQUANT 3)', () => {
+  it("'dashboard' -> true", () => {
+    expect(isAtelierAppearance('dashboard')).toBe(true);
+  });
+
+  it("'portal' -> false", () => {
+    expect(isAtelierAppearance('portal')).toBe(false);
+  });
+});
+
+describe('showsOrderDetail (Q17-c, BLOQUANT 3)', () => {
+  it('dashboard + id deplie -> true', () => {
+    expect(showsOrderDetail({ id: 'order-1' }, 'dashboard', new Set(['order-1']))).toBe(true);
+  });
+
+  it('dashboard + id NON deplie -> false', () => {
+    expect(showsOrderDetail({ id: 'order-1' }, 'dashboard', new Set())).toBe(false);
+  });
+
+  // « Ce que voit l acheteur : rien de nouveau » (point 12 (h)) — meme
+  // deplie (etat local possible si le bouton fuitait), le portail n affiche
+  // jamais le detail.
+  it('portal + id deplie quand meme -> false (jamais cote acheteur)', () => {
+    expect(showsOrderDetail({ id: 'order-1' }, 'portal', new Set(['order-1']))).toBe(false);
+  });
+
+  it('ensemble deplie vide -> false sur les deux appearances', () => {
+    expect(showsOrderDetail({ id: 'order-1' }, 'dashboard', new Set())).toBe(false);
+    expect(showsOrderDetail({ id: 'order-1' }, 'portal', new Set())).toBe(false);
   });
 });

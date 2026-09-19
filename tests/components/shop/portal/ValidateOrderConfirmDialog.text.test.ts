@@ -9,13 +9,29 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { unverifiedLineNamesOf } from '@/modules/orders/ui/storefront/ValidateOrderConfirmDialog';
+import { acknowledgementFor, unverifiedLineNamesOf } from '@/modules/orders/ui/storefront/ValidateOrderConfirmDialog';
 import type { OrderUI } from '@/modules/orders/ui/storefront/PortalOrders.helpers';
 
-const source = readFileSync(
+/**
+ * Q17-c (qa-review round 1, BLOQUANT 2) — un test textuel qui n asserte pas
+ * sur du code REELLEMENT EXECUTE ne prouve rien : la qa a mute
+ * `onConfirm(orderId, hasUnverifiedPrices)` en `onConfirm(orderId, true)` tout
+ * en laissant l ancienne forme dans un commentaire juste a cote, et
+ * `expect(source).toContain(...)` restait vert. Meme pattern que
+ * `ShopProductCard.addAsIsWiring.test.ts` (defaut D5 de son historique) :
+ * retirer les commentaires AVANT toute assertion de presence.
+ */
+const stripComments = (src: string): string =>
+  src
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+    .replace(/^\s*\/\*[\s\S]*?\*\//gm, '')
+    .replace(/^\s*\/\/.*$/gm, '');
+
+const rawSource = readFileSync(
   resolve(process.cwd(), 'src/modules/orders/ui/storefront/ValidateOrderConfirmDialog.tsx'),
   'utf8',
 );
+const source = stripComments(rawSource);
 
 describe('ValidateOrderConfirmDialog — libellé atelier (BCP-5)', () => {
   it('ne nomme plus le statut Brouillon côté atelier', () => {
@@ -35,8 +51,12 @@ describe('ValidateOrderConfirmDialog — libellé atelier (BCP-5)', () => {
 // ce composant n avait ni ce libellé ni cet acquittement explicite : ces
 // tests échouent sur le code d avant.
 describe('ValidateOrderConfirmDialog — geste distinct prix non vérifié (Q17-c)', () => {
-  it('le confirm passe acknowledgeUnverifiedPrices au callback, jamais deviné par le parent', () => {
-    expect(source).toContain('onConfirm(orderId, hasUnverifiedPrices)');
+  it('le confirm relaie acknowledgementFor(order), jamais une valeur figée (BLOQUANT 2)', () => {
+    expect(source).toContain('onConfirm(orderId, acknowledgementFor(order))');
+    // Ceinture et bretelles : aucune forme figée ne doit survivre, même
+    // partiellement, une fois les commentaires retirés.
+    expect(source).not.toContain('onConfirm(orderId, true)');
+    expect(source).not.toContain('onConfirm(orderId, hasUnverifiedPrices)');
   });
 
   it('un bouton de confirmation DISTINCT porte le libellé exact du point 12 (c)', () => {
@@ -47,6 +67,26 @@ describe('ValidateOrderConfirmDialog — geste distinct prix non vérifié (Q17-
   it('la notice ne montre jamais le nom technique client_unverified', () => {
     expect(source).not.toContain("'client_unverified'</");
     expect(source).not.toMatch(/client_unverified<\/(strong|span)>/);
+  });
+});
+
+// Q17-c (qa-review round 1, BLOQUANT 2) — comportement, pas texte : cette
+// fonction decide SEULE si la commande exige l acquittement distinct.
+describe('acknowledgementFor (Q17-c, BLOQUANT 2)', () => {
+  it('null -> false (pas de commande ouverte)', () => {
+    expect(acknowledgementFor(null)).toBe(false);
+  });
+
+  it('hasUnverifiedPrices=true -> true', () => {
+    expect(acknowledgementFor({ hasUnverifiedPrices: true })).toBe(true);
+  });
+
+  it('hasUnverifiedPrices=false -> false', () => {
+    expect(acknowledgementFor({ hasUnverifiedPrices: false })).toBe(false);
+  });
+
+  it('hasUnverifiedPrices absent (cohorte legacy) -> false, jamais true par defaut', () => {
+    expect(acknowledgementFor({ hasUnverifiedPrices: undefined })).toBe(false);
   });
 });
 

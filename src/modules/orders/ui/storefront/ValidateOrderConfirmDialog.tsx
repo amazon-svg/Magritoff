@@ -53,6 +53,18 @@ export function unverifiedLineNamesOf(order: Pick<OrderUI, 'items'> | null): str
     .map((item) => item.name);
 }
 
+/**
+ * Q17-c (qa-review round 1, BLOQUANT 2) — l acquittement transmis a `onConfirm`
+ * doit dependre de L ETAT REEL de la commande, jamais d une valeur figee. Cette
+ * fonction est le SEUL endroit qui decide ce booleen ; `handleConfirm` ne fait
+ * que la relayer (`onConfirm(orderId, acknowledgementFor(order))`), pour qu une
+ * mutation qui fige ce booleen a `true` change la SIGNATURE de l appel, pas
+ * seulement une valeur interne difficile a isoler par un test de comportement.
+ */
+export function acknowledgementFor(order: Pick<OrderUI, 'hasUnverifiedPrices'> | null): boolean {
+  return order?.hasUnverifiedPrices === true;
+}
+
 export function ValidateOrderConfirmDialog({
   order,
   onConfirm,
@@ -64,14 +76,14 @@ export function ValidateOrderConfirmDialog({
   const open = order !== null;
   const orderId = order?.id ?? null;
   const orderShortId = order?.id ? order.id.replace(/-/g, '').slice(0, 8).toUpperCase() : undefined;
-  const hasUnverifiedPrices = order?.hasUnverifiedPrices === true;
+  const hasUnverifiedPrices = acknowledgementFor(order);
   const unverifiedLineNames = unverifiedLineNamesOf(order);
 
   async function handleConfirm() {
     if (!orderId) return;
     setSubmitting(true);
     setError(null);
-    const errMsg = await onConfirm(orderId, hasUnverifiedPrices);
+    const errMsg = await onConfirm(orderId, acknowledgementFor(order));
     setSubmitting(false);
     if (errMsg) {
       setError(errMsg);
