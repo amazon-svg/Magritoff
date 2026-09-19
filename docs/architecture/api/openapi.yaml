@@ -491,7 +491,8 @@ paths:
             Q17-a a détecté un écart de prix recalculé (orders.price_changed,
             errors[] porte product_label/submitted/current), ou l If-Match
             fourni ne correspond plus au brouillon lu (api.resource_conflict,
-            current_state porte l état courant)
+            currentState porte l état courant — camelCase, comme le reste de
+            la façade historique, PAS current_state qui est la forme E10)
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ApiProblem' }
