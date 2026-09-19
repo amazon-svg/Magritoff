@@ -198,6 +198,26 @@ export function rebuildCartFromOrderItems(
     const isConfigured =
       typeof rawCopyCount === 'number' && Number.isFinite(rawCopyCount) && rawCopyCount > 0;
 
+    // Q20 (docs/api/CONVENTIONS.md §8.25 point 9, chemin supplémentaire
+    // vérifié en instruisant ce lot, non nommé par le cadrage d'origine) —
+    // `submitCart` (`useStorefrontOrderLifecycle.ts`) envoie `line.product.
+    // config` EN ENTIER comme `clariprintOptions`, et `api_create_storefront_
+    // order`/`api_update_order_draft_for_identity` le persistent tel quel
+    // dans `tenant_order_items.clariprint_options` (aucun filtrage côté SQL,
+    // `coalesce(item->'clariprint_options', '{}'::jsonb)`). Si ce config
+    // portait un `clariprintQuote` légitime au moment de l'ajout (produit
+    // ajouté « tel quel », `canAddAsIs`), ce devis — potentiellement vieux
+    // de plusieurs semaines au moment du renouvellement — resurgirait ici et
+    // reprendrait l'étiquette `clariprint` (prix ferme) sur un panier
+    // reconstruit, sans jamais avoir été revérifié. Exclu par le même
+    // principe que `quantity` juste en dessous, et pour la même raison :
+    // un renouvellement ne doit hériter d'AUCUN devis figé à l'instant `T`
+    // d'une commande passée, il doit repartir sur le prix courant du
+    // catalogue (`resolvePrice` retombe alors sur `library_cached` ou
+    // `prix_marche`).
+    const { clariprintQuote: _staleClariprintQuote, ...snapshotWithoutQuote } =
+      item.clariprint_options ?? {};
+
     // Merge options Clariprint snapshotées avec config produit catalogue.
     // Les snapshots ont priorité (préservent les choix de la commande originale)
     // mais la config courante reste accessible pour les clés non snapshotées
@@ -206,10 +226,10 @@ export function rebuildCartFromOrderItems(
     // ci-dessus) : la seule source de `config.quantity` doit être ce point
     // unique, jamais une fusion antérieure qui porterait accidentellement la
     // même valeur.
-    const { quantity: _snapshotQuantity, ...clariprintOptionsRest } = item.clariprint_options ?? {};
+    const { quantity: _snapshotQuantity, ...clariprintOptionsRest } = snapshotWithoutQuote;
     const mergedConfig: Record<string, unknown> = {
       ...(product.config ?? {}),
-      ...(isConfigured ? clariprintOptionsRest : (item.clariprint_options ?? {})),
+      ...(isConfigured ? clariprintOptionsRest : snapshotWithoutQuote),
     };
     const productMerged: ShopProduct = { ...product, config: mergedConfig };
 
