@@ -14,8 +14,19 @@
  * `tests/architecture/cart-line-single-constructor.test.ts`) : le seul
  * appel de `buildConfiguredProduct` dans tout `src/` doit être celui, déjà
  * existant, dans `confirm()` de `useProductConfigurator.ts`. Si un futur
- * câblage fait appeler cette fonction depuis le chemin d'ajout direct (ou
- * depuis n'importe quel autre endroit), ce test rougit.
+ * câblage fait appeler cette fonction PAR SON NOM depuis le chemin d'ajout
+ * direct (ou depuis n'importe quel autre endroit), ce test rougit.
+ *
+ * LIMITE DÉCLARÉE, mesurée par la qa-review plutôt que supposée : la
+ * détection repose sur `ts.isIdentifier(node.expression)` avec le nom exact.
+ * Deux formes TypeScript parfaitement ordinaires lui échappent donc, et les
+ * deux ont été rejouées VERTES contre cette garde :
+ *   import * as cfg from '...'; cfg.buildConfiguredProduct(...)   // namespace
+ *   import { buildConfiguredProduct as bcp } from '...'; bcp(...) // alias
+ * Cette limite est assumée, pas ignorée : elle couvre la régression RÉELLE
+ * — quelqu'un recâble la fonction dans la carte produit — et pas l'évasion
+ * délibérée, qui demanderait de résoudre les alias par leur
+ * `ImportDeclaration`. Le jour où cela vaut le coût, c'est un suivi à part.
  *
  * Une `CallExpression` (`buildConfiguredProduct(...)`) est distinguée de la
  * déclaration de fonction (`function buildConfiguredProduct(...)`) par

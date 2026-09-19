@@ -93,8 +93,14 @@ un, même quand la nouvelle source est ferme (testé).
   vérifie pas ; (ii) une **vraie** garde de câblage est ajoutée,
   `tests/architecture/build-configured-product-single-callsite.test.ts` —
   garde AST (même technique que `cart-line-single-constructor.test.ts`) qui
-  vérifie que `buildConfiguredProduct` n'est appelé nulle part ailleurs dans
-  `src/` que dans `confirm()` de `useProductConfigurator.ts`.
+  vérifie que `buildConfiguredProduct` n'est appelé **par son nom** nulle
+  part ailleurs dans `src/` que dans `confirm()` de
+  `useProductConfigurator.ts`. **Limite déclarée**, mesurée par la qa-review
+  et rejouée verte contre la garde : un appel par **alias d'import**
+  (`{ buildConfiguredProduct as bcp }`) ou par **import de namespace**
+  (`cfg.buildConfiguredProduct(...)`) lui échappe. Elle couvre la régression
+  réelle — quelqu'un recâble la fonction dans la carte produit — pas
+  l'évasion délibérée.
 - Deux constats consignés ci-dessous pour l'architecte (demandés par la
   qa-review), non corrigés par ce lot : voir « Constats non corrigés,
   remontés à l'architecte ».

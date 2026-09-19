@@ -208,9 +208,11 @@ describe('cas légitime (Q14, canAddAsIs) — resolveCartLinePricing seul, PAS u
    * garantie que le chemin d'ajout direct (`canAddAsIs`, arbitrage Arnaud
    * du 16/09) est étanche au correctif. **La vraie garde de câblage est
    * `tests/architecture/build-configured-product-single-callsite.test.ts`** :
-   * elle vérifie structurellement que `buildConfiguredProduct` n'est jamais
-   * appelé ailleurs que dans `confirm()` de `useProductConfigurator.ts`, donc
-   * jamais depuis le chemin d'ajout direct. Ce test-ci ne fait que documenter
+   * elle vérifie structurellement que `buildConfiguredProduct` n'est appelé
+   * PAR SON NOM nulle part ailleurs que dans `confirm()` de
+   * `useProductConfigurator.ts`, donc jamais depuis le chemin d'ajout direct.
+   * Sa limite est déclarée dans son propre docblock : un appel par alias
+   * d'import ou par import de namespace lui échappe. Ce test-ci ne fait que documenter
    * le comportement attendu de `resolveCartLinePricing` sur ce cas.
    */
   it("resolveCartLinePricing resout 'clariprint' pour un produit qui porte un devis dans sa config", () => {

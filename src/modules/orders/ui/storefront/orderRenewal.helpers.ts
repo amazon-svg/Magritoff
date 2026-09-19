@@ -296,6 +296,21 @@ export function rebuildCartFromOrderItems(
     if (typeof item.unit_price_ht === 'number' && Number.isFinite(item.unit_price_ht)) {
       const renewedUnitPriceHt = resolveCartLinePricing(line).unitPriceHt;
       if (Math.abs(renewedUnitPriceHt - item.unit_price_ht) > PRICE_COMPARISON_EPSILON) {
+        // Le nom CATALOGUE COURANT (`product.name`), pas le libellé commandé
+        // (`item.product_label`), et c'est délibéré — arbitrage du
+        // coordinateur sur la réserve 2 de la qa-review, qui relevait que les
+        // sections du bandeau ne désignent pas un produit de la même façon.
+        //
+        // La raison tient à ce que chaque section DÉSIGNE : celle-ci parle
+        // d'une ligne QUI EST dans le panier, sous les yeux de l'acheteur, et
+        // qui y porte son nom d'aujourd'hui — le désigner autrement le
+        // renverrait à un libellé introuvable à l'écran. La section
+        // `warnings`, elle, parle de lignes qui n'ont PAS pu être
+        // reconstruites (produit retiré de la boutique) : le nom catalogue
+        // n'existe plus, `item.product_label` est le seul repère possible.
+        // Les deux sections divergent donc parce que leurs objets diffèrent,
+        // pas par inadvertance. À revoir si un jour le bandeau rappelle le
+        // libellé d'origine — un produit renommé reste alors ambigu.
         priceChanged.push(product.name);
       }
     }
