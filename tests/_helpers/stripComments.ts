@@ -1,55 +1,74 @@
+import ts from 'typescript';
+
 /**
  * Retire les commentaires d un source TypeScript / TSX avant de l epingler
- * par du texte.
+ * par du texte, EN UTILISANT LE LEXER DE TYPESCRIPT plutot qu une expression
+ * reguliere.
  *
- * POURQUOI CE FICHIER EXISTE. Cette fonction a ete reecrite A LA MAIN quatre
- * fois dans le chantier E10, et trois de ces copies etaient PLUS FAIBLES que
- * l originale. Chaque affaiblissement a ete exploite par la qa-review, et a
- * chaque fois avec la meme consequence : un garde vert pendant qu une regle
- * metier etait neutralisee.
+ * POURQUOI CE FICHIER EXISTE, ET POURQUOI IL N EST PLUS UNE REGEX.
+ * Ce nettoyage a ete reecrit a la main CINQ fois dans le chantier E10, et
+ * quatre de ces versions etaient plus faibles que ce qu elles annoncaient.
+ * Chacune a ete mise en defaut par la qa-review, chaque fois avec la meme
+ * consequence : un garde VERT pendant qu une regle metier etait neutralisee.
  *
- *   Round 1 de Q14-a : aucun nettoyage. Un bloc entier commente passait.
- *   Durcissement du coordinateur : regle `//` ANCREE en debut de ligne.
- *     -> un commentaire de FIN de ligne passait. Neutralisait l arbitrage
- *        d Arnaud du 16/09 (tout produit redevenait ajoutable au panier,
- *        chiffre ou non) avec les 13 tests du garde VERTS.
- *   Correction du coordinateur : regle `//` desancree.
- *     -> la regle `/* *\/` restait ancree, un commentaire de BLOC en fin de
- *        ligne passait. MEME defaut, une ligne au-dessus. Demontre par la
- *        qa-review sur quatre gardes a la fois, dont celui que la correction
- *        precedente venait de reparer.
+ *   1. Aucun nettoyage           -> un bloc entier commente passait.
+ *   2. Regle `//` ANCREE         -> `code(); // canAddAsIs(...)` passait.
+ *   3. Regle `//` desancree,
+ *      regle `/* *\/` ancree     -> `code(); /* canAddAsIs(...) *\/` passait.
+ *   4. `(^|\s)` avant `/*`       -> `code(),/* ... *\/` et `code((/* ... *\/`
+ *                                   passaient (pas de blanc avant le `/*`).
  *
- * La lecon n est pas « mieux ecrire la regex » : c est que ce nettoyage ne
- * doit exister QU UNE FOIS. D ou ce fichier. Ne le recopiez pas, importez-le.
+ * A chaque tour, la correction fermait la forme demontree et en laissait une
+ * autre a cote. C est le signe qu on ne repare pas le bon objet : une regex
+ * ne sait pas ce qu est un commentaire, elle ne sait que ressembler. Le lexer
+ * de TypeScript, lui, le sait — et sait aussi distinguer un `/*` d un `/*`
+ * contenu dans une chaine, ce qui etait le VRAI probleme derriere le faux
+ * positif `data-accept="image/*"` que la version 3 essayait de soigner par un
+ * ancrage.
  *
- * POURQUOI LA REGLE DE BLOC N EST PAS SIMPLEMENT `/\/\*[\s\S]*?\*\//g`.
- * C est ce qu ecrit `tests/architecture/order-status-single-source.test.ts`,
- * et c est juste POUR DU TYPESCRIPT. Sur du JSX, un attribut parfaitement
- * legitime comme `data-accept="image/*"` ouvre alors un faux commentaire qui
- * avale le code jusqu au prochain `*\/` — c est le faux positif qui avait
- * motive l ancrage, et l ancrage etait un mauvais remede a un vrai probleme.
+ * Les commentaires sont remplaces par des ESPACES, pas supprimes : les
+ * decalages du fichier sont preserves, donc les gardes qui bornent leur
+ * recherche a une fenetre (`indexOf` autour d un `data-testid`) continuent de
+ * viser la meme zone.
  *
- * Le remede juste : exiger un ESPACE (ou un debut de ligne) avant `/*`. Un
- * commentaire de bloc en est toujours precede ; `image/*` ne l est jamais,
- * puisqu il suit une lettre. La regle couvre donc le debut de ligne ET la fin
- * de ligne, sans reouvrir le faux positif.
+ * LIMITE REELLE, MESUREE, ET IRREDUCTIBLE PAR CE MOYEN. Retirer les
+ * commentaires ne rend pas un garde textuel infaillible. La chaine cherchee
+ * peut etre replacee dans le code sous une forme qui n est PAS un
+ * commentaire, par exemple un attribut JSX :
  *
- * LIMITE DECLAREE, plutot que promesse d exhaustivite : ceci reste une
- * analyse de texte, pas un parseur. Une chaine contenant ` /* ` litteralement,
- * ou une URL `https://` en milieu de code, sont les cas connus — le premier
- * n a jamais ete rencontre dans ce depot, le second est deja traite par
- * `[^:]`. Quand un garde peut etre remplace par un test de COMPORTEMENT, il
- * doit l etre : ce nettoyage n est qu un pis-aller, utile la ou rien d autre
- * n existe (le cablage JSX, faute de bibliotheque de rendu React dans ce
- * depot).
+ *   <span data-guard="showsUnverifiedPriceBadge(o, appearance) && (" ...>
+ *
+ * Il n y a alors rien a retirer, et aucun nettoyage ne fermera cela. La
+ * qa-review l a demontre, et c est la limite du procede, pas de cette
+ * fonction : un garde textuel attrape la regression ACCIDENTELLE — celle
+ * qu un developpeur ecrit en refactorant — et jamais l evasion deliberee.
+ * Quand une decision peut etre extraite en fonction pure et testee sur son
+ * COMPORTEMENT, elle doit l etre ; ce nettoyage n est qu un pis-aller, utile
+ * la ou rien d autre n existe : le cablage JSX, faute de bibliotheque de
+ * rendu React dans ce depot.
  */
-export const stripComments = (source: string): string =>
-  source
-    // Commentaires JSX `{/* ... */}` : partout, ils sont deja delimites.
-    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
-    // Commentaires de bloc `/* ... */`, en debut comme en fin de ligne.
-    // `(^|\s)` epargne `image/*` et consorts, qui suivent une lettre.
-    .replace(/(^|\s)\/\*[\s\S]*?\*\//g, '$1')
-    // Commentaires de ligne `// ...`, en debut comme en fin de ligne.
-    // `[^:]` epargne le `//` d une URL (`https://`).
-    .replace(/(^|[^:])\/\/.*$/gm, '$1');
+export const stripComments = (source: string): string => {
+  const scanner = ts.createScanner(
+    ts.ScriptTarget.Latest,
+    /* skipTrivia */ false,
+    ts.LanguageVariant.JSX,
+    source,
+  );
+  const out = source.split('');
+  while (scanner.scan() !== ts.SyntaxKind.EndOfFileToken) {
+    const kind = scanner.getToken();
+    if (
+      kind !== ts.SyntaxKind.SingleLineCommentTrivia &&
+      kind !== ts.SyntaxKind.MultiLineCommentTrivia
+    ) {
+      continue;
+    }
+    // Blanchir plutot que supprimer : les decalages restent valides. On
+    // preserve les sauts de ligne d un commentaire multi-lignes, sans quoi
+    // deux lignes de code se retrouveraient collees.
+    for (let i = scanner.getTokenStart(); i < scanner.getTokenEnd(); i += 1) {
+      if (out[i] !== '\n' && out[i] !== '\r') out[i] = ' ';
+    }
+  }
+  return out.join('');
+};

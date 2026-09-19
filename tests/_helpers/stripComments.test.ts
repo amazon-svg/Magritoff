@@ -1,0 +1,90 @@
+/**
+ * `stripComments` est devenu le point unique de defaillance de TOUS les
+ * gardes textuels du chantier E10 : si cette fonction laisse passer une forme
+ * de commentaire, les quatre gardes qui l importent tombent ensemble, en
+ * silence, exactement comme cela s est produit quatre fois.
+ *
+ * Les cas ci-dessous ne sont pas hypothetiques : chacun est une forme qui a
+ * REELLEMENT ete exploitee par la qa-review contre une version precedente, ou
+ * un faux positif qui a REELLEMENT casse un garde avec un diagnostic
+ * trompeur. Ils sont ecrits ici pour qu une regression les rejoue.
+ */
+
+import { describe, it, expect } from 'vitest';
+import { stripComments } from './stripComments';
+
+const NEEDLE = 'canAddAsIs(product, clariprintQuote)';
+
+describe('stripComments — les formes qui ont defait les versions precedentes', () => {
+  it('retire un commentaire de ligne en FIN de ligne (a defait la version 2)', () => {
+    expect(stripComments(`const x = true; // ${NEEDLE}`)).not.toContain(NEEDLE);
+  });
+
+  it('retire un commentaire de bloc en FIN de ligne (a defait la version 3)', () => {
+    expect(stripComments(`const x = true; /* ${NEEDLE} */`)).not.toContain(NEEDLE);
+  });
+
+  it('retire un bloc COLLE a une virgule, sans blanc avant (a defait la version 4)', () => {
+    expect(stripComments(`const x = true,/* ${NEEDLE} */`)).not.toContain(NEEDLE);
+  });
+
+  it('retire un bloc COLLE a une parenthese ouvrante (a defait la version 4)', () => {
+    expect(stripComments(`{true ? (/* ${NEEDLE} */`)).not.toContain(NEEDLE);
+  });
+
+  it('retire un commentaire JSX {/* ... */}', () => {
+    expect(stripComments(`<div>{/* ${NEEDLE} */}</div>`)).not.toContain(NEEDLE);
+  });
+
+  it('retire un bloc multi-lignes sans coller les lignes de code entre elles', () => {
+    const out = stripComments(`const a = 1;\n/* ${NEEDLE}\n   suite */\nconst b = 2;`);
+    expect(out).not.toContain(NEEDLE);
+    // Sans preservation des sauts de ligne, `const b = 2;` se retrouverait sur
+    // la meme ligne que `const a = 1;` et tout garde borne par ligne mentirait.
+    expect(out.split('\n')).toHaveLength(4);
+  });
+
+  it('preserve les decalages du fichier, dont dependent les gardes bornes par fenetre', () => {
+    const src = `const x = true; /* ${NEEDLE} */ const y = 2;`;
+    expect(stripComments(src)).toHaveLength(src.length);
+  });
+});
+
+describe('stripComments — ce qui ne doit PAS etre retire', () => {
+  it('ne mange pas le code apres un attribut contenant `image/*` (faux positif reel, version 3)', () => {
+    // C est ce faux positif qui avait motive l ancrage de la regle de bloc, et
+    // donc, indirectement, les deux trous suivants. Le lexer le regle : un
+    // `/*` dans une CHAINE n est pas un commentaire.
+    const out = stripComments('<input data-accept="image/*" />\ndisabled={state.disabled}');
+    expect(out).toContain('disabled={state.disabled}');
+  });
+
+  it('ne mange pas une URL `https://`', () => {
+    expect(stripComments('const u = "https://exemple.fr/a";')).toContain('https://exemple.fr/a');
+  });
+
+  it('ne confond pas une division suivie d un commentaire avec une expression reguliere', () => {
+    expect(stripComments('const r = a / b; /* note */\nconst z = 2;')).toContain('const z = 2');
+  });
+
+  it('ne mange pas une expression reguliere litterale contenant `/*`', () => {
+    expect(stripComments('const re = /\\/\\*[a-z]*\\*\\//g;\nconst z = 3;')).toContain('const z = 3');
+  });
+
+  it('ne mange pas un gabarit de chaine contenant `/* */`', () => {
+    expect(stripComments('const t = `a /* pas un commentaire */ b`;\nconst z = 4;')).toContain(
+      'const z = 4',
+    );
+  });
+});
+
+describe('stripComments — la limite du procede, epinglee pour qu on ne l oublie pas', () => {
+  it('NE retire PAS une chaine canonique placee dans un attribut JSX', () => {
+    // Limite ASSUMEE, pas un defaut a corriger : il n y a rien a retirer ici,
+    // ce n est pas un commentaire. Aucun nettoyage ne fermera cette evasion.
+    // Elle est deliberee, et un garde textuel ne protege que de l accidentel.
+    // La reponse juste, quand elle est possible, est un test de COMPORTEMENT.
+    const src = `<span data-guard="${NEEDLE}" />`;
+    expect(stripComments(src)).toContain(NEEDLE);
+  });
+});
