@@ -39,9 +39,9 @@ describe('routes Orders API v1', () => {
       currency: 'EUR', notes: '', idempotencyKey: 'create-af5-route',
       items: [{
         productId: null, productLabel: 'Flyers', clariprintOptions: null,
-        quantity: 2, unitPriceHt: 75,
+        quantity: 2, expectedUnitPriceHt: '75.00',
       }],
-    })).resolves.toMatchObject({ totalHt: 150, replayed: false });
+    })).resolves.toMatchObject({ totalHt: '150.00', replayed: false });
     const draftOrderId = '22222222-2222-4222-8222-222222222222';
     await expect(client.getDraft(draftOrderId)).resolves.toMatchObject({
       orderId: draftOrderId, status: 'draft', items: [{ productLabel: 'Flyers' }],
@@ -49,10 +49,10 @@ describe('routes Orders API v1', () => {
     await expect(client.updateDraft(draftOrderId, {
       items: [{
         id: '44444444-4444-4444-8444-444444444444',
-        productLabel: 'Flyers premium', quantity: 3, unitPriceHt: 60,
+        productLabel: 'Flyers premium', quantity: 3, expectedUnitPriceHt: '60.00',
       }],
       idempotencyKey: 'update-af5-route',
-    })).resolves.toMatchObject({ orderId: draftOrderId, totalHt: 180, replayed: false });
+    })).resolves.toMatchObject({ orderId: draftOrderId, totalHt: '180.00', replayed: false });
     await expect(client.getRoles(draftOrderId)).resolves.toMatchObject({
       isCreator: true, capabilities: { can_order: true },
     });
@@ -80,7 +80,7 @@ describe('routes Orders API v1', () => {
       return {
         orderId: '22222222-2222-4222-8222-222222222222',
         tenantId: '33333333-3333-4333-8333-333333333333',
-        shopId: command.shopId, totalHt: 150, currency: command.currency, replayed: false,
+        shopId: command.shopId, totalHt: '150.00', currency: command.currency, replayed: false,
       };
     };
     repository.getStorefrontPortalOrders = async (_shopId, receivedToken) => {
@@ -90,13 +90,18 @@ describe('routes Orders API v1', () => {
     repository.getDraftOrder = async (orderId, received) => {
       resourceTokens.push(received.storefrontToken);
       return {
-        orderId, status: 'draft', createdAt: '2026-08-17T12:00:00.000Z', totalHt: 150,
-        items: [{ id: '55555555-5555-4555-8555-555555555555', productId: null, productLabel: 'Flyers', clariprintOptions: null, quantity: 2, unitPriceHt: 75, lineTotalHt: 150 }],
+        orderId, status: 'draft', createdAt: '2026-08-17T12:00:00.000Z', totalHt: '150.00',
+        hasUnverifiedPrices: false,
+        items: [{
+          id: '55555555-5555-4555-8555-555555555555', productId: null, productLabel: 'Flyers',
+          clariprintOptions: null, quantity: 2, unitPriceHt: '75.00', lineTotalHt: '150.00',
+          priceOrigin: 'client_unverified',
+        }],
       };
     };
     repository.updateDraftOrder = async (orderId, command, received) => {
       resourceTokens.push(received.storefrontToken);
-      return { orderId, totalHt: command.items[0]?.unitPriceHt ?? 0, replayed: false };
+      return { orderId, totalHt: command.items[0]?.expectedUnitPriceHt ?? '0.00', replayed: false };
     };
     repository.transitionOrder = async (orderId, command, received) => {
       transitionAuthorization = received;
@@ -125,7 +130,7 @@ describe('routes Orders API v1', () => {
       headers: { 'Content-Type': 'application/json', Cookie: `magrit-storefront=${token}` },
       body: JSON.stringify({
         shopId, currency: 'EUR', notes: '', idempotencyKey: 'create-um6-storefront',
-        items: [{ productId: null, productLabel: 'Flyers', clariprintOptions: null, quantity: 2, unitPriceHt: 75 }],
+        items: [{ productId: null, productLabel: 'Flyers', clariprintOptions: null, quantity: 2, expectedUnitPriceHt: '75.00' }],
       }),
     }));
     expect(response.status).toBe(201);
@@ -144,7 +149,7 @@ describe('routes Orders API v1', () => {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Cookie: `magrit-storefront=${token}` },
       body: JSON.stringify({
-        items: [{ id: '55555555-5555-4555-8555-555555555555', productLabel: 'Flyers premium', quantity: 2, unitPriceHt: 80 }],
+        items: [{ id: '55555555-5555-4555-8555-555555555555', productLabel: 'Flyers premium', quantity: 2, expectedUnitPriceHt: '80.00' }],
         idempotencyKey: 'update-um6-storefront',
       }),
     }));
@@ -225,7 +230,7 @@ describe('routes Orders API v1', () => {
         body: JSON.stringify({
           items: [{
             id: '44444444-4444-4444-8444-444444444444',
-            productLabel: 'Flyers', quantity: 1, unitPriceHt: 10,
+            productLabel: 'Flyers', quantity: 1, expectedUnitPriceHt: '10.00',
           }],
           idempotencyKey: 'update-af5-conflict',
         }),
@@ -236,6 +241,153 @@ describe('routes Orders API v1', () => {
     await expect(response.json()).resolves.toMatchObject({
       code: 'orders.order_not_editable', requestId: 'request-af5-draft-conflict',
     });
+  });
+
+  // Q17-a (docs/api/CONVENTIONS.md §8.25 point 12 (f)) — le contrat n accepte
+  // plus qu une chaîne décimale sur le prix d une ligne. Ce cas ÉCHOUAIT
+  // avant ce lot (le nombre JSON était accepté) : c est le test qui le
+  // prouve, pas seulement une affirmation du cadrage.
+  it('refuse un prix de ligne envoyé en nombre JSON (Q17-a, expectedUnitPriceHt doit être une chaîne)', async () => {
+    const handler = createApiV1Application({
+      routes: createOrdersRoutes(new OrdersService(repositoryStub())),
+      requestIdFactory: () => 'request-q17a-number-price',
+    });
+    const response = await handler(new Request('https://magrit.test/api/v1/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        shopId: '11111111-1111-4111-8111-111111111111',
+        currency: 'EUR', notes: '', idempotencyKey: 'q17a-number-price',
+        items: [{ productId: null, productLabel: 'Flyers', clariprintOptions: null, quantity: 2, expectedUnitPriceHt: 75 }],
+      }),
+    }));
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.code).toBe('api.validation_failed');
+  });
+
+  it('traduit un écart de prix recalculé en Problem Details 409 avec errors[] (Q17-a, point 12 (d))', async () => {
+    const repository = repositoryStub();
+    repository.createOrder = async () => {
+      throw new OrderCommandRejectedError(
+        'price_changed',
+        'Le prix de certaines lignes a changé.',
+        [{ productLabel: 'Flyers', submitted: '0.00', current: '12.00' }],
+      );
+    };
+    const handler = createApiV1Application({
+      routes: createOrdersRoutes(new OrdersService(repository)),
+      requestIdFactory: () => 'request-q17a-price-changed',
+      actorResolver: { async resolve() { return { kind: 'user', userId: id('user-q17a') }; } },
+    });
+    const response = await handler(new Request('https://magrit.test/api/v1/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        shopId: '11111111-1111-4111-8111-111111111111',
+        currency: 'EUR', notes: '', idempotencyKey: 'q17a-price-changed',
+        items: [{ productId: null, productLabel: 'Flyers', clariprintOptions: null, quantity: 1, expectedUnitPriceHt: '0.00' }],
+      }),
+    }));
+    expect(response.status).toBe(409);
+    expect(response.headers.get('content-type')).toContain('application/problem+json');
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'orders.price_changed',
+      errors: [{ product_label: 'Flyers', submitted: '0.00', current: '12.00' }],
+    });
+  });
+
+  it('traduit un produit hors catalogue de la boutique en Problem Details 422 (Q17-a, point 12 (b))', async () => {
+    const repository = repositoryStub();
+    repository.createOrder = async () => {
+      throw new OrderCommandRejectedError('product_not_in_shop', 'product_not_in_shop: hors périmètre');
+    };
+    const handler = createApiV1Application({
+      routes: createOrdersRoutes(new OrdersService(repository)),
+      requestIdFactory: () => 'request-q17a-not-in-shop',
+      actorResolver: { async resolve() { return { kind: 'user', userId: id('user-q17a') }; } },
+    });
+    const response = await handler(new Request('https://magrit.test/api/v1/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        shopId: '11111111-1111-4111-8111-111111111111',
+        currency: 'EUR', notes: '', idempotencyKey: 'q17a-not-in-shop',
+        items: [{ productId: '99999999-9999-4999-8999-999999999999', productLabel: 'Hors catalogue', clariprintOptions: null, quantity: 1, expectedUnitPriceHt: '10.00' }],
+      }),
+    }));
+    expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toMatchObject({ code: 'orders.product_not_in_shop' });
+  });
+
+  it('émet un ETag sur GET /draft et honore If-Match sans l exiger (Q17-a, point 12 (e))', async () => {
+    const repository = repositoryStub();
+    const orderId = '22222222-2222-4222-8222-222222222222';
+    const handler = createApiV1Application({
+      routes: createOrdersRoutes(new OrdersService(repository)),
+      requestIdFactory: () => 'request-q17a-etag',
+      actorResolver: { async resolve() { return { kind: 'user', userId: id('user-q17a') }; } },
+    });
+
+    const getResponse = await handler(new Request(`https://magrit.test/api/v1/orders/${orderId}/draft`));
+    expect(getResponse.status).toBe(200);
+    const etag = getResponse.headers.get('ETag');
+    expect(etag).toBeTruthy();
+
+    // If-Match ABSENT : non exigé, la modification passe (point 12 (e)).
+    const putWithoutIfMatch = await handler(new Request(`https://magrit.test/api/v1/orders/${orderId}/draft`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        items: [{ id: '44444444-4444-4444-8444-444444444444', productLabel: 'Flyers', quantity: 2, expectedUnitPriceHt: '75.00' }],
+        idempotencyKey: 'q17a-etag-no-if-match',
+      }),
+    }));
+    expect(putWithoutIfMatch.status).toBe(200);
+
+    // If-Match PRÉSENT et CORRECT : passe.
+    const putWithCorrectIfMatch = await handler(new Request(`https://magrit.test/api/v1/orders/${orderId}/draft`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'If-Match': etag! },
+      body: JSON.stringify({
+        items: [{ id: '44444444-4444-4444-8444-444444444444', productLabel: 'Flyers', quantity: 2, expectedUnitPriceHt: '75.00' }],
+        idempotencyKey: 'q17a-etag-correct-if-match',
+      }),
+    }));
+    expect(putWithCorrectIfMatch.status).toBe(200);
+
+    // If-Match PRÉSENT et FAUX : refuse en 409 orders.draft_changed.
+    const putWithWrongIfMatch = await handler(new Request(`https://magrit.test/api/v1/orders/${orderId}/draft`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'If-Match': '"0000000000000000000000000000000000000000000000000000000000000000"' },
+      body: JSON.stringify({
+        items: [{ id: '44444444-4444-4444-8444-444444444444', productLabel: 'Flyers', quantity: 2, expectedUnitPriceHt: '75.00' }],
+        idempotencyKey: 'q17a-etag-wrong-if-match',
+      }),
+    }));
+    expect(putWithWrongIfMatch.status).toBe(409);
+    await expect(putWithWrongIfMatch.json()).resolves.toMatchObject({ code: 'orders.draft_changed' });
+  });
+
+  it('traduit un refus de validation pour prix non vérifié en Problem Details 409 (Q17-a, point 12 (c))', async () => {
+    const repository = repositoryStub();
+    repository.transitionOrder = async () => {
+      throw new OrderCommandRejectedError('unverified_prices', 'unverified_prices: ["Flyers"]');
+    };
+    const handler = createApiV1Application({
+      routes: createOrdersRoutes(new OrdersService(repository)),
+      requestIdFactory: () => 'request-q17a-unverified',
+      actorResolver: { async resolve() { return { kind: 'user', userId: id('user-q17a') }; } },
+    });
+    const response = await handler(new Request('https://magrit.test/api/v1/orders/order-af4/transitions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        toStatus: 'validated', reason: null, idempotencyKey: 'q17a-unverified-transition',
+      }),
+    }));
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({ code: 'orders.unverified_prices' });
   });
 });
 
@@ -268,22 +420,23 @@ function repositoryStub(): OrdersRepository {
       orderId: '22222222-2222-4222-8222-222222222222',
       tenantId: '33333333-3333-4333-8333-333333333333',
       shopId: command.shopId,
-      totalHt: command.items.reduce((sum, item) => sum + item.quantity * item.unitPriceHt, 0),
+      totalHt: command.items.reduce((sum, item) => sum + item.quantity * Number(item.expectedUnitPriceHt), 0).toFixed(2),
       currency: command.currency,
       replayed: false,
     }),
     notifyOrderCreated: async () => undefined,
     getDraftOrder: async (orderId) => ({
-      orderId, status: 'draft', createdAt: '2026-08-11T12:00:00.000Z', totalHt: 150,
+      orderId, status: 'draft', createdAt: '2026-08-11T12:00:00.000Z', totalHt: '150.00',
+      hasUnverifiedPrices: false,
       items: [{
         id: '44444444-4444-4444-8444-444444444444', productId: null,
         productLabel: 'Flyers', clariprintOptions: null, quantity: 2,
-        unitPriceHt: 75, lineTotalHt: 150,
+        unitPriceHt: '75.00', lineTotalHt: '150.00', priceOrigin: 'client_unverified',
       }],
     }),
     updateDraftOrder: async (orderId, command) => ({
       orderId,
-      totalHt: command.items.reduce((sum, item) => sum + item.quantity * item.unitPriceHt, 0),
+      totalHt: command.items.reduce((sum, item) => sum + item.quantity * Number(item.expectedUnitPriceHt), 0).toFixed(2),
       replayed: false,
     }),
     getOrderRoles: async () => ({
