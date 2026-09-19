@@ -1,4 +1,6 @@
 import { parseId, type UserId } from '../../kernel/ids/index.ts';
+import { computeEntityTag } from '../../modules/_shared/application/index.ts';
+import { ETAG_HEADER, IF_MATCH_HEADER } from '../../modules/_shared/api/index.ts';
 import {
   orderAuditTrailSchema,
   ordersListSchema,
@@ -55,13 +57,17 @@ export function createOrdersRoutes(
       outputSchema: draftOrderSchema,
       async handle(context) {
         try {
-          return {
-            status: 200,
-            body: await service.getDraft(
-              context.params.orderId ?? '',
-              await orderResourceAuthorization(context, storefrontSessions, storefrontCookiePolicy),
-            ),
-          };
+          const body = await service.getDraft(
+            context.params.orderId ?? '',
+            await orderResourceAuthorization(context, storefrontSessions, storefrontCookiePolicy),
+          );
+          // Q17-a (docs/api/CONVENTIONS.md §8.25 point 12 (e)) — deux lignes
+          // ajoutées « quand même » : cette route n a jamais porté d ETag
+          // (façade historique, PUT sans précondition). Il n est PAS exigé
+          // ici — un If-Match ne fermerait pas le trou constaté, la
+          // vérification se refait à la transition — mais rien n empêche de
+          // l émettre pour l appelant qui veut le lire.
+          return { status: 200, body, headers: { [ETAG_HEADER]: await computeEntityTag(body) } };
         } catch (error) {
           if (error instanceof OrderCommandRejectedError) throw toHttpError(error);
           throw error;
@@ -76,12 +82,28 @@ export function createOrdersRoutes(
       outputSchema: updateDraftOrderResultSchema,
       async handle(context, command) {
         try {
+          const authorization = await orderResourceAuthorization(context, storefrontSessions, storefrontCookiePolicy);
+          const orderId = context.params.orderId ?? '';
+          // Q17-a (point 12 (e)) — honoré QUAND IL EST PRÉSENT, jamais
+          // exigé (dérogation R5 déclarée : cette route reste un PUT de la
+          // façade historique sans précondition obligatoire ; l exiger
+          // casserait un onglet resté ouvert. Chemin de mise en conformité :
+          // la migration de cette route vers l enveloppe E10, après Q17-b).
+          const ifMatch = context.request.headers.get(IF_MATCH_HEADER);
+          if (ifMatch !== null && ifMatch.trim().length > 0) {
+            const current = await service.getDraft(orderId, authorization);
+            const currentTag = await computeEntityTag(current);
+            if (ifMatch.replace(/^W\//, '').trim() !== currentTag) {
+              throw new ApiHttpError({
+                type: 'about:blank', title: 'Brouillon modifié depuis sa dernière lecture', status: 409,
+                code: 'orders.draft_changed',
+                detail: 'Le brouillon a changé depuis la lecture référencée par If-Match. Rechargez-le avant de le modifier.',
+              });
+            }
+          }
           return {
             status: 200,
-            body: await service.updateDraft(
-              context.params.orderId ?? '', command,
-              await orderResourceAuthorization(context, storefrontSessions, storefrontCookiePolicy),
-            ),
+            body: await service.updateDraft(orderId, command, authorization),
           };
         } catch (error) {
           if (error instanceof OrderCommandRejectedError) throw toHttpError(error);
@@ -269,16 +291,34 @@ async function transitionAuthorization(
 function toHttpError(error: OrderCommandRejectedError): ApiHttpError {
   const status = error.code === 'order_not_found' || error.code === 'shop_not_found' ? 404
     : error.code === 'permission_denied' ? 403
-      : error.code === 'invalid_order_items' ? 422 : 409;
+      // Q17-a (point 12 (b)) — un product_id hors catalogue de la boutique
+      // est un panier INVALIDE, au même titre qu un libellé ou un prix
+      // absent : 422, pas 409 (le corps n a rien à comparer, contrairement à
+      // price_changed).
+      : (error.code === 'invalid_order_items' || error.code === 'product_not_in_shop') ? 422 : 409;
   return new ApiHttpError({
     type: 'about:blank',
     title: status === 404 ? 'Ressource Orders introuvable'
       : status === 403 ? 'Commande interdite'
         : status === 422 ? 'Articles de commande invalides'
-          : error.code === 'order_not_editable' ? 'Commande non modifiable' : 'Transition impossible',
+          : error.code === 'order_not_editable' ? 'Commande non modifiable'
+            // Q17-a (point 12 (d), (c)) — deux 409 nouveaux, distincts du
+            // conflit de transition générique.
+            : error.code === 'price_changed' ? 'Le prix a changé'
+              : error.code === 'unverified_prices' ? 'Prix non vérifiés'
+                : 'Transition impossible',
     status,
     code: `orders.${error.code}`,
     detail: error.message,
+    // Q17-a (point 12 (d)) — une entrée par ligne divergente, jamais vide
+    // quand le code est price_changed.
+    ...(error.priceMismatches.length > 0 ? {
+      errors: error.priceMismatches.map((mismatch) => ({
+        product_label: mismatch.productLabel,
+        submitted: mismatch.submitted,
+        current: mismatch.current,
+      })),
+    } : {}),
   });
 }
 
