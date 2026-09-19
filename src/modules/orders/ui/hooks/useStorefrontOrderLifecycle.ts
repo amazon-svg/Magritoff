@@ -98,6 +98,12 @@ export function useStorefrontOrderLifecycle({
   // renewalWarnings (défaut D1). Porte les NOMS des produits ajoutés dont le
   // prix n'est pas définitif.
   const [renewalPriceNotFirm, setRenewalPriceNotFirm] = useState<string[]>([]);
+  // Q20 qa-review round 1, défaut 2 — canal SÉPARÉ de plus : les NOMS des
+  // produits dont le prix renouvelé diffère du prix réellement payé à la
+  // commande d'origine, calculé par `rebuildCartFromOrderItems` elle-même
+  // (elle seule connaît à la fois `item.unit_price_ht` d'origine et le prix
+  // fraîchement résolu de la ligne reconstruite).
+  const [renewalPriceChanged, setRenewalPriceChanged] = useState<string[]>([]);
 
   useEffect(() => {
     const hasStorefrontSession = sessionShopId === shop?.id;
@@ -130,6 +136,7 @@ export function useStorefrontOrderLifecycle({
     setLastOrder(null);
     setRenewalWarnings([]);
     setRenewalPriceNotFirm([]);
+    setRenewalPriceChanged([]);
     checkoutCommandKey.current = crypto.randomUUID();
   }, [slug]);
 
@@ -145,9 +152,12 @@ export function useStorefrontOrderLifecycle({
     let items: OrderItemRow[];
     try {
       const details = await ordersApi.getDraft(order.id);
-      // `unit_price_ht` n est pas utilisé par `rebuildCartFromOrderItems`
-      // (le prix repart de `resolvePrice` sur le produit du catalogue
-      // actuel) — converti pour rester compatible avec `OrderItemRow`
+      // Q20 qa-review round 1, défaut 2 (corrigé) — `unit_price_ht` EST
+      // désormais utilisé par `rebuildCartFromOrderItems`, pour comparer le
+      // prix réellement payé à la commande d'origine au prix fraîchement
+      // résolu de la ligne reconstruite (`priceChanged`). L'ancien
+      // commentaire ici affirmait le contraire ; il était vrai avant ce lot,
+      // il ne l'est plus. Converti pour rester compatible avec `OrderItemRow`
       // depuis que `DraftOrderItem.unitPriceHt` est un `Money` (chaîne).
       items = details.items.map((item) => ({
         product_id: item.productId,
@@ -163,7 +173,7 @@ export function useStorefrontOrderLifecycle({
       return;
     }
 
-    const { lines, warnings, stats } = rebuildCartFromOrderItems(items, products);
+    const { lines, warnings, priceChanged, stats } = rebuildCartFromOrderItems(items, products);
     if (stats.matched === 0) {
       window.alert(
         `Aucun produit de cette commande n'est plus disponible dans le catalogue actuel.\n\n${warnings.join('\n')}`,
@@ -171,14 +181,17 @@ export function useStorefrontOrderLifecycle({
       return;
     }
     setCart(lines);
-    // Q14-a round 2, point 3.7 (c-bis) — DEUX canaux séparés : les
-    // avertissements de correspondance (produit retiré/indisponible) restent
-    // dans `renewalWarnings`, sens d'origine, inchangé ; les noms des lignes
-    // ajoutées à prix non ferme vont dans `renewalPriceNotFirm`. Ne JAMAIS
-    // les fusionner (défaut D1) — `renewalBannerSections` compose les deux
+    // Q14-a round 2, point 3.7 (c-bis) — TROIS canaux séparés (Q20 qa-review
+    // round 1 ajoute le troisième) : les avertissements de correspondance
+    // (produit retiré/indisponible) restent dans `renewalWarnings`, sens
+    // d'origine, inchangé ; les noms des lignes ajoutées à prix non ferme
+    // vont dans `renewalPriceNotFirm` ; les noms des lignes dont le prix a
+    // CHANGÉ depuis l'achat vont dans `renewalPriceChanged`. Ne JAMAIS les
+    // fusionner (défaut D1) — `renewalBannerSections` compose les trois
     // sections séparément.
     setRenewalWarnings(warnings);
     setRenewalPriceNotFirm(collectPriceNotFirmProductNames(lines));
+    setRenewalPriceChanged(priceChanged);
     onCartRenewed();
   }, [cart.length, onCartRenewed, ordersApi, products, setCart]);
 
@@ -223,6 +236,7 @@ export function useStorefrontOrderLifecycle({
       setCart([]);
       setRenewalWarnings([]);
       setRenewalPriceNotFirm([]);
+      setRenewalPriceChanged([]);
       onOrderCreated();
     } catch (cause) {
       console.error('[StorefrontOrderLifecycle] création impossible:', cause);
@@ -244,9 +258,11 @@ export function useStorefrontOrderLifecycle({
     lastOrder,
     renewalWarnings,
     renewalPriceNotFirm,
+    renewalPriceChanged,
     dismissRenewalWarnings: () => {
       setRenewalWarnings([]);
       setRenewalPriceNotFirm([]);
+      setRenewalPriceChanged([]);
     },
     renewOrder,
     submitCart,
