@@ -39,10 +39,17 @@ export class InMemoryCommercialSettingsRepository implements CommercialSettingsR
     // Ressource SINGLETON creee IMPLICITEMENT a sa premiere lecture (contrat).
     // Reserve (i) fermee le 2026-09-11 : order_file_purge_enabled vaut false
     // par defaut, aucune reprise pour les tenants existants.
+    //
+    // default_validity_days = 30 (et non null) depuis la migration
+    // 20260919000200_gescom_default_validity_days_30.sql (arbitrage Arnaud
+    // du 2026-09-19, Q18) : le defaut de colonne s applique a TOUT NOUVEL
+    // espace, ce qu une premiere lecture (creation implicite) reproduit
+    // exactement ici. Le retrofit des espaces DEJA CREES a null reste une
+    // question ouverte (Q24) et ne concerne pas ce chemin de creation.
     this.purgeEnabledAt.set(tenantId, null);
     const created: CommercialSettingsDto = {
       tenant_id: tenantId,
-      default_validity_days: null,
+      default_validity_days: 30,
       order_file_purge_enabled: false,
       // E10.15a — memes defauts que la migration `20260911010000`.
       notification_retention_days: 90,

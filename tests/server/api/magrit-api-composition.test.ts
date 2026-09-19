@@ -134,7 +134,9 @@ describe('composition reelle des deux facades', () => {
     expect(response.status).toBe(200);
     const body = (await response.json()) as { data: { tenant_id: string; default_validity_days: unknown } };
     expect(body.data.tenant_id).toBe(TENANT);
-    expect(body.data.default_validity_days).toBeNull();
+    // 30, pas null : defaut de colonne depuis la migration 20260919000200
+    // (arbitrage Arnaud 2026-09-19, Q18) applique a tout nouvel espace.
+    expect(body.data.default_validity_days).toBe(30);
   });
 
   it('refuse /api/v1/customers sans jeton, au format Problem E10', async () => {

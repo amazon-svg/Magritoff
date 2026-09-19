@@ -23,12 +23,20 @@
  *     applicative "mine/all" comme l ancien systeme.
  *   - pas d action "dupliquer" : `POST /quotes/{id}/duplicate` n existe pas
  *     au contrat E10.3 (seul `POST /quotes` depuis un projet existe).
+ *
+ * `DefaultValidityDaysPanel` (arbitrage Arnaud 2026-09-19, Q18,
+ * docs/api/CONVENTIONS.md §8.25 point 13 (3)) vit ICI depuis ce lot, et pas
+ * dans `PricingRulesPage` (E10.6) ou elle a d abord ete cablee : « le
+ * parametre doit etre dans le menu devis », dans les mots d Arnaud. C est le
+ * MEME composant, deplace, pas duplique — meme ressource singleton
+ * `/commercial-settings`, meme client API, memes testid.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { FileText, Search, Trash2 } from 'lucide-react';
+import { FileText, Loader2, Search, Trash2 } from 'lucide-react';
 import { useTenantPath } from '@/modules/tenants/ui/hooks';
 import { useWorkspaceApi } from '@/platform/runtime/workspace-ui-runtime';
+import { useAccessProfile } from '@/modules/roles/ui/runtime';
 import { CustomersApiClient, type CustomerDto } from '@/modules/customers';
 import { customerDisplayName } from '@/modules/projects/ui';
 import { TEST_IDS } from '@/shared/presentation/testIds';
@@ -42,11 +50,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/shared/ui/alert-dialog';
+import { CommercialSettingsApiClient } from '@/modules/commercial-settings';
 import { CommercialQuotesApiClient } from '../../api/client';
 import type { QuoteDto } from '../../api/contracts';
 import { QUOTE_STATUS_GROUPS, statusGroup, statusGroupDef, type QuoteStatusGroup } from '../helpers';
 
 const T = TEST_IDS.commercialQuote;
+
+const inputCls =
+  'w-full px-3 py-2 border border-line-2 rounded-lg bg-paper text-ink text-sm focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand';
+const btnPrimary =
+  'px-4 py-2 bg-brand text-brand-ink rounded-lg hover:opacity-90 disabled:opacity-50 text-sm font-medium flex items-center gap-2';
 
 type FilterKey = 'all' | QuoteStatusGroup;
 
@@ -55,6 +69,13 @@ const PAGE_SIZE = 50;
 export function DashboardQuotes() {
   const tp = useTenantPath();
   const quotesApi = useWorkspaceApi(CommercialQuotesApiClient);
+  // `can_manage_pricing` garde l ECRITURE de `/commercial-settings` cote
+  // serveur (RLS `commercial_settings_write`) — meme droit que
+  // `PricingRulesPage` (E10.11) et le journal d entete de `QuoteEditorPage`
+  // (E10.10a). Un membre sans ce droit ne voit pas le panneau : ergonomie,
+  // pas la garde d autorisation elle-meme.
+  const { hasCapability } = useAccessProfile();
+  const canManagePricing = hasCapability('can_manage_pricing') === true;
   const customersApi = useWorkspaceApi(CustomersApiClient);
 
   const [quotes, setQuotes] = useState<QuoteDto[]>([]);
@@ -317,6 +338,12 @@ export function DashboardQuotes() {
         </div>
       )}
 
+      {canManagePricing && (
+        <div className="mt-6">
+          <DefaultValidityDaysPanel />
+        </div>
+      )}
+
       <AlertDialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)}>
         <AlertDialogContent data-testid={T.listDeleteDialog}>
           <AlertDialogHeader>
@@ -333,6 +360,126 @@ export function DashboardQuotes() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+/**
+ * Duree de validite par defaut des devis (E10.10a, point 9 du cadrage,
+ * docs/api/CONVENTIONS.md §8.12) — ressource singleton `/commercial-settings`
+ * du tenant, PATCH garde par `can_manage_pricing` cote serveur.
+ *
+ * DEPLACE ICI par l arbitrage d Arnaud du 2026-09-19 (Q18, §8.25 point
+ * 13 (3)) : « une valeur par defaut qui doit etre aussi un parametre dans
+ * le menu devis ». Vivait auparavant dans `PricingRulesPage`
+ * (src/modules/pricing/ui/workspace/PricingRulesPage.tsx) — retire de la
+ * ou il a d abord ete cable, jamais duplique : une seule surface ecrit
+ * `default_validity_days`, sans quoi les deux divergeraient a la premiere
+ * retouche.
+ *
+ * Applique UNIQUEMENT a l ENVOI d un devis (`sendQuote`) et seulement si
+ * `valid_until` est encore `null` — jamais retroactif sur un devis existant,
+ * jamais a la creation. La borne 1-3650 jours est deja posee en base (`check
+ * (... between 1 and 3650)`, migration 20260906160000, portee a 30 par
+ * defaut par 20260919000200) et au contrat (`minimum: 1`/`maximum: 3650`) :
+ * ce composant ne la reimplemente pas, `min`/`max` sur l input HTML restent
+ * un confort de saisie, jamais la seule garde.
+ */
+function DefaultValidityDaysPanel() {
+  const api = useWorkspaceApi(CommercialSettingsApiClient);
+  const [days, setDays] = useState('');
+  const [etag, setEtag] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    api
+      .get()
+      .then(({ data, etag: nextEtag }) => {
+        if (cancelled) return;
+        setDays(data.default_validity_days !== null ? String(data.default_validity_days) : '');
+        setEtag(nextEtag ?? null);
+      })
+      .catch((cause) => {
+        if (!cancelled) {
+          setError(cause instanceof Error ? cause.message : 'Lecture de la validite par defaut impossible.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [api]);
+
+  const handleSave = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!etag) return;
+    const trimmed = days.trim();
+    const parsed = trimmed === '' ? null : Number(trimmed);
+    if (parsed !== null && (!Number.isInteger(parsed) || parsed < 1)) {
+      setError('La duree de validite doit etre un nombre entier de jours, ou vide (aucune validite par defaut).');
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    setSavedAt(null);
+    try {
+      const result = await api.update({ default_validity_days: parsed }, etag);
+      setEtag(result.etag ?? null);
+      setSavedAt(Date.now());
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Enregistrement de la validite par defaut impossible.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      className="border border-line-2 rounded-lg p-4 space-y-3"
+      data-testid={TEST_IDS.commercialSettings.defaultValiditySection}
+    >
+      <div>
+        <h2 className="text-sm font-semibold text-ink">Validité par défaut des devis</h2>
+        <p className="text-xs text-ink-muted mt-0.5">
+          Nombre de jours appliqué à l’envoi d’un devis qui ne porte pas déjà une date de validité manuelle.
+          Vide = aucune validité par défaut. Ne modifie aucun devis déjà créé.
+        </p>
+      </div>
+      <form onSubmit={handleSave} className="flex items-center gap-2">
+        <input
+          type="number"
+          min={1}
+          max={3650}
+          step={1}
+          value={days}
+          onChange={(event) => setDays(event.target.value)}
+          disabled={loading}
+          placeholder="Ex. 30"
+          className={inputCls}
+          style={{ maxWidth: 120 }}
+          data-testid={TEST_IDS.commercialSettings.defaultValidityInput}
+        />
+        <span className="text-sm text-ink-muted">jours</span>
+        <button
+          type="submit"
+          disabled={saving || loading || !etag}
+          className={btnPrimary}
+          data-testid={TEST_IDS.commercialSettings.defaultValiditySaveBtn}
+        >
+          {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+          Enregistrer
+        </button>
+      </form>
+      {error && <p className="text-sm text-err-fg">{error}</p>}
+      {savedAt !== null && !error && <p className="text-sm text-green-700">Validité par défaut enregistrée.</p>}
     </div>
   );
 }

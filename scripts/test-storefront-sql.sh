@@ -77,6 +77,7 @@ SQL_CASES=(
   tests/sql/gescom-e10-18d-order-export-recovery-net.sql
   tests/sql/bcp-0b-clariprint-rate-limit.sql
   tests/sql/storefront-order-price-revaluation.sql
+  tests/sql/gescom-default-validity-days-30.sql
 )
 
 for sql_case in "${SQL_CASES[@]}"; do

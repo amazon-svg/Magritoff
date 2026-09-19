@@ -3713,7 +3713,9 @@ export interface components {
             /**
              * @description Nombre de jours de validite appliques a un devis dont `valid_until` n a pas ete fixee, comptes A PARTIR DE SON PREMIER ENVOI (`sendQuote`), jamais de sa creation.
              *
-             *     `null` signifie « aucune validite par defaut » : les devis partent alors sans date d expiration, ce qui est un choix legitime et l etat initial d un tenant. La facade n invente pas 30 jours a la place d une decision commerciale que personne n a prise.
+             *     ETAT INITIAL D UN ESPACE : `30` (arbitrage du 2026-09-19). Un espace qui n a jamais touche a ce reglage rend donc `30`, et ses devis partent avec un terme. UN CONSOMMATEUR NE DOIT PAS lire une valeur comme la preuve qu un commercial l a choisie : `30` est la valeur LIVREE, pas necessairement une decision prise.
+             *
+             *     `null` signifie « aucune validite par defaut » : les devis partent alors sans date d expiration. Ce n est plus l etat initial — c est un CHOIX EXPLICITE, pose par `PATCH /commercial-settings`. Rien, en base comme au contrat, ne distingue aujourd hui ce choix d un espace qui n aurait jamais decide : les deux valent `null` (voir §8.25 point 14, question ouverte).
              *
              *     Un reglage MODIFIE ne change aucun devis existant : les devis deja envoyes portent leur date, les brouillons prendront la nouvelle valeur a leur envoi. Recalculer l existant reecrirait des engagements pris.
              */
@@ -3727,7 +3729,7 @@ export interface components {
              *
              *     CE QUE CE REGLAGE NE GOUVERNE PAS : le nettoyage des objets ORPHELINS (E10.22c) reste actif dans tous les cas. Un objet orphelin est un televersement jamais confirme, auquel ne correspond AUCUNE ligne `OrderFile` — donc aucun fichier de commande, aucune donnee que l espace puisse revendiquer, rien qui apparaisse jamais dans `listOrderFiles`. C est un dechet d upload interrompu, pas un choix de conservation. Le soumettre a un reglage de retention offrirait a n importe quel porteur de lien public un moyen de remplir indefiniment le stockage d un espace qui aurait coche « non » — exactement la dette D7 que ce chantier ferme.
              *
-             *     `false` PAR DEFAUT, POUR TOUT ESPACE QUI N Y A JAMAIS TOUCHE (arbitrage Arnaud du 2026-09-11). C est la doctrine du chantier appliquee au reglage lui-meme : on echoue toujours du cote qui CONSERVE les octets, et la facade n arme pas une destruction a la place d une decision que personne n a prise — meme parti que `default_validity_days`, qui vaut `null` plutot que 30 jours inventes. CONSEQUENCE POUR UN CONSOMMATEUR : ne jamais supposer qu un espace purge ses fichiers ; c est l exception, pas la regle, tant qu un administrateur ne l a pas armee.
+             *     `false` PAR DEFAUT, POUR TOUT ESPACE QUI N Y A JAMAIS TOUCHE (arbitrage Arnaud du 2026-09-11). C est la doctrine du chantier appliquee au reglage lui-meme : on echoue toujours du cote qui CONSERVE les octets, et la facade n arme pas une destruction a la place d une decision que personne n a prise — c etait aussi le parti de `default_validity_days` JUSQU A l arbitrage du 2026-09-19, qui lui donne `30` pour etat initial. Les deux reglages divergent desormais, et pour une raison : une duree de validite par defaut n est pas irreversible, une purge armee detruit des octets. CONSEQUENCE POUR UN CONSOMMATEUR : ne jamais supposer qu un espace purge ses fichiers ; c est l exception, pas la regle, tant qu un administrateur ne l a pas armee.
              *
              *     ABSENT DE `required` DANS CET INCREMENT, meme motif de methode que `deposited_via` et `purge_at` en leur temps : le declarer requis aujourd hui rendrait NON CONFORME l implementation d E10.10a DEJA EN SERVICE, qui ne le sert pas. Le lot E10.22d, qui pose la colonne et la sert toujours, le fera promouvoir `required` — optionnel -> requis est compatible au sens du CA13. JUSQUE-LA, ABSENT SIGNIFIE « cet espace n a pas encore de reglage de purge », jamais « la purge tourne ».
              */
@@ -3773,7 +3775,7 @@ export interface components {
          * @description Modification partielle des reglages commerciaux du tenant.
          */
         UpdateCommercialSettingsCommand: {
-            /** @description `null` retire la validite par defaut. */
+            /** @description `null` retire la validite par defaut : les devis de cet espace partiront sans terme annonce tant qu un commercial ne pose pas `valid_until` devis par devis. C est desormais le SEUL moyen d obtenir cet etat, l etat initial d un espace etant `30` jours depuis l arbitrage du 2026-09-19. Poser `null` est donc un choix, jamais un defaut subi. */
             default_validity_days?: number | null;
             /**
              * @description Arme (`true`) ou arrete (`false`) la purge automatique des fichiers de commande de cet espace. PAS DE `null` : ce reglage n a que deux etats, et « ne rien decider » se dit en n envoyant pas le champ.

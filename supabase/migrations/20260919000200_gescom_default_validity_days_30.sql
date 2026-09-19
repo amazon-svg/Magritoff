@@ -1,0 +1,73 @@
+-- ============================================================================
+-- Lot "parametre de validite des devis" (arbitrage Arnaud du 2026-09-19 --
+-- Q18, docs/api/CONVENTIONS.md §8.25 point 13 (3) et ligne Q18 du point 9).
+-- Verbatim d Arnaud : « Le temps de validite d un devis doit etre un
+-- parametre que l on peut modifier, considerant une valeur par defaut qui
+-- doit etre aussi un parametre dans le menu devis », puis « valeur par
+-- defaut pour un devis 30 jours ».
+--
+-- Ce que cette migration livre, et RIEN d autre : 30 devient la valeur
+-- LIVREE de `commercial_settings.default_validity_days` POUR TOUT NOUVEL
+-- ESPACE, au lieu de rester a `null` indefiniment. La colonne, ses bornes
+-- (`check (... between 1 and 3650)`) et son exposition au contrat (`PATCH
+-- /commercial-settings`, `minimum: 1`/`maximum: 3650`) existent deja depuis
+-- E10.10a (20260906160000_gescom_e10_10a_send_duplicate_global_discount.sql)
+-- -- aucune ligne de contrat, aucun endpoint, aucune borne nouvelle ici. Le
+-- contrat (description de `CommercialSettings.default_validity_days`) a ete
+-- mis a jour separement par l architecte pour cesser de promettre `null`
+-- comme etat initial (branche `docs/gescom-contrat-validite-devis`, commit
+-- `227bd276`) -- cette migration ne modifie pas `openapi/magrit-core.v1.yaml`.
+--
+-- UN SEUL EFFET, dans ce fichier :
+--
+--   DEFAUT DE COLONNE. Tout nouvel espace amorce par
+--   `api_get_commercial_settings` (qui `insert ... (tenant_id) values
+--   (p_tenant_id)` a la premiere lecture, sans jamais nommer
+--   `default_validity_days`) recoit desormais 30 sans qu aucun code
+--   applicatif n ecrive cette valeur.
+--
+-- CE QUE CETTE MIGRATION NE FAIT PLUS, ET POURQUOI (qa-review adversariale,
+-- 2026-09-19, ROND SUIVANT LA PREMIERE VERSION DE CE FICHIER) : la premiere
+-- version retrofitait aussi les espaces DEJA CREES a `null`. La revue a
+-- montre que rien, en base, ne distingue « personne n a jamais decide » de
+-- « un commercial a explicitement choisi qu il n y aurait pas de validite
+-- par defaut » -- LES DEUX VALENT `null`. Un `update ... where
+-- default_validity_days is null` les confond et ecrase silencieusement une
+-- decision reellement prise (une ligne a `45` survit, une ligne EXPLICITEMENT
+-- posee a `null` par un commercial serait, elle, ecrasee a `30`).
+--
+-- CORRECTION D ATTRIBUTION : la premiere version de ce fichier ecrivait que
+-- ce retrofit etait un « choix explicite d Arnaud, dans ses mots : oui ».
+-- C EST FAUX, et l erreur est de cette story, pas d Arnaud : Arnaud a
+-- tranche la VALEUR (30 jours), jamais son extension au parc existant. Le
+-- « oui » venait d une consigne du COORDINATEUR du chantier, prise pour une
+-- parole d Arnaud par l auteur de ce lot. Une migration deployee ne se
+-- reecrit plus -- cette fausse attribution aurait ete permanente si elle
+-- avait fusionne.
+--
+-- Le retrofit des espaces existants devient donc une QUESTION OUVERTE (Q24,
+-- docs/api/CONVENTIONS.md §8.25), a trancher par Arnaud, hors mandat de ce
+-- lot. Tant qu elle ne l est pas : un espace deja cree qui portait `null`
+-- AVANT cette migration continue de porter `null` APRES -- son comportement
+-- (devis sans terme annonce, `resolve_quote_default_valid_until()` renvoie
+-- `null`) est inchange, exactement comme avant.
+--
+-- Non fait ICI, volontairement (rapport de fin de story) :
+--   - le retrofit des espaces deja crees a `null` (Q24, question ouverte,
+--     ci-dessus) ;
+--   - le report de 30 jours sur la duree de validite du devis Clariprint
+--     conserve cote serveur (objet distinct de Q18, 24h proposees pour la
+--     conservation des journaux de fonction) -- reste a confirmer au moment
+--     de Q17-b, seul consommateur, exactement comme le cadrage le dit.
+-- ============================================================================
+
+alter table public.commercial_settings
+  alter column default_validity_days set default 30;
+
+comment on column public.commercial_settings.default_validity_days is
+  'Nombre de jours de validite appliques a un devis dont valid_until est encore NULL, comptes depuis sendQuote (jamais depuis la creation). Modifier ce reglage ne recalcule AUCUN devis existant. Defaut de colonne : 30 (arbitrage Arnaud 2026-09-19, Q18) -- un espace amorce par api_get_commercial_settings recoit desormais 30 sans ecriture applicative explicite. Les espaces DEJA CREES avant cette migration (20260919000200_gescom_default_validity_days_30.sql) NE SONT PAS retrofites : rien en base ne distingue un espace jamais ouvert d un espace dont un commercial a explicitement choisi null (Q24, question ouverte, docs/api/CONVENTIONS.md §8.25). NULL reste une valeur valide (un commercial peut la reposer explicitement via PATCH /commercial-settings) et signifie toujours "aucune validite par defaut" -- pour un espace nouveau, c est desormais un choix ; pour un espace existant qui la porte deja, l origine (jamais decide ou explicitement choisi) reste indistinguable.';
+
+-- ── ROLLBACK (documentation, non execute automatiquement) ──────────────────
+--   alter table public.commercial_settings alter column default_validity_days drop default;
+--   -- Aucune donnee n est modifiee par ce fichier (defaut de colonne
+--   -- seulement) : le rollback ci-dessus suffit, sans reserve.

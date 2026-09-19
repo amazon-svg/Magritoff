@@ -240,9 +240,12 @@ begin
   select tenant_a into v_tenant_a from e10_10a_context;
 
   -- Un membre SANS can_manage_pricing peut declencher la creation implicite
-  -- (lecture ouverte a tout membre).
+  -- (lecture ouverte a tout membre). Depuis l arbitrage Arnaud du 2026-09-19
+  -- (Q18, docs/api/CONVENTIONS.md §8.25 point 13 (3), migration
+  -- 20260919000200_gescom_default_validity_days_30.sql) la colonne porte un
+  -- DEFAUT de 30 -- une creation implicite ne rend plus `null`.
   select public.api_get_commercial_settings(v_tenant_a) into v_settings;
-  if v_settings is null or (v_settings->>'default_validity_days') is not null then
+  if v_settings is null or (v_settings->>'default_validity_days')::integer is distinct from 30 then
     raise exception 'commercial_settings : creation implicite invalide (%).', v_settings;
   end if;
 
