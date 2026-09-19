@@ -104,6 +104,30 @@ describe('stripComments — sur les VRAIS fichiers du depot, pas seulement des e
     expect(countComments(stripComments(source))).toBe(0);
   });
 
+  it.each(FICHIERS)('retire une aiguille injectee A LA FIN de %s', (relPath) => {
+    // ORACLE NON CIRCULAIRE, et c est tout l objet de ce test.
+    //
+    // L assertion ci-dessus utilise `countComments`, qui partage son
+    // mecanisme avec `stripComments` : meme `createSourceFile`, meme parcours
+    // d arbre. Un commentaire que ce parcours ne verrait pas serait laisse par
+    // l une ET compte zero par l autre — la verification prouverait seulement
+    // sa propre coherence. C est la deuxieme fois dans ce chantier qu un
+    // controle tourne en rond ; une aiguille connue le rompt.
+    //
+    // La FIN du fichier n est pas un detail : la version au lexer echouait
+    // precisement au-dela d un certain point, apres qu un gabarit mal analyse
+    // eut avale 9 792 caracteres. Une aiguille placee au debut n aurait rien
+    // vu. Celle-ci aurait fait rougir ce test immediatement.
+    const source = readFileSync(resolve(root, relPath), 'utf-8');
+    const AIGUILLE = 'aiguille-de-controle-non-circulaire';
+    for (const forme of [`\n// ${AIGUILLE}\n`, `\n/* ${AIGUILLE} */\n`, `\nconst z = 1; // ${AIGUILLE}\n`]) {
+      expect(stripComments(source + forme)).not.toContain(AIGUILLE);
+    }
+    // Et la meme aiguille hors commentaire doit SURVIVRE : sans cela, un
+    // nettoyeur qui supprimerait tout passerait ce test.
+    expect(stripComments(`${source}\nconst t = "${AIGUILLE}";\n`)).toContain(AIGUILLE);
+  });
+
   it('survit a un gabarit de chaine a substitution suivi de commentaires', () => {
     // La construction exacte qui a fait derailler la version 5.
     const src = [
