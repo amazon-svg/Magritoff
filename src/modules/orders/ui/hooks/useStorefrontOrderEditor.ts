@@ -39,13 +39,17 @@ export function useStorefrontOrderEditor(
     setError(null);
     void ordersApi.getDraft(order.id, controller.signal).then((draft) => {
       if (controller.signal.aborted) return;
+      // Q17-a (docs/api/CONVENTIONS.md §8.25 point 12 (f)) — `unitPriceHt` et
+      // `lineTotalHt` sont désormais des `Money` (chaîne décimale) côté
+      // contrat ; cet éditeur reste un état local NUMÉRIQUE (calculs de
+      // saisie), donc converti aux deux frontières, jamais en interne.
       setLines(draft.items.map((item) => ({
         id: item.id,
         product_id: item.productId,
         product_label: item.productLabel,
         quantity: item.quantity,
-        unit_price_ht: item.unitPriceHt,
-        line_total_ht: item.lineTotalHt,
+        unit_price_ht: Number(item.unitPriceHt),
+        line_total_ht: Number(item.lineTotalHt),
         clariprint_options: item.clariprintOptions,
       })));
     }).catch((cause) => {
@@ -91,7 +95,7 @@ export function useStorefrontOrderEditor(
           id: line.id,
           productLabel: line.product_label,
           quantity: line.quantity,
-          unitPriceHt: line.unit_price_ht,
+          expectedUnitPriceHt: line.unit_price_ht.toFixed(2),
         })),
         idempotencyKey: saveCommandKey.current,
       });

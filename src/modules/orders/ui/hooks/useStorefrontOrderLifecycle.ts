@@ -145,12 +145,16 @@ export function useStorefrontOrderLifecycle({
     let items: OrderItemRow[];
     try {
       const details = await ordersApi.getDraft(order.id);
+      // `unit_price_ht` n est pas utilisé par `rebuildCartFromOrderItems`
+      // (le prix repart de `resolvePrice` sur le produit du catalogue
+      // actuel) — converti pour rester compatible avec `OrderItemRow`
+      // depuis que `DraftOrderItem.unitPriceHt` est un `Money` (chaîne).
       items = details.items.map((item) => ({
         product_id: item.productId,
         product_label: item.productLabel,
         clariprint_options: item.clariprintOptions,
         quantity: item.quantity,
-        unit_price_ht: item.unitPriceHt,
+        unit_price_ht: Number(item.unitPriceHt),
       }));
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : 'erreur réseau';
@@ -190,6 +194,12 @@ export function useStorefrontOrderLifecycle({
       return;
     }
 
+    // Q17-a (docs/api/CONVENTIONS.md §8.25 point 12 (f)) — `expectedUnitPriceHt`
+    // (Money, chaîne décimale) : ce que l acheteur a VU, jamais un flottant
+    // JSON. Le serveur ne l accepte tel quel que pour une ligne qu il ne peut
+    // pas vérifier ; pour une ligne catalogue, il le COMPARE à son propre
+    // recalcul (point 12 (b), (d)) et refuse en 409 `orders.price_changed`
+    // sur écart — traité dans le `catch` ci-dessous.
     const items = cart.map((line) => ({
       productId: typeof line.product.product_id === 'string' && UUID_RE.test(line.product.product_id)
         ? line.product.product_id
@@ -197,7 +207,7 @@ export function useStorefrontOrderLifecycle({
       productLabel: line.product.name,
       clariprintOptions: line.product.config as CreateOrderCommand['items'][number]['clariprintOptions'],
       quantity: line.qty,
-      unitPriceHt: resolveCartLinePricing(line).unitPriceHt,
+      expectedUnitPriceHt: resolveCartLinePricing(line).unitPriceHt.toFixed(2),
     }));
 
     try {
@@ -216,10 +226,15 @@ export function useStorefrontOrderLifecycle({
       onOrderCreated();
     } catch (cause) {
       console.error('[StorefrontOrderLifecycle] création impossible:', cause);
+      // Q17-a (point 12 (d)) — le prix a bougé entre l affichage et la
+      // validation : la seule réponse possible est de recharger, PAS un
+      // message technique ni une nouvelle tentative silencieuse.
       const message = cause instanceof ApiClientError
         && cause.problem.code === 'orders.permission_denied'
         ? createOrderBlockedMessage
-        : cause instanceof Error ? cause.message : 'erreur réseau';
+        : cause instanceof ApiClientError && cause.problem.code === 'orders.price_changed'
+          ? 'Les prix de votre panier ont changé. Rechargez la page pour voir les prix à jour.'
+          : cause instanceof Error ? cause.message : 'erreur réseau';
       window.alert(`Erreur lors de la validation du panier : ${message}.\n\nMerci de réessayer.`);
     }
   }, [cart, createOrderBlockedMessage, onOrderCreated, ordersApi, sessionShopId, setCart, shop]);
