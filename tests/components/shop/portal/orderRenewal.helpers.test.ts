@@ -175,6 +175,50 @@ describe('rebuildCartFromOrderItems', () => {
     expect(resolveCartLinePricing(r.lines[0]).lineTotalHt).toBe(35);
   });
 
+  // Q20 (docs/api/CONVENTIONS.md §8.25 point 9) — chemin supplémentaire
+  // vérifié en instruisant ce lot : `submitCart` envoie `line.product.config`
+  // ENTIER comme `clariprintOptions`, persisté tel quel par
+  // `api_create_storefront_order` dans `tenant_order_items.clariprint_options`
+  // (aucun filtrage SQL). Un `clariprintQuote` légitime au moment de l'ajout
+  // resurgirait donc, potentiellement périmé, au renouvellement.
+
+  it('Q20 — un clariprintQuote snapshotte (produit configuré, quantity present) n est PAS reinjecte dans le panier renouvele', () => {
+    const items = [
+      makeItem({
+        product_id: 'prod-1',
+        quantity: 1,
+        clariprint_options: { quantity: 500, material: 'Couché 350g', clariprintQuote: { success: true, priceHT: 35 } },
+        unit_price_ht: 35,
+      }),
+    ];
+    const products = [makeProduct({ id: 'prod-1', price_ht: 40 })];
+    const r = rebuildCartFromOrderItems(items, products);
+    expect(r.lines).toHaveLength(1);
+    expect((r.lines[0].product.config as any).clariprintQuote).toBeUndefined();
+    // Le prix vient du catalogue courant (40), pas du vieux devis (35),
+    // et la source n est plus 'clariprint'.
+    const pricing = resolveCartLinePricing(r.lines[0]);
+    expect(pricing.resolution.source).not.toBe('clariprint');
+    expect(pricing.unitPriceHt).toBe(40);
+  });
+
+  it('Q20 — un clariprintQuote snapshotte (produit NON configuré) n est PAS reinjecte non plus', () => {
+    const items = [
+      makeItem({
+        product_id: 'prod-1',
+        quantity: 3,
+        clariprint_options: { material: 'Couché 350g', clariprintQuote: { success: true, priceHT: 12 } },
+        unit_price_ht: 12,
+      }),
+    ];
+    const products = [makeProduct({ id: 'prod-1', price_ht: 15 })];
+    const r = rebuildCartFromOrderItems(items, products);
+    expect(r.lines).toHaveLength(1);
+    expect((r.lines[0].product.config as any).clariprintQuote).toBeUndefined();
+    const pricing = resolveCartLinePricing(r.lines[0]);
+    expect(pricing.resolution.source).not.toBe('clariprint');
+  });
+
   it('T7 — quantity suspecte SANS clariprint_options.quantity : pas de reinterpretation silencieuse en exemplaires', () => {
     // Forme qu'une fuite d'exemplaires dans tenant_order_items.quantity aurait
     // gravee AVANT ce lot (aucun signal clariprint_options.quantity separe).

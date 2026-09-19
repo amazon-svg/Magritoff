@@ -17,6 +17,8 @@ import {
 } from '@/modules/clariprint/ui/hooks/useProductConfigurator';
 import { extractInitialOptions } from '@/modules/catalog/ui/storefront/ProductOverlay.helpers';
 import type { ShopProduct } from '@/modules/shops/ui/runtime/ShopsContext';
+import { resolveCartLinePricing } from '@/modules/orders/ui/storefront/cartPricing';
+import type { CartLine } from '@/modules/orders/ui/storefront/types';
 
 const product = {
   id: 'p-1',
@@ -140,6 +142,86 @@ describe('buildConfiguredProduct', () => {
     expect((configured.config as Record<string, unknown>).clariprintData).toBeDefined();
     // Le produit d origine n est pas muté
     expect(product.price_ht).toBe(99.5);
+  });
+
+  /**
+   * Q20 (docs/api/CONVENTIONS.md §8.25 point 9, point 12 (a) constat 3) —
+   * `PortalCatalog.tsx:231` pose un `clariprintQuote` sur chaque suggestion
+   * chiffrée par Magrit ; le bouton « Configurer » passe ce produit ici.
+   */
+  describe('Q20 — un devis Clariprint ne doit pas survivre à la configuration', () => {
+    const suggestionWithQuote = {
+      ...product,
+      config: {
+        ...(product.config as Record<string, unknown>),
+        quantity: 500,
+        clariprintQuote: { success: true, priceHT: 99.5 },
+      },
+    } as ShopProduct;
+
+    it("supprime le clariprintQuote hérité de la configuration produite", () => {
+      const options = extractInitialOptions(suggestionWithQuote);
+      const phase: ConfiguratorPhase = { kind: 'ready', priceHT: 55, priceTTC: 66 };
+      const configured = buildConfiguredProduct(suggestionWithQuote, options, phase);
+      expect(
+        (configured.config as Record<string, unknown>).clariprintQuote,
+      ).toBeUndefined();
+    });
+
+    it(
+      'reproduit le parcours complet suggestion -> configuration (quantité ET ' +
+        'papier changés) -> panier : le panier ne compte plus le prix d avant, ' +
+        "ni l origine 'clariprint' — ce test échoue sur le code d avant le correctif",
+      () => {
+        // L acheteur change la quantité (500 -> 2000) ET le papier.
+        const changedOptions = {
+          ...extractInitialOptions(suggestionWithQuote),
+          quantity: 2000,
+          paper: '170g couché',
+        };
+        // Le moteur a recalculé un NOUVEAU prix pour cette configuration.
+        const freshPhase: ConfiguratorPhase = { kind: 'ready', priceHT: 250, priceTTC: 300 };
+
+        const configured = buildConfiguredProduct(suggestionWithQuote, changedOptions, freshPhase);
+        const line: CartLine = { qty: 1, product: configured };
+        const pricing = resolveCartLinePricing(line);
+
+        // AVANT correctif : le clariprintQuote (99.5, posé pour 500 ex.)
+        // survivait dans `config` et `resolveCartLinePricing` le retrouvait,
+        // donnant `unitPriceHt: 99.5` et `source: 'clariprint'` — le prix
+        // du devis D AVANT la configuration, pas celui de la config reconfigurée.
+        expect(pricing.unitPriceHt).toBe(250);
+        expect(pricing.unitPriceHt).not.toBe(99.5);
+        expect(pricing.resolution.source).not.toBe('clariprint');
+      },
+    );
+  });
+});
+
+describe('buildConfiguredProduct — cas légitime (ne pas casser Q14, canAddAsIs)', () => {
+  /**
+   * Point 2 de la commande : un produit qui porte réellement un chiffrage
+   * obtenu pour SA configuration doit le garder — c est la règle d ajout
+   * direct au panier (arbitrage Arnaud 16/09, `canAddAsIs`). Ce chemin
+   * n appelle JAMAIS `buildConfiguredProduct` (un produit ajouté « tel
+   * quel » ne passe pas par le configurateur) : ce test le vérifie en
+   * s assurant que le devis légitime d un produit qui n est PAS passé par
+   * le configurateur reste intact et continue de résoudre `clariprint`.
+   */
+  it("un produit ajouté tel quel (jamais passé par buildConfiguredProduct) garde son devis", () => {
+    const addedAsIs = {
+      ...product,
+      config: {
+        ...(product.config as Record<string, unknown>),
+        clariprintQuote: { success: true, priceHT: 99.5 },
+      },
+    } as ShopProduct;
+
+    const line: CartLine = { qty: 1, product: addedAsIs };
+    const pricing = resolveCartLinePricing(line);
+
+    expect(pricing.unitPriceHt).toBe(99.5);
+    expect(pricing.resolution.source).toBe('clariprint');
   });
 });
 
