@@ -138,7 +138,12 @@ function toLegacySummary(order: LegacyOrderRecord): OrderSummary {
   return {
     id: order.id, shopId: order.shopId, source: 'legacy', createdAt: order.createdAt,
     customerName: order.customerName ?? '—', customerEmail: order.customerEmail ?? '',
-    items: [...order.items], totalHt: order.totalHt, totalTtc: order.totalTtc, status: order.status,
+    // Q17-c (point 12 (h)) — la cohorte legacy `shop_orders` n a jamais porté
+    // la notion de prix vérifié : `priceOrigin` reste `null`, `hasUnverifiedPrices`
+    // reste `false` (ni pastille ni acquittement pour ces commandes).
+    items: order.items.map((item) => ({ ...item, priceOrigin: null })),
+    totalHt: order.totalHt, totalTtc: order.totalTtc, status: order.status,
+    hasUnverifiedPrices: false,
   };
 }
 
@@ -148,6 +153,7 @@ function toTenantSummary(order: TenantOrderRecord, taxRate: number): OrderSummar
     customerName: order.customerName ?? '—', customerEmail: order.customerEmail ?? '',
     items: [...order.items], totalHt: order.totalHt,
     totalTtc: order.totalHt * (1 + taxRate), status: order.status,
+    hasUnverifiedPrices: order.hasUnverifiedPrices,
   };
 }
 

@@ -63,6 +63,8 @@ export const ORDER_ERROR_CODE = {
   PERMISSION_DENIED: 'orders.permission_denied',
   NOT_EDITABLE: 'orders.order_not_editable',
   TRANSITION_NOT_ALLOWED: 'orders.transition_not_allowed',
+  /** Q17-a (point 12 (c)) — refus `draft -> validated` sans acquittement explicite. */
+  UNVERIFIED_PRICES: 'orders.unverified_prices',
 } as const;
 
 /**
@@ -126,4 +128,21 @@ export function isTransitionConflict(err: RpcLikeError | null | undefined, msg: 
   if (verdict !== null) return verdict;
   if (!msg.includes('transition')) return false;
   return msg.includes('not_allowed') || msg.includes('not allowed');
+}
+
+/**
+ * Q17-c (docs/api/CONVENTIONS.md §8.25 point 12 (c)) — refus défensif : la
+ * confirmation nommée de `ValidateOrderConfirmDialog` acquitte déjà
+ * `acknowledgeUnverifiedPrices` quand `order.hasUnverifiedPrices` est vrai,
+ * donc ce refus ne devrait plus atteindre l écran dans le cas nominal. Il
+ * reste atteignable si l état affiché est PÉRIMÉ (une ligne devient
+ * `client_unverified` entre le chargement de la liste et le clic) : sans ce
+ * classement, le texte technique `unverified_prices: [...]` fuiterait tel
+ * quel, exactement le défaut déjà corrigé pour les autres codes de ce
+ * fichier.
+ */
+export function isUnverifiedPrices(err: RpcLikeError | null | undefined, msg: string): boolean {
+  const verdict = codeVerdict(err, ORDER_ERROR_CODE.UNVERIFIED_PRICES);
+  if (verdict !== null) return verdict;
+  return msg.startsWith('unverified_prices:') || msg.includes('unverified_prices');
 }

@@ -9,6 +9,8 @@ import { describe, it, expect } from 'vitest';
 import {
   applyFilters,
   applySort,
+  describePriceOrigin,
+  showsUnverifiedPriceBadge,
 } from '@/modules/orders/ui/storefront/OrderHistoryTable';
 import type { OrderUI } from '@/modules/orders/ui/storefront/PortalOrders.helpers';
 
@@ -287,5 +289,54 @@ describe('OrderHistoryTable.applyFilters / extraFilter (fix 2026-05-25)', () => 
   it("sans extraFilter fourni → selectedExtraKeys ignoree (no-op safe)", () => {
     const r = applyFilters(orders, { ...DEFAULT_STATE, selectedExtraKeys: ['shopA'] });
     expect(r).toHaveLength(3);
+  });
+});
+
+// Q17-c (docs/api/CONVENTIONS.md §8.25 point 12 (h)) — ces deux fonctions
+// n existaient pas avant ce lot : ces describe echouent sur le code d avant
+// (import inexistant).
+describe('showsUnverifiedPriceBadge (Q17-c)', () => {
+  it('appearance dashboard + hasUnverifiedPrices=true -> true', () => {
+    expect(showsUnverifiedPriceBadge({ hasUnverifiedPrices: true }, 'dashboard')).toBe(true);
+  });
+
+  it('appearance dashboard + hasUnverifiedPrices=false -> false', () => {
+    expect(showsUnverifiedPriceBadge({ hasUnverifiedPrices: false }, 'dashboard')).toBe(false);
+  });
+
+  // « Ce que voit l acheteur : rien de nouveau » (point 12 (h)) — la pastille
+  // ne doit JAMAIS s afficher côté portail acheteur, même sur une commande
+  // marquée.
+  it('appearance portal (acheteur) + hasUnverifiedPrices=true -> false quand meme', () => {
+    expect(showsUnverifiedPriceBadge({ hasUnverifiedPrices: true }, 'portal')).toBe(false);
+  });
+
+  it('hasUnverifiedPrices absent (cohorte legacy) -> false', () => {
+    expect(showsUnverifiedPriceBadge({ hasUnverifiedPrices: undefined }, 'dashboard')).toBe(false);
+  });
+});
+
+describe('describePriceOrigin (Q17-c)', () => {
+  it("'catalog' -> libelle imprimeur explicite", () => {
+    expect(describePriceOrigin('catalog')).toBe('Prix catalogue vérifié');
+  });
+
+  it("'client_unverified' -> libelle imprimeur, jamais le nom technique", () => {
+    const label = describePriceOrigin('client_unverified');
+    expect(label).toBe('Prix catalogue non vérifiable');
+    expect(label).not.toContain('client_unverified');
+  });
+
+  it("'quoted' -> libelle imprimeur", () => {
+    expect(describePriceOrigin('quoted')).toBe('Prix issu d un devis');
+  });
+
+  it("'legacy' -> null (rien a affirmer sur une commande anterieure a la regle)", () => {
+    expect(describePriceOrigin('legacy')).toBeNull();
+  });
+
+  it('null/undefined (cohorte legacy shop_orders) -> null', () => {
+    expect(describePriceOrigin(null)).toBeNull();
+    expect(describePriceOrigin(undefined)).toBeNull();
   });
 });

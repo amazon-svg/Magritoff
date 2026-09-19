@@ -16,9 +16,37 @@ describe('OrdersService', () => {
     expect(result.orders[0]).toMatchObject({
       source: 'v1_1', shopId: 'shop-1', totalHt: 100, totalTtc: 108.5,
       customerName: 'Xav 12', customerEmail: 'xav.12@laposte.net',
-      items: [{ name: 'Affiche', quantity: 2, unitPriceHt: 50 }],
+      items: [{ name: 'Affiche', quantity: 2, unitPriceHt: 50, priceOrigin: 'catalog' }],
+      hasUnverifiedPrices: false,
     });
     expect(repository.listLegacyOrders).toHaveBeenCalledWith(['shop-1']);
+  });
+
+  // Q17-c (docs/api/CONVENTIONS.md §8.25 point 12 (h)) — la pastille atelier
+  // et le prix catalogue au détail dépendent de ces deux champs. Avant ce
+  // lot, `hasUnverifiedPrices` n existait pas sur `OrderSummary` et
+  // `toTenantSummary`/`toLegacySummary` ne le posaient jamais : ce test
+  // échoue sur le code d avant (propriété absente du résultat).
+  it('propage price_origin par ligne et has_unverified_prices — v1.1 vérifié, legacy jamais applicable', async () => {
+    const repository = repositoryStub();
+    repository.listTenantOrders = vi.fn(async () => [{
+      id: 'v11-2', shopId: 'shop-1', createdAt: '2026-09-19T10:00:00.000Z',
+      customerName: 'Xav 12', customerEmail: 'xav.12@laposte.net',
+      items: [{ name: 'Flyers', quantity: 3, unitPriceHt: 10, priceOrigin: 'client_unverified' as const }],
+      totalHt: 30, status: 'draft', hasUnverifiedPrices: true,
+    }]);
+    const service = new OrdersService(repository);
+
+    const result = await service.listTenantOrders('tenant-1', ['shop-1']);
+    const v11Order = result.orders.find((order) => order.id === 'v11-2');
+    const legacyOrder = result.orders.find((order) => order.id === 'legacy-1');
+
+    expect(v11Order).toMatchObject({
+      hasUnverifiedPrices: true,
+      items: [{ name: 'Flyers', priceOrigin: 'client_unverified' }],
+    });
+    expect(legacyOrder).toMatchObject({ hasUnverifiedPrices: false });
+    expect(legacyOrder?.items.every((item) => item.priceOrigin === null)).toBe(true);
   });
 
   it('compose les quatre vues portail et réserve le legacy à mine', async () => {
@@ -114,7 +142,8 @@ function repositoryStub(): OrdersRepository & Record<'listLegacyOrders', ReturnT
   const v11 = {
     id: 'v11-1', shopId: 'shop-1', createdAt: '2026-08-11T12:00:00.000Z',
     customerName: 'Xav 12', customerEmail: 'xav.12@laposte.net',
-    items: [{ name: 'Affiche', quantity: 2, unitPriceHt: 50 }], totalHt: 100, status: 'draft',
+    items: [{ name: 'Affiche', quantity: 2, unitPriceHt: 50, priceOrigin: 'catalog' as const }],
+    totalHt: 100, status: 'draft', hasUnverifiedPrices: false,
   };
   return {
     getTenantTaxRegime: vi.fn(async () => 'dom_tom' as const),

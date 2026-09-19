@@ -23,7 +23,7 @@
  * localStorage. Restauration au mount, fallback safe si corrompu.
  */
 
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { Fragment, type ReactNode, useEffect, useMemo, useState } from 'react';
 import { ArrowDown, ArrowUp, Ban, Check, ChevronDown, History, Loader2, Package, Pencil, Play, RotateCcw, RotateCw, Truck, X } from 'lucide-react';
 import { OrderAuditTrailModal } from '@/modules/orders/ui/storefront/OrderAuditTrailModal';
 import type { OrderUI } from '@/modules/orders/ui/storefront/PortalOrders.helpers';
@@ -334,6 +334,51 @@ export function applySort(
   return sorted;
 }
 
+// ─── Q17-c (docs/api/CONVENTIONS.md §8.25 point 12 (h)) ────────────────────
+// « Le filet d aujourd hui est l œil de la personne qui valide, et il est
+// aveugle. » Q17-a recalcule et marque ; Q17-c rend ce marquage visible à
+// l atelier. « Ce que voit l acheteur : rien de nouveau » (même point) :
+// ces deux fonctions sont pures et exportées pour être testées SANS rendu
+// React, suivant le pattern déjà en place ici (applyFilters/applySort).
+
+/**
+ * La pastille "Prix non vérifié" ne concerne QUE la grille de l atelier
+ * (`appearance === 'dashboard'`, DashboardOrders). `OrderHistoryTable` sert
+ * aussi l acheteur (`appearance === 'portal'`, PortalOrders.tsx — "Mes
+ * commandes") : Q17 n ajoute aucun libellé sur cette surface-là.
+ */
+export function showsUnverifiedPriceBadge(
+  order: Pick<OrderUI, 'hasUnverifiedPrices'>,
+  appearance: 'portal' | 'dashboard',
+): boolean {
+  return appearance === 'dashboard' && order.hasUnverifiedPrices === true;
+}
+
+/**
+ * Libellé imprimeur du `price_origin` d une ligne — jamais le nom technique
+ * (`client_unverified`, etc.) affiché tel quel à l écran. `null` quand il n y
+ * a rien d utile à affirmer (cohorte legacy, ou ligne `legacy` antérieure à
+ * la règle Q17-a — point 12 (g) : une commande antérieure se valide comme
+ * avant, sans qu on prétende avoir vérifié son prix).
+ */
+export function describePriceOrigin(
+  priceOrigin: OrderUI['items'][number]['priceOrigin'],
+): string | null {
+  switch (priceOrigin) {
+    case 'catalog':
+      return 'Prix catalogue vérifié';
+    case 'quoted':
+      return 'Prix issu d un devis';
+    case 'client_unverified':
+      return 'Prix catalogue non vérifiable';
+    case 'legacy':
+    case null:
+    case undefined:
+    default:
+      return null;
+  }
+}
+
 // ─── Composant ────────────────────────────────────────────────────────────
 
 export function OrderHistoryTable({
@@ -401,6 +446,19 @@ export function OrderHistoryTable({
   // OrderAuditTrailModal qui UNION les events status + roles.
   const canShowHistory = (o: OrderUI) => o.source === 'v1_1';
   const [orderForHistory, setOrderForHistory] = useState<OrderUI | null>(null);
+
+  // Q17-c (point 12 (h)) — détail de commande : par ligne, le prix reçu et,
+  // quand le serveur sait le calculer, le prix catalogue à côté. Réservé à
+  // l atelier (appearance dashboard) — l acheteur connaît déjà ses prix
+  // depuis son propre panier, et Q17 ne lui ajoute aucun libellé.
+  const [expandedOrderIds, setExpandedOrderIds] = useState<Set<string>>(new Set());
+  const toggleOrderDetail = (orderId: string) => {
+    setExpandedOrderIds((current) => {
+      const next = new Set(current);
+      if (next.has(orderId)) next.delete(orderId); else next.add(orderId);
+      return next;
+    });
+  };
 
   // Affiche la colonne Actions si au moins un callback est fourni OU si
   // au moins une commande v1.1 (pour le bouton Historique).
@@ -970,9 +1028,21 @@ export function OrderHistoryTable({
                 const itemsCount = o.items.reduce((s, it) => s + (it.qty ?? 1), 0);
                 const linesCount = o.items.length;
                 const statusInfo = getStatusInfo(o.status);
+                // Q17-c (point 12 (h)) — nombre de colonnes réel de CETTE
+                // ligne, pour que le `colSpan` du détail ne déborde ni ne
+                // laisse de cellules orphelines selon extraColumn/actions.
+                const columnCount = 1 // Date
+                  + (extraColumn?.position === 'after-date' ? 1 : 0)
+                  + 1 // Client
+                  + 1 // Articles
+                  + 1 // Total HT
+                  + 1 // Total TTC
+                  + (extraColumn && extraColumn.position !== 'after-date' ? 1 : 0)
+                  + 1 // Statut
+                  + (showActionsColumn ? 1 : 0);
                 return (
+                  <Fragment key={o.id}>
                   <tr
-                    key={o.id}
                     data-testid={TEST_IDS.shop.ordersRow}
                     data-order-id={o.id}
                     data-order-source={o.source}
@@ -989,12 +1059,33 @@ export function OrderHistoryTable({
                     )}
                     <td className="py-3 pr-4 text-ink truncate">{o.customer_name || '—'}</td>
                     <td className="py-3 pr-4 text-ink-muted whitespace-nowrap">
-                      <span
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-line bg-paper text-ink-2"
-                        style={{ fontSize: '11.5px' }}
-                      >
-                        {linesCount} ligne{linesCount > 1 ? 's' : ''} · {itemsCount} ex.
-                      </span>
+                      {isDashboardAppearance ? (
+                        <button
+                          type="button"
+                          onClick={() => toggleOrderDetail(o.id)}
+                          data-testid={TEST_IDS.shop.orderDetailToggle}
+                          data-order-id={o.id}
+                          aria-expanded={expandedOrderIds.has(o.id)}
+                          aria-label={`Détail des lignes de la commande ${o.id}`}
+                          title="Voir le détail des lignes (prix reçu et prix catalogue)"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-line bg-paper text-ink-2 hover:border-ink-mute-2 transition-colors"
+                          style={{ fontSize: '11.5px' }}
+                        >
+                          {linesCount} ligne{linesCount > 1 ? 's' : ''} · {itemsCount} ex.
+                          <ChevronDown
+                            className={`w-3 h-3 transition-transform ${expandedOrderIds.has(o.id) ? 'rotate-180' : ''}`}
+                            strokeWidth={2}
+                            aria-hidden="true"
+                          />
+                        </button>
+                      ) : (
+                        <span
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-line bg-paper text-ink-2"
+                          style={{ fontSize: '11.5px' }}
+                        >
+                          {linesCount} ligne{linesCount > 1 ? 's' : ''} · {itemsCount} ex.
+                        </span>
+                      )}
                     </td>
                     <td
                       className="py-3 pr-4 text-ink font-mono text-right whitespace-nowrap"
@@ -1031,6 +1122,17 @@ export function OrderHistoryTable({
                         >
                           {statusInfo.label}
                         </span>
+                        {showsUnverifiedPriceBadge(o, appearance) && (
+                          <span
+                            data-testid={TEST_IDS.shop.orderUnverifiedPriceBadge}
+                            data-order-id={o.id}
+                            title="Le serveur n a pas pu vérifier le prix d au moins une ligne de cette commande"
+                            className="inline-block px-2 py-0.5 rounded border font-mono uppercase border-warn-fg/20 bg-warn-bg text-warn-fg"
+                            style={{ fontSize: '10px', letterSpacing: '0.06em', fontWeight: 500 }}
+                          >
+                            Prix non vérifié
+                          </span>
+                        )}
                       </div>
                     </td>
                     {showActionsColumn && (
@@ -1160,6 +1262,55 @@ export function OrderHistoryTable({
                       </td>
                     )}
                   </tr>
+                  {isDashboardAppearance && expandedOrderIds.has(o.id) && (
+                    <tr
+                      data-testid={TEST_IDS.shop.orderDetailRow}
+                      data-order-id={o.id}
+                      className="border-b border-line bg-bg"
+                    >
+                      <td colSpan={columnCount} className="py-3 px-4">
+                        <table className="w-full text-left" style={{ fontSize: '12px' }}>
+                          <tbody>
+                            {o.items.map((item, index) => {
+                              const priceOriginLabel = describePriceOrigin(item.priceOrigin);
+                              return (
+                                <tr
+                                  key={`${o.id}-item-${index}`}
+                                  data-testid={TEST_IDS.shop.orderDetailLineItem}
+                                  data-order-id={o.id}
+                                  data-item-index={index}
+                                  className="border-b border-line/60 last:border-b-0"
+                                >
+                                  <td className="py-1.5 pr-4 text-ink-2">{item.name}</td>
+                                  <td className="py-1.5 pr-4 text-ink-muted font-mono whitespace-nowrap">
+                                    × {item.qty}
+                                  </td>
+                                  <td
+                                    className="py-1.5 pr-4 text-ink font-mono text-right whitespace-nowrap"
+                                    style={{ fontVariantNumeric: 'tabular-nums' }}
+                                  >
+                                    {formatEuro(item.price_ht)}
+                                  </td>
+                                  <td className="py-1.5 text-ink-muted whitespace-nowrap">
+                                    {priceOriginLabel && (
+                                      <span
+                                        data-testid={TEST_IDS.shop.orderDetailLinePriceOrigin}
+                                        data-price-origin={item.priceOrigin ?? ''}
+                                        style={{ fontSize: '11px' }}
+                                      >
+                                        {priceOriginLabel}
+                                      </span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 );
               })}
             </tbody>

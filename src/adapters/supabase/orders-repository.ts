@@ -29,14 +29,29 @@ import type {
 import type { Database, Json } from '../../types/database.types.ts';
 
 type UserScopedClient = SupabaseClient<Database>;
+/**
+ * Q17-c (point 12 (h)) — `has_unverified_prices` et `tenant_order_items.price_origin`
+ * sont des colonnes ajoutées par la migration Q17-a
+ * (`20260919000100_gescom_q17a_storefront_order_price_revaluation.sql`), pas
+ * encore reflétées dans `database.types.ts` généré (déploiement Supabase
+ * distinct de ce lot, front seul). Même convention que `customer_name`/
+ * `customer_email` juste en dessous : type élargi à la main plutôt qu une
+ * régénération qui exigerait un déploiement.
+ */
 type TenantOrderRow = Database['public']['Tables']['tenant_orders']['Row'] & {
-  tenant_order_items?: Database['public']['Tables']['tenant_order_items']['Row'][] | null;
+  tenant_order_items?: Array<{
+    product_label: string;
+    quantity: number;
+    unit_price_ht: number;
+    price_origin?: string | null;
+  }> | null;
   customer_name?: string | null;
   customer_email?: string | null;
+  has_unverified_prices?: boolean | null;
 };
 
 const TENANT_ORDER_SELECTION =
-  'id, shop_id, created_at, total_ht, status, tenant_order_items(product_label, quantity, unit_price_ht)';
+  'id, shop_id, created_at, total_ht, status, has_unverified_prices, tenant_order_items(product_label, quantity, unit_price_ht, price_origin)';
 
 export class SupabaseOrdersRepository implements OrdersRepository {
   constructor(private readonly client: UserScopedClient) {}
@@ -415,10 +430,15 @@ function toTenantOrder(row: TenantOrderRow): TenantOrderRecord {
     customerEmail: row.customer_email ?? null,
     totalHt: row.total_ht,
     status: row.status,
+    // Q17-c (point 12 (h)) — commande antérieure à Q17-a (colonne absente
+    // côté RPC/lecture directe selon le chemin) : repli sur `false`, jamais
+    // une valeur inventée.
+    hasUnverifiedPrices: row.has_unverified_prices ?? false,
     items: (row.tenant_order_items ?? []).map((item) => ({
       name: item.product_label,
       quantity: item.quantity,
       unitPriceHt: item.unit_price_ht,
+      priceOrigin: isPriceOrigin(item.price_origin) ? item.price_origin : null,
     })),
   };
 }

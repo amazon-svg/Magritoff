@@ -10,7 +10,7 @@
  * Exportes purs pour testabilite vitest (pas de dependance Supabase).
  */
 
-import type { OrderSummary } from '@/modules/orders';
+import type { OrderSummary, PriceOrigin } from '@/modules/orders';
 import { STATUS_LABELS as CANONICAL_STATUS_LABELS } from '@/modules/orders/ui/helpers/orderStatus';
 
 export type OrderSource = 'legacy' | 'v1_1';
@@ -21,10 +21,25 @@ export interface OrderUI {
   date: string; // ISO
   customer_name: string;
   customer_email: string;
-  items: Array<{ name: string; qty: number; price_ht: number }>;
+  items: Array<{
+    name: string;
+    qty: number;
+    price_ht: number;
+    /**
+     * Q17-c (docs/api/CONVENTIONS.md §8.25 point 12 (h)) — provenance du prix
+     * de la ligne, pour affichage atelier uniquement. `null`/absent pour la
+     * cohorte legacy `shop_orders` (pas de notion de vérification).
+     */
+    priceOrigin?: PriceOrigin | null;
+  }>;
   total_ht: number;
   total_ttc: number;
   status: string; // raw status (mapping vers label UI fait dans STATUS_LABELS)
+  /**
+   * Q17-c (point 12 (h)) — miroir de `tenant_orders.has_unverified_prices`
+   * (Q17-a). `false`/absent pour la cohorte legacy `shop_orders`.
+   */
+  hasUnverifiedPrices?: boolean;
 }
 
 /** Adapte le contrat HTTP Orders vers le modèle de présentation brownfield. */
@@ -39,10 +54,12 @@ export function orderSummaryToUi(order: OrderSummary): OrderUI {
       name: item.name,
       qty: item.quantity,
       price_ht: item.unitPriceHt,
+      priceOrigin: item.priceOrigin,
     })),
     total_ht: order.totalHt,
     total_ttc: order.totalTtc,
     status: order.status,
+    hasUnverifiedPrices: order.hasUnverifiedPrices,
   };
 }
 

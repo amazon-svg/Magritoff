@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import {
   dashboardOrderTransitionKey,
@@ -79,5 +81,37 @@ describe('runOrderTransition', () => {
     await runOrderTransition({ transition, reload });
 
     expect(calls).toEqual(['transition', 'reload']);
+  });
+});
+
+/**
+ * Q17-c (docs/api/CONVENTIONS.md §8.25 point 12 (c)) — `acknowledgeUnverifiedPrices`
+ * doit voyager du geste distinct de `ValidateOrderConfirmDialog` jusqu à
+ * `ordersApi.transition`, jamais deviné par défaut à `true`. `transition()`
+ * et `validate()` sont des closures internes au hook (pas de rendu React
+ * disponible dans ce dépôt pour les exercer isolément) : la preuve porte
+ * donc sur le CÂBLAGE source, comme pour les autres wire-ups de ce fichier
+ * (cf. ValidateOrderConfirmDialog.text.test.ts). Avant ce lot, aucune
+ * occurrence d `acknowledgeUnverifiedPrices` n existait dans ce fichier :
+ * ce describe échoue sur le code d avant.
+ */
+describe('useDashboardOrderManagement — acquittement prix non vérifié (Q17-c)', () => {
+  const source = readFileSync(
+    resolve(process.cwd(), 'src/modules/orders/ui/hooks/useDashboardOrderManagement.ts'),
+    'utf8',
+  );
+
+  it('transition() accepte acknowledgeUnverifiedPrices et le transmet à ordersApi.transition', () => {
+    expect(source).toContain('acknowledgeUnverifiedPrices = false');
+    expect(source).toContain('acknowledgeUnverifiedPrices,');
+  });
+
+  it('validate() accepte acknowledgeUnverifiedPrices et le relaie à transition()', () => {
+    expect(source).toContain('validate = async (orderId: string, acknowledgeUnverifiedPrices = false)');
+    expect(source).toContain("'validated', acknowledgeUnverifiedPrices)");
+  });
+
+  it('cancel() ne relaie AUCUN acquittement (annuler un brouillon n a rien à acquitter)', () => {
+    expect(source).toMatch(/transition\(order \?\? \{ id: orderId, status: 'draft' \}, 'cancelled'\);/);
   });
 });

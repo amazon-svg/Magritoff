@@ -28,6 +28,7 @@ export {
   type OrderAuditTrail,
   type OrderSummary,
   type OrdersList,
+  type PriceOrigin,
   type PortalOrdersCounters,
   type PortalOrdersResponse,
   type PortalOrdersTab,

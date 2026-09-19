@@ -11,6 +11,7 @@ import {
   isOrderNotFound,
   isPermissionDenied,
   isTransitionConflict,
+  isUnverifiedPrices,
   toRpcLikeError,
 } from '@/modules/orders/ui/storefront/orderTransitionErrors.helpers';
 
@@ -124,5 +125,27 @@ describe('isTransitionConflict', () => {
   it('409 avec un autre code ORDERS mais un texte qui ressemble a un conflit -> false (le code fait autorite)', () => {
     const rpc = { code: 'api.idempotency_key_reused', message: 'transition_not_allowed: validated -> cancelled (piege)' };
     expect(isTransitionConflict(rpc, rpc.message.toLowerCase())).toBe(false);
+  });
+});
+
+// Q17-c (docs/api/CONVENTIONS.md §8.25 point 12 (c)) — cette fonction
+// n existait pas avant ce lot : ce describe echoue sur le code d avant
+// (import inexistant).
+describe('isUnverifiedPrices', () => {
+  it('code orders.unverified_prices -> true', () => {
+    expect(isUnverifiedPrices({ code: 'orders.unverified_prices' }, 'peu importe')).toBe(true);
+  });
+
+  it("texte brut 'unverified_prices: [\"Flyers\"]' sans code -> true", () => {
+    expect(isUnverifiedPrices(null, 'unverified_prices: ["Flyers"]')).toBe(true);
+  });
+
+  it('code different -> false, meme si le texte contient unverified_prices', () => {
+    expect(isUnverifiedPrices({ code: 'orders.transition_not_allowed' }, 'unverified_prices: ["Flyers"]')).toBe(false);
+  });
+
+  it('409 api.idempotency_key_reused (code different) -> false', () => {
+    const err = apiError('api.idempotency_key_reused', 'La cle a deja servi pour une requete differente.');
+    expect(isUnverifiedPrices(toRpcLikeError(err), String(err.message).toLowerCase())).toBe(false);
   });
 });

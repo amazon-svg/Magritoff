@@ -362,6 +362,17 @@ export const TEST_IDS = {
     validateOrderDialogKeep: 'shop-validate-order-dialog-keep',
     validateOrderDialogConfirm: 'shop-validate-order-dialog-confirm',
     validateOrderDialogError: 'shop-validate-order-dialog-error',
+    // Q17-c (docs/api/CONVENTIONS.md §8.25 point 12 (h)) — l atelier voit
+    // l écart de prix que Q17-a a rendu vrai côté serveur. Pastille grille,
+    // détail de ligne par commande, confirmation nommée pour valider malgré
+    // un prix non vérifié.
+    orderUnverifiedPriceBadge: 'shop-order-unverified-price-badge',
+    orderDetailToggle: 'shop-order-detail-toggle',
+    orderDetailRow: 'shop-order-detail-row',
+    orderDetailLineItem: 'shop-order-detail-line-item',
+    orderDetailLinePriceOrigin: 'shop-order-detail-line-price-origin',
+    validateOrderDialogUnverifiedNotice: 'shop-validate-order-dialog-unverified-notice',
+    validateOrderDialogConfirmUnverified: 'shop-validate-order-dialog-confirm-unverified',
     // S-CONSO-3 (Sprint 4 Phase 2, 2026-05-18) : page de confirmation
     // commande PortalThankYou (UX Sally validee, parcours acheteur demo).
     thankYouPage: 'shop-thank-you-page',

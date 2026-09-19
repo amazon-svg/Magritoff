@@ -119,6 +119,10 @@ export function useDashboardOrderManagement({
   const transition = (
     order: Pick<OrderUI, 'id' | 'status'>,
     toStatus: 'cancelled' | 'validated' | 'in_production' | 'shipped',
+    // Q17-c (docs/api/CONVENTIONS.md §8.25 point 12 (c)) — geste DISTINCT et
+    // explicite, jamais une valeur par défaut silencieuse : porté par la
+    // confirmation nommée de ValidateOrderConfirmDialog, jamais deviné ici.
+    acknowledgeUnverifiedPrices = false,
   ): Promise<unknown | null> => {
     const operationTarget = targetKey;
     return runOrderTransition({
@@ -126,6 +130,7 @@ export function useDashboardOrderManagement({
         toStatus,
         reason: null,
         idempotencyKey: dashboardOrderTransitionKey(order.id, order.status, toStatus),
+        acknowledgeUnverifiedPrices,
       }),
       reload: async () => {
         if (operationTarget === targetKeyRef.current) await reload();
@@ -142,9 +147,9 @@ export function useDashboardOrderManagement({
       : formatCancelErrorMessage(toRpcLikeError(cause));
   };
 
-  const validate = async (orderId: string): Promise<string | null> => {
+  const validate = async (orderId: string, acknowledgeUnverifiedPrices = false): Promise<string | null> => {
     const order = orders.find((candidate) => candidate.id === orderId);
-    const cause = await transition(order ?? { id: orderId, status: 'draft' }, 'validated');
+    const cause = await transition(order ?? { id: orderId, status: 'draft' }, 'validated', acknowledgeUnverifiedPrices);
     return cause === null
       ? null
       : formatValidateErrorMessage(toRpcLikeError(cause));
