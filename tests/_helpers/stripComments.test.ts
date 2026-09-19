@@ -94,6 +94,12 @@ describe('stripComments — sur les VRAIS fichiers du depot, pas seulement des e
     'src/modules/shops/ui/storefront/PublicShop.tsx',
     'src/modules/orders/ui/storefront/PortalCart.tsx',
     'src/modules/orders/ui/hooks/useStorefrontOrderLifecycle.ts',
+    // Q17-c, round 7 — c est CE fichier, avec son
+    // `className={\`...\`}`, qui a revele le defaut de la version au
+    // `ts.createScanner` (backtick de fin pris pour un debut de gabarit,
+    // un token de 9 792 caracteres). Epingle ici pour qu une regression
+    // future ne le retrouve pas par hasard.
+    'src/modules/orders/ui/storefront/OrderHistoryTable.tsx',
   ];
 
   it.each(FICHIERS)('ne laisse AUCUN commentaire dans %s', (relPath) => {
