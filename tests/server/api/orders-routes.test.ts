@@ -356,7 +356,11 @@ describe('routes Orders API v1', () => {
     }));
     expect(putWithCorrectIfMatch.status).toBe(200);
 
-    // If-Match PRÉSENT et FAUX : refuse en 409 orders.draft_changed.
+    // If-Match PRÉSENT et FAUX : refuse en 409 api.resource_conflict.
+    // DURCISSEMENT D3 (qa-review round 1) — code du socle E10
+    // (`SHARED_PROBLEM_CODES.resourceConflict`), pas un `orders.draft_changed`
+    // inventé localement : `assertPrecondition`/`resourceConflict` sont les
+    // utilitaires PARTAGÉS (`_shared/application/concurrency.ts`).
     const putWithWrongIfMatch = await handler(new Request(`https://magrit.test/api/v1/orders/${orderId}/draft`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'If-Match': '"0000000000000000000000000000000000000000000000000000000000000000"' },
@@ -366,7 +370,32 @@ describe('routes Orders API v1', () => {
       }),
     }));
     expect(putWithWrongIfMatch.status).toBe(409);
-    await expect(putWithWrongIfMatch.json()).resolves.toMatchObject({ code: 'orders.draft_changed' });
+    await expect(putWithWrongIfMatch.json()).resolves.toMatchObject({ code: 'api.resource_conflict' });
+
+    // DURCISSEMENT D3 — `If-Match: *` et un ETag malformé sont des erreurs de
+    // SYNTAXE (400 api.if_match_invalid), jamais un 409 : `readIfMatch` les
+    // refuse AVANT toute comparaison à l état courant.
+    const putWithWildcardIfMatch = await handler(new Request(`https://magrit.test/api/v1/orders/${orderId}/draft`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'If-Match': '*' },
+      body: JSON.stringify({
+        items: [{ id: '44444444-4444-4444-8444-444444444444', productLabel: 'Flyers', quantity: 2, expectedUnitPriceHt: '75.00' }],
+        idempotencyKey: 'q17a-etag-wildcard-if-match',
+      }),
+    }));
+    expect(putWithWildcardIfMatch.status).toBe(400);
+    await expect(putWithWildcardIfMatch.json()).resolves.toMatchObject({ code: 'api.if_match_invalid' });
+
+    const putWithMalformedIfMatch = await handler(new Request(`https://magrit.test/api/v1/orders/${orderId}/draft`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'If-Match': 'pas-un-etag' },
+      body: JSON.stringify({
+        items: [{ id: '44444444-4444-4444-8444-444444444444', productLabel: 'Flyers', quantity: 2, expectedUnitPriceHt: '75.00' }],
+        idempotencyKey: 'q17a-etag-malformed-if-match',
+      }),
+    }));
+    expect(putWithMalformedIfMatch.status).toBe(400);
+    await expect(putWithMalformedIfMatch.json()).resolves.toMatchObject({ code: 'api.if_match_invalid' });
   });
 
   it('traduit un refus de validation pour prix non vérifié en Problem Details 409 (Q17-a, point 12 (c))', async () => {
