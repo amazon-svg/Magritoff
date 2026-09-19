@@ -10,21 +10,12 @@ import {
   type RunOrderTransitionDeps,
   type RunValidateOrderDeps,
 } from '@/modules/orders/ui/hooks/useDashboardOrderManagement';
-
-/**
- * Q17-c (qa-review round 1, BLOQUANT 2) — retire les commentaires (bloc ET
- * ligne) avant toute assertion de présence sur du texte source : la qa a
- * démontré qu'un `.toContain(...)` sur du texte brut reste vert quand le
- * code réellement exécuté a été muté et que l'ancienne forme survit dans un
- * commentaire juste à côté. Même remède que
- * `ShopProductCard.addAsIsWiring.test.ts` (défaut D5 de son historique) et
- * `ValidateOrderConfirmDialog.text.test.ts` (même round).
- */
-const stripComments = (src: string): string =>
-  src
-    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
-    .replace(/^\s*\/\*[\s\S]*?\*\//gm, '')
-    .replace(/^\s*\/\/.*$/gm, '');
+// Le nettoyage des commentaires vit DESORMAIS dans un seul fichier :
+// `tests/_helpers/stripComments.ts`. Il etait recopie a la main ici, et la
+// copie etait plus faible que l original — d abord le `//` ancre en debut de
+// ligne, puis (apres correction round 3) le `/* */` reste ancre. Le detail
+// et les limites sont documentes la-bas.
+import { stripComments } from '../../_helpers/stripComments';
 
 describe('dashboardOrderTransitionKey', () => {
   it('stabilise la clé par commande et transition', () => {

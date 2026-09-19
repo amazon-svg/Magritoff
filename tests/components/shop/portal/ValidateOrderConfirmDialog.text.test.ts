@@ -15,21 +15,12 @@ import {
   unverifiedLineNamesOf,
 } from '@/modules/orders/ui/storefront/ValidateOrderConfirmDialog';
 import type { OrderUI } from '@/modules/orders/ui/storefront/PortalOrders.helpers';
-
-/**
- * Q17-c (qa-review round 1, BLOQUANT 2) — un test textuel qui n asserte pas
- * sur du code REELLEMENT EXECUTE ne prouve rien : la qa a mute
- * `onConfirm(orderId, hasUnverifiedPrices)` en `onConfirm(orderId, true)` tout
- * en laissant l ancienne forme dans un commentaire juste a cote, et
- * `expect(source).toContain(...)` restait vert. Meme pattern que
- * `ShopProductCard.addAsIsWiring.test.ts` (defaut D5 de son historique) :
- * retirer les commentaires AVANT toute assertion de presence.
- */
-const stripComments = (src: string): string =>
-  src
-    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
-    .replace(/^\s*\/\*[\s\S]*?\*\//gm, '')
-    .replace(/^\s*\/\/.*$/gm, '');
+// Le nettoyage des commentaires vit DESORMAIS dans un seul fichier :
+// `tests/_helpers/stripComments.ts`. Il etait recopie a la main ici, et la
+// copie etait plus faible que l original — d abord le `//` ancre en debut de
+// ligne, puis (apres correction round 3) le `/* */` reste ancre. Le detail
+// et les limites sont documentes la-bas.
+import { stripComments } from '../../../_helpers/stripComments';
 
 const rawSource = readFileSync(
   resolve(process.cwd(), 'src/modules/orders/ui/storefront/ValidateOrderConfirmDialog.tsx'),
@@ -89,13 +80,14 @@ describe('acknowledgementFor (Q17-c, BLOQUANT 2)', () => {
 /**
  * Q17-c (qa-review round 2, BLOQUANT 1 — troisième round) — la revue a
  * démontré qu un test TEXTUEL sur `onConfirm(orderId, acknowledgementFor(order))`
- * reste vert quand le code réel est muté en `onConfirm(orderId, true)`
- * avec l ancienne forme laissée en commentaire de fin de ligne
- * (`stripComments` n ancre sa règle `//` qu en DÉBUT de ligne). Décision du
- * coordinateur : on ne répare pas ce test, on le remplace. `runValidateConfirm`
- * exécute RÉELLEMENT le chemin complet avec des dépendances injectées : ce
- * test lit l argument que le faux `onConfirm` a VRAIMENT reçu, sans lire un
- * seul caractère du fichier source.
+ * reste vert quand le code réel est muté en `onConfirm(orderId, true)` avec
+ * l ancienne forme laissée en commentaire adjacent (à l époque, un
+ * commentaire de fin de ligne survivait au nettoyage du texte source).
+ * Décision du coordinateur : on ne répare pas ce test, on le remplace.
+ * `runValidateConfirm` exécute RÉELLEMENT le chemin complet avec des
+ * dépendances injectées : ce test lit l argument que le faux `onConfirm` a
+ * VRAIMENT reçu, sans lire un seul caractère du fichier source — et reste
+ * donc valable quelle que soit la forme du commentaire, ligne ou bloc.
  */
 function buildOrder(overrides: Partial<OrderUI> = {}): OrderUI {
   return {

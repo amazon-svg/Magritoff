@@ -167,6 +167,62 @@ describe('OrdersService', () => {
     });
   });
 
+  // Quatrième chemin de fuite acheteur (qa-review round 5) — l acheteur qui
+  // ouvre "Historique" sur sa propre commande ne doit JAMAIS lire la liste
+  // nominative de ses lignes douteuses. Avant cette correction,
+  // `getAuditTrail` recopiait `event.payload` tel quel sur la branche
+  // storefront : ce test échoue sur le code d avant (les deux clés y
+  // seraient restées).
+  it("cache acknowledged_unverified_prices/acknowledged_line_labels a l acheteur (session boutique)", async () => {
+    const repository = repositoryStub();
+    repository.listAuditEvents = vi.fn(async () => [{
+      eventId: 'event-marked', orderId: 'v11-1', kind: 'status', eventType: 'status_transition',
+      actorId: 'user-1', actorEmail: 'admin@magrit.test',
+      shopCustomerAccountId: null, actedByMagritUserId: null, roleName: null,
+      payload: {
+        from_status: 'draft', to_status: 'validated',
+        metadata: {
+          via_rpc: 'transition_tenant_order_status',
+          acknowledged_unverified_prices: true,
+          acknowledged_line_labels: ['Flyers A5', 'Kakémono 80x200'],
+        },
+      },
+      occurredAt: '2026-09-19T12:00:00.000Z',
+    }]);
+    const service = new OrdersService(repository);
+
+    const result = await service.getAuditTrail('v11-1', { storefrontToken: 'opaque-storefront-token' });
+
+    const metadata = result.events[0]?.payload['metadata'] as Record<string, unknown>;
+    expect(metadata['acknowledged_unverified_prices']).toBeUndefined();
+    expect(metadata['acknowledged_line_labels']).toBeUndefined();
+    expect(metadata['via_rpc']).toBe('transition_tenant_order_status');
+  });
+
+  // Non-régression : la branche atelier (storefrontToken null, magrit_user)
+  // doit continuer à recevoir la liste nominative — c est elle qui a
+  // acquitté, elle doit pouvoir se relire.
+  it("n affecte PAS la branche atelier (storefrontToken null) — la liste nominative reste visible", async () => {
+    const repository = repositoryStub();
+    repository.listAuditEvents = vi.fn(async () => [{
+      eventId: 'event-marked', orderId: 'v11-1', kind: 'status', eventType: 'status_transition',
+      actorId: 'user-1', actorEmail: 'admin@magrit.test',
+      shopCustomerAccountId: null, actedByMagritUserId: null, roleName: null,
+      payload: {
+        from_status: 'draft', to_status: 'validated',
+        metadata: { acknowledged_unverified_prices: true, acknowledged_line_labels: ['Flyers A5'] },
+      },
+      occurredAt: '2026-09-19T12:00:00.000Z',
+    }]);
+    const service = new OrdersService(repository);
+
+    const result = await service.getAuditTrail('v11-1', { storefrontToken: null });
+
+    const metadata = result.events[0]?.payload['metadata'] as Record<string, unknown>;
+    expect(metadata['acknowledged_unverified_prices']).toBe(true);
+    expect(metadata['acknowledged_line_labels']).toEqual(['Flyers A5']);
+  });
+
   it('ne notifie une transition qu au premier traitement idempotent', async () => {
     const repository = repositoryStub();
     const service = new OrdersService(repository);

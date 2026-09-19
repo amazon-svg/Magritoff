@@ -23,24 +23,12 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-
-const stripComments = (src: string): string =>
-  src
-    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
-    .replace(/^\s*\/\*[\s\S]*?\*\//gm, '')
-    // Le `//` n est PLUS ancre en debut de ligne. Il l etait, et c etait un
-    // trou beant : un commentaire de FIN DE LIGNE survivait au nettoyage, si
-    // bien qu il suffisait d ecrire
-    //     {o.hasUnverifiedPrices && ( // showsUnverifiedPriceBadge(o, appearance) && (
-    // pour neutraliser la garde et laisser fuir la pastille/le detail cote
-    // acheteur, en laissant ce garde VERT. Mutation rejouee par le
-    // coordinateur avant correction (qa-review de Q17-c, round 3).
-    //
-    // `(^|[^:])` epargne le `//` d une URL (`https://`), seul faux positif
-    // realiste. Motif repris de `tests/architecture/order-status-single-source.test.ts`,
-    // qui l avait deja juste : la bonne version existait dans le depot, ce
-    // fichier en avait ecrit une plus faible.
-    .replace(/(^|[^:])\/\/.*$/gm, '$1');
+// Le nettoyage des commentaires vit DESORMAIS dans un seul fichier :
+// `tests/_helpers/stripComments.ts`. Il etait recopie a la main ici (round 3,
+// puis round 4), et la copie etait a chaque fois plus faible que l original —
+// d abord le `//` ancre en debut de ligne, puis le `/* */` reste ancre apres
+// que le `//` a ete corrige. Le detail et les limites sont documentes la-bas.
+import { stripComments } from '../../../_helpers/stripComments';
 
 const source = stripComments(readFileSync(
   resolve(process.cwd(), 'src/modules/orders/ui/storefront/OrderHistoryTable.tsx'),

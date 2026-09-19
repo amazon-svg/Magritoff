@@ -106,8 +106,36 @@ export class OrdersService {
     };
   }
 
+  /**
+   * QUATRIÈME CHEMIN DE FUITE ACHETEUR (qa-review round 5), corrigé —
+   * `GET /orders/{orderId}/audit`, branche `storefront_session`
+   * (`api_get_order_audit_for_identity`, `supabase/migrations/20260817000500_storefront_order_audit.sql`),
+   * rend `tenant_order_status_events.metadata` VERBATIM dans `payload`. Q17-a
+   * y écrit, sur toute transition qui quitte un `draft` marqué,
+   * `acknowledged_unverified_prices` et surtout `acknowledged_line_labels` —
+   * la LISTE NOMINATIVE des lignes que le serveur n'a pas su vérifier.
+   * Scénario : l'atelier valide en acquittant, l'acheteur ouvre le bouton
+   * « Historique » sur SA PROPRE commande (`PortalOrders.tsx` →
+   * `OrderAuditTrailModal` → cette méthode), et la réponse JSON énumère ses
+   * propres lignes douteuses par leur nom. C'est strictement plus que le
+   * `priceOrigin` déjà masqué par `hideUnverifiedPriceMarkers` : celui-là
+   * disait « cette ligne est douteuse », celui-ci les nomme.
+   *
+   * La plomberie SQL date de Q17-a et la projection de cette RPC du
+   * 2026-08-17 : ce n'est pas une régression de Q17-c. Mais cette métadonnée
+   * n'existe que parce qu'on peut acquitter, et acquitter n'est atteignable
+   * que depuis ce lot — comme pour Q19, c'est ce lot qui ouvre le robinet.
+   *
+   * Corrigé ICI, en TypeScript, sans nouvelle migration ni redéploiement
+   * d'Edge Function : `authorization.storefrontToken !== null` est EXACTEMENT
+   * la condition que la RPC elle-même teste (`if p_opaque_token is not null`)
+   * pour choisir sa branche acheteur — donc le bon endroit pour reproduire la
+   * même frontière côté façade, symétrique de `hideUnverifiedPriceMarkers`
+   * sur `listPortalOrders`.
+   */
   async getAuditTrail(orderId: string, authorization: OrderResourceAuthorization = { storefrontToken: null }): Promise<OrderAuditTrail> {
     const events = await this.repository.listAuditEvents(orderId, authorization);
+    const isBuyerBranch = authorization.storefrontToken !== null;
     return {
       events: events.map((event) => ({
         eventId: event.eventId,
@@ -119,7 +147,7 @@ export class OrdersService {
         shopCustomerAccountId: event.shopCustomerAccountId,
         actedByMagritUserId: event.actedByMagritUserId,
         roleName: event.roleName,
-        payload: { ...event.payload },
+        payload: isBuyerBranch ? hideAcknowledgedPriceMetadata(event.payload) : { ...event.payload },
         occurredAt: event.occurredAt,
       })),
     };
@@ -210,6 +238,28 @@ export function hideUnverifiedPriceMarkers(order: OrderSummary): OrderSummary {
     hasUnverifiedPrices: false,
     items: order.items.map((item) => ({ ...item, priceOrigin: null })),
   };
+}
+
+/**
+ * QUATRIÈME CHEMIN DE FUITE ACHETEUR (qa-review round 5) — retire
+ * `acknowledged_unverified_prices`/`acknowledged_line_labels` de
+ * `payload.metadata` avant de servir un événement d'audit à l'acheteur. Ces
+ * deux clés n'existent que dans `tenant_order_status_events.metadata`
+ * (Q17-a, transition `draft` → hors `draft` avec acquittement) ; tout le
+ * reste de `payload`/`metadata` (statuts, raison, indicateurs internes non
+ * nominatifs) n'est pas concerné et reste inchangé. Exportée pour être
+ * testée directement.
+ */
+export function hideAcknowledgedPriceMetadata(
+  payload: Readonly<Record<string, unknown>>,
+): Record<string, unknown> {
+  const metadata = payload['metadata'];
+  if (metadata === null || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    return { ...payload };
+  }
+  const { acknowledged_unverified_prices: _ack, acknowledged_line_labels: _labels, ...restMetadata } =
+    metadata as Record<string, unknown>;
+  return { ...payload, metadata: restMetadata };
 }
 
 function sortOrders(orders: OrderSummary[]): OrderSummary[] {
