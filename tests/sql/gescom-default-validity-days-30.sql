@@ -10,6 +10,14 @@
 -- AVANT cette migration, le scenario A echoue (defaut de colonne absent :
 -- un INSERT sans `default_validity_days` produisait NULL, jamais 30).
 --
+-- NE NECESSITE PAS `pnpm db:local:reset` -- `pnpm db:local:push` suffit.
+-- C est ecrit ici parce que l auteur du lot a joue un reset "par precaution"
+-- et a efface les comptes de la pile locale, qui est PARTAGEE entre tous les
+-- worktrees et avec le poste d Arnaud. Ce fichier est autonome : il tourne
+-- dans `begin; ... rollback;`, cree ses propres locataires et ses propres
+-- lignes de reglages, et ne lit aucune donnee preexistante. Sa seule
+-- dependance est que la migration soit APPLIQUEE.
+--
 -- CORRECTIF qa-review (2026-09-19, round suivant la premiere version de ce
 -- fichier) : la premiere version portait un scenario B qui REJOUAIT SA
 -- PROPRE COPIE d un `UPDATE` de backfill au lieu d exercer la migration
