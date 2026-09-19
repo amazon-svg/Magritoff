@@ -74,13 +74,18 @@ describe('OrdersService', () => {
     expect(repository.listLegacyOrders).not.toHaveBeenCalled();
   });
 
-  // MAJEUR 4 (qa-review round 1) — l acheteur (session boutique) ne doit
-  // JAMAIS lire `price_origin`/`has_unverified_prices` sur sa propre
-  // commande, même quand elle est réellement marquée en base. Avant cette
-  // correction, `toTenantSummary` était appliquée tel quel sur la branche
-  // storefront_session : ce test échoue sur le code d avant (les deux
-  // champs y auraient porté les valeurs sensibles).
-  it("cache price_origin/has_unverified_prices a l acheteur (session boutique), meme sur une commande reellement marquee", async () => {
+  // MAJEUR 4 (qa-review round 1, CORRIGÉ round 3) — `listPortalOrders` est
+  // une surface ACHETEUR DE BOUT EN BOUT : `price_origin`/`has_unverified_prices`
+  // ne doivent jamais y survivre, sur AUCUNE des deux branches
+  // d autorisation. Round 1 ne masquait que `storefront_session` et un
+  // test nommait à tort la branche `magrit_user` "l atelier" alors qu elle
+  // sert l acheteur titulaire d un compte Magrit sans cookie de session
+  // boutique (valideur/approbateur de l organisation cliente) — ce test
+  // gravait la fuite en non-régression sous un nom faux. Corrigé : les deux
+  // scénarios ci-dessous prouvent le masquage sur les DEUX branches. Avant
+  // la correction round 3, le second cas échoue (`magrit_user` laissait
+  // passer les valeurs réelles).
+  it("cache price_origin/has_unverified_prices a l acheteur sur la branche storefront_session, meme sur une commande reellement marquee", async () => {
     const repository = repositoryStub();
     repository.getStorefrontPortalOrders = vi.fn(async () => ({
       orders: [{
@@ -102,11 +107,7 @@ describe('OrdersService', () => {
     expect(order?.items.every((item) => item.priceOrigin === null)).toBe(true);
   });
 
-  // Non-régression : le masquage ci-dessus est SCOPÉ à la branche
-  // storefront_session — l atelier (magrit_user) doit continuer à recevoir
-  // les vraies valeurs, faute de quoi la pastille Q17-c (point 12 (h))
-  // redeviendrait aveugle pour tout le monde.
-  it("n affecte PAS listPortalOrders(magrit_user) — l atelier recoit toujours les vraies valeurs", async () => {
+  it("cache price_origin/has_unverified_prices a l acheteur sur la branche magrit_user AUSSI (valideur/approbateur sans cookie boutique) — les quatre jeux de donnees", async () => {
     const repository = repositoryStub();
     repository.listTenantOrdersByIds = vi.fn(async () => [{
       id: 'v11-1', shopId: 'shop-1', createdAt: '2026-08-11T12:00:00.000Z',
@@ -118,7 +119,38 @@ describe('OrdersService', () => {
 
     const result = await service.listPortalOrders('shop-1', { kind: 'magrit_user', userId: id('user-1') });
 
-    const order = result.datasets.mine.find((candidate) => candidate.id === 'v11-1');
+    for (const dataset of [result.datasets.mine, result.datasets.to_validate]) {
+      const order = dataset.find((candidate) => candidate.id === 'v11-1');
+      if (!order) continue;
+      expect(order.hasUnverifiedPrices).toBe(false);
+      expect(order.items.every((item) => item.priceOrigin === null)).toBe(true);
+    }
+    // v11-1 est present dans mine ET to_validate (fixture repositoryStub) :
+    // au moins une des deux verifications ci-dessus doit avoir reellement
+    // trouve la commande, sinon le test ne prouve rien.
+    const foundSomewhere = [...result.datasets.mine, ...result.datasets.to_validate]
+      .some((candidate) => candidate.id === 'v11-1');
+    expect(foundSomewhere).toBe(true);
+  });
+
+  // Non-régression : `listTenantOrders` (grille ATELIER, `DashboardOrders`,
+  // seule consommatrice réelle vérifiée par grep) n est PAS affectée par le
+  // masquage de `listPortalOrders` — l atelier doit continuer à recevoir
+  // les vraies valeurs, faute de quoi la pastille Q17-c (point 12 (h))
+  // redeviendrait aveugle pour de bon.
+  it("n affecte PAS listTenantOrders (grille atelier, DashboardOrders) — les vraies valeurs restent visibles", async () => {
+    const repository = repositoryStub();
+    repository.listTenantOrders = vi.fn(async () => [{
+      id: 'v11-1', shopId: 'shop-1', createdAt: '2026-08-11T12:00:00.000Z',
+      customerName: 'Xav 12', customerEmail: 'xav.12@laposte.net',
+      items: [{ name: 'Flyers', quantity: 3, unitPriceHt: 10, priceOrigin: 'client_unverified' as const }],
+      totalHt: 30, status: 'draft', hasUnverifiedPrices: true,
+    }]);
+    const service = new OrdersService(repository);
+
+    const result = await service.listTenantOrders('tenant-1', ['shop-1']);
+
+    const order = result.orders.find((candidate) => candidate.id === 'v11-1');
     expect(order?.hasUnverifiedPrices).toBe(true);
     expect(order?.items[0]?.priceOrigin).toBe('client_unverified');
   });

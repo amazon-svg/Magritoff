@@ -5,8 +5,10 @@ import {
   dashboardOrderTransitionKey,
   runDashboardOrderTransition,
   runOrderTransition,
+  runValidateOrder,
   type DashboardOrderTransitionDeps,
   type RunOrderTransitionDeps,
+  type RunValidateOrderDeps,
 } from '@/modules/orders/ui/hooks/useDashboardOrderManagement';
 
 /**
@@ -163,23 +165,79 @@ describe('runDashboardOrderTransition (Q17-c, BLOQUANT 2)', () => {
 });
 
 /**
+ * Q17-c (qa-review round 2, BLOQUANT 1 — troisième round) — le test textuel
+ * qui vérifiait le câblage de `validate()` a été démontré défaillant : un
+ * `//` de fin de ligne défait `stripComments`, et la mutation exacte
+ * (`transition(order ?? {...}, 'validated', true)` figé, ancien texte en
+ * commentaire adjacent) restait invisible. Décision du coordinateur : on ne
+ * répare pas ce test, on le remplace. `validate()` délègue désormais à
+ * `runValidateOrder`, exportée et exercée ci-dessous avec un faux
+ * `transition` — comportement réel, aucune lecture de source.
+ */
+describe('runValidateOrder (Q17-c, BLOQUANT 1 round 3)', () => {
+  function deps(transition: RunValidateOrderDeps['transition'], order?: { id: string; status: string }): RunValidateOrderDeps {
+    return {
+      findOrder: () => order,
+      transition,
+    };
+  }
+
+  it('acknowledgeUnverifiedPrices=true est transmis TEL QUEL à transition(), jamais réécrit', async () => {
+    const transition = vi.fn().mockResolvedValue(null);
+    const order = { id: 'order-1', status: 'draft' };
+
+    await runValidateOrder('order-1', true, deps(transition, order));
+
+    expect(transition).toHaveBeenCalledWith(order, 'validated', true);
+  });
+
+  it('acknowledgeUnverifiedPrices=false est transmis TEL QUEL — jamais figé à true par défaut', async () => {
+    const transition = vi.fn().mockResolvedValue(null);
+    const order = { id: 'order-1', status: 'draft' };
+
+    await runValidateOrder('order-1', false, deps(transition, order));
+
+    expect(transition).toHaveBeenCalledWith(order, 'validated', false);
+  });
+
+  it('commande introuvable localement -> repli { id: orderId, status: draft }, acquittement toujours transmis tel quel', async () => {
+    const transition = vi.fn().mockResolvedValue(null);
+
+    await runValidateOrder('order-inconnu', true, deps(transition, undefined));
+
+    expect(transition).toHaveBeenCalledWith({ id: 'order-inconnu', status: 'draft' }, 'validated', true);
+  });
+
+  it('transition en échec -> message formaté retourné (pas la cause brute)', async () => {
+    const transition = vi.fn().mockResolvedValue(new Error('permission_denied: order identity mismatch'));
+
+    const result = await runValidateOrder('order-1', false, deps(transition, { id: 'order-1', status: 'draft' }));
+
+    expect(result).not.toBeNull();
+    expect(result).not.toBeInstanceOf(Error);
+  });
+
+  it('transition réussie -> null', async () => {
+    const transition = vi.fn().mockResolvedValue(null);
+
+    const result = await runValidateOrder('order-1', false, deps(transition, { id: 'order-1', status: 'draft' }));
+
+    expect(result).toBeNull();
+  });
+});
+
+/**
  * Câblage restant, non extractible en fonction pure (closures internes du
- * hook React) : vérifié sur le texte source, commentaires retirés d'abord
- * (BLOQUANT 2 — voir `stripComments` en tête de fichier). Le comportement
- * de fond (le booléen réellement transmis) est, lui, prouvé ci-dessus sans
- * dépendre de la lecture du texte.
+ * hook React) : vérifié sur le texte source, commentaires retirés d'abord.
+ * `cancel()` n a pas été identifiée comme vulnérable par la qa (elle ne
+ * transmet aucun acquittement, `transition()` défaut à `false` par
+ * construction) — laissée en l état, non touchée par cette correction.
  */
 describe('useDashboardOrderManagement — câblage source, commentaires retirés (Q17-c)', () => {
   const source = stripComments(readFileSync(
     resolve(process.cwd(), 'src/modules/orders/ui/hooks/useDashboardOrderManagement.ts'),
     'utf8',
   ));
-
-  it('validate() relaie son propre paramètre acknowledgeUnverifiedPrices à transition(), jamais une constante', () => {
-    expect(source).toContain('validate = async (orderId: string, acknowledgeUnverifiedPrices = false)');
-    expect(source).toContain("'validated', acknowledgeUnverifiedPrices)");
-    expect(source).not.toContain("transition(order ?? { id: orderId, status: 'draft' }, 'validated', true)");
-  });
 
   it('cancel() ne relaie AUCUN acquittement (annuler un brouillon n a rien à acquitter)', () => {
     expect(source).toMatch(/transition\(order \?\? \{ id: orderId, status: 'draft' \}, 'cancelled'\);/);

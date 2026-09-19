@@ -8,8 +8,12 @@
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
-import { acknowledgementFor, unverifiedLineNamesOf } from '@/modules/orders/ui/storefront/ValidateOrderConfirmDialog';
+import { describe, expect, it, vi } from 'vitest';
+import {
+  acknowledgementFor,
+  runValidateConfirm,
+  unverifiedLineNamesOf,
+} from '@/modules/orders/ui/storefront/ValidateOrderConfirmDialog';
 import type { OrderUI } from '@/modules/orders/ui/storefront/PortalOrders.helpers';
 
 /**
@@ -51,14 +55,6 @@ describe('ValidateOrderConfirmDialog — libellé atelier (BCP-5)', () => {
 // ce composant n avait ni ce libellé ni cet acquittement explicite : ces
 // tests échouent sur le code d avant.
 describe('ValidateOrderConfirmDialog — geste distinct prix non vérifié (Q17-c)', () => {
-  it('le confirm relaie acknowledgementFor(order), jamais une valeur figée (BLOQUANT 2)', () => {
-    expect(source).toContain('onConfirm(orderId, acknowledgementFor(order))');
-    // Ceinture et bretelles : aucune forme figée ne doit survivre, même
-    // partiellement, une fois les commentaires retirés.
-    expect(source).not.toContain('onConfirm(orderId, true)');
-    expect(source).not.toContain('onConfirm(orderId, hasUnverifiedPrices)');
-  });
-
   it('un bouton de confirmation DISTINCT porte le libellé exact du point 12 (c)', () => {
     expect(source).toContain('Valider malgré les prix non vérifiés');
     expect(source).toContain('validateOrderDialogConfirmUnverified');
@@ -87,6 +83,94 @@ describe('acknowledgementFor (Q17-c, BLOQUANT 2)', () => {
 
   it('hasUnverifiedPrices absent (cohorte legacy) -> false, jamais true par defaut', () => {
     expect(acknowledgementFor({ hasUnverifiedPrices: undefined })).toBe(false);
+  });
+});
+
+/**
+ * Q17-c (qa-review round 2, BLOQUANT 1 — troisième round) — la revue a
+ * démontré qu un test TEXTUEL sur `onConfirm(orderId, acknowledgementFor(order))`
+ * reste vert quand le code réel est muté en `onConfirm(orderId, true)`
+ * avec l ancienne forme laissée en commentaire de fin de ligne
+ * (`stripComments` n ancre sa règle `//` qu en DÉBUT de ligne). Décision du
+ * coordinateur : on ne répare pas ce test, on le remplace. `runValidateConfirm`
+ * exécute RÉELLEMENT le chemin complet avec des dépendances injectées : ce
+ * test lit l argument que le faux `onConfirm` a VRAIMENT reçu, sans lire un
+ * seul caractère du fichier source.
+ */
+function buildOrder(overrides: Partial<OrderUI> = {}): OrderUI {
+  return {
+    id: 'order-1', source: 'v1_1', date: '2026-09-19T10:00:00Z',
+    customer_name: 'Client', customer_email: 'client@test.fr',
+    items: [], total_ht: 100, total_ttc: 120, status: 'draft',
+    ...overrides,
+  };
+}
+
+describe('runValidateConfirm (Q17-c, BLOQUANT 1 round 3)', () => {
+  it('commande marquee (hasUnverifiedPrices=true) -> onConfirm recoit true, jamais figee', async () => {
+    const onConfirm = vi.fn().mockResolvedValue(null);
+    const onSubmittingChange = vi.fn();
+    const onError = vi.fn();
+    const onClose = vi.fn();
+
+    await runValidateConfirm(buildOrder({ hasUnverifiedPrices: true }), {
+      onConfirm, onSubmittingChange, onError, onClose,
+    });
+
+    expect(onConfirm).toHaveBeenCalledWith('order-1', true);
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('commande non marquee (hasUnverifiedPrices=false) -> onConfirm recoit false, jamais true par defaut', async () => {
+    const onConfirm = vi.fn().mockResolvedValue(null);
+    const deps = { onConfirm, onSubmittingChange: vi.fn(), onError: vi.fn(), onClose: vi.fn() };
+
+    await runValidateConfirm(buildOrder({ hasUnverifiedPrices: false }), deps);
+
+    expect(onConfirm).toHaveBeenCalledWith('order-1', false);
+  });
+
+  it('hasUnverifiedPrices absent (cohorte legacy) -> onConfirm recoit false', async () => {
+    const onConfirm = vi.fn().mockResolvedValue(null);
+    const deps = { onConfirm, onSubmittingChange: vi.fn(), onError: vi.fn(), onClose: vi.fn() };
+
+    await runValidateConfirm(buildOrder({ hasUnverifiedPrices: undefined }), deps);
+
+    expect(onConfirm).toHaveBeenCalledWith('order-1', false);
+  });
+
+  it('order=null -> AUCUN appel a onConfirm (pas de commande ouverte)', async () => {
+    const onConfirm = vi.fn();
+    const deps = { onConfirm, onSubmittingChange: vi.fn(), onError: vi.fn(), onClose: vi.fn() };
+
+    await runValidateConfirm(null, deps);
+
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it('onConfirm renvoie un message d erreur -> onError le recoit, onClose NON appele', async () => {
+    const onConfirm = vi.fn().mockResolvedValue('Erreur serveur');
+    const onError = vi.fn();
+    const onClose = vi.fn();
+
+    await runValidateConfirm(buildOrder({ hasUnverifiedPrices: true }), {
+      onConfirm, onSubmittingChange: vi.fn(), onError, onClose,
+    });
+
+    expect(onError).toHaveBeenCalledWith('Erreur serveur');
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('ordre des effets : submitting(true), puis appel, puis submitting(false)', async () => {
+    const calls: string[] = [];
+    const onConfirm = vi.fn().mockImplementation(async () => { calls.push('confirm'); return null; });
+    const onSubmittingChange = vi.fn().mockImplementation((v: boolean) => calls.push(`submitting:${v}`));
+
+    await runValidateConfirm(buildOrder(), {
+      onConfirm, onSubmittingChange, onError: vi.fn(), onClose: vi.fn(),
+    });
+
+    expect(calls).toEqual(['submitting:true', 'confirm', 'submitting:false']);
   });
 });
 

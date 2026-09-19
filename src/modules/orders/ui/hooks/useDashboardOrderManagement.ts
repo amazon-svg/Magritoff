@@ -104,6 +104,38 @@ export function runDashboardOrderTransition(
   });
 }
 
+export interface RunValidateOrderDeps {
+  findOrder: (orderId: string) => Pick<OrderUI, 'id' | 'status'> | undefined;
+  transition: (
+    order: Pick<OrderUI, 'id' | 'status'>,
+    toStatus: 'validated',
+    acknowledgeUnverifiedPrices: boolean,
+  ) => Promise<unknown | null>;
+}
+
+/**
+ * Q17-c (qa-review round 2, BLOQUANT 1 — troisième round) — `validate()`
+ * EXTRAITE et exportée. Le round 2 prouvait déjà `runDashboardOrderTransition`
+ * en comportement, mais la closure `validate` qui décide QUEL booléen lui
+ * transmettre restait interne au hook, prouvée seulement par un test
+ * textuel — et la qa a démontré qu un `//` de fin de ligne défait
+ * `stripComments`. Cette fonction exécute RÉELLEMENT le chemin (recherche
+ * de la commande incluse) avec une `transition` injectée : un test qui
+ * l appelle avec un faux `transition` espion lit l argument QU IL A
+ * VRAIMENT REÇU, aucun texte source à faire mentir.
+ */
+export async function runValidateOrder(
+  orderId: string,
+  acknowledgeUnverifiedPrices: boolean,
+  deps: RunValidateOrderDeps,
+): Promise<string | null> {
+  const order = deps.findOrder(orderId);
+  const cause = await deps.transition(order ?? { id: orderId, status: 'draft' }, 'validated', acknowledgeUnverifiedPrices);
+  return cause === null
+    ? null
+    : formatValidateErrorMessage(toRpcLikeError(cause));
+}
+
 export function useDashboardOrderManagement({
   enabled,
   tenantId,
@@ -189,13 +221,11 @@ export function useDashboardOrderManagement({
       : formatCancelErrorMessage(toRpcLikeError(cause));
   };
 
-  const validate = async (orderId: string, acknowledgeUnverifiedPrices = false): Promise<string | null> => {
-    const order = orders.find((candidate) => candidate.id === orderId);
-    const cause = await transition(order ?? { id: orderId, status: 'draft' }, 'validated', acknowledgeUnverifiedPrices);
-    return cause === null
-      ? null
-      : formatValidateErrorMessage(toRpcLikeError(cause));
-  };
+  const validate = (orderId: string, acknowledgeUnverifiedPrices = false): Promise<string | null> =>
+    runValidateOrder(orderId, acknowledgeUnverifiedPrices, {
+      findOrder: (id) => orders.find((candidate) => candidate.id === id),
+      transition,
+    });
 
   const startProduction = async (order: OrderUI) => {
     await transition(order, 'in_production');

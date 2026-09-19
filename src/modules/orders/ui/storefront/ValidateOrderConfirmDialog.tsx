@@ -65,6 +65,41 @@ export function acknowledgementFor(order: Pick<OrderUI, 'hasUnverifiedPrices'> |
   return order?.hasUnverifiedPrices === true;
 }
 
+export interface RunValidateConfirmDeps {
+  onConfirm: (orderId: string, acknowledgeUnverifiedPrices: boolean) => Promise<string | null>;
+  onSubmittingChange: (submitting: boolean) => void;
+  onError: (message: string | null) => void;
+  onClose: () => void;
+}
+
+/**
+ * Q17-c (qa-review round 2, BLOQUANT 1 — troisième round) — `handleConfirm`
+ * EXTRAITE et exportée. Le round 2 extrayait déjà `acknowledgementFor`
+ * comme fonction pure, mais laissait l'ORCHESTRATION (l'appel à `onConfirm`
+ * avec ce booléen) dans une closure React fermée sur `useState`, prouvée
+ * seulement par un test textuel — et la qa a démontré qu'un `//` de fin de
+ * ligne défait `stripComments`. Cette fonction exécute RÉELLEMENT le
+ * chemin complet (calcul de l'acquittement inclus) avec des dépendances
+ * injectées : un test qui l'appelle avec un `onConfirm` espion lit
+ * l'argument QU IL A VRAIMENT REÇU, aucun texte source à faire mentir.
+ */
+export async function runValidateConfirm(
+  order: OrderUI | null,
+  deps: RunValidateConfirmDeps,
+): Promise<void> {
+  const orderId = order?.id ?? null;
+  if (!orderId) return;
+  deps.onSubmittingChange(true);
+  deps.onError(null);
+  const errMsg = await deps.onConfirm(orderId, acknowledgementFor(order));
+  deps.onSubmittingChange(false);
+  if (errMsg) {
+    deps.onError(errMsg);
+    return;
+  }
+  deps.onClose();
+}
+
 export function ValidateOrderConfirmDialog({
   order,
   onConfirm,
@@ -80,16 +115,12 @@ export function ValidateOrderConfirmDialog({
   const unverifiedLineNames = unverifiedLineNamesOf(order);
 
   async function handleConfirm() {
-    if (!orderId) return;
-    setSubmitting(true);
-    setError(null);
-    const errMsg = await onConfirm(orderId, acknowledgementFor(order));
-    setSubmitting(false);
-    if (errMsg) {
-      setError(errMsg);
-      return;
-    }
-    onClose();
+    await runValidateConfirm(order, {
+      onConfirm,
+      onSubmittingChange: setSubmitting,
+      onError: setError,
+      onClose,
+    });
   }
 
   function handleOpenChange(next: boolean) {

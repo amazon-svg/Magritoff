@@ -38,19 +38,39 @@ export class OrdersService {
     return { orders: sortOrders([...legacy.map(toLegacySummary), ...tenant.map((order) => toTenantSummary(order, taxRate))]) };
   }
 
+  /**
+   * MAJEUR 4 (qa-review round 1), CORRIGÉ round 3 — `listPortalOrders` est
+   * une surface ACHETEUR DE BOUT EN BOUT, les DEUX branches
+   * d'autorisation confondues. Vérifié par grep exhaustif (round 3) :
+   * `OrdersApiClient.listPortalOrders` n'a que deux appelants dans tout le
+   * dépôt, `useStorefrontOrderList.ts` et `useStorefrontOrderLifecycle.ts`
+   * — tous deux des hooks acheteur. L'atelier n'appelle JAMAIS cette
+   * méthode : il utilise `listTenantOrders`. La branche `magrit_user`
+   * (ci-dessous) ne se déclenche pas pour un membre de l'atelier, mais
+   * pour l'acheteur titulaire d'un compte Magrit SANS cookie de session
+   * boutique valide — précisément le cas d'un valideur/approbateur de
+   * l'organisation cliente, celui pour qui les onglets `to_validate`/
+   * `to_approve` existent. `hideUnverifiedPriceMarkers` s'applique donc
+   * sur la TOTALITÉ de la réponse, une seule fois, après construction des
+   * quatre jeux de données — jamais une branche seulement.
+   */
   async listPortalOrders(shopId: string, authorization: PortalOrdersAuthorization): Promise<PortalOrdersResponse> {
+    const response = await this.buildPortalOrdersResponse(shopId, authorization);
+    return {
+      counters: response.counters,
+      datasets: {
+        mine: response.datasets.mine.map(hideUnverifiedPriceMarkers),
+        to_validate: response.datasets.to_validate.map(hideUnverifiedPriceMarkers),
+        to_approve: response.datasets.to_approve.map(hideUnverifiedPriceMarkers),
+        to_produce: response.datasets.to_produce.map(hideUnverifiedPriceMarkers),
+      },
+    };
+  }
+
+  private async buildPortalOrdersResponse(shopId: string, authorization: PortalOrdersAuthorization): Promise<PortalOrdersResponse> {
     if (authorization.kind === 'storefront_session') {
       const storefront = await this.repository.getStorefrontPortalOrders(shopId, authorization.opaqueToken);
-      // MAJEUR 4 (qa-review round 1) — l acheteur (session boutique) ne
-      // reçoit JAMAIS `price_origin`/`has_unverified_prices` sur sa propre
-      // commande : ce sont des marqueurs de confiance INTERNES (point 12
-      // (h), « ce que voit l acheteur : rien de nouveau »), et le cadrage
-      // refuse explicitement de les graver dans un contrat publié parce
-      // qu ils doivent DISPARAÎTRE (point 12 (f)). `hideUnverifiedPriceMarkers`
-      // neutralise les deux champs sur CETTE branche uniquement — jamais sur
-      // `listTenantOrders` ni sur la branche `magrit_user` ci-dessous,
-      // consommées par l atelier.
-      const mine = sortOrders(storefront.orders.map((order) => hideUnverifiedPriceMarkers(toTenantSummary(order, taxRateFor(storefront.taxRegime)))));
+      const mine = sortOrders(storefront.orders.map((order) => toTenantSummary(order, taxRateFor(storefront.taxRegime))));
       return {
         counters: { mine: mine.length, to_validate: 0, to_approve: 0, to_produce: 0 },
         datasets: { mine, to_validate: [], to_approve: [], to_produce: [] },
@@ -167,9 +187,22 @@ function toTenantSummary(order: TenantOrderRecord, taxRate: number): OrderSummar
 }
 
 /**
- * MAJEUR 4 (qa-review round 1) — neutralise `price_origin`/`hasUnverifiedPrices`
- * avant de servir une commande à l acheteur (session boutique). Exportée
- * pour être testée directement, sans dépendre du câblage de `listPortalOrders`.
+ * MAJEUR 4 (qa-review round 1, corrigé round 3) — neutralise
+ * `price_origin`/`hasUnverifiedPrices` avant de servir une commande à
+ * l acheteur. Appliquée sur la TOTALITÉ de `listPortalOrders` (les deux
+ * branches d autorisation, les quatre jeux de données) : voir le
+ * commentaire de `listPortalOrders` pour la preuve que cette route entière
+ * est une surface acheteur, jamais atelier. Exportée pour être testée
+ * directement.
+ *
+ * TROISIÈME CHEMIN, NOMMÉ ET LAISSÉ OUVERT (round 3, pas une régression de
+ * ce lot — elle vient de Q17-a) : `getDraftOrder`/`draftOrderSchema`
+ * exposent aussi `priceOrigin` (non nullable) et `hasUnverifiedPrices`, et
+ * `GET /api/v1/orders/{orderId}/draft` est appelé par trois hooks
+ * acheteur, vérifié par grep exhaustif (round 3) : `useStorefrontOrderLifecycle.ts`,
+ * `useStorefrontOrderEditor.ts`, `useStorefrontOrderReceipt.ts`. Ce lot ne
+ * le ferme pas — périmètre de Q17-c limité à `OrderSummary`/`listPortalOrders`
+ * — et ne le classe pas sous « corrigé ».
  */
 export function hideUnverifiedPriceMarkers(order: OrderSummary): OrderSummary {
   return {
