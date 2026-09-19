@@ -361,3 +361,46 @@ echappe a C1. Q14-b devra exposer un verdict C2 seul, ou le cadrage trancher.
 Gates apres durcissements : `pnpm typecheck` 0 erreur ; `pnpm test` 321
 fichiers passes / 12 skip, **3173 tests passes / 88 skip, 0 echec** ;
 `pnpm test:architecture` 288/288.
+
+## Recette navigateur (coordinateur, 2026-09-19) — CONCLUANTE
+
+Exigee par le cadrage 3.7 (b-ter) 4 : clic, tactile, clavier, arbre
+d accessibilite. Jouee sur un SECOND serveur local (port 5178) servant la
+branche du lot depuis son worktree, base locale `magritoff-v5` — la copie de
+travail d Arnaud est restee sur `main`, intacte. Boutique `recette-boutique`,
+3 produits ; le prix d un seul (« Affiches A2 — 10 ex. ») a ete mis a 0 EUR en
+base LOCALE pour produire le cas, puis remis a 65 EUR apres la recette.
+
+| Geste | Attendu | Constate |
+|---|---|---|
+| Produits au prix ferme (89 EUR, 39 EUR) | bouton actif, aucun motif | `disabled: false`, `aria-describedby` absent, aucun texte de motif |
+| Produit sans prix ferme (0 EUR) | bouton rendu, desactive, grise, motif visible | `disabled: true`, `cursor: not-allowed`, un seul motif rendu |
+| Motif relie au bouton | `aria-describedby` resolu | `aria-describedby=":r3:"` -> « Configurez ce produit pour obtenir son prix definitif. » ; l arbre d accessibilite porte cette phrase en `description` du bouton |
+| Clic sur le bouton grise | aucun effet | l outil ne peut pas interagir : « element did not become interactive ». Panier inchange, « Panier (0 article) » |
+| Clavier | non atteignable au Tab | `focus()` refuse (`document.activeElement !== bouton`), absent de `button:not([disabled])` |
+| Aucune infobulle | pas de `title` | attribut `title` absent |
+| Ecran etroit (500 px, minimum autorise par la fenetre) | motif lisible sans survol | motif visible, dans la largeur, aucun debordement horizontal |
+| `data-reason` | `price-not-firm` | conforme |
+
+**Preuve visuelle** : capture de page complete au scratchpad de session
+(`q14a-page.png`) — les trois boutons de chaque carte (« Configurer »,
+« Personnaliser », « + Panier »), le « + Panier » pali sur la seule carte a
+0 EUR, et le motif en dessous.
+
+**Non joue** : le bandeau de renouvellement a deux sections (il faut une
+commande passee puis renouvelee ; couvert par les tests unitaires de
+`renewalBannerSections` et par le test du hook). L audit `axe` automatise
+n a pas ete lance.
+
+**Releve au passage, hors lot** : la tuile de gamme « Affiches » affiche
+« des 2 500,00 EUR HT » avec le badge « MARCHE » quand le seul produit de la
+gamme n a pas de prix ferme — le plancher tombe sur l estimation de marche.
+C est le comportement prevu par le point 4 (b), territoire de BCP-4 ; note ici
+parce qu un lecteur de la recette pourrait le prendre pour un defaut de Q14-a.
+
+**Incident d environnement, sans rapport avec le lot** : la fonction locale
+`magrit-api` rendait 503 `BOOT_ERROR` avant la recette. Diagnostic verifie :
+moteur local reste bloque, repare par `supabase stop` puis `supabase start`.
+Ce n etait PAS une regression du code fusionne de `main` — dit ici parce que
+le journal du moteur accusait `src/types/database.types.ts`, ce qui fait
+perdre du temps a qui le lit sans redemarrer d abord.
