@@ -4299,6 +4299,14 @@ La fiche propose `src/services/exports/orders.ts`. **Il n'existe aucun dossier `
 > - **Motif (1), « une boutique qui a l'air cassée », est TOMBÉ** : le 2026-09-16, sur décision d'Arnaud (« exclure »), les 23 produits sans prix ont été retirés de la boutique ERAM par `shops.excluded_product_ids` (trace : `SPRINT_HANDOFF.md`, bloc « Données ERAM »). **Motif (2), « l'infobulle ne se lit pas au tactile », reste ENTIER** et il est réglé ici : le motif est un **libellé visible en permanence sous les boutons**, rendu depuis une table fermée indexée par le motif de `canAddAsIs`, et **associé au bouton** pour les technologies d'assistance. Libellé, emplacement, accessibilité et `data-testid` : **point 3.7 (b) à (b-ter)**.
 > - **Q14-a devient lançable** : la dépendance « correction humaine des données ERAM » est levée par l'exclusion. Il lui reste **une porte avant déploiement**, pas avant développement (point 3.7 (f)).
 > - **Relevé à part, sans le résoudre** : la PR #11 (HopStudio) a introduit un **second chemin vers Clariprint, par espace**, qui ne passe ni par la passerelle, ni par le limiteur, ni par le contrat en préparation. Ce que cela change ou non : **point 11**.
+>
+> **DIXIÈME ROUND — décision d'Arnaud du 2026-09-19, opposable : « recalcul coté serveur lance le lot ». C'est Q17, et elle devient un lot.**
+>
+> - **Le serveur cesse de croire le prix que le navigateur lui envoie.** Le constat est celui du point 3.7 (g), écrit le 2026-09-17 et revérifié fichier par fichier le 2026-09-19 : une session boutique valide suffit, **par appel direct à l'API**, à créer une commande à n'importe quel prix positif ou nul, zéro compris. Le cadrage complet est un **point autonome, le point 12**, parce qu'il ne relève ni du normaliseur ni du configurateur : il porte sur la commande.
+> - **Le lot se coupe en trois, sur la même ligne de fracture que Q14.** **Q17-a** (le produit de catalogue, serveur et base) et **Q17-c** (ce que l'atelier voit) sont **lançables tout de suite** : ni campagne, ni contrat, ni normaliseur. **Q17-b** (le produit configuré) dépend de BCP-1b, donc de la campagne.
+> - **Le produit configuré ne se rechiffre PAS au panier.** Rappeler Clariprint à chaque validation mettrait la facture et la disponibilité d'un tiers sur le chemin critique de la prise de commande. Le devis devient une **ressource serveur** référencée par identifiant, et **cela ajoute une exigence à BCP-1b**, à écrire au contrat avant son développement : l'opération de chiffrage **persiste** son résultat et rend un `quote_id` avec sa date d'expiration (point 12 (a), et amendement au point 2.4).
+> - **Coût en appels facturés : ZÉRO**, à la création, à la modification et à la validation. C'est un critère de recette, pas un effet de bord.
+> - **Quatre constats nouveaux, trouvés en instruisant, qui n'étaient pas dans le (g)** : (i) un produit **configuré** arrive au panier avec un prix que `resolvePrice` étiquette `library_cached` — donc « ferme » — alors qu'il peut être une **estimation de prix marché** (point 12 (a)) ; (ii) **un devis Clariprint survit à la configuration qui aurait dû le remplacer** — configurer une suggestion de Magrit fait payer le prix d'avant la configuration, étiqueté `clariprint` (point 12 (a), constat 3, **Q20**) ; (iii) `api_create_storefront_order` **ne vérifie pas** que le `product_id` d'une ligne appartient au catalogue de la boutique (point 12 (b)) ; (iv) `tenant_order_items` **n'a aucune immuabilité**, contrairement à `commercial_order_lines` : un membre de l'atelier peut réécrire le prix d'une ligne d'une commande **livrée** (point 12 (g)).
 
 #### 1. Ce que le dépôt montre en plus des diagnostics — onze constats
 
@@ -4790,6 +4798,18 @@ Vérifications après déploiement : le job figure dans `cron.job`, et une conso
 **Ce qui ne change pas par rapport au premier jet :**
 - Le nom `clariprint-quotes`. La description dira que c'est un **chiffrage**, pas un devis (`/quotes`). Aucun recouvrement avec `/clariprint/quote` : `assertNoFacadeCollision` le vérifie.
 - **Un calcul, rien de créé** : ni 201 ni `Idempotency-Key` (précédent : `resolvePriceRule`).
+
+**AMENDEMENT du 2026-09-19 (Q17, point 12 (a)) — le chiffrage PERSISTE son résultat, et cela change la ligne ci-dessus.** L'opération rend, **en plus** de `price_excl_tax` et `lead_time_days` :
+- **`quote_id`** : identifiant opaque du chiffrage **conservé côté serveur** ;
+- **`expires_at`** : au-delà, le chiffrage est périmé.
+
+**Motif.** Q17-b adosse le prix d'une ligne de commande **configurée** à un chiffrage que le serveur peut relire — c'est la seule façon de ne pas croire le navigateur **sans** rappeler Clariprint au panier (le coût et la dépendance de ce rappel sont instruits au point 12 (a)). Sans `quote_id`, Q17-b n'a rien à vérifier.
+
+**Conséquences à ne pas manquer.**
+- **Cela n'annule pas « un calcul, rien de créé » au sens de l'idempotence** : l'opération reste un `POST` de calcul, sans `Idempotency-Key`. Le chiffrage conservé est une **trace**, pas une ressource que l'appelant crée et dont il gouverne le cycle de vie. Il n'y a donc **ni `GET /clariprint-quotes/{id}`, ni 201** — décision à réexaminer seulement si un appelant a besoin de relire un chiffrage, ce qu'aucun n'a aujourd'hui.
+- **La durée de validité remonte à Arnaud (Q18)**, proposition **24 h**. Elle est **une donnée de réglage, pas une constante du contrat** : le contrat expose `expires_at`, jamais la durée.
+- **Cet amendement s'écrit AU CONTRAT avant le développement de BCP-1b.** L'ajouter après demanderait une seconde migration et une seconde version de l'opération.
+- **Ce que la réponse publique ne porte toujours pas** : ni fournisseur, ni `cost_breakdown`, ni `sent_config`. `quote_id` est **opaque** — il ne dit rien du parc d'imprimeurs, et il n'est exploitable que par le serveur.
 - **La requête `{ clariprint_config: ClariprintProductConfig }`.**
   - Le nom `clariprint_config` est repris de `ProjectItem.clariprint_config`, jamais un nom neuf.
   - Les champs canoniques sont typés (point 3.2), et les autres champs Clariprint passent tels quels (`additionalProperties: true`). Ce schéma ne se referme plus en v1, **opération publique comprise**.
@@ -5399,6 +5419,8 @@ Le cas est réellement différent, et la mesure le confirme. `rebuildCartFromOrd
 
 **Règles enfreintes.** « **Aucun contrôle métier (seuil, quota, total, numérotation) posé uniquement côté navigateur** » (`CLAUDE.md`, Sprint 5) : le total d'une commande boutique est exactement cela. C'est **la même dette** que §8.6 p7 (le prix d'une ligne de projet repris du navigateur), sur une seconde surface, celle de l'acheteur externe, plus exposée que l'atelier. Question **Q17**, point 9.
 
+**TRANCHÉ par Arnaud le 2026-09-19 : « recalcul coté serveur lance le lot ».** Ce constat n'est plus un constat, c'est un lot. **Son cadrage est le point 12**, écrit comme un point autonome, qui le reprend en entier et le revérifie. Une précision y est ajoutée qui touche ce point 3.7 : **`canAddAsIs` rend `ok: true` sur une ligne CONFIGURÉE dont le prix est une estimation de prix marché**, parce que `buildConfiguredProduct` écrit le prix dans `product.price_ht` sans poser de `clariprintQuote` et que `resolvePrice` l'étiquette alors `library_cached`. Ce n'est pas une faute de Q14-a — il gouverne la **carte**, pas la ligne configurée — mais c'est une limite de son assise, et elle se lève en **Q17-b** (point 12 (a)).
+
 
 #### 4. Lot 4 — la règle exacte de `resolvePrice` dans la boutique
 
@@ -5586,6 +5608,9 @@ Ce sont les cinq valeurs du prompt. **Les libellés sont une proposition**, vali
 | **BCP-11** | — la règle du paquet enfin à un seul endroit (décision d'Arnaud du 2026-09-16, point 3.6) : fonction pure `toPackLine` dans le module `orders`, unités typées (`CopyCount` / `PackCount`), troisième copie de `GammePage` supprimée, quatrième porte (renouvellement) refermée sur le même constructeur | **rien** — ni campagne, ni contrat, ni normaliseur. **Lançable tout de suite**, et **à passer avant BCP-2** | `src/modules/orders/ui/storefront/cartLine.ts` **(neuf)**, `orderRenewal.helpers.ts`, `GammePage.tsx`, `PortalHome.tsx`, `PublicShop.tsx` (portes du panier), `PortalCatalog.tsx` (**ligne 51 seule**), `ShopProductCard.tsx` (**type de prop et deux appels, aucun rendu**), le test d'architecture « une seule fabrique de `CartLine` » |
 | **Q14-a** | — ajout direct conditionné, **moitié faisable** (point 3.7). **Amendé le 2026-09-17 (arbitrage d'Arnaud, « grisé »)** : « + Panier » est **toujours rendu** ; il est **actif** si `resolvePrice(...).source ∈ {clariprint, library_cached}`, sinon **désactivé (`disabled` natif), grisé, décrit par `aria-describedby`**, avec le libellé « Configurez ce produit pour obtenir son prix définitif. » écrit en permanence sous les boutons ; avertissement de prix non ferme au renouvellement | **BCP-11 : fusionné, levé.** ~~La correction humaine des données ERAM~~ : **LEVÉE le 2026-09-17** par l'exclusion des 23 produits sans prix (`shops.excluded_product_ids`, décision d'Arnaud du 2026-09-16). **Séquence de fichier** : avant BCP-4. **Porte avant déploiement** (et non avant développement) : profil des autres boutiques actives, point 3.7 (f). **LANÇABLE** | `src/modules/catalog/ui/storefront/addAsIs.ts` **(neuf)** : `canAddAsIs` (signature définitive, un seul motif rendu), `ADD_AS_IS_REASON_LABELS` (table fermée, les **deux** libellés), `addToCartButtonState` ; son test ; `ShopProductCard.tsx` (**bouton « + Panier » `:363-377` et élément du libellé juste après la rangée, rien d'autre**) ; `src/shared/presentation/testIds.ts` (**une clé** : `productCardAddAsIsReason`) ; `useStorefrontOrderLifecycle.ts` (avertissements de renouvellement). **Ajouté le 2026-09-17 (qa-review : D1 et deux réserves)** : `orderRenewal.helpers.ts` (`renewalBannerSections`) ; `PortalCart.tsx` (**type de props et bloc du bandeau S3.3 seuls**, point 3.7 (c-bis)) ; `PublicShop.tsx` (**transmission de `renewalPriceNotFirm` seule**) ; `testIds.ts` (**deux clés de plus**) ; `ShopProductCard.tsx` (`onConfigure` obligatoire, repli supprimé) ; `addAsIs.ts` (`priceHT <= 0` → `price-not-firm` ; en-tête corrigé, point 3.7 (a)). **Séquence de `PortalCart.tsx` : 5 → 14-a → 7 → 8** |
 | **Q14-b** | — seconde condition : configuration chiffrable, branchée sur le **verdict du normaliseur** et non réécrite | **BCP-2**, donc BCP-1b, donc **la campagne** | le prédicat gagne son motif `'config-incomplete'`, dont **le libellé est déjà dans la table** livrée par Q14-a ; **aucun site d'appel n'est réécrit** |
+| **Q17-a** | — **le serveur recalcule le prix des lignes de catalogue** (décision d'Arnaud du 2026-09-19, point 12) : hiérarchie opposable `shop_product_pricing` → `shop_products` → `product_library`, refus en 409 sur écart, marqueur `price_origin` quand aucun prix ferme n'existe, contrôle du périmètre boutique, immuabilité des lignes hors `draft`, montants en `Money`. **Zéro appel Clariprint** | **rien** — ni campagne, ni contrat, ni normaliseur. **Lançable tout de suite.** **À passer AVANT l'élargissement du pilote ERAM.** Porte avant déploiement : le mode d'accès des boutiques actives (point 12 (i)) | migration neuve (`price_origin`, `has_unverified_prices`, trigger `tenant_order_items_immutable_after_draft`, reprise `legacy`) ; **recréation** de `api_create_storefront_order`, `api_update_order_draft_for_identity` et de la fonction de transition ; `src/modules/orders/api/contracts.ts` ; `src/modules/orders/application/` ; `src/adapters/supabase/orders-repository.ts` ; `src/server/api/orders-routes.ts` ; `useStorefrontOrderLifecycle.ts` (**mappage des items de `submitCart` et son `catch`, rien d'autre**) ; `docs/architecture/api/openapi.yaml`. **Ne touche PAS** `priceResolver.ts`, `PortalCart.tsx`, `ShopProductCard.tsx`, le normaliseur ni la passerelle |
+| **Q17-c** | — **ce que l'atelier voit** (point 12 (h)) : pastille « Prix non vérifié », prix du catalogue à côté du prix reçu au détail, confirmation qui nomme les lignes. Front seul, aucun déploiement Supabase | **Q17-a** (elle sert les champs). **Se livre AVEC Q17-a** : sans elle, l'atelier reçoit un refus qu'il ne comprend pas | `OrderHistoryTable.tsx`, le détail de commande de l'atelier, `testIds.ts`. **Séquence : 5 → 17-c** |
+| **Q17-b** | — **le produit configuré** adossé à un devis serveur (`quote_id`, expiration, `price_origin = 'quoted'`) | **BCP-1b**, donc le contrat, donc **la campagne** — même chaîne que Q14-b. **Et l'amendement au point 2.4 s'écrit AVANT le développement de BCP-1b**, sinon il faudra une seconde migration | la référence de devis sur la ligne ; le contrat de chiffrage gagne `quote_id` et `expires_at` |
 | *Clôture* | smoke E2E rejoué | tous | — |
 
 **Réponse à « le lot 2 dépend-il des lots 1 et 4 ? »** Oui du lot 1, entier : de BCP-1a pour les formes, de BCP-1b pour la barrière. **Non du lot 4 dans le code.** Le lot 4 ne fait qu'afficher ce que le lot 2 chiffre. Seul le smoke de clôture exige les deux.
@@ -5608,7 +5633,9 @@ Ce sont les cinq valeurs du prompt. **Les libellés sont une proposition**, vali
 - `ShopProductCard.tsx` : **11 → 14-a → 4** — BCP-11 y touche le type de prop et deux appels, Q14-a la condition de rendu du bouton, BCP-4 le bloc prix (`:291-312`). Trois zones disjointes, une seule séquence ;
 - `PortalProduct.tsx` : **10 → 2** — et après 10, il ne reste presque rien à y faire pour 2 ;
 - `PortalCart.tsx` : 5 → 7 → 8 ;
-- `ShopLayout.tsx` : 6 → 9 → 8.
+- `ShopLayout.tsx` : 6 → 9 → 8 ;
+- `useStorefrontOrderLifecycle.ts` : **14-a → 17-a** — Q14-a y pose les avertissements de renouvellement, Q17-a n'y touche que le mappage des items de `submitCart` et son `catch`. Deux zones disjointes ;
+- `OrderHistoryTable.tsx` : **5 → 17-c** — BCP-5 y unifie les libellés de statut, Q17-c y ajoute la pastille « Prix non vérifié ».
 
 **BCP-10 passe AVANT BCP-2, et ce n'est pas qu'une question de fichier.** Trois raisons : il ne dépend ni de la campagne ni du contrat, donc il **occupe utilement le temps mort** où BCP-2 est bloqué ; il **supprime une des quatre surfaces de masquage** du point 3.4 (a), celle de la fiche produit, ce qui allège BCP-2 d'autant ; et il retire de `PortalProduct.tsx` le code que BCP-2 devrait sinon corriger avant de le voir disparaître. **L'ordre inverse ferait corriger par BCP-2 des lignes que BCP-10 efface.** BCP-10 se mène dans son propre worktree, sur son propre port Vite (règle du point 8.3).
 
@@ -5669,6 +5696,8 @@ Ce sont les cinq valeurs du prompt. **Les libellés sont une proposition**, vali
 
 #### 9. Ce qui remonte à Arnaud
 
+**Complété au 2026-09-19 (dixième round)** : **Q17 est tranchée** (« recalcul coté serveur lance le lot ») et devient un lot en trois morceaux, cadré au **point 12**. **Q18** (durée de validité d'un devis conservé), **Q19** (qui acquitte un prix non vérifié) et **Q20** (un devis survit à la configuration qui aurait dû le remplacer) naissent de ce cadrage.
+
 **État au 2026-09-15, second round** : Q1, Q2 et Q7 sont tranchées. Q3, Q4, Q5, Q6 et Q8 ne sont **pas arbitrées**, et leurs recommandations par défaut tiennent jusqu'à leur arbitrage, posé au moment du lot concerné. Q9 et Q10, nées de la décision Q2, sont tranchées au troisième round. Q11 naît du cadrage de BCP-0b. **Complété au 2026-09-16** : Q3 et Q12 sont tranchées (sixième et septième rounds), Q13 naît du cadrage de BCP-10, et **Q14 est tranchée au huitième round** (point 3.7). **Complété au 2026-09-17 (neuvième round)** : Arnaud **retourne** le comportement du bouton de Q14 (« grisé » au lieu de « non rendu ») ; Q15 naît du relevé de la PR #11 (point 11), Q16 d'un constat fait en rédigeant Q14, **Q17 du rejet de Q14-a par la qa-review** (point 3.7 (g)). **Q14 est la seule question de ce tableau dont l'application est COUPÉE EN DEUX** : sa moitié faisable passe maintenant, sa moitié bloquée attend la campagne.
 
 | # | Question | État, ou ce qu'elle bloque | Décision, ou recommandation |
@@ -5687,7 +5716,10 @@ Ce sont les cinq valeurs du prompt. **Les libellés sont une proposition**, vali
 | **Q13** | **La surcouche invente deux valeurs par défaut**, sur l'écran même vers lequel les parcours convergent : `DEFAULT_OPTIONS` pose `format: "A5"` et `paper: "135g"` quand la configuration stockée est muette (`ProductOverlay.helpers.ts:223-231`, repli en `:247-257`). Même famille de faute que `finish: 'Soft touch'` | ne bloque pas BCP-10, qui **ne les corrige pas** (point 3.5 (e)). **Conséquence à ne pas contourner** : la recette de BCP-10 prouve l'alignement des parcours, **pas** le respect complet de Q3 | les traiter dans **BCP-2**, par la règle déjà opposable du point 3.2 (« absente → configuration non chiffrable, aucune valeur inventée »). Les corriger avant demanderait le normaliseur, donc BCP-1b, donc la campagne |
 | **Q14** | **L'ajout direct au panier, qui contourne la surcouche** : le bouton « + Panier » des cartes (`ShopProductCard.tsx:355-366`) et le renouvellement de commande (`renewOrder`, `useStorefrontOrderLifecycle.ts:77-111` — **et non `PortalHome.tsx:167`**, qui est la grille « Nouveautés » sous une prop mal nommée). BCP-10 ne les a pas touchés | **TRANCHÉE le 2026-09-16.** Verbatim d'Arnaud : **« Dans la mesure où le produit comporte les caractéristiques ayant permis de le chiffrer il peut être mis au panier tel quel, sinon il faut le configurer. »** Arnaud ne veut **pas** les supprimer : il veut les **conditionner** | critère à deux conditions — **C1** configuration chiffrable (verdict du normaliseur de BCP-2) **et** **C2** prix d'origine imprimeur (`source ∈ {clariprint, library_cached}`) — exposé en **une fonction pure rendant un motif**, jamais un booléen recalculé dans le JSX. ~~Critère non rempli → le bouton n'est pas rendu (ni désactivé, ni dédoublé) : l'acheteur ne voit que « Configurer ».~~ **RETOURNÉ par Arnaud le 2026-09-17, verbatim : « Pour le bouton panier "grisé" si le produit n'est pas chiffré ».** Critère non rempli → **le bouton est rendu, désactivé (`disabled` natif) et grisé** ; le motif est **écrit sous les boutons, visible sans survol**, tiré d'une table fermée indexée par le motif de `canAddAsIs` — « **Configurez ce produit pour obtenir son prix définitif.** » (`price-not-firm`), « **Configurez ce produit pour préciser ses caractéristiques.** » (`config-incomplete`, Q14-b) — et **associé au bouton par `aria-describedby`** ; « Configurer » reste la conduite offerte, inchangée. Des deux motifs de la décision retournée, **(1) « boutique qui a l'air cassée » est tombé** (exclusion ERAM du 2026-09-16), **(2) « infobulle illisible au tactile » est réglé** par le libellé permanent. **Le renouvellement échappe à C2** : les caractéristiques priment, le prix se recalcule, et sa perte de fermeté se dit dans le bandeau existant. **C1 n'est PAS implémentable avant la campagne** — d'où **Q14-a** (C2, **LANÇABLE au 2026-09-17** : la dépendance aux données ERAM est levée par l'exclusion ; reste une porte avant déploiement, le profil des autres boutiques actives) et **Q14-b** (C1, après BCP-2). **Règle complète, libellés, accessibilité, `data-testid` et découpage : point 3.7** |
 | **Q15** | **Le second chemin Clariprint introduit par la PR #11 (HopStudio)** : identifiants Clariprint par espace, relayés vers un serveur HopeStudio tiers, hors passerelle, hors limiteur, hors contrat en préparation (point 11) | **ne bloque ni la campagne, ni BCP-1b, ni Q14.** Bloque **tout déploiement de `magrit-api` depuis `main`** tant que la migration `20260826000100` n'est pas appliquée en production (point 11 (6)) | **à trancher par Arnaud, avec Xavier** : (a) qui paie les appels d'un compte Clariprint d'espace, et faut-il un plafond ; (b) `http://` doit-il rester admis pour une URL qui reçoit un mot de passe ; (c) le prix d'une ligne importée de HopeStudio peut-il être celui que le navigateur transmet ; (d) le vocabulaire HopeStudio (`DBK`, `clicked_intent`) entre-t-il en v1 du contrat, où il ne pourra plus sortir. **Recommandation de l'architecte : (a) oui, un plafond par espace, (b) non, (c) non, (d) non** — détail au point 11 |
-| **Q17** | **Le prix d'une commande boutique vient du navigateur et n'est pas revalorisé par le serveur** (point 3.7 (g)) : un appel direct à l'API crée une commande à n'importe quel prix, zéro compris. Seule atténuation : la validation humaine de l'atelier, qui voit le total mais aucun écart au catalogue | **ne bloque pas Q14-a**, qui n'y peut rien et ne le prétend plus. **Devrait bloquer** l'ouverture d'une boutique à des acheteurs hors pilote | **Recommandation de l'architecte** : un lot dédié, **avant l'élargissement du pilote ERAM**, où le serveur **recalcule** le prix unitaire de chaque ligne qui porte un `product_id` (prix de bibliothèque, surcharge `shop_product_pricing`), **ignore** celui du navigateur, et **marque** la ligne « prix à confirmer » quand aucun prix ferme n'existe, à la création **et** à la modification du brouillon, montants en `Money`. À terme, le calcul passe par `PricingEngine` (E10.21), qui solde aussi §8.6 p7. **En attendant** : consigne à l'atelier de vérifier chaque total avant de valider |
+| **Q17** | **Le prix d'une commande boutique vient du navigateur et n'est pas revalorisé par le serveur** (point 3.7 (g)) : un appel direct à l'API crée une commande à n'importe quel prix, zéro compris. Seule atténuation : la validation humaine de l'atelier, qui voit le total mais aucun écart au catalogue | **TRANCHÉE le 2026-09-19.** Verbatim d'Arnaud : **« recalcul coté serveur lance le lot ».** Ne bloquait pas Q14-a ; **bloque** désormais l'élargissement du pilote ERAM, par décision | **Cadrage complet : point 12**, écrit comme un point autonome. Le lot se coupe en trois : **Q17-a** (produit de catalogue — hiérarchie `shop_product_pricing` → `shop_products` → `product_library`, refus en **409 `orders.price_changed`** sur écart, marqueur `price_origin` sinon, périmètre boutique contrôlé, lignes gelées hors `draft`, montants en `Money`) et **Q17-c** (ce que l'atelier voit) sont **lançables tout de suite** ; **Q17-b** (produit configuré, adossé à un devis serveur) dépend de **BCP-1b**. **Le produit configuré ne se rechiffre PAS au panier** : zéro appel facturé, motif au point 12 (a). **Trois constats nouveaux** trouvés en instruisant : un produit configuré passe pour « prix ferme » alors qu'il peut porter une estimation ; le `product_id` d'une ligne n'est **pas** contrôlé contre le catalogue de la boutique ; `tenant_order_items` **n'a aucune immuabilité**. **`openapi/magrit-core.v1.yaml` n'est pas modifié** (point 12 (f)). À terme le calcul passe par `PricingEngine` (E10.21), qui solde aussi §8.6 p7 — **Q17 ne le solde pas** |
+| **Q18** | **La durée de validité d'un devis Clariprint conservé côté serveur**, au-delà de laquelle une ligne configurée repart en « prix à confirmer » (point 12 (a)) | ne bloque **ni** Q17-a **ni** Q17-c. Bloque **Q17-b**, et l'amendement au point 2.4 qui doit être écrit avant le développement de BCP-1b | **Recommandation de l'architecte : 24 heures**, alignées sur la durée de conservation des journaux de fonction mesurée au point 2.3 — au-delà, un écart ne se diagnostique plus. Valeur ajustable par configuration, pas gravée au contrat |
+| **Q19** | **Qui a le droit d'acquitter un prix non vérifié** pour valider quand même une commande marquée (point 12 (c)) | ne bloque pas Q17-a, dont le garde SQL existe dans les deux cas ; fixe seulement le prédicat d'autorisation | **Recommandation de l'architecte : le droit `can_validate` suffit**, puisque l'événement écrit dans `tenant_order_status_events` **nomme l'acteur**. Restreindre à l'administrateur de l'espace ajouterait un goulot sans ajouter de trace |
+| **Q20** | **Un devis Clariprint survit à la configuration qui aurait dû le remplacer** (point 12 (a), constat 3, vérifié) : `buildConfiguredProduct` recopie `product.config` en entier, `clariprintQuote` compris ; `PortalCatalog.tsx:231` en pose un sur chaque suggestion de Magrit, et le bouton « Configurer » de cette grille (`:844-847`) passe ce produit à la surcouche. L'acheteur configure, change quantité et papier, **et le panier lui compte le prix d'avant**, étiqueté `clariprint` — la source la plus forte de la hiérarchie | ne bloque **ni** Q17-a **ni** Q17-c : le serveur ne fait aucune confiance à ce champ, et une ligne configurée est de toute façon `client_unverified`. **Bloque la crédibilité du prix affiché** sur le parcours « suggestion → configuration → panier » | **Recommandation de l'architecte : `buildConfiguredProduct` SUPPRIME `clariprintQuote` de la configuration qu'il produit** — une configuration neuve n'a pas de devis tant qu'elle n'en a pas obtenu un. Correctif d'une ligne, mais **il n'appartient à aucun lot** : le fichier (`useProductConfigurator.ts`) n'est possédé ni par BCP-2, ni par BCP-4, ni par Q17. À rattacher par le coordinateur, **de préférence à BCP-2**, qui refait le chemin de configuration |
 | **Q16** | **Le bouton « Personnaliser » des cartes boutique** (`ShopProductCard.tsx:348-361`) est actif sur **toutes** les cartes et ne fait qu'écrire en console (« connexion Canva à venir ») : l'acheteur qui le touche n'obtient rien, et rien ne lui dit pourquoi | ne bloque rien ; **hors Q14**, relevé en rédigeant le (b) | le traiter **comme Q14 vient de l'être** : soit le retirer tant que Canva n'est pas branché (précédent Q3), soit le griser **avec** un libellé visible. **Pas de recommandation ferme** : c'est un choix de vitrine commerciale, qui appartient à Arnaud |
 | **Q8** | *Pour information, hors chantier* : le chiffrage est montré à l'acheteur **sans marge** (point 1 (4)) ; le fournisseur, affiché aujourd'hui à l'acheteur, **disparaît** en BCP-1b ; la zone de livraison `FR-75` est codée en dur dans tous les chiffrages, qui incluent donc une livraison à Paris | rien | à inscrire au backlog |
 
@@ -5708,6 +5740,8 @@ Ce sont les cinq valeurs du prompt. **Les libellés sont une proposition**, vali
 **Huitième round (BCP-11, la règle du paquet ; Q14, l'ajout direct conditionné)** : même état. **Aucune ligne d'`openapi/magrit-core.v1.yaml` ni de `src/`** — seul ce document change. Motif écrit au point 3.6 (h) : BCP-11 n'ajoute, ne modifie ni ne retire aucun endpoint et aucun schéma ; la commande de boutique **n'est pas décrite dans ce fichier** (il ne porte, pour la façade acheteur, que `/storefront-quotes`), et le panier n'a jamais été une ressource d'API. Q14 est une **condition d'affichage d'un bouton**, sans effet de contrat. **Une seule chose est PROPOSÉE et non écrite** : le jour où la commande de boutique deviendra une ressource E10, son champ `quantity` devra porter **en description** son unité — « nombre de paquets ; le nombre d'exemplaires vit dans `clariprint_options.quantity` » —, faute de quoi la confusion réparée par BCP-11 renaîtrait côté intégrateur. C'est **additif, donc non cassant**, et cela attend le round de contrat de BCP-1b. **Aucune dérogation R5 nouvelle.** Une dette est en revanche **nommée** au point 3.6 (c) : `cartPricing.ts`, `orderRenewal.helpers.ts` et le nouveau `cartLine.ts` sont du métier pur logés sous `ui/storefront/` plutôt que sous `orders/application/` ; les déplacer toucherait `PortalCart.tsx`, que BCP-8 possède, et n'appartient donc à aucun lot de ce chantier.
 
 **Sixième round (Q3 tranchée, masquage dorure et soft-touch)** : même état. **Aucune ligne d'`openapi/magrit-core.v1.yaml` ni de `src/`** — seul ce document change. C'est cohérent : le contrat de chiffrage n'est pas encore écrit (il attend la campagne, point 2.1), et il ne décrira de toute façon **que les formes canoniques du point 3.2**, où ni `dorure` ni `soft-touch` ne figurent. **Le masquage ne retire donc rien du contrat : il retire une option d'interface qui n'y est jamais entrée.** Aucune dérogation R5 nouvelle.
+
+**Dixième round (2026-09-19 — Q17 tranchée, cadrage du recalcul serveur, point 12)** : seul ce document change. **Aucune ligne d'`openapi/magrit-core.v1.yaml` ni de `src/` ni de `supabase/`.** `pnpm gen:api:check` a été rejoué, vert : le fichier généré n'a pas dérivé. Le motif du non-changement de contrat est écrit au point 12 (f), et ce n'est pas une facilité : le segment `/api/v1/orders` **n'est pas dans `magrit-core.v1.yaml`** — il appartient à la façade historique et sert la commande boutique (`tenant_orders`), ce que le contrat dit lui-même (`magrit-core.v1.yaml:3907-3925`) ; et décrire la commande boutique en v1 **maintenant** graverait `client_unverified`, un marqueur qui doit **disparaître** quand Q17-b sera livré — v1 est additive (règle 13), on ne pourrait plus le retirer sans `/api/v2`. **Le contrat que Q17-a modifiera est `docs/architecture/api/openapi.yaml`** (`createOrder`, `getDraftOrder`, `updateDraftOrder` et leurs schémas), fichier déprécié pour tout **ajout d'endpoint** mais qui reste la référence de ceux qu'il décrit — précédent **BCP-0c**, qui y a ajouté une réponse 403. **Deux dérogations R5 sont DÉCLARÉES par ce round**, toutes deux avec leur chemin : (1) le montant de la commande boutique en `z.number()` (nommée dès le (g), **soldée par Q17-a** qui le passe en `Money`) ; (2) `PUT /orders/{orderId}/draft` émettra un `ETag` et honorera `If-Match` **sans l'exiger** — l'exiger casserait le navigateur en vol —, obligation reportée à la migration de cette route vers l'enveloppe E10, après Q17-b. **Une exigence est AJOUTÉE à un contrat non encore écrit** : BCP-1b doit persister son devis et rendre `quote_id` + `expires_at` (amendement au point 2.4), faute de quoi Q17-b n'aura rien à vérifier et demandera une seconde migration.
 
 **Neuvième round bis (2026-09-17 — rejet de Q14-a par la qa-review)** : seul ce document change, par-dessus `f0f891d0`. Le canal du (c) est corrigé (c-bis), l'affirmation fausse du (a) est barrée et remplacée, le constat (g) et Q17 sont écrits, les deux réserves sont tranchées. **Aucune ligne d'`openapi/`** : la commande boutique n'est pas décrite dans `magrit-core.v1.yaml` (huitième round). La dérogation « montant en `z.number()` » de `orders/api/contracts.ts` est **nommée** en (g) ; son chemin de mise en conformité est Q17.
 
@@ -5741,6 +5775,241 @@ Ce sont les cinq valeurs du prompt. **Les libellés sont une proposition**, vali
 - **La colonne d'URL admet `http://`** (`tenant_hopstudio_settings_*_url_check : ^https?://`) pour une destination qui reçoit un mot de passe en en-tête.
 
 **Chemin de mise en conformité proposé, pour décision (Q15)** — rien n'est écrit au contrat tant qu'Arnaud et Xavier n'ont pas tranché : (i) décrire les trois opérations de réglage et de relais dans `magrit-core.v1.yaml`, espace résolu par `X-Magrit-Tenant`, enveloppe `{data, meta}` ; (ii) remplacer `ImportHopeStudioBasketItemCommand` par une commande **neutre** (libellé, configuration, montant `Money`, référence externe opaque), la traduction du format HopeStudio restant dans l'adaptateur ; comme l'opération est déjà en v1, **le faire avant qu'un intégrateur la consomme**, sinon seule `/api/v2` le permettra ; (iii) HTTPS seul pour les deux URL ; (iv) un plafond par espace sur les deux portes, par la même table `api_rate_limits` que BCP-0b (point 2.3bis) ; (v) planifier la purge du registre.
+
+#### 12. Q17 — le prix d'une commande boutique se RECALCULE côté serveur (décision d'Arnaud du 2026-09-19 : « recalcul coté serveur lance le lot »)
+
+> **Ce point reprend le (g) du point 3.7 et le rend autonome.** Le (g) était un **constat** posé en marge de Q14-a, hors de son périmètre. Arnaud l'a tranché le 2026-09-19 : c'est un **lot**. Tout ce qui suit a été revérifié dans le dépôt le 2026-09-19, fichier par fichier — deux affirmations de ce chantier ont déjà dû être corrigées en cours de route, et le (g) lui-même corrigeait une phrase fausse de `addAsIs.ts`. **Quatre faits nouveaux en sont sortis, dont un défaut vivant** : ils sont signalés « **constat du 2026-09-19** » à l'endroit où ils portent, et remontent au point 9 quand ils n'appartiennent à aucun lot.
+
+**Le défaut, revérifié le 2026-09-19.**
+
+- `submitCart` envoie `unitPriceHt: resolveCartLinePricing(line).unitPriceHt` (`useStorefrontOrderLifecycle.ts:200`), c'est-à-dire `resolvePrice(...).priceHT` — **calculé dans le navigateur**.
+- Le contrat de la route l'accepte en `z.number().nonnegative()` (`src/modules/orders/api/contracts.ts:80`, `createOrderItemSchema`) : un flottant JSON, contre la règle `Money`.
+- `api_create_storefront_order` n'a **qu'une définition** (`supabase/migrations/20260817000100_storefront_order_identity.sql`) : elle refuse `unit_price_ht < 0` (`:113-115`), calcule `total_ht` **à partir du prix reçu** (`:118-121`) puis `line_total_ht` de la même façon (`:134-148`), et ne le rapproche **d'aucune** table de catalogue.
+- La modification d'un brouillon par l'acheteur (`api_update_order_draft_for_identity`, `20260817000300_storefront_order_drafts.sql:157-161`) **réécrit** `unit_price_ht` depuis le corps reçu, avec la même unique garde `< 0`.
+- Aucune revalorisation ailleurs : les seuls triggers sur `tenant_order_items` sont `trg_enqueue_pim_tenant_order_item` (`after insert`, `20260518000100`) et rien d'autre.
+
+**Atténuation, revérifiée.** La commande naît `draft` (« En attente de validation ») ; seul l'atelier la valide (administrateur de l'espace ou droit `can_validate`) ; l'acheteur ne peut qu'annuler. L'atelier **voit le total HT** (`OrderHistoryTable.tsx:1003`) mais **rien ne lui signale un écart au catalogue**. L'atténuation repose entièrement sur l'œil de la personne qui valide — et le point (h) la rend voyante.
+
+**Deuxième acteur, à ne pas oublier.** La route est `authentication: 'public'` avec deux chemins d'autorisation (`orders-routes.ts`, `orderCreationAuthorization`) : un cookie de session boutique **ou** un acteur utilisateur Magrit. Le défaut n'est donc pas seulement côté acheteur : un membre de l'atelier peut créer une commande à n'importe quel prix par le même appel.
+
+##### 12 (a) Le produit CONFIGURÉ — TRANCHÉ : on ne rappelle PAS Clariprint au panier. Le devis devient une ressource serveur, et tant qu'il ne l'est pas, la ligne est MARQUÉE
+
+**Constat du 2026-09-19, et il retourne le problème.** *Il n'existe aujourd'hui aucun devis stocké à rendre infalsifiable.*
+
+`buildConfiguredProduct` (`useProductConfigurator.ts:132-145`) construit la ligne de panier en écrivant `price_ht: resolveFinalPriceHT(phase, product)` et `config.clariprintData`. Il **n'écrit aucun `clariprintQuote`**. Or `resolveFinalPriceHT` (`:120-129`) rend, dans l'ordre : le prix Clariprint quand la phase est `ready`, **sinon** `phase.fallbackPriceHT` — qui est un `estimateMarketPriceHT(product, quantity)` posé sur **prix invalide, erreur réseau ou délai dépassé** (`:74`, `:96`, `:114`) —, **sinon** `product.price_ht`. Les trois atterrissent dans le même champ.
+
+Conséquences, à dire franchement :
+
+1. Une ligne configurée arrive au panier avec un prix dont la **provenance est perdue**. `resolveCartLinePricing` ne trouve pas de `clariprintQuote` (le seul chemin qui en pose un est celui des suggestions de Magrit, `PortalCatalog.tsx:231`), retombe donc sur `product.price_ht` et étiquette la résolution **`library_cached`**, c'est-à-dire « prix ferme ».
+2. **Le verdict `canAddAsIs` de Q14-a rend donc `ok: true` sur une ligne configurée dont le prix est une estimation de prix marché.** Ce n'est pas une faute de Q14-a — il gouverne la **carte**, pas la ligne configurée, et son périmètre le dit — mais c'est une limite de son assise, et personne ne l'avait écrite.
+3. **Pire, et c'est un défaut vivant, pas une hypothèse.** `buildConfiguredProduct` recopie la configuration d'origine (`config: { ...product.config, clariprintData: ... }`, `:140-143`). Si cette configuration portait **déjà** un `clariprintQuote`, il **survit à la configuration** et n'est jamais réécrit. Or c'est exactement le cas des suggestions de Magrit : `PortalCatalog.tsx:231` pose `config.clariprintQuote` sur chaque suggestion chiffrée, et le bouton « Configurer » de cette même grille passe ce produit à la surcouche (`:844-847`, vérifié). **L'acheteur configure donc une suggestion, change la quantité et le papier, et le panier lui compte le prix du devis d'AVANT sa configuration** — parce que `resolveCartLinePricing` donne la priorité au `clariprintQuote` trouvé dans la config sur le `price_ht` fraîchement calculé. Et `resolvePrice` étiquette ce prix **`clariprint`**, la source la plus forte de la hiérarchie. **Conséquence pour Q17** : un devis transporté dans la configuration n'est pas seulement falsifiable, il est **déjà désaligné de la configuration qu'il est censé chiffrer**. C'est l'argument décisif pour que le devis soit une ressource **serveur, liée à la configuration qui l'a produit**, et non un objet que le navigateur trimballe. *(Le défaut d'affichage en lui-même n'appartient à aucun lot de ce chantier : il est **remonté**, point 9, **Q20**.)*
+4. « Faire confiance au devis stocké » n'est pas une option disponible : **il n'y a pas de devis stocké, il y a un nombre** — et quand il y a un objet, il peut mentir sur ce qu'il chiffre.
+
+**Les trois options, instruites.**
+
+| Option | Ce qu'elle coûte | Verdict |
+|---|---|---|
+| **(i) Rappeler Clariprint à la validation du panier** | **Un appel facturé par ligne configurée et par tentative de validation.** Un panier de 5 lignes = 5 appels ; trois tentatives = 15. Le plafond global L3 est de **500 appels par jour pour toute la plateforme** (Q9) : **33 paniers de 5 lignes l'épuisent**, et alors **plus aucune commande ne passe, ni aucun chiffrage nulle part**. Le prix rendu peut en outre **différer** de celui affiché quelques minutes plus tôt, ce qui déclencherait le refus du (d) : on paierait un appel pour produire un refus | **REJETÉE.** Le motif décisif n'est pas le prix des appels, c'est la dépendance : une panne Clariprint, une latence, un plafond atteint deviendraient une **panne de vente**. On ne met pas la disponibilité d'un tiers sur le chemin critique de la prise de commande |
+| **(ii) Refuser la ligne et exiger une reconfiguration** | Zéro appel, mais la configuration **est** la vente sur cette boutique | **REJETÉE.** Et surtout : rien ne garantit que la reconfiguration produise un prix vérifiable, puisque le défaut est l'**absence de preuve**, pas l'absence de prix. On déplacerait le problème d'un écran |
+| **(iii) Adosser la ligne à un devis conservé côté serveur, référencé par identifiant, avec un plafond de validité** | Une table, une colonne de référence, et l'exigence ajoutée à BCP-1b. **Zéro appel** : le devis a déjà été payé au moment où l'acheteur a configuré | **RETENUE** |
+
+**Devis conservé en base, PAS jeton signé.** Quatre motifs : (1) un jeton signé n'est pas **révocable** — une ligne en base l'est ; (2) le jeton voyage par le navigateur et gonfle la charge de la commande ; (3) la base donne gratuitement l'expiration, l'audit et le rapprochement à la commande ; (4) le dépôt **n'a aucun secret de signature applicatif en service** — `signEventBody()` (HMAC de l'outbox) est écrit mais **sans appelant** (§8, dérogations R5), et introduire une clé pour ce seul usage crée un secret de plus à faire tourner.
+
+**Ce que cela exige de BCP-1b — amendement au point 2.4, à écrire au contrat AVANT son développement.** L'opération de chiffrage **persiste son résultat** et rend, en plus de `price_excl_tax` et `lead_time_days` :
+- `quote_id` : identifiant opaque du devis conservé ;
+- `expires_at` : au-delà, le devis est périmé et la ligne repart en « à confirmer ».
+
+La commande référence ce `quote_id` sur la ligne. Sans cet amendement, **Q17-b n'a rien à vérifier** et il faudra une seconde migration. La durée de validité est proposée à **24 heures** — alignée sur la durée de conservation des journaux de fonction mesurée au point 2.3, donc sur la fenêtre où un diagnostic reste possible — et **remonte à Arnaud (Q18)**.
+
+**Ce que fait Q17-a en attendant, sur une ligne configurée.** Elle est **acceptée**, son prix est écrit tel qu'il est reçu, et elle est **marquée `client_unverified`** (point (c)). Le serveur ne prétend rien vérifier qu'il ne peut pas vérifier. L'atelier la voit (point (h)) et ne peut pas la valider par inadvertance (point (c)).
+
+**Comment le serveur distingue une ligne « catalogue tel quel » d'une ligne configurée — et pourquoi ce n'est pas le navigateur qui le dit.** Une déclaration du navigateur (« cette ligne est configurée ») serait exactement la porte qu'on ferme : l'attaquant la poserait sur toutes ses lignes. Le discriminant est **serveur** : le serveur compare la **forme canonique** du `clariprint_options` reçu à celle de la `config` du produit du catalogue (JSON normalisé, clés triées). Identiques → ligne de catalogue, le prix se recalcule (point (b)). Différentes → ligne configurée, `client_unverified`. Un acheteur qui veut un prix libre doit donc présenter une configuration qui **diffère** du catalogue, et il obtient alors une ligne que l'atelier ne peut pas valider les yeux fermés. **Aucun normaliseur n'est requis pour cela** : la comparaison est une égalité, pas une interprétation — c'est précisément pourquoi Q17-a ne dépend pas de BCP-2.
+
+##### 12 (b) Le produit de CATALOGUE — la hiérarchie opposable du prix ferme côté serveur
+
+**Elle n'est pas à inventer : le serveur la calcule déjà** pour construire le catalogue public (`src/adapters/supabase/shops-repository.ts`, `publicCatalog`). Q17-a la **réutilise**, il ne la réécrit pas. Pour une ligne portant `product_id = X` dans la boutique `S` :
+
+| Rang | Source | Condition | Motif |
+|---|---|---|---|
+| **1** | `shop_product_pricing.price_ht_override` où `(shop_id = S, library_product_id = X)` | `> 0` | Le tarif négocié prime, et c'est déjà ce que le catalogue public applique (`shops-repository.ts:105`) |
+| **2** | `shop_products.price_ht` de la boutique `S` dont `product_id = X`, si une telle ligne existe | `> 0` | **C'est le prix que l'acheteur a vu.** `publicCatalog` construit `pricedManual` à partir de `shop_products`, et n'ajoute les produits `linked` de la bibliothèque **que pour les identifiants absents de `shop_products`** (`manualProductIds`) |
+| **3** | `product_library.price_ht` où `id = X` | `> 0`, `active = true`, **et X dans le périmètre de la boutique** | Le cas du produit lié, sans ligne propre dans la boutique |
+| **4** | — | — | **Aucun prix ferme.** Point (c) |
+
+**Correction explicite de la recommandation du 2026-09-17.** La ligne Q17 du point 9 disait « prix de bibliothèque, surcharge `shop_product_pricing` » : elle **oubliait `shop_products`** et mettait la bibliothèque avant lui. L'instruire l'a changée. L'ordre inverse ferait **refuser au serveur le prix qu'il a lui-même servi** à l'acheteur.
+
+**Zéro n'est pas un prix ferme.** `product_library.price_ht` et `shop_products.price_ht` sont `numeric(12,2) not null default 0`. Un rang qui rend `0` est **sauté**, pas retenu : c'est la règle « jamais 0 € » du point 4, et c'est le cas réel des 23 produits ERAM du 16/09.
+
+**Constat du 2026-09-19 — un second défaut, distinct du (g), trouvé en écrivant cette hiérarchie.** `api_create_storefront_order` **ne vérifie pas** que `product_id` appartient au catalogue de la boutique. La seule contrainte est la clé étrangère `tenant_order_items_product_id_fk` vers `product_library(id)` (`20260601000900_s_fix_library_uuid_fk.sql`). **Un acheteur peut donc commander, dans sa boutique, n'importe quel produit de la bibliothèque de n'importe quel espace**, au prix qu'il veut, et la ligne s'écrit. Q17-a ferme cela : hors périmètre → **422 `orders.product_not_in_shop`**, un refus et non un « à confirmer ». Le périmètre est celui que `publicCatalog` applique déjà : `shops.library_ids`, ou `pim_catalog_mode` avec `pim_gamme_slugs`, hors `excluded_product_ids`, `active = true` — ou une ligne `shop_products` de cette boutique.
+
+**Le serveur n'emprunte PAS `estimateMarketPriceHT`.** Le prix marché est une **heuristique d'affichage** assumée comme telle (point 4) ; en faire une base de commande la transformerait en prix de facturation. Le serveur connaît (b), ou il ne connaît rien.
+
+##### 12 (c) Aucun prix ferme — la commande est CRÉÉE, jamais refusée pour ce seul motif
+
+**Refuser serait pire.** Cela rendrait invendable tout produit configuré et tout produit dont l'atelier n'a pas encore saisi le prix — c'est-à-dire, sur ERAM au 16/09, la majorité —, et pousserait l'acheteur vers le téléphone plutôt que vers la boutique.
+
+**La valeur portée en base.** `unit_price_ht` porte **le prix que l'acheteur a vu**. Ni zéro, ni nul. Trois motifs : la colonne est `not null` ; zéro serait un prix **faux qui se somme** dans `line_total_ht` et `total_ht` ; nul ferait échouer tout écran qui les lit.
+
+**Le marqueur est une colonne nouvelle**, `tenant_order_items.price_origin`, énumération **fermée**, `not null`, **sans valeur par défaut implicite dans le code** :
+
+| Valeur | Sens | Qui l'écrit |
+|---|---|---|
+| `catalog` | Recalculé par le serveur depuis (b). Le prix reçu a été **vérifié** | Q17-a |
+| `quoted` | Adossé à un devis serveur non périmé (`quote_id`) | **Q17-b seulement** |
+| `client_unverified` | Le serveur n'a **aucun moyen** de vérifier. Le prix est celui du navigateur | Q17-a |
+| `legacy` | Ligne antérieure à la règle | **la migration de reprise, et elle seule** (point (g)) |
+
+**Échec fermé** : en l'absence de preuve, la fonction écrit `client_unverified`. Un test exige qu'aucun chemin de code n'écrive `legacy`.
+
+**Colonne miroir sur `tenant_orders` : `has_unverified_prices boolean not null default false`**, maintenue par la même fonction, pour que la grille de l'atelier n'ait pas à joindre les lignes.
+
+**Ce que voit l'acheteur : rien de nouveau.** Q14-a dit déjà « prix non définitif » sur les lignes concernées au renouvellement, et le badge « Prix marché » le dit sur la carte. Multiplier les avertissements n'ajoute aucune garantie, et `PortalCart.tsx` appartient à BCP-8. **Q17 n'ajoute aucun libellé acheteur.**
+
+**Ce qui empêche une commande « à confirmer » d'être validée par inadvertance.** La transition `draft → validated` **refuse en 409 `orders.unverified_prices`** tant qu'une ligne est `client_unverified`, **sauf** acquittement explicite. L'acquittement :
+- est un **geste distinct**, pas une case discrète : un second bouton, « Valider malgré les prix non vérifiés », qui **nomme les lignes** dans sa confirmation ;
+- écrit un événement dans `tenant_order_status_events` **avec l'acteur**, donc traçable ;
+- **vit dans la fonction SQL de transition**, pas dans l'écran. Un écran qui n'appellerait pas le bon bouton obtiendrait le refus, pas le contournement.
+
+Qui a le droit d'acquitter — tout droit `can_validate`, ou l'administrateur de l'espace seul — **remonte à Arnaud (Q19)**. Recommandation : `can_validate` suffit, puisque l'événement nomme l'acteur.
+
+##### 12 (d) Le serveur trouve un prix DIFFÉRENT de celui du navigateur — il REFUSE, il ne corrige pas en silence
+
+**Tranché : refus, `409`, code `orders.price_changed`.** Trois motifs :
+
+1. **Corriger en silence crée une commande à un prix que l'acheteur n'a pas accepté.** C'est le symétrique exact du défaut qu'on répare, retourné à l'avantage du vendeur au lieu de l'acheteur. Une commande est un accord : les deux côtés doivent avoir vu le même nombre.
+2. **409 est déjà la sémantique du dépôt** pour « votre état est périmé, voici l'état courant » (règle 9, `If-Match` → 409 + état courant). Le panier est périmé par rapport au catalogue ; le corps rend l'état courant.
+3. **Un refus rend le défaut visible.** Une correction silencieuse le rendrait invisible : personne ne saurait jamais combien de paniers divergent, ni pourquoi.
+
+**Le corps** est `application/problem+json`, avec `errors[]` — une entrée par ligne divergente : `product_label`, `submitted` et `current`, les deux en `Money`.
+
+**Tolérance : AUCUNE.** Égalité au centime, après arrondi des deux côtés à deux décimales. Une bande de tolérance est un endroit où se cacher, et son seuil serait un nombre magique de plus.
+
+**Ce que fait l'écran.** `submitCart` attrape déjà les erreurs de `ordersApi.create` et rend un message (`useStorefrontOrderLifecycle.ts:217-225`, où le cas `orders.permission_denied` est déjà traité nommément). Q17-a ajoute **un cas dans ce même `catch`** : `orders.price_changed` → « Les prix de votre panier ont changé. Rechargez la page pour voir les prix à jour. » **Aucune ligne de `PortalCart.tsx` n'est touchée** — discipline de périmètre : ce fichier appartient à BCP-8.
+
+**Ce refus ne peut pas frapper une ligne configurée**, puisque rien n'y est comparé. Il ne se déclenche que sur une ligne de catalogue dont le prix a bougé entre l'affichage et la validation — cas rare, remède clair.
+
+##### 12 (e) La modification d'un brouillon — même règle ; et le trou de l'atelier ne se ferme PAS par un `If-Match`
+
+**Même règle, mêmes codes** sur `api_update_order_draft_for_identity` : recalcul des lignes de catalogue, refus en 409 sur écart, marquage `client_unverified` sinon. Sans cela, la garde de la création se contourne en deux appels — créer juste, modifier faux.
+
+**`ETag` / `If-Match` : la réponse honnête.**
+- La règle 9 du socle vise les **`PATCH`**. Cette route est un **`PUT`** de la façade **historique** (`orders-routes.ts:73`) et ne porte **aucun** `ETag` : `computeEntityTag` et `assertPrecondition` ne sont câblés que dans `commercial-settings-routes.ts` et `commercial-quotes-routes.ts` (vérifié).
+- **Et surtout : un `If-Match` ne fermerait PAS le trou constaté.** Il protège un écrivain contre un autre écrivain. Ici l'atelier **n'écrit pas la ligne** : il lit, puis il transitionne. Le prescrire par réflexe donnerait l'illusion d'une garantie.
+
+**Ce qui ferme le trou : la vérification se refait à la TRANSITION, pas à la lecture.** `draft → validated` :
+1. **recalcule** (b) sur chaque ligne `catalog` et refuse en 409 `orders.price_changed` si un prix a bougé depuis la création ou la dernière modification ;
+2. refuse en 409 `orders.unverified_prices` s'il reste une ligne `client_unverified` non acquittée (point (c)).
+
+L'atelier ne valide donc **jamais** un état qu'il n'a pas vu : il valide, ou il reçoit un refus qui lui dit quoi relire. C'est le seul moment où un gel a un sens.
+
+**Gel après validation** : les lignes deviennent **immuables dès que la commande quitte `draft`** — par trigger, pas par absence d'endpoint. Voir (g).
+
+**Ce que Q17-a ajoute quand même, parce que c'est deux lignes** : `GET /orders/{orderId}/draft` **émet** un `ETag`, et `PUT /orders/{orderId}/draft` l'**honore quand il est présent**. Il n'est **pas exigé** : l'exiger casserait le navigateur en vol pour une garantie que (e) n'attend pas de lui. **Dérogation R5 déclarée** : un `PUT` de la façade historique sans précondition obligatoire. **Chemin de mise en conformité** : exigé lors de la migration de cette route vers l'enveloppe E10, en même temps que la commande boutique deviendra une ressource E10 (point (f)).
+
+##### 12 (f) Les montants en chaîne décimale — ce qui change au contrat, et pourquoi ce n'est pas cassant
+
+**Où vit le contrat de cette route — vérifié.**
+- **PAS dans `openapi/magrit-core.v1.yaml`** : ce fichier ne porte, pour la commande, que `/commercial-orders` (`commercial_orders`, E10.12). Le segment `/api/v1/orders` appartient à la **façade historique** et sert la commande **boutique** (`tenant_orders`) — c'est écrit dans le contrat lui-même (`magrit-core.v1.yaml:3907-3925`) et rappelé au huitième round.
+- **Dans `docs/architecture/api/openapi.yaml`** : `createOrder` (`:376`), `getDraftOrder` et `updateDraftOrder` (`:417`), et les schémas `CreateOrderCommand`, `DraftOrder`, `UpdateDraftOrderCommand`. Ce fichier est déprécié **pour tout ajout d'endpoint** ; modifier un endpoint **qu'il décrit déjà** est prévu par son propre en-tête, et le précédent est **BCP-0c**, qui y a ajouté une réponse 403.
+
+**Appelants — vérifié : un seul.** `OrdersApiClient.create`, appelé par `submitCart`. Aucun autre site d'appel dans `src/`. **Aucune clé de service ne peut l'atteindre** : la route est `authentication: 'public'` et exige un cookie de session boutique **ou** un acteur utilisateur — elle ne porte **aucun scope**, donc aucun accès partenaire, et elle n'est pas publiée dans le contrat qu'on donne aux intégrateurs. Le chemin HopStudio de la PR #11 est distinct (point 11) et ne passe pas par elle.
+
+**Donc : non cassant au sens de la règle 13.** On ne casse rien de publié. Le seul cassé possible est **un onglet resté ouvert pendant le déploiement**.
+
+**Migration : les deux côtés dans le MÊME commit, sans fenêtre de compatibilité.** On **n'accepte pas** `number | string` : ce serait reproduire mot pour mot la faute relevée au point 11 (7) sur `ImportHopeStudioBasketItemCommand`, et un `oneOf` sur un montant est un endroit où le flottant revient. Un onglet périmé reçoit un **422 `api.validation_failed`**, que le `catch` de `submitCart` traduit par le même message de rechargement que le (d).
+
+**Et le champ change de NOM, parce qu'il change de sens.** `unitPriceHt` (ce que le serveur écrit) devient **`expectedUnitPriceHt`** (`Money`, chaîne décimale) : *ce que l'acheteur a vu*. Le serveur ne l'écrit **jamais** pour une ligne `catalog` — il le **compare**. Il l'écrit pour une ligne `client_unverified`, et il la marque. Un champ qui ment sur son rôle est la moitié de ce défaut. `draftOrderItemSchema.unitPriceHt`, `lineTotalHt` et les totaux de lecture passent aussi en `Money`, dans le même commit.
+
+**Pourquoi `openapi/magrit-core.v1.yaml` n'est PAS modifié, et ce n'est pas une facilité.** Décrire aujourd'hui la commande boutique en v1 graverait `client_unverified` — un marqueur qui doit **disparaître** quand Q17-b sera livré. v1 est **additive seulement** (règle 13) : on ne pourrait plus le retirer sans `/api/v2`. C'est exactement le raisonnement du point 2.1. Le contrat E10 de la commande boutique s'écrit **après Q17-b**, quand la forme aura cessé de bouger, et c'est cette migration qui rendra obligatoires l'enveloppe `{data, meta}` et l'`If-Match` du (e).
+
+##### 12 (g) Les commandes existantes — non retouchées ; et l'immuabilité, vérifiée des deux côtés
+
+**Aucune commande existante n'est retouchée.** Aucun `update` de prix sur l'historique, aucune migration de données, aucun recalcul rétroactif. La migration **ajoute** `price_origin` et la remplit à **`legacy`** pour les lignes existantes : dire `catalog` de ce qu'on n'a pas vérifié serait un mensonge en base. Le garde de transition du (c) **ne refuse pas** `legacy` — une commande antérieure à la règle se valide comme avant, sans acquittement. Sans quoi la règle rendrait invalidable tout le stock en cours pour un bénéfice nul.
+
+**`commercial_order_lines` est immuable en base — vérifié.** Trigger `commercial_order_lines_immutable_before_write`, `before update or delete on public.commercial_order_lines`, qui lève sur toute modification et sur toute suppression directe ; la seule exception est la cascade depuis la suppression de la commande parente (`20260908010000_gescom_e10_12_quote_conversion.sql:271-295`). Le commentaire de table le dit : « la phrase *aucun écran ne permet de modifier les prix d'une commande* n'est vraie que grâce à ce couple de triggers, pas à une simple absence d'endpoint ».
+
+**`tenant_order_items` n'a AUCUNE immuabilité — vérifié, et c'est le contraire de ce que la symétrie ferait supposer.** Constat du 2026-09-19.
+- Le seul trigger de la table est `trg_enqueue_pim_tenant_order_item` (`after insert`, alimentation des candidats PIM, `20260518000100_pim_candidates_on_tenant_order_items.sql:74-77`).
+- La policy `tenant_order_items_update` (`20260824000400_um1_order_option_enforcement.sql:66-75`) **autorise** la modification à tout acteur que `can_manage_tenant_orders(tenant_id)` accepte.
+- **Conséquence** : un membre de l'atelier peut réécrire le prix d'une ligne d'une commande **validée, produite, expédiée ou facturée**, par appel PostgREST direct, sans laisser de trace. Ce n'est pas le défaut du (g) — c'est son **symétrique côté vendeur**.
+
+**Q17-a le ferme, sans copier `commercial_order_lines`.** Trigger `tenant_order_items_immutable_after_draft`, `before update or delete`, qui **refuse dès que la commande parente n'est plus en `draft`**, avec la même exception de cascade depuis la suppression de la commande. Il **ne peut pas** être « immuable tout court » : l'acheteur a le droit documenté de modifier son brouillon (`api_update_order_draft_for_identity`), et ce droit est une fonctionnalité, pas une dette.
+
+##### 12 (h) Ce que l'atelier doit voir — OUI, et DANS CE LOT
+
+**Le filet d'aujourd'hui est l'œil de la personne qui valide, et il est aveugle.** Livrer les refus du (c) et du (e) sans rendre l'écart visible donnerait à l'atelier un refus que personne ne comprend. **Q17-c fait partie de ce chantier et se livre avec Q17-a.**
+
+Minimum opposable :
+- **Dans la grille des commandes de l'atelier** (`OrderHistoryTable.tsx` — la **même** table sert la boutique et l'atelier, point 1 (5)) : une **pastille** sur la ligne quand `has_unverified_prices`, libellé « **Prix non vérifié** », rendue depuis une **table fermée**, comme Q14-a. Aucun jeton de couleur nouveau.
+- **Au détail de la commande** : par ligne, le prix reçu, et **quand le serveur sait le calculer, le prix du catalogue à côté**. **Pas d'écart en pourcentage** : le montant brut suffit et ne se discute pas.
+- **Le bouton « Valider »** d'une commande marquée ouvre la confirmation du (c), qui **nomme** les lignes concernées.
+
+**Q17-c est front seul**, aucun déploiement Supabase. Il **ne lit aucune table en direct** : `price_origin` et `has_unverified_prices` remontent par `listPortalOrders` et `getDraft`, donc par la façade — la règle du dépôt, pas une préférence.
+
+##### 12 (i) Découpage, dépendances, séquence
+
+| Lot | Contenu | Dépend de | Fichiers |
+|---|---|---|---|
+| **Q17-a** | Le serveur recalcule les lignes de catalogue, refuse l'écart, marque le reste, borne le périmètre boutique, gèle les lignes hors `draft`, montants en `Money` | **rien** — ni campagne, ni contrat, ni normaliseur. **Lançable tout de suite** | migration neuve (`price_origin`, `has_unverified_prices`, trigger d'immuabilité, reprise `legacy`) ; **recréation** de `api_create_storefront_order`, `api_update_order_draft_for_identity` et de la fonction de transition (jamais d'`alter` en place) ; `src/modules/orders/api/contracts.ts` ; `src/modules/orders/application/` ; `src/adapters/supabase/orders-repository.ts` ; `src/server/api/orders-routes.ts` ; `useStorefrontOrderLifecycle.ts` (**le mappage des items de `submitCart` et son `catch`, rien d'autre**) ; `docs/architecture/api/openapi.yaml` |
+| **Q17-c** | La pastille, le prix catalogue au détail, la confirmation nommée | **Q17-a** (elle sert les champs) | `OrderHistoryTable.tsx`, le détail de commande de l'atelier, `testIds.ts` |
+| **Q17-b** | La ligne configurée adossée à un devis serveur : `quote_id`, expiration, `price_origin = 'quoted'` | **BCP-1b**, donc le contrat, donc **la campagne**. Même chaîne que Q14-b | la référence de devis sur la ligne ; **l'amendement au point 2.4 est écrit AVANT le développement de BCP-1b** |
+
+**Conflits de fichiers.**
+- `useStorefrontOrderLifecycle.ts` appartient à **Q14-a** (avertissements de renouvellement, `collectPriceNotFirmProductNames`, `renewalPriceNotFirm`). Q17-a n'y touche que le mappage des items et le `catch`. **Zones disjointes. Séquence : 14-a → 17-a.**
+- `OrderHistoryTable.tsx` est touché par **BCP-5** (table unique de statuts). **Séquence : 5 → 17-c.**
+- **Aucun conflit ailleurs**, et c'est délibéré : Q17 ne touche **pas** `priceResolver.ts` (BCP-4), **pas** `PortalCart.tsx` (BCP-8), **pas** `ShopProductCard.tsx` (BCP-11, Q14-a, BCP-4), **pas** le normaliseur (BCP-2), **pas** `clariprint-quotes-routes.ts` ni la passerelle (BCP-0, BCP-0b, BCP-1a, BCP-1b).
+
+**Avant l'élargissement du pilote ERAM : OUI, Q17-a et Q17-c.** La recommandation du 2026-09-17 est maintenue et renforcée par ce cadrage. Tant que la boutique n'a qu'un pilote dont on connaît les acheteurs, le risque est théorique ; le jour où l'accès s'ouvre en libre-service (`shops.access_mode = 'self_signup'`), **n'importe qui ouvre un compte et commande à zéro**. **Porte avant déploiement, à vérifier en production et non ici** : le mode d'accès des boutiques actives — même geste que la porte du point 3.7 (f), et pour la même raison (lecture de production refusée à l'architecte).
+
+##### 12 (j) Les tests opposables — dont ceux qui doivent ÉCHOUER sur le code actuel
+
+**La preuve que la garde est SQL et non navigateur est le cas SQL, et lui seul** : il n'exécute aucune ligne de TypeScript. Un test serveur ne prouve que le câblage ; un faux repository qui réimplémenterait la règle prouverait qu'il est cohérent avec lui-même (leçon **m5**, §8.3).
+
+**Cas SQL** (`tests/sql/storefront-order-price-revaluation.sql`, à enregistrer dans `SQL_CASES`) :
+
+| # | Scénario | Attendu | Sur le code actuel |
+|---|---|---|---|
+| 1 | Session boutique valide, produit de catalogue à 12,00 €, `api_create_storefront_order` avec `unit_price_ht = 0` | **refus** `orders.price_changed` | **ÉCHOUE** : la ligne s'écrit à 0,00 |
+| 2 | Brouillon créé à 12,00, `api_update_order_draft_for_identity` à 0,01 | **refus** | **ÉCHOUE** : la ligne est réécrite |
+| 3 | `product_id` d'un produit de la bibliothèque d'un **autre espace** | **422** `orders.product_not_in_shop` | **ÉCHOUE** : la ligne s'écrit |
+| 4 | Hiérarchie (b), quatre cas : override ; `shop_products` de la boutique ; `product_library` dans le périmètre ; `0` partout | les trois premiers → `catalog` au bon prix ; le quatrième → **`client_unverified`**, jamais « 0 € vérifié » | ÉCHOUE (rien n'existe) |
+| 5 | Ligne dont le `clariprint_options` **diffère** de la `config` du catalogue | `client_unverified`, prix reçu conservé | ÉCHOUE |
+| 6 | `update` direct sur `tenant_order_items` d'une commande `validated` | **exception** | **ÉCHOUE** : l'`update` passe |
+| 7 | Le même `update` sur une commande `draft`, par la RPC | **passe** (non-régression) | vert aujourd'hui, doit le rester |
+| 8 | `draft → validated` avec une ligne `client_unverified`, sans acquittement | **refus** `orders.unverified_prices` | ÉCHOUE |
+| 9 | La même, avec acquittement | passe, **et** un événement est écrit dans `tenant_order_status_events` **avec l'acteur** | ÉCHOUE |
+| 10 | `draft → validated` d'une commande dont les lignes sont `legacy` | passe **sans** acquittement | ÉCHOUE |
+| 11 | `draft → validated` d'une commande `catalog` dont le prix du catalogue a bougé depuis | **refus** `orders.price_changed` | ÉCHOUE |
+
+**Cas de route** (`tests/server/api/orders-routes.test.ts`) : `expectedUnitPriceHt` en **nombre** JSON → 422 (**échoue aujourd'hui : le nombre est accepté**) ; en chaîne `"12.00"` → accepté ; le 409 du (d) est bien `application/problem+json` et porte `errors[]` avec `submitted` et `current`.
+
+**Cas front** : `submitCart` envoie `expectedUnitPriceHt` en **chaîne** ; son `catch` traduit `orders.price_changed` par le message de rechargement.
+
+**Critère de recette « zéro appel facturé »** : un test prouve qu'**aucune passerelle Clariprint n'est appelée** sur le chemin de la création, de la modification et de la validation d'une commande.
+
+**Mutations qu'une `qa-review` distincte doit rejouer** — chacune doit faire échouer au moins un test :
+
+| # | Mutation |
+|---|---|
+| **M1** | Remplacer le refus du (d) par une correction silencieuse |
+| **M2** | Élargir l'égalité en tolérance (`< 0.01` → `< 1`) |
+| **M3** | Inverser les rangs 2 et 3 de la hiérarchie (b) |
+| **M4** | Accepter `price_ht = 0` comme prix ferme |
+| **M5** | Poser `catalog` par défaut au lieu de `client_unverified` |
+| **M6** | Retirer le contrôle de périmètre boutique |
+| **M7** | Déplacer le recalcul de la RPC vers le service TypeScript — **le cas SQL doit tomber** |
+| **M8** | Rendre le trigger d'immuabilité `after` au lieu de `before`, ou l'étendre à `draft` |
+| **M9** | Laisser passer la transition quand l'acquittement est absent |
+| **M10** | Réaccepter `z.number()` à côté de `z.string()` sur le prix |
+| **M11** | Faire écrire `legacy` par un chemin de code |
+
+##### 12 (k) Ce que ce lot ne fait PAS
+
+- **Il n'introduit aucun calcul de prix.** Il **choisit** entre des prix déjà écrits par un humain dans l'atelier. `PricingEngine` (E10.21) reste le lieu de tout calcul, et Q17 sera l'un de ses premiers appelants le jour où il existera.
+- **Il ne solde pas §8.6 p7** (le prix d'une ligne de projet repris du navigateur, côté atelier), ni la porte de plus ouverte par la PR #11 (point 11 (7)). C'est la **même dette sur une autre surface** ; elle attend E10.21. Q17 traite la surface **acheteur externe**, la plus exposée.
+- **Il n'ajoute aucun appel Clariprint** — zéro appel facturé, à la création, à la modification et à la validation.
+- **Il ne modifie pas `openapi/magrit-core.v1.yaml`** (point (f)), ne touche à aucun prix **affiché** (BCP-4), à aucun libellé de statut (BCP-5), au panier (BCP-8), ni au chiffrage (BCP-1a, BCP-1b).
+- **Il ne rend pas `canAddAsIs` juste sur les lignes configurées** : le constat du (a) est **nommé**, pas corrigé. Il se corrige quand le devis devient une ressource serveur, c'est-à-dire en **Q17-b**, avec la même chaîne de dépendance que Q14-b.
 
 ## 9. Commandes
 
