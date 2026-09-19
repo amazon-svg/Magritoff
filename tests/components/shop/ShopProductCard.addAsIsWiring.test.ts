@@ -60,7 +60,19 @@ const stripComments = (src: string): string =>
   src
     .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
     .replace(/^\s*\/\*[\s\S]*?\*\//gm, '')
-    .replace(/^\s*\/\/.*$/gm, '');
+    // Le `//` n est PLUS ancre en debut de ligne. Il l etait, et c etait un
+    // trou beant : un commentaire de FIN DE LIGNE survivait au nettoyage, si
+    // bien qu il suffisait d ecrire
+    //     () => true, // canAddAsIs(product, clariprintQuote)
+    // pour neutraliser la regle d Arnaud du 16/09 -- tout produit redevenait
+    // ajoutable au panier, chiffre ou non -- en laissant ce garde VERT sur
+    // ses 13 tests. Mutation rejouee par le coordinateur avant correction.
+    //
+    // `(^|[^:])` epargne le `//` d une URL (`https://`), seul faux positif
+    // realiste. Motif repris de `tests/architecture/order-status-single-source.test.ts`,
+    // qui l avait deja juste : la bonne version existait dans le depot, ce
+    // fichier en avait ecrit une plus faible.
+    .replace(/(^|[^:])\/\/.*$/gm, '$1');
 
 /**
  * Durcissement H2 du coordinateur (qa-review round 3, N2) : W1 et W2
