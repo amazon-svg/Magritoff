@@ -36,6 +36,15 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { extname, join, relative, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+// Cinquieme copie locale de ce nettoyage, supprimee : elle SUR-NETTOYAIT du
+// code reel. Mesure par la qa-review sur les 68 fichiers du perimetre de
+// cette gate : dans src/modules/orders/ui/storefront/types.ts, le `/*` du
+// chemin `/shop/:slug/account/*` ecrit en COMMENTAIRE ouvrait un faux bloc
+// qui avalait treize lignes -- 22 caracteres de code disparaissaient de ce
+// que cette gate analyse. Sans consequence sur ce fichier, qui ne porte
+// aucun libelle de statut ; mais le jour ou un fichier du perimetre reunit
+// un `/*` et un libelle en dur, la gate passait au vert sans l avoir vu.
+import { stripComments } from '../_helpers/stripComments';
 
 const SCAN_ROOTS = [
   resolve(process.cwd(), 'src/modules/orders'),
@@ -88,12 +97,6 @@ function collectSourceFiles(dir: string): string[] {
   return out;
 }
 
-/** Retire les commentaires `//` et `/* *\/` pour ne juger que du code/texte réellement servi. */
-function stripComments(source: string): string {
-  return source
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/(^|[^:])\/\/.*$/gm, '$1');
-}
 
 describe('architecture — une seule table de libellés de statut sous src/modules/orders/ et src/modules/roles/', () => {
   it('aucun fichier hors orderStatus.ts ne recopie UNE SEULE entrée de statut comme clé d objet en dur', () => {
