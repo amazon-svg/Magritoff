@@ -392,9 +392,9 @@ begin
   -- SEULEMENT parce que c est une fixture de test, pas un appel applicatif :
   -- `tenant_orders_status_change_guard` (durcissement D1) refuserait sinon
   -- cette ecriture directe, exactement ce que le cas 17 verifie par ailleurs.
-  perform set_config('app.q17a_allow_status_transition', 'true', true);
+  perform set_config('magrit.order_status_transition', 'true', true);
   update public.tenant_orders set status = 'validated' where id = v_order_id;
-  perform set_config('app.q17a_allow_status_transition', 'false', true);
+  perform set_config('magrit.order_status_transition', '', true);
 
   -- Cas 6 — un UPDATE direct sur tenant_order_items d une commande
   -- `validated` (contournement PostgREST direct, pas par une RPC) doit
@@ -761,6 +761,203 @@ begin
   select unit_price_ht into v_stored_unit_price from public.tenant_order_items where id = v_item_id;
   if v_stored_unit_price <> 12.00 then
     raise exception 'Cas 15 (modification) : unit_price_ht stocke = % (attendu 12.00)', v_stored_unit_price;
+  end if;
+end;
+$$;
+
+-- ── Cas 15bis (MAJEUR C2, qa-review round 2) — meme preuve sur
+--    api_create_tenant_order (chemin magrit_user), recreee dans le MEME
+--    round pour B1 sans le meme traitement arithmetique : round((...)::numeric,
+--    2) doit s appliquer aux TROIS emplacements (total_ht, unit_price_ht,
+--    line_total_ht), sinon la ligne stockee est incoherente avec elle-meme
+--    (unit=12.00 mais line_total/total sur la valeur brute).
+do $$
+declare
+  v_owner uuid := gen_random_uuid();
+  v_admin uuid := gen_random_uuid();
+  v_tenant uuid;
+  v_shop uuid;
+  v_product uuid;
+  v_result jsonb;
+  v_order_id uuid;
+  v_stored_unit_price numeric;
+  v_stored_line_total numeric;
+  v_stored_total numeric;
+begin
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, aud, role)
+    values
+      (v_owner, 'q17a-case15bis-owner@example.test', 'x', now(), now(), now(), 'authenticated', 'authenticated'),
+      (v_admin, 'q17a-case15bis-admin@example.test', 'x', now(), now(), now(), 'authenticated', 'authenticated');
+  insert into public.tenants (slug, name) values ('q17a-case15bis', 'Q17a Case15bis') returning id into v_tenant;
+  insert into public.tenant_members (tenant_id, user_id, role, access_scope, allowed_shop_ids)
+    values (v_tenant, v_admin, 'admin', 'magrit_full', '{}');
+  insert into public.shops (owner_user_id, tenant_id, slug, name) values (v_owner, v_tenant, 'q17a-case15bis-shop', 'Q17a Shop')
+    returning id into v_shop;
+  insert into public.product_library (user_id, tenant_id, name, price_ht, active)
+    values (v_owner, v_tenant, 'Grand tirage atelier', 12.00, true) returning id into v_product;
+  insert into public.shop_products (shop_id, tenant_id, product_id, name, price_ht)
+    values (v_shop, v_tenant, v_product, 'Grand tirage atelier', 12.00);
+
+  perform set_config('request.jwt.claims', json_build_object('sub', v_admin::text, 'role', 'authenticated')::text, true);
+
+  select public.api_create_tenant_order(
+    v_shop, 'EUR', '',
+    jsonb_build_array(jsonb_build_object(
+      'product_id', v_product, 'product_label', 'Grand tirage atelier',
+      'clariprint_options', '{}'::jsonb, 'quantity', 100000, 'unit_price_ht', 11.995
+    )),
+    'q17a-case15bis-create'
+  ) into v_result;
+  v_order_id := (v_result->>'order_id')::uuid;
+
+  select unit_price_ht, line_total_ht into v_stored_unit_price, v_stored_line_total
+    from public.tenant_order_items where order_id = v_order_id;
+  select total_ht into v_stored_total from public.tenant_orders where id = v_order_id;
+
+  if v_stored_unit_price <> 12.00 then
+    raise exception 'Cas 15bis : unit_price_ht stocke = % (attendu 12.00)', v_stored_unit_price;
+  end if;
+  if v_stored_line_total <> 1200000.00 then
+    raise exception 'Cas 15bis : line_total_ht = % (attendu 1200000.00, ligne incoherente avec unit_price_ht si different)', v_stored_line_total;
+  end if;
+  if v_stored_total <> 1200000.00 then
+    raise exception 'Cas 15bis : total_ht = % (attendu 1200000.00, 500 EUR de manque a gagner si 1199500.00)', v_stored_total;
+  end if;
+
+  reset role;
+  perform set_config('request.jwt.claims', null, true);
+end;
+$$;
+
+-- ── Cas 19 (BLOQUANT C1, qa-review round 2) — price_origin est une colonne
+--    ordinaire pour PostgREST : SANS revoke, un acteur can_manage_tenant_
+--    orders() ecrit unit_price_ht ET price_origin en direct sur une ligne de
+--    brouillon (le trigger d immuabilite laisse volontairement passer les
+--    lignes d un brouillon, c est son role documente), posant 'legacy' ou
+--    'quoted' pour court-circuiter toute re-verification a la transition
+--    (qui ne relit que 'catalog' et 'client_unverified'). Joue SOUS RLS
+--    (`set local role authenticated`), pas en superutilisateur : les cas 17
+--    et 18 prouvent les triggers, celui-ci prouve les DROITS.
+do $$
+declare
+  v_owner uuid := gen_random_uuid();
+  v_admin uuid := gen_random_uuid();
+  v_tenant uuid;
+  v_shop uuid;
+  v_product uuid;
+  v_result jsonb;
+  v_order_id uuid;
+  v_item_id uuid;
+  v_rejected boolean := false;
+begin
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, aud, role)
+    values
+      (v_owner, 'q17a-case19-owner@example.test', 'x', now(), now(), now(), 'authenticated', 'authenticated'),
+      (v_admin, 'q17a-case19-admin@example.test', 'x', now(), now(), now(), 'authenticated', 'authenticated');
+  insert into public.tenants (slug, name) values ('q17a-case19', 'Q17a Case19') returning id into v_tenant;
+  insert into public.tenant_members (tenant_id, user_id, role, access_scope, allowed_shop_ids)
+    values (v_tenant, v_admin, 'admin', 'magrit_full', '{}');
+  insert into public.shops (owner_user_id, tenant_id, slug, name) values (v_owner, v_tenant, 'q17a-case19-shop', 'Q17a Shop')
+    returning id into v_shop;
+  insert into public.product_library (user_id, tenant_id, name, price_ht, active)
+    values (v_owner, v_tenant, 'Depliant proteg', 12.00, true) returning id into v_product;
+  insert into public.shop_products (shop_id, tenant_id, product_id, name, price_ht)
+    values (v_shop, v_tenant, v_product, 'Depliant proteg', 12.00);
+
+  -- Commande creee honnetement, sous RLS, par l atelier (chemin magrit_user).
+  perform set_config('request.jwt.claims', json_build_object('sub', v_admin::text, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  select public.api_create_tenant_order(
+    v_shop, 'EUR', '',
+    jsonb_build_array(jsonb_build_object(
+      'product_id', v_product, 'product_label', 'Depliant proteg',
+      'clariprint_options', '{}'::jsonb, 'quantity', 1000, 'unit_price_ht', 12.00
+    )),
+    'q17a-case19-create'
+  ) into v_result;
+  v_order_id := (v_result->>'order_id')::uuid;
+  select id into v_item_id from public.tenant_order_items where order_id = v_order_id;
+
+  -- Reproduction exacte de la qa : reecrire le prix ET le marqueur en
+  -- direct, sur un brouillon (le trigger d immuabilite l autoriserait).
+  begin
+    update public.tenant_order_items
+       set unit_price_ht = 0.01, price_origin = 'legacy'
+     where id = v_item_id;
+  exception
+    when others then
+      if sqlerrm like 'permission denied%' then
+        v_rejected := true;
+      else
+        reset role;
+        raise;
+      end if;
+  end;
+  if not v_rejected then
+    reset role;
+    raise exception 'Cas 19 (volet 1) : un acteur authenticated a pu reecrire unit_price_ht ET price_origin en ecriture directe (attendu : permission denied)';
+  end if;
+
+  -- Meme preuve sur tenant_orders.total_ht (ferme aussi C3 : une commande
+  -- VALIDEE ne doit pas pouvoir voir son total reecrit en direct par
+  -- l atelier).
+  v_rejected := false;
+  begin
+    update public.tenant_orders set total_ht = 0.01 where id = v_order_id;
+  exception
+    when others then
+      if sqlerrm like 'permission denied%' then
+        v_rejected := true;
+      else
+        reset role;
+        raise;
+      end if;
+  end;
+  if not v_rejected then
+    reset role;
+    raise exception 'Cas 19 (volet 2, C3) : un acteur authenticated a pu reecrire tenant_orders.total_ht en ecriture directe (attendu : permission denied)';
+  end if;
+
+  reset role;
+  perform set_config('request.jwt.claims', null, true);
+end;
+$$;
+
+-- ── Cas 20 (non-regression C1) — les RPC SECURITY DEFINER continuent de
+--    fonctionner sous role authenticated malgre le revoke (elles executent
+--    avec les privileges du proprietaire, pas de l appelant).
+do $$
+declare
+  v_owner uuid := gen_random_uuid();
+  v_account uuid;
+  v_tenant uuid;
+  v_shop uuid;
+  v_token text := encode(extensions.gen_random_bytes(32), 'hex');
+  v_result jsonb;
+begin
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, aud, role)
+    values (v_owner, 'q17a-case20-owner@example.test', 'x', now(), now(), now(), 'authenticated', 'authenticated');
+  insert into public.tenants (slug, name) values ('q17a-case20', 'Q17a Case20') returning id into v_tenant;
+  insert into public.shops (owner_user_id, tenant_id, slug, name) values (v_owner, v_tenant, 'q17a-case20-shop', 'Q17a Shop')
+    returning id into v_shop;
+  insert into public.shop_customer_accounts (shop_id, email, full_name, status, activated_at)
+    values (v_shop, 'buyer-case20@example.com', 'Buyer', 'active', now()) returning id into v_account;
+  insert into private.shop_customer_sessions (shop_customer_account_id, shop_id, token_hash, expires_at)
+    values (v_account, v_shop, extensions.digest(convert_to(v_token, 'UTF8'), 'sha256'), now() + interval '1 hour');
+
+  set local role authenticated;
+  select public.api_create_storefront_order(
+    v_token, v_shop, 'EUR', '',
+    jsonb_build_array(jsonb_build_object(
+      'product_id', null, 'product_label', 'Produit libre',
+      'clariprint_options', '{}'::jsonb, 'quantity', 1, 'unit_price_ht', 10.00
+    )),
+    'q17a-case20-create'
+  ) into v_result;
+  reset role;
+
+  if v_result->>'order_id' is null then
+    raise exception 'Cas 20 : api_create_storefront_order a echoue sous role authenticated apres le revoke (attendu : succes, la RPC est SECURITY DEFINER)';
   end if;
 end;
 $$;

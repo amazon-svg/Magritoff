@@ -131,7 +131,7 @@ comment on trigger tenant_order_items_immutable_after_draft on public.tenant_ord
 -- UNIQUEMENT si la commande reste hors `draft` — la ligne redevient
 -- modifiable des que le statut regresse), puis remettre `shipped`, sans
 -- produire le moindre evenement dans `tenant_order_status_events`. Le
--- marqueur de transaction `app.q17a_allow_status_transition` est pose par
+-- marqueur de transaction `magrit.order_status_transition` est pose par
 -- `transition_tenant_order_status` (seule fonction autorisee a faire
 -- progresser ou reculer un statut) juste avant son propre UPDATE ; toute
 -- autre ecriture de `status` — RPC ou PostgREST direct — est refusee.
@@ -141,7 +141,7 @@ language plpgsql
 as $$
 begin
   if new.status is distinct from old.status
-     and coalesce(current_setting('app.q17a_allow_status_transition', true), '') <> 'true' then
+     and coalesce(current_setting('magrit.order_status_transition', true), '') <> 'true' then
     raise exception 'order.status_immutable: le statut d une commande ne se modifie que via transition_tenant_order_status (commande %, % -> %)', old.id, old.status, new.status;
   end if;
   return new;
@@ -590,8 +590,19 @@ begin
     raise exception 'invalid_order_items: invalid label, quantity or price';
   end if;
 
+  -- MAJEUR C2 (qa-review round 2) — `round(..., 2)` sur la valeur BRUTE aux
+  -- TROIS emplacements : round 2 avait ecrit `resolved_unit_price_ht` sur
+  -- les trois RPC storefront (B2) mais recopie cette fonction, recreee dans
+  -- le MEME round pour B1, sans le meme traitement. Un prix soumis a
+  -- 11,995 EUR pour 100 000 exemplaires ecrivait `unit=11.995,
+  -- line_total=1199500.00, total=1199500.00` (numeric(12,2) tronque
+  -- `unit_price_ht` a l ecriture mais PAS le calcul intermediaire de
+  -- `line_total_ht`/`total_ht`, qui reste sur la valeur brute) : 500 EUR
+  -- d ecart ET une ligne incoherente avec elle-meme. Cette fonction ne
+  -- verifie toujours rien (le fond reste porte a l architecte) — round(...)
+  -- est de l arithmetique de coherence interne, pas une verification.
   select round(sum(
-    ((item->>'quantity')::numeric * (item->>'unit_price_ht')::numeric)
+    ((item->>'quantity')::numeric * round((item->>'unit_price_ht')::numeric, 2))
   ), 2) into v_total_ht
     from jsonb_array_elements(p_items) item;
 
@@ -612,8 +623,8 @@ begin
     trim(item->>'product_label'),
     coalesce(item->'clariprint_options', '{}'::jsonb),
     (item->>'quantity')::integer,
-    (item->>'unit_price_ht')::numeric,
-    round((item->>'quantity')::numeric * (item->>'unit_price_ht')::numeric, 2),
+    round((item->>'unit_price_ht')::numeric, 2),
+    round((item->>'quantity')::numeric * round((item->>'unit_price_ht')::numeric, 2), 2),
     'client_unverified'
   from jsonb_array_elements(p_items) item;
 
@@ -1225,7 +1236,7 @@ begin
   -- SEULE porte que le trigger `tenant_orders_status_change_guard`
   -- (durcissement D1) laisse ouverte : poser un statut par tout autre
   -- chemin (RPC ou PostgREST direct) leve desormais `order.status_immutable`.
-  perform set_config('app.q17a_allow_status_transition', 'true', true);
+  perform set_config('magrit.order_status_transition', 'true', true);
   update public.tenant_orders
     set status = p_new_status_code::public.tenant_order_status,
         updated_at = now(),
@@ -1237,7 +1248,7 @@ begin
   -- un appelant qui chainerait deux operations dans la meme transaction (un
   -- futur script, un test) ne doit trouver la porte ouverte que pour CETTE
   -- ecriture-ci, jamais pour une suivante.
-  perform set_config('app.q17a_allow_status_transition', 'false', true);
+  perform set_config('magrit.order_status_transition', '', true);
 
   insert into public.tenant_order_status_events
     (order_id, actor_id, from_status, to_status, reason, metadata)
@@ -1394,11 +1405,11 @@ begin
   -- aussi `status` directement, hors de `transition_tenant_order_status` ;
   -- il doit donc lever le meme laissez-passer transactionnel que celle-ci,
   -- sans quoi `tenant_orders_status_change_guard` le refuserait a son tour.
-  perform set_config('app.q17a_allow_status_transition', 'true', true);
+  perform set_config('magrit.order_status_transition', 'true', true);
   update public.tenant_orders
      set status = 'cancelled', cancelled_at = now(), updated_at = now()
    where id = p_order_id;
-  perform set_config('app.q17a_allow_status_transition', 'false', true);
+  perform set_config('magrit.order_status_transition', '', true);
   insert into public.tenant_order_status_events (
     order_id, actor_id, shop_customer_account_id, acted_by_magrit_user_id,
     from_status, to_status, reason, metadata
@@ -1422,6 +1433,65 @@ $$;
 revoke all on function public.api_transition_order_for_identity(uuid, text, text, text, text, boolean) from public;
 grant execute on function public.api_transition_order_for_identity(uuid, text, text, text, text, boolean) to anon, authenticated;
 
+-- ─── 8. BLOQUANT C1 (qa-review round 2) — le marqueur price_origin est
+--    FORGEABLE en base par ecriture directe ────────────────────────────────
+-- Round 1 (D1) a ferme la reecriture directe du PRIX (trigger d immuabilite)
+-- et de tenant_orders.status (nouveau trigger). Il restait un troisieme
+-- vecteur, symetrique des deux premiers : la policy `tenant_order_items_
+-- update` (20260824000400_um1_order_option_enforcement.sql) autorise tout
+-- acteur `can_manage_tenant_orders()` a ecrire n importe quelle colonne
+-- d une ligne de brouillon, y compris `price_origin` lui-meme — une colonne
+-- comme une autre pour PostgREST. Reproduction verifiee par la qa, sous RLS
+-- (`set local role authenticated`) : commande creee honnetement, puis
+-- `update tenant_order_items set unit_price_ht = 0.01, price_origin =
+-- 'legacy' where ...` en DIRECT sur le brouillon (le trigger d immuabilite
+-- laisse volontairement passer les lignes d un brouillon, c est son role),
+-- puis validation — la boucle de re-verification de
+-- `transition_tenant_order_status` ne relit QUE les lignes `catalog` et
+-- `client_unverified` (point 12 (e)) : `legacy` et `quoted` passent sans
+-- rien, par construction (ce sont les deux valeurs que la re-verification
+-- n a jamais eu mandat de recalculer). Le refus `price_changed` ET le refus
+-- `unverified_prices` sont court-circuites, sans laisser de trace, et
+-- l acteur qui peut le faire est exactement celui que l acquittement est
+-- cense contraindre.
+--
+-- Correction : aucune ecriture directe sur ces deux tables n a de raison
+-- d exister — les trois RPC de ce fichier sont SECURITY DEFINER, executees
+-- avec les privileges du proprietaire (postgres), donc EXEMPTES de ce
+-- revoke. Verifie par grep sur src/ et supabase/functions/ : ces deux
+-- tables n y sont jamais ecrites directement, seulement lues.
+revoke insert, update, delete on public.tenant_order_items from anon, authenticated;
+revoke update on public.tenant_orders from anon, authenticated;
+
+comment on table public.tenant_order_items is
+  'Q17-a durcissement C1 (qa-review round 2) — insert/update/delete revoques a anon/authenticated : seules les fonctions SECURITY DEFINER de ce fichier (api_create_storefront_order, api_create_tenant_order, api_update_order_draft_for_identity, api_update_tenant_order_draft) ecrivent cette table. Sans ce revoke, price_origin est une colonne comme une autre pour un acteur can_manage_tenant_orders(), qui peut y poser legacy/quoted pour court-circuiter toute re-verification.';
+
+comment on table public.tenant_orders is
+  'Q17-a durcissement C1/C3 (qa-review round 2) — update revoque a anon/authenticated : total_ht (entre autres) ne se modifie que via les RPC SECURITY DEFINER de ce fichier. Le trigger tenant_orders_status_change_guard (point 12 (g), durcissement D1) protege deja status specifiquement ; ce revoke ferme le reste de la ligne, dont total_ht sur une commande deja validee.';
+
+-- ─── 9. C4 (tranche par le coordinateur) — api_create_tenant_order_core est
+--    orpheline ─────────────────────────────────────────────────────────────
+-- Round 2 (BLOQUANT B1) a recree `api_create_tenant_order` avec un corps
+-- COMPLET (plus un simple relais vers `..._core`), remplacant de fait
+-- l enveloppe self-signup posee par `20260811000800_create_order_self_
+-- signup.sql`. Verifie avant suppression : aucun appelant dans src/ ni
+-- supabase/functions/ (grep), et le seul autre site qui la nomme est sa
+-- propre migration de creation. Ses privileges sont deja reduits a
+-- `postgres` (`revoke all ... from public, anon, authenticated`), et elle
+-- porte toujours le defaut `price_origin` NOT NULL sans la colonne dans son
+-- INSERT (le meme defaut que B1 fermait sur l enveloppe) : la laisser
+-- dormir, executable et cassee, n est pas une option.
+drop function if exists public.api_create_tenant_order_core(uuid, text, text, jsonb, text);
+
+-- ─── 10. C6.1 (tranche par le coordinateur) — update_tenant_order_status
+--    (l ancienne RPC v1.1, anterieure a transition_tenant_order_status)
+--    ecrit tenant_orders.status SANS poser le laissez-passer transactionnel
+--    et leve donc desormais `order.status_immutable` a chaque appel
+--    (durcissement D1). Aucun appelant vivant (`grep` sur src/) : les
+--    commentaires qui la nomment encore documentent un chemin deja mort.
+--    Une fonction executable et cassee ne se laisse pas dormir non plus.
+revoke execute on function public.update_tenant_order_status(uuid, public.tenant_order_status, text) from authenticated;
+
 notify pgrst, 'reload schema';
 
 -- ============================================================================
@@ -1432,10 +1502,23 @@ notify pgrst, 'reload schema';
 --
 --   drop trigger if exists tenant_order_items_immutable_after_draft on public.tenant_order_items;
 --   drop function if exists public.tenant_order_items_immutable_after_draft();
+--   drop trigger if exists tenant_orders_status_change_guard on public.tenant_orders;
+--   drop function if exists public.tenant_orders_status_change_guard();
 --   drop function if exists private.classify_storefront_order_line(uuid, uuid, jsonb, numeric);
 --   drop function if exists private.resolve_storefront_catalog_price(uuid, uuid);
+--   drop function if exists public.api_update_tenant_order_draft(uuid, jsonb, text);
 --   alter table public.tenant_order_items drop column if exists price_origin;
 --   alter table public.tenant_orders drop column if exists has_unverified_prices;
+--   grant insert, update, delete on public.tenant_order_items to authenticated;
+--   grant update on public.tenant_orders to authenticated;
+--   grant execute on function public.update_tenant_order_status(uuid, public.tenant_order_status, text) to authenticated;
+--     -- (C4 : api_create_tenant_order_core a ete DROP, pas seulement
+--     -- desactivee — sa restauration suppose de rejouer
+--     -- 20260811000800_create_order_self_signup.sql en entier, y compris le
+--     -- renommage et l enveloppe self-signup, PUIS de reappliquer
+--     -- 20260919000100 sans son bloc B1/C2/C4 (revert manuel, pas automatise
+--     -- ici : ce cas n a aucune raison de survenir sans une decision de
+--     -- l architecte sur le fond de B1, deja portee au-dela de ce lot).
 --
 --   2. Fonctions RECREEES (leur ancienne definition doit etre REJOUEE telle
 --      quelle, pas seulement DROP — sinon la route casse) : rejouer, DANS CET
@@ -1451,10 +1534,15 @@ notify pgrst, 'reload schema';
 --     --   20260817000400_storefront_order_cancellation.sql (api_transition_order_for_identity/5)
 --     --   20260817000100_storefront_order_identity.sql (api_create_storefront_order)
 --     --   20260817000300_storefront_order_drafts.sql (api_get_order_draft_for_identity, api_update_order_draft_for_identity)
+--     --   20260811000400_api_create_order_atomic.sql (api_create_tenant_order, version PRE-B1/C2)
 --
 --   notify pgrst, 'reload schema';
 --
 -- Aucune commande existante n est modifiee par cette migration (point 12 (g)) :
 -- un retrait ne perd aucune donnee, il ne fait que redonner au serveur sa
--- credulite d avant Q17-a.
+-- credulite d avant Q17-a. RESERVE DE DEPLOIEMENT (a porter par l architecte
+-- ou Arnaud, hors de portee de cet agent) : le revoke de ce lot doit etre
+-- confirme contre toute surface d administration HORS depot (SQL editor
+-- Supabase, scripts d exploitation, outillage support) qui ecrirait ces deux
+-- tables en direct, AVANT mise en production.
 -- ============================================================================
