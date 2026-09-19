@@ -198,17 +198,22 @@ describe('buildConfiguredProduct', () => {
   });
 });
 
-describe('buildConfiguredProduct — cas légitime (ne pas casser Q14, canAddAsIs)', () => {
+describe('cas légitime (Q14, canAddAsIs) — resolveCartLinePricing seul, PAS une garde de câblage', () => {
   /**
-   * Point 2 de la commande : un produit qui porte réellement un chiffrage
-   * obtenu pour SA configuration doit le garder — c est la règle d ajout
-   * direct au panier (arbitrage Arnaud 16/09, `canAddAsIs`). Ce chemin
-   * n appelle JAMAIS `buildConfiguredProduct` (un produit ajouté « tel
-   * quel » ne passe pas par le configurateur) : ce test le vérifie en
-   * s assurant que le devis légitime d un produit qui n est PAS passé par
-   * le configurateur reste intact et continue de résoudre `clariprint`.
+   * Q20 qa-review round 1 — CORRECTIF DE RÉDACTION. Ce test n'appelle PAS
+   * `buildConfiguredProduct` : il vérifie seulement que `resolveCartLinePricing`
+   * résout bien `clariprint` pour un produit qui porte un devis légitime
+   * dans sa `config`. Il resterait VERT même si `buildConfiguredProduct`
+   * était remis à fuir son `clariprintQuote` hérité — ce n'est donc PAS une
+   * garantie que le chemin d'ajout direct (`canAddAsIs`, arbitrage Arnaud
+   * du 16/09) est étanche au correctif. **La vraie garde de câblage est
+   * `tests/architecture/build-configured-product-single-callsite.test.ts`** :
+   * elle vérifie structurellement que `buildConfiguredProduct` n'est jamais
+   * appelé ailleurs que dans `confirm()` de `useProductConfigurator.ts`, donc
+   * jamais depuis le chemin d'ajout direct. Ce test-ci ne fait que documenter
+   * le comportement attendu de `resolveCartLinePricing` sur ce cas.
    */
-  it("un produit ajouté tel quel (jamais passé par buildConfiguredProduct) garde son devis", () => {
+  it("resolveCartLinePricing resout 'clariprint' pour un produit qui porte un devis dans sa config", () => {
     const addedAsIs = {
       ...product,
       config: {
