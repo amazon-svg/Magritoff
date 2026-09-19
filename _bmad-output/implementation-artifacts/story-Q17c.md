@@ -2,19 +2,45 @@
 story_id: Q17-c
 epic: Sprint 5 — chantier boutique « chaîne des prix Magrit → panier et qualité d'affichage » (hors E10, docs/api/CONVENTIONS.md §8.25)
 title: Ce que l'atelier voit — rendre visible l'écart de prix que Q17-a a rendu vrai côté serveur
-status: round 5 — rebasé sur le nettoyeur de commentaires unique (source unique tests/_helpers/stripComments.ts), quatrième chemin de fuite acheteur (audit trail) corrigé, en attente de nouvelle qa-review distincte
+status: round 6 — corrigé un commentaire affirmant une équivalence fausse (le sur-masquage de l'audit trail est maintenant nommé, argumenté et testé comme un choix), en attente de nouvelle qa-review distincte
 branch: feat/gescom-q17c-ecart-prix-visible
 base_round1: origin/main (03933044), Q17-a déjà fusionné
 base_round2: HEAD round 1 (115648b0, commité et poussé)
 base_round3: HEAD round 2 (075fe5cc, commité et poussé)
 base_round4: origin/fix/strip-comments-fin-de-ligne (b0d81f2b, rebase demandé par le coordinateur) + HEAD round 3 (d692b6b4, rebasé sur b0d81f2b)
 base_round5: origin/fix/strip-comments-fin-de-ligne (711fd93d, seconde correction du coordinateur — source unique tests/_helpers/stripComments.ts) + HEAD round 4 (9330f9da, rebasé sur 711fd93d)
+base_round6: HEAD round 5 (56df1e0d, commité et poussé) — pas de rebase, le coordinateur n a pas encore repoussé fix/strip-comments-fin-de-ligne
 agent: dev-story (Sonnet 5)
 cadrage_opposable: docs/api/CONVENTIONS.md §8.25 point 12 (h), lignes Q17-c des points 6 et 9 (i)
 citation_cadrage: « Le filet d'aujourd'hui est l'œil de la personne qui valide, et il est aveugle. »
 ---
 
 # Story Q17-c — l'atelier voit l'écart de prix
+
+## ROUND 6 — un commentaire affirmait une équivalence fausse ; le sur-masquage est maintenant un choix nommé, argumenté et testé
+
+**Ce qui est acquis, confirmé par la revue, non rouvert** : les deux bloquants du round 5 sont fermés. `hideAcknowledgedPriceMetadata` est jugée chirurgicale (ne retire que les deux clés, dans `metadata` seulement, laisse `via_rpc` intact, repli propre si `metadata` est absent/nul/tableau) et **aucun sous-masquage n'est possible** — le quatrième chemin est réellement fermé dans le sens sécurité. Les trois fichiers de test importent bien `stripComments` depuis la source unique sans recopier le motif, la mutation bloc est létale sur les trois sites, et `getDraft` reste jugé acceptable en l'état parce qu'il est escaladé (pas seulement commenté).
+
+**BLOQUANT (round 6) — mon commentaire affirmait que `authorization.storefrontToken !== null` est « EXACTEMENT » la condition testée par la RPC. C'est faux.** La RPC (`api_get_order_audit_for_identity`) teste `if p_opaque_token is not null` (ligne ~31) pour *tenter* de résoudre une session, mais le VRAI choix de branche est aux lignes ~44-48 :
+
+```sql
+v_storefront_allowed := v_session_account_id is not null
+  and v_session_account_id = v_order.shop_customer_account_id
+  and v_session_shop_id    = v_order.shop_id;
+```
+
+Trois conditions côté SQL (session résolue, ET compte de LA commande consultée, ET boutique de LA commande) contre une seule côté façade (session résolue, n'importe laquelle). Mon prédicat est un **sur-ensemble strict**, pas une équivalence — c'est la **troisième fois** dans ce lot qu'un masquage se justifiait par une lecture erronée de « quelle branche sert qui » (round 2 : `magrit_user` dit « atelier », faux, cachait une vraie fuite ; round 5 : cette fois-ci).
+
+**Le sens sécurité reste bon** : il n'existe aucun cas où la RPC sert l'acheteur sans que la façade masque. **L'autre sens est le problème, mesuré sur la configuration réelle** : `orderResourceAuthorization` pose `storefrontToken` dès qu'une session boutique valide existe dans le cookie (`path: '/'`, envoyé sur toute requête de même origine), **sans vérifier la boutique de la commande ni le compte propriétaire**. Un membre de l'atelier qui a AUSSI une session boutique ouverte dans le même navigateur — cas ordinaire, imposé par le smoke E2E de la DoD et par le pilote ERAM — et qui clique « Historique » sur une commande **qu'il a lui-même validée en acquittant** reçoit de la RPC la branche atelier, mais ma façade masque quand même : il ne peut plus relire ce qu'il a acquitté, sans aucun signal. C'est exactement la traçabilité que le point 12 (c) exige.
+
+**Corrigé, comme demandé — une phrase et un test, pas une refonte** :
+1. Le commentaire de `getAuditTrail` (`orders-service.ts`) remplace l'affirmation d'équivalence par ce qui est vrai : sur-ensemble délibéré, sûr dans un sens, avec sa conséquence nommée en toutes lettres.
+2. Nouveau test qui épingle ce cas précis : `storefrontToken` non nul, événement marqué avec `acknowledged_line_labels`, résultat masqué **quand même** — pour que ce sur-masquage soit un comportement **choisi et documenté**, pas subi en silence.
+3. **Tranché, pas juste posé en alternative** : je garde le sur-masquage tel quel dans ce lot. La seule frontière fidèle demanderait à la RPC de RENDRE la branche qu'elle a réellement prise (un discriminant explicite dans son résultat) plutôt que de la deviner côté façade à partir d'un signal plus large — c'est une migration SQL, donc hors du périmètre front-only déclaré de Q17-c. Je ne la fais pas ici ; je nomme le chemin de mise en conformité si ce compromis est un jour jugé inacceptable.
+
+**Pas de rebase ce round** : le coordinateur n'a pas encore repoussé `fix/strip-comments-fin-de-ligne` avec sa propre correction (deux formes encore non couvertes par `stripComments`, qu'il traite en parallèle) ; `git fetch origin --prune` confirme `origin/fix/strip-comments-fin-de-ligne` toujours à `711fd93d`, identique à ce que ce lot a déjà rebasé au round 5. Je n'ai pas touché `tests/_helpers/stripComments.ts`.
+
+**Gates rejouées après le round 6 complet** : voir section « Tests exécutés ».
 
 ## ROUND 5 — rebase sur la source unique, quatrième chemin de fuite acheteur corrigé
 
@@ -141,7 +167,7 @@ Le point 12 (c) exige un acquittement explicite pour valider une commande marqu�
 - `src/modules/orders/api/contracts.ts` — `orderItemSchema.priceOrigin` (nullable), `orderSummarySchema.hasUnverifiedPrices`.
 - `src/modules/orders/index.ts` — export du type `PriceOrigin`.
 - `src/modules/orders/application/orders-repository.ts` — `TenantOrderRecord` porte `hasUnverifiedPrices` et `items[].priceOrigin`.
-- `src/modules/orders/application/orders-service.ts` — `toTenantSummary`/`toLegacySummary` posent ces deux champs (`false`/`null` pour la cohorte legacy `shop_orders`, qui n'a pas cette notion). **Round 2** : `hideUnverifiedPriceMarkers()` (MAJEUR 4). **Round 3** : appliquée sur la TOTALITÉ de `listPortalOrders` (`buildPortalOrdersResponse()` extraite en méthode privée, masquage appliqué une seule fois après construction des quatre jeux de données), plus une correction du commentaire qui qualifiait à tort la branche `magrit_user` de « consommée par l'atelier ». **Round 5** : `hideAcknowledgedPriceMetadata()` (nouvelle fonction), appliquée sur `getAuditTrail()` quand `authorization.storefrontToken !== null` — quatrième chemin de fuite acheteur, fermé.
+- `src/modules/orders/application/orders-service.ts` — `toTenantSummary`/`toLegacySummary` posent ces deux champs (`false`/`null` pour la cohorte legacy `shop_orders`, qui n'a pas cette notion). **Round 2** : `hideUnverifiedPriceMarkers()` (MAJEUR 4). **Round 3** : appliquée sur la TOTALITÉ de `listPortalOrders` (`buildPortalOrdersResponse()` extraite en méthode privée, masquage appliqué une seule fois après construction des quatre jeux de données), plus une correction du commentaire qui qualifiait à tort la branche `magrit_user` de « consommée par l'atelier ». **Round 5** : `hideAcknowledgedPriceMetadata()` (nouvelle fonction), appliquée sur `getAuditTrail()` quand `authorization.storefrontToken !== null` — quatrième chemin de fuite acheteur, fermé. **Round 6** : commentaire de `getAuditTrail()` corrigé — retire l'affirmation d'équivalence fausse (`storefrontToken !== null` n'est PAS la condition exacte de la RPC), nomme le sur-ensemble et sa conséquence réelle.
 - `src/adapters/supabase/orders-repository.ts` — `TENANT_ORDER_SELECTION` étendu (`has_unverified_prices`, `tenant_order_items.price_origin`), `TenantOrderRow`, `toTenantOrder()` mappe les deux champs. **Round 2 (BLOQUANT 1)** : commentaire corrigé — l'analogie avec `customer_name`/`customer_email` était fausse et est retirée ; l'élargissement manuel restant ne porte plus que sur la forme du SELECT (colonnes réellement typées désormais par `database.types.ts`).
 - `src/types/database.types.ts` (round 2, BLOQUANT 1) — ajout ciblé de `has_unverified_prices` (`tenant_orders`) et `price_origin` (`tenant_order_items`), valeurs vérifiées contre `supabase gen types typescript --local` sur la pile Supabase locale partagée (migration Q17-a confirmée appliquée par requête directe sur `information_schema.columns`). Pas de régénération complète — voir constat de dette remontée dans `SPRINT_HANDOFF.md`.
 - `src/modules/orders/ui/storefront/PortalOrders.helpers.ts` — `OrderUI.items[].priceOrigin` et `OrderUI.hasUnverifiedPrices` (optionnels — cohorte legacy ne les porte pas), `orderSummaryToUi()` les copie.
@@ -155,7 +181,7 @@ Le point 12 (c) exige un acquittement explicite pour valider une commande marqu�
 - `src/shared/presentation/testIds.ts` — 7 testids déclarés : `orderUnverifiedPriceBadge`, `orderDetailToggle`, `orderDetailRow`, `orderDetailLineItem`, `orderDetailLinePriceOrigin`, `validateOrderDialogUnverifiedNotice`, `validateOrderDialogConfirmUnverified`.
 - `docs/architecture/api/openapi.yaml` — `OrderItem.priceOrigin`, `OrderSummary.hasUnverifiedPrices` (documentation, non gardée par un test d'exécution — voir « Ce que je n'ai pas su vérifier »).
 - `SPRINT_HANDOFF.md` (round 2, BLOQUANT 1) — dépendance de déploiement Q17-a → Q17-c déclarée, constat de dette sur `database.types.ts` remonté. **Round 3** : chiffre de la dette corrigé (75/38/39/2, plus de « ~95 »).
-- Tests : `tests/modules/orders/orders-service.test.ts`, `tests/server/api/orders-routes.test.ts`, `tests/components/shop/portal/{OrderHistoryTable.helpers,PortalOrders.helpers,ValidateOrderConfirmDialog.text,orderTransitionErrors.helpers,orderValidation.helpers}.test.ts`, `tests/app/hooks/useDashboardOrderManagement.test.ts` — fixtures étendues + nouveaux cas (détail ci-dessous).
+- Tests : `tests/modules/orders/orders-service.test.ts`, `tests/server/api/orders-routes.test.ts`, `tests/components/shop/portal/{OrderHistoryTable.helpers,PortalOrders.helpers,ValidateOrderConfirmDialog.text,orderTransitionErrors.helpers,orderValidation.helpers}.test.ts`, `tests/app/hooks/useDashboardOrderManagement.test.ts` — fixtures étendues + nouveaux cas (détail ci-dessous). **Round 6** : un cas ajouté à `orders-service.test.ts` qui épingle le sur-masquage (`storefrontToken` non nul, événement marqué, résultat masqué quand même).
 
 ## Dérogations R5
 
@@ -166,7 +192,7 @@ Aucune nouvelle. Ce lot ne touche à aucun endpoint E10, ne modifie pas `openapi
 - **Q19** — voir section ROUND 2 en tête de ce document. Ce lot ouvre l'acquittement à `can_validate`, aussi large que la validation elle-même. Convergent avec la recommandation de l'architecte et l'arbitrage Q21, mais Q19 reste formellement ouverte au cadrage sur ce point précis : remonté pour confirmation d'Arnaud, pas tranché.
 - **Dette `src/types/database.types.ts`** — voir ROUND 2/3/4, MAJEUR 3. Mesure réelle, tranchée par jointure SQL au round 4 (requêtes exactes dans `SPRINT_HANDOFF.md`) : 75 tables en base, 38 déclarées dont 36 réellement des tables et **2 fantômes** (`quotes`, `quote_lines`, disparues au 2026-09-02), **39 absentes** (quasi-totalité E10) — le fichier ne couvre qu'environ la moitié du schéma. Contourné au cas par cas par le code applicatif. Remonté dans `SPRINT_HANDOFF.md`, pas résolu dans ce lot (hors périmètre, diff sans rapport).
 - **Troisième chemin de fuite acheteur, round 3, TOUJOURS OUVERT** — `getDraftOrder`/`draftOrderSchema` exposent aussi `priceOrigin`/`hasUnverifiedPrices`, et `GET /api/v1/orders/{orderId}/draft` est appelé par trois hooks acheteur (`useStorefrontOrderLifecycle.ts`, `useStorefrontOrderEditor.ts`, `useStorefrontOrderReceipt.ts`, vérifié par grep). Pas une régression de ce lot (vient de Q17-a) ; pas fermé ici (périmètre déclaré de Q17-c limité à `OrderSummary`/`listPortalOrders`). Contrairement au quatrième chemin (audit trail, ci-dessous), je n'ai pas trouvé de correctif purement applicatif pour celui-ci sans en avoir vérifié la faisabilité en détail — reste nommé, pas classé « corrigé ».
-- **Quatrième chemin de fuite acheteur, round 5, CORRIGÉ** — `GET /orders/{orderId}/audit`, branche `storefront_session`, rendait `acknowledged_unverified_prices`/`acknowledged_line_labels` (liste NOMINATIVE des lignes douteuses) verbatim à l'acheteur qui consulte sa propre commande. Voir section ROUND 5 en tête de ce document pour le détail et le raisonnement. Corrigé par `hideAcknowledgedPriceMetadata()`, sans nouvelle migration.
+- **Quatrième chemin de fuite acheteur, round 5, CORRIGÉ ; sur-masquage nommé au round 6** — `GET /orders/{orderId}/audit`, branche `storefront_session`, rendait `acknowledged_unverified_prices`/`acknowledged_line_labels` (liste NOMINATIVE des lignes douteuses) verbatim à l'acheteur qui consulte sa propre commande. Corrigé par `hideAcknowledgedPriceMetadata()`, sans nouvelle migration. **Round 6** : le prédicat de masquage (`storefrontToken !== null`) n'est PAS exactement la condition testée par la RPC (qui vérifie en plus que la session correspond au compte ET à la boutique de LA commande) — c'est un sur-ensemble strict, assumé côté sûr. Conséquence nommée : un membre de l'atelier porteur d'un cookie de session boutique (cas ordinaire, DoD/pilote ERAM) perd la liste nominative sur une commande qu'il a lui-même acquittée. Tranché : le sur-masquage reste tel quel dans ce lot, testé comme un choix ; la mise en conformité fidèle demanderait à la RPC de rendre elle-même la branche prise (migration SQL, hors périmètre front-only déclaré).
 - **`OrderHistoryTable.wiring.test.ts` reste vulnérable à la même classe de défaut que le BLOQUANT round 3 (`stripComments` ne retire pas les commentaires de fin de ligne)**, sur instruction explicite du coordinateur : il corrige `stripComments` lui-même en parallèle (partagé avec Q14-a/Q20). Non touché dans ce round. **Round 4 : CORRIGÉ** (motif repris de son commit, trois mutations rejouées, aucune ne survit). **Round 5 : le round 4 était lui-même incomplet** (règle de bloc encore ancrée en début de ligne) — corrigé en pointant vers la source unique `tests/_helpers/stripComments.ts` du coordinateur, trois mutations rejouées SOUS FORME BLOC, aucune ne survit.
 
 ## Ce que je n'ai PAS su faire / limites assumées
@@ -241,6 +267,15 @@ Test Files  8 failed | 11 passed (19)
 - `pnpm test:contract` → **434 tests passés** (23 fichiers) — inchangé.
 - `pnpm gen:api:check` → **aligné**, aucune dérive.
 - `pnpm test` (suite complète) → **3409 tests passés, 88 skippés** (337 fichiers : 325 passés, 12 skippés) — soit **+2** par rapport au round 4 (3407), les deux tests de `hideAcknowledgedPriceMetadata()`.
+
+**Round 6 — un seul cas ajouté, qui épingle le sur-masquage comme un choix** : `storefrontToken: 'session-boutique-du-meme-navigateur'` (non nul) sur un événement marqué (`acknowledged_line_labels`), résultat masqué QUAND MÊME (`orders-service.test.ts`). Ce test n'échoue pas sur le code d'avant (le comportement de masquage lui-même n'a pas changé au round 6, seul le commentaire l'expliquant est corrigé) — il **documente en comportement** ce que le round 5 documentait mal en commentaire, exactement la demande du coordinateur.
+
+**Gates complètes, rejouées après le round 6 complet** :
+- `pnpm typecheck` → **0 erreur**.
+- `pnpm test:architecture` → **461 tests passés** (49 fichiers) — inchangé.
+- `pnpm test:contract` → **434 tests passés** (23 fichiers) — inchangé.
+- `pnpm gen:api:check` → **aligné**, aucune dérive.
+- `pnpm test` (suite complète) → **3410 tests passés, 88 skippés** (337 fichiers : 325 passés, 12 skippés) — soit **+1** par rapport au round 5 (3409), le test du sur-masquage.
 
 ## Critères d'acceptation, un par un (dérivés du point 12 (h), pas de CA numérotés BMAD pour ce lot)
 

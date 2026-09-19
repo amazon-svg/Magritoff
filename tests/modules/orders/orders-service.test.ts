@@ -223,6 +223,42 @@ describe('OrdersService', () => {
     expect(metadata['acknowledged_line_labels']).toEqual(['Flyers A5']);
   });
 
+  // Sur-masquage ASSUMÉ (qa-review round 6) — `authorization.storefrontToken`
+  // n'est PAS exactement la condition que la RPC teste pour choisir sa
+  // branche (voir le commentaire de `getAuditTrail`) : c'est un sur-ensemble
+  // strict, délibérément du côté sûr. Conséquence RÉELLE, épinglée ici : un
+  // membre de l'atelier qui porte AUSSI un cookie de session boutique valide
+  // (cas ordinaire — smoke E2E de la DoD, pilote ERAM) perd la liste
+  // nominative sur une commande QU'IL A LUI-MÊME acquittée, sans signal, dès
+  // lors que ce cookie est présent — même si la RPC, elle, lui aurait rendu
+  // la branche atelier (compte/boutique de la session ne correspondant PAS
+  // à la commande consultée). Ce test prouve que ce choix est VOULU et
+  // testé, pas un oubli : `storefrontToken` non nul suffit à masquer, quel
+  // que soit l acteur réel derrière.
+  it("sur-masquage assume : storefrontToken non nul masque MEME quand l acteur reel est l atelier qui vient d acquitter", async () => {
+    const repository = repositoryStub();
+    repository.listAuditEvents = vi.fn(async () => [{
+      eventId: 'event-marked', orderId: 'v11-1', kind: 'status', eventType: 'status_transition',
+      actorId: 'user-1', actorEmail: 'admin@magrit.test',
+      shopCustomerAccountId: null, actedByMagritUserId: null, roleName: null,
+      payload: {
+        from_status: 'draft', to_status: 'validated',
+        metadata: { acknowledged_unverified_prices: true, acknowledged_line_labels: ['Flyers A5'] },
+      },
+      occurredAt: '2026-09-19T12:00:00.000Z',
+    }]);
+    const service = new OrdersService(repository);
+
+    // Un cookie de session boutique existe (present sur toute requete de
+    // meme origine, path '/'), MEME si l acteur reel qui consulte est un
+    // membre de l atelier venu se relire apres avoir acquitte.
+    const result = await service.getAuditTrail('v11-1', { storefrontToken: 'session-boutique-du-meme-navigateur' });
+
+    const metadata = result.events[0]?.payload['metadata'] as Record<string, unknown>;
+    expect(metadata['acknowledged_unverified_prices']).toBeUndefined();
+    expect(metadata['acknowledged_line_labels']).toBeUndefined();
+  });
+
   it('ne notifie une transition qu au premier traitement idempotent', async () => {
     const repository = repositoryStub();
     const service = new OrdersService(repository);

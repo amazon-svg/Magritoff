@@ -127,11 +127,48 @@ export class OrdersService {
    * que depuis ce lot — comme pour Q19, c'est ce lot qui ouvre le robinet.
    *
    * Corrigé ICI, en TypeScript, sans nouvelle migration ni redéploiement
-   * d'Edge Function : `authorization.storefrontToken !== null` est EXACTEMENT
-   * la condition que la RPC elle-même teste (`if p_opaque_token is not null`)
-   * pour choisir sa branche acheteur — donc le bon endroit pour reproduire la
-   * même frontière côté façade, symétrique de `hideUnverifiedPriceMarkers`
-   * sur `listPortalOrders`.
+   * d'Edge Function.
+   *
+   * CE QUE `authorization.storefrontToken !== null` N'EST PAS (qa-review
+   * round 6, corrigé) — j'avais écrit que ce prédicat était « EXACTEMENT »
+   * la condition testée par la RPC. C'est FAUX, et c'est la troisième fois
+   * dans ce lot qu'un masquage se justifiait par une lecture erronée de
+   * « quelle branche sert qui » (round 2 : `magrit_user` dit « atelier »,
+   * faux, une vraie fuite ; round 3 : corrigé). Le `if p_opaque_token is not
+   * null` (ligne ~31 de la migration) ne garde que la TENTATIVE de
+   * résolution de session. Le VRAI choix de branche, aux lignes ~44-48, est :
+   *
+   *   v_storefront_allowed := v_session_account_id is not null
+   *     and v_session_account_id = v_order.shop_customer_account_id
+   *     and v_session_shop_id    = v_order.shop_id;
+   *
+   * Trois conditions côté SQL (session résolue ET compte de LA commande ET
+   * boutique de LA commande), une seule côté façade (session résolue,
+   * n'importe laquelle). `authorization.storefrontToken !== null` est donc
+   * un SUR-ENSEMBLE STRICT, délibérément assumé de ce côté-ci (sûr : on ne
+   * sert jamais l'acheteur sans masquer) mais pas de l'autre.
+   *
+   * CONSÉQUENCE NOMMÉE : `orderResourceAuthorization` (`orders-routes.ts`)
+   * pose `storefrontToken` dès qu'UNE session boutique valide existe dans le
+   * cookie (`path: '/'`, donc envoyé sur toute requête de même origine), SANS
+   * vérifier qu'elle correspond à LA commande consultée ni à son propriétaire.
+   * Un membre de l'atelier qui a AUSSI une session boutique ouverte dans le
+   * même navigateur — cas ordinaire : le smoke E2E de la DoD l'impose, le
+   * pilote ERAM l'impose — et qui clique « Historique » sur une commande
+   * qu'IL a lui-même validée en acquittant reçoit de la RPC la branche
+   * atelier (métadonnées complètes), mais cette façade les masque quand même
+   * (le cookie fait passer `storefrontToken !== null`). Il ne peut alors plus
+   * relire ce qu'il a acquitté, sans aucun signal — c'est la traçabilité que
+   * le point 12 (c) du cadrage exige.
+   *
+   * TRANCHÉ : le sur-masquage reste tel quel dans ce lot (voir test dédié
+   * ci-dessous, qui l'épingle comme un comportement CHOISI). Le chemin de
+   * mise en conformité, si ce compromis est jugé inacceptable, passe par la
+   * RPC elle-même : lui faire RENDRE la branche qu'elle a réellement prise
+   * (un discriminant explicite dans son résultat) plutôt que de la deviner
+   * côté façade à partir d'un signal plus large qu'elle. C'est une migration
+   * SQL, donc hors du périmètre front-only déclaré de ce lot — je ne la fais
+   * pas ici, je la nomme.
    */
   async getAuditTrail(orderId: string, authorization: OrderResourceAuthorization = { storefrontToken: null }): Promise<OrderAuditTrail> {
     const events = await this.repository.listAuditEvents(orderId, authorization);
