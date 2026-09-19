@@ -57,6 +57,85 @@ export async function runOrderTransition(deps: RunOrderTransitionDeps): Promise<
   return cause;
 }
 
+export type DashboardOrderTransitionStatus = 'cancelled' | 'validated' | 'in_production' | 'shipped';
+
+export interface DashboardOrderTransitionCommand {
+  toStatus: DashboardOrderTransitionStatus;
+  reason: null;
+  idempotencyKey: string;
+  acknowledgeUnverifiedPrices: boolean;
+}
+
+export interface DashboardOrderTransitionDeps {
+  transitionApi: (orderId: string, command: DashboardOrderTransitionCommand) => Promise<unknown>;
+  reload: () => Promise<void>;
+  onError?: (err: unknown) => void;
+}
+
+/**
+ * Q17-c (qa-review round 1, BLOQUANT 2) — orchestration EXTRAITE de la
+ * transition d'une commande (cancel/validate/démarrer prod/expédier),
+ * exercée avec un faux `transitionApi` SANS rendu React (même technique
+ * que `runOrderTransition`/`runCancelOrder`, déjà en place). C'est la
+ * fonction qui décide EXACTEMENT ce que l'appel HTTP transporte :
+ * `acknowledgeUnverifiedPrices` y est un PARAMÈTRE explicite, jamais une
+ * valeur devinée à l'intérieur. La qa a muté ce booléen à `true` en dur
+ * dans l'ancienne closure interne du hook, en laissant l'ancien texte dans
+ * un commentaire : 3379 tests texte restaient verts. Un test qui appelle
+ * cette fonction deux fois — une avec `true`, une avec `false` — et lit
+ * l'argument RÉELLEMENT reçu par le faux client détecte cette classe de
+ * mutation, qu'aucune lecture de source ne peut plus masquer.
+ */
+export function runDashboardOrderTransition(
+  order: Pick<OrderUI, 'id' | 'status'>,
+  toStatus: DashboardOrderTransitionStatus,
+  acknowledgeUnverifiedPrices: boolean,
+  deps: DashboardOrderTransitionDeps,
+): Promise<unknown | null> {
+  return runOrderTransition({
+    transition: () => deps.transitionApi(order.id, {
+      toStatus,
+      reason: null,
+      idempotencyKey: dashboardOrderTransitionKey(order.id, order.status, toStatus),
+      acknowledgeUnverifiedPrices,
+    }),
+    reload: deps.reload,
+    ...(deps.onError ? { onError: deps.onError } : {}),
+  });
+}
+
+export interface RunValidateOrderDeps {
+  findOrder: (orderId: string) => Pick<OrderUI, 'id' | 'status'> | undefined;
+  transition: (
+    order: Pick<OrderUI, 'id' | 'status'>,
+    toStatus: 'validated',
+    acknowledgeUnverifiedPrices: boolean,
+  ) => Promise<unknown | null>;
+}
+
+/**
+ * Q17-c (qa-review round 2, BLOQUANT 1 — troisième round) — `validate()`
+ * EXTRAITE et exportée. Le round 2 prouvait déjà `runDashboardOrderTransition`
+ * en comportement, mais la closure `validate` qui décide QUEL booléen lui
+ * transmettre restait interne au hook, prouvée seulement par un test
+ * textuel — et la qa a démontré qu un `//` de fin de ligne défait
+ * `stripComments`. Cette fonction exécute RÉELLEMENT le chemin (recherche
+ * de la commande incluse) avec une `transition` injectée : un test qui
+ * l appelle avec un faux `transition` espion lit l argument QU IL A
+ * VRAIMENT REÇU, aucun texte source à faire mentir.
+ */
+export async function runValidateOrder(
+  orderId: string,
+  acknowledgeUnverifiedPrices: boolean,
+  deps: RunValidateOrderDeps,
+): Promise<string | null> {
+  const order = deps.findOrder(orderId);
+  const cause = await deps.transition(order ?? { id: orderId, status: 'draft' }, 'validated', acknowledgeUnverifiedPrices);
+  return cause === null
+    ? null
+    : formatValidateErrorMessage(toRpcLikeError(cause));
+}
+
 export function useDashboardOrderManagement({
   enabled,
   tenantId,
@@ -118,15 +197,15 @@ export function useDashboardOrderManagement({
 
   const transition = (
     order: Pick<OrderUI, 'id' | 'status'>,
-    toStatus: 'cancelled' | 'validated' | 'in_production' | 'shipped',
+    toStatus: DashboardOrderTransitionStatus,
+    // Q17-c (docs/api/CONVENTIONS.md §8.25 point 12 (c)) — geste DISTINCT et
+    // explicite, jamais une valeur par défaut silencieuse : porté par la
+    // confirmation nommée de ValidateOrderConfirmDialog, jamais deviné ici.
+    acknowledgeUnverifiedPrices = false,
   ): Promise<unknown | null> => {
     const operationTarget = targetKey;
-    return runOrderTransition({
-      transition: () => ordersApi.transition(order.id, {
-        toStatus,
-        reason: null,
-        idempotencyKey: dashboardOrderTransitionKey(order.id, order.status, toStatus),
-      }),
+    return runDashboardOrderTransition(order, toStatus, acknowledgeUnverifiedPrices, {
+      transitionApi: (orderId, command) => ordersApi.transition(orderId, command),
       reload: async () => {
         if (operationTarget === targetKeyRef.current) await reload();
       },
@@ -142,13 +221,11 @@ export function useDashboardOrderManagement({
       : formatCancelErrorMessage(toRpcLikeError(cause));
   };
 
-  const validate = async (orderId: string): Promise<string | null> => {
-    const order = orders.find((candidate) => candidate.id === orderId);
-    const cause = await transition(order ?? { id: orderId, status: 'draft' }, 'validated');
-    return cause === null
-      ? null
-      : formatValidateErrorMessage(toRpcLikeError(cause));
-  };
+  const validate = (orderId: string, acknowledgeUnverifiedPrices = false): Promise<string | null> =>
+    runValidateOrder(orderId, acknowledgeUnverifiedPrices, {
+      findOrder: (id) => orders.find((candidate) => candidate.id === id),
+      transition,
+    });
 
   const startProduction = async (order: OrderUI) => {
     await transition(order, 'in_production');

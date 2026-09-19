@@ -58,6 +58,37 @@ describe('routes Orders API v1', () => {
     });
   });
 
+  // Q17-c (docs/api/CONVENTIONS.md §8.25 point 12 (h)) — `hasUnverifiedPrices`
+  // et `priceOrigin` par ligne doivent survivre le trajet complet
+  // repository -> service -> outputSchema.safeParse -> client. Avant ce lot,
+  // `orderSummarySchema` ne portait pas ce champ : `outputSchema.safeParse`
+  // le supprime silencieusement (zod ignore les clés inconnues à la lecture
+  // du DTO produit par le repository, mais le CLIENT ne le recevrait jamais
+  // puisqu il n était pas déclaré) — ce test échoue sur le code d avant.
+  it('expose price_origin par ligne et has_unverified_prices sur la liste tenant et le portail (Q17-c)', async () => {
+    const repository = repositoryStub();
+    repository.listTenantOrders = async () => [{
+      id: 'order-unverified', shopId: 'shop-af4', createdAt: '2026-09-19T12:00:00.000Z',
+      customerName: 'Client AF4', customerEmail: 'client-af4@magrit.test',
+      items: [{ name: 'Flyers', quantity: 10, unitPriceHt: 5, priceOrigin: 'client_unverified' as const }],
+      totalHt: 50, status: 'draft', hasUnverifiedPrices: true,
+    }];
+    const handler = createApiV1Application({
+      routes: createOrdersRoutes(new OrdersService(repository)),
+      requestIdFactory: () => 'request-q17c',
+      actorResolver: { async resolve() { return { kind: 'user', userId: id('user-q17c') }; } },
+    });
+    const client = new OrdersApiClient(new FetchApiClient('https://magrit.test', bridgeTo(handler), () => 'jwt-q17c'));
+
+    await expect(client.listTenantOrders('tenant-q17c', ['shop-af4'])).resolves.toMatchObject({
+      orders: [{
+        id: 'order-unverified',
+        hasUnverifiedPrices: true,
+        items: [{ name: 'Flyers', priceOrigin: 'client_unverified' }],
+      }],
+    });
+  });
+
   it('refuse les lectures sans authentification', async () => {
     const handler = createApiV1Application({
       routes: createOrdersRoutes(new OrdersService(repositoryStub())),
@@ -424,7 +455,7 @@ function repositoryStub(): OrdersRepository {
   const order = {
     id: 'order-af4', shopId: 'shop-af4', createdAt: '2026-08-11T12:00:00.000Z',
     customerName: 'Client AF4', customerEmail: 'client-af4@magrit.test',
-    items: [], totalHt: 10, status: 'draft',
+    items: [], totalHt: 10, status: 'draft', hasUnverifiedPrices: false,
   };
   return {
     getTenantTaxRegime: async () => 'metropole_fr',

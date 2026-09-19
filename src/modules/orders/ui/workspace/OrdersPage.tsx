@@ -97,8 +97,11 @@ export function DashboardOrders() {
     setOrderToValidate(order as DashboardOrderUI);
   };
 
-  const handleValidateConfirm = async (orderId: string): Promise<string | null> => {
-    return validate(orderId);
+  const handleValidateConfirm = async (
+    orderId: string,
+    acknowledgeUnverifiedPrices: boolean,
+  ): Promise<string | null> => {
+    return validate(orderId, acknowledgeUnverifiedPrices);
   };
 
   // S-ORDER-ROLES-3-UI : transitions production (admin tenant via can_modify).
@@ -169,10 +172,7 @@ export function DashboardOrders() {
       />
 
       <ValidateOrderConfirmDialog
-        orderId={orderToValidate?.id ?? null}
-        orderShortId={
-          orderToValidate?.id ? orderToValidate.id.replace(/-/g, '').slice(0, 8).toUpperCase() : undefined
-        }
+        order={orderToValidate}
         onConfirm={handleValidateConfirm}
         onClose={() => setOrderToValidate(null)}
       />

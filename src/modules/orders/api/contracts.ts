@@ -32,6 +32,13 @@ export const orderItemSchema = z.object({
   name: z.string(),
   quantity: z.number(),
   unitPriceHt: z.number(),
+  /**
+   * Q17-c (docs/api/CONVENTIONS.md §8.25 point 12 (h)) — provenance du prix
+   * de la ligne, pour affichage atelier uniquement (« prix catalogue au
+   * détail de la ligne »). `null` pour la cohorte `shop_orders` (legacy) :
+   * ces commandes sont antérieures au marqueur et n en portent aucune trace.
+   */
+  priceOrigin: priceOriginSchema.nullable(),
 });
 
 export const orderSummarySchema = z.object({
@@ -45,6 +52,13 @@ export const orderSummarySchema = z.object({
   totalHt: z.number(),
   totalTtc: z.number(),
   status: z.string(),
+  /**
+   * Q17-c (point 12 (h)) — miroir de `tenant_orders.has_unverified_prices`
+   * (Q17-a). Sert la pastille « Prix non vérifié » de la grille atelier.
+   * Toujours `false` pour la cohorte `shop_orders` (legacy), qui n a pas
+   * cette notion.
+   */
+  hasUnverifiedPrices: z.boolean(),
 });
 
 export const ordersListSchema = z.object({ orders: z.array(orderSummarySchema) });

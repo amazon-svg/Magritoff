@@ -146,4 +146,22 @@ describe('formatValidateErrorMessage', () => {
     const result = formatValidateErrorMessage(toRpcLikeError(err));
     expect(result).not.toContain('plus en attente de validation');
   });
+
+  // Q17-c (docs/api/CONVENTIONS.md §8.25 point 12 (c)) — repli defensif :
+  // avant ce lot, ce refus tombait dans le fallback generique et exposait le
+  // texte technique 'unverified_prices: [...]' tel quel a l ecran.
+  describe('409 orders.unverified_prices (Q17-c, repli defensif)', () => {
+    it("texte brut 'unverified_prices: [\"Flyers\"]' -> message clair, jamais le texte technique", () => {
+      const result = formatValidateErrorMessage({ message: 'unverified_prices: ["Flyers"]' });
+      expect(result).toContain('Rechargez la page');
+      expect(result).not.toContain('unverified_prices');
+    });
+
+    it('code metier orders.unverified_prices (ApiClientError) -> message clair', () => {
+      const err = apiError('orders.unverified_prices', 'unverified_prices: ["Flyers"]', 409);
+      const result = formatValidateErrorMessage(toRpcLikeError(err));
+      expect(result).toContain('Rechargez la page');
+      expect(result).not.toContain('unverified_prices');
+    });
+  });
 });

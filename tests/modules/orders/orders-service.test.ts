@@ -16,9 +16,37 @@ describe('OrdersService', () => {
     expect(result.orders[0]).toMatchObject({
       source: 'v1_1', shopId: 'shop-1', totalHt: 100, totalTtc: 108.5,
       customerName: 'Xav 12', customerEmail: 'xav.12@laposte.net',
-      items: [{ name: 'Affiche', quantity: 2, unitPriceHt: 50 }],
+      items: [{ name: 'Affiche', quantity: 2, unitPriceHt: 50, priceOrigin: 'catalog' }],
+      hasUnverifiedPrices: false,
     });
     expect(repository.listLegacyOrders).toHaveBeenCalledWith(['shop-1']);
+  });
+
+  // Q17-c (docs/api/CONVENTIONS.md §8.25 point 12 (h)) — la pastille atelier
+  // et le prix catalogue au détail dépendent de ces deux champs. Avant ce
+  // lot, `hasUnverifiedPrices` n existait pas sur `OrderSummary` et
+  // `toTenantSummary`/`toLegacySummary` ne le posaient jamais : ce test
+  // échoue sur le code d avant (propriété absente du résultat).
+  it('propage price_origin par ligne et has_unverified_prices — v1.1 vérifié, legacy jamais applicable', async () => {
+    const repository = repositoryStub();
+    repository.listTenantOrders = vi.fn(async () => [{
+      id: 'v11-2', shopId: 'shop-1', createdAt: '2026-09-19T10:00:00.000Z',
+      customerName: 'Xav 12', customerEmail: 'xav.12@laposte.net',
+      items: [{ name: 'Flyers', quantity: 3, unitPriceHt: 10, priceOrigin: 'client_unverified' as const }],
+      totalHt: 30, status: 'draft', hasUnverifiedPrices: true,
+    }]);
+    const service = new OrdersService(repository);
+
+    const result = await service.listTenantOrders('tenant-1', ['shop-1']);
+    const v11Order = result.orders.find((order) => order.id === 'v11-2');
+    const legacyOrder = result.orders.find((order) => order.id === 'legacy-1');
+
+    expect(v11Order).toMatchObject({
+      hasUnverifiedPrices: true,
+      items: [{ name: 'Flyers', priceOrigin: 'client_unverified' }],
+    });
+    expect(legacyOrder).toMatchObject({ hasUnverifiedPrices: false });
+    expect(legacyOrder?.items.every((item) => item.priceOrigin === null)).toBe(true);
   });
 
   it('compose les quatre vues portail et réserve le legacy à mine', async () => {
@@ -46,6 +74,87 @@ describe('OrdersService', () => {
     expect(repository.listLegacyOrders).not.toHaveBeenCalled();
   });
 
+  // MAJEUR 4 (qa-review round 1, CORRIGÉ round 3) — `listPortalOrders` est
+  // une surface ACHETEUR DE BOUT EN BOUT : `price_origin`/`has_unverified_prices`
+  // ne doivent jamais y survivre, sur AUCUNE des deux branches
+  // d autorisation. Round 1 ne masquait que `storefront_session` et un
+  // test nommait à tort la branche `magrit_user` "l atelier" alors qu elle
+  // sert l acheteur titulaire d un compte Magrit sans cookie de session
+  // boutique (valideur/approbateur de l organisation cliente) — ce test
+  // gravait la fuite en non-régression sous un nom faux. Corrigé : les deux
+  // scénarios ci-dessous prouvent le masquage sur les DEUX branches. Avant
+  // la correction round 3, le second cas échoue (`magrit_user` laissait
+  // passer les valeurs réelles).
+  it("cache price_origin/has_unverified_prices a l acheteur sur la branche storefront_session, meme sur une commande reellement marquee", async () => {
+    const repository = repositoryStub();
+    repository.getStorefrontPortalOrders = vi.fn(async () => ({
+      orders: [{
+        id: 'v11-marked', shopId: 'shop-1', createdAt: '2026-09-19T10:00:00.000Z',
+        customerName: 'Acheteur', customerEmail: 'acheteur@test.fr',
+        items: [{ name: 'Flyers', quantity: 3, unitPriceHt: 10, priceOrigin: 'client_unverified' as const }],
+        totalHt: 30, status: 'draft', hasUnverifiedPrices: true,
+      }],
+      taxRegime: 'dom_tom' as const,
+    }));
+    const service = new OrdersService(repository);
+
+    const result = await service.listPortalOrders('shop-1', {
+      kind: 'storefront_session', opaqueToken: 'opaque-storefront-token',
+    });
+
+    const order = result.datasets.mine.find((candidate) => candidate.id === 'v11-marked');
+    expect(order?.hasUnverifiedPrices).toBe(false);
+    expect(order?.items.every((item) => item.priceOrigin === null)).toBe(true);
+  });
+
+  it("cache price_origin/has_unverified_prices a l acheteur sur la branche magrit_user AUSSI (valideur/approbateur sans cookie boutique) — les quatre jeux de donnees", async () => {
+    const repository = repositoryStub();
+    repository.listTenantOrdersByIds = vi.fn(async () => [{
+      id: 'v11-1', shopId: 'shop-1', createdAt: '2026-08-11T12:00:00.000Z',
+      customerName: 'Xav 12', customerEmail: 'xav.12@laposte.net',
+      items: [{ name: 'Flyers', quantity: 3, unitPriceHt: 10, priceOrigin: 'client_unverified' as const }],
+      totalHt: 30, status: 'draft', hasUnverifiedPrices: true,
+    }]);
+    const service = new OrdersService(repository);
+
+    const result = await service.listPortalOrders('shop-1', { kind: 'magrit_user', userId: id('user-1') });
+
+    for (const dataset of [result.datasets.mine, result.datasets.to_validate]) {
+      const order = dataset.find((candidate) => candidate.id === 'v11-1');
+      if (!order) continue;
+      expect(order.hasUnverifiedPrices).toBe(false);
+      expect(order.items.every((item) => item.priceOrigin === null)).toBe(true);
+    }
+    // v11-1 est present dans mine ET to_validate (fixture repositoryStub) :
+    // au moins une des deux verifications ci-dessus doit avoir reellement
+    // trouve la commande, sinon le test ne prouve rien.
+    const foundSomewhere = [...result.datasets.mine, ...result.datasets.to_validate]
+      .some((candidate) => candidate.id === 'v11-1');
+    expect(foundSomewhere).toBe(true);
+  });
+
+  // Non-régression : `listTenantOrders` (grille ATELIER, `DashboardOrders`,
+  // seule consommatrice réelle vérifiée par grep) n est PAS affectée par le
+  // masquage de `listPortalOrders` — l atelier doit continuer à recevoir
+  // les vraies valeurs, faute de quoi la pastille Q17-c (point 12 (h))
+  // redeviendrait aveugle pour de bon.
+  it("n affecte PAS listTenantOrders (grille atelier, DashboardOrders) — les vraies valeurs restent visibles", async () => {
+    const repository = repositoryStub();
+    repository.listTenantOrders = vi.fn(async () => [{
+      id: 'v11-1', shopId: 'shop-1', createdAt: '2026-08-11T12:00:00.000Z',
+      customerName: 'Xav 12', customerEmail: 'xav.12@laposte.net',
+      items: [{ name: 'Flyers', quantity: 3, unitPriceHt: 10, priceOrigin: 'client_unverified' as const }],
+      totalHt: 30, status: 'draft', hasUnverifiedPrices: true,
+    }]);
+    const service = new OrdersService(repository);
+
+    const result = await service.listTenantOrders('tenant-1', ['shop-1']);
+
+    const order = result.orders.find((candidate) => candidate.id === 'v11-1');
+    expect(order?.hasUnverifiedPrices).toBe(true);
+    expect(order?.items[0]?.priceOrigin).toBe('client_unverified');
+  });
+
   it('normalise le trail d audit au format HTTP camelCase', async () => {
     const service = new OrdersService(repositoryStub());
     await expect(service.getAuditTrail('v11-1')).resolves.toEqual({
@@ -56,6 +165,98 @@ describe('OrdersService', () => {
         payload: { from_status: 'draft', to_status: 'validated' }, occurredAt: '2026-08-11T12:01:00.000Z',
       }],
     });
+  });
+
+  // Quatrième chemin de fuite acheteur (qa-review round 5) — l acheteur qui
+  // ouvre "Historique" sur sa propre commande ne doit JAMAIS lire la liste
+  // nominative de ses lignes douteuses. Avant cette correction,
+  // `getAuditTrail` recopiait `event.payload` tel quel sur la branche
+  // storefront : ce test échoue sur le code d avant (les deux clés y
+  // seraient restées).
+  it("cache acknowledged_unverified_prices/acknowledged_line_labels a l acheteur (session boutique)", async () => {
+    const repository = repositoryStub();
+    repository.listAuditEvents = vi.fn(async () => [{
+      eventId: 'event-marked', orderId: 'v11-1', kind: 'status', eventType: 'status_transition',
+      actorId: 'user-1', actorEmail: 'admin@magrit.test',
+      shopCustomerAccountId: null, actedByMagritUserId: null, roleName: null,
+      payload: {
+        from_status: 'draft', to_status: 'validated',
+        metadata: {
+          via_rpc: 'transition_tenant_order_status',
+          acknowledged_unverified_prices: true,
+          acknowledged_line_labels: ['Flyers A5', 'Kakémono 80x200'],
+        },
+      },
+      occurredAt: '2026-09-19T12:00:00.000Z',
+    }]);
+    const service = new OrdersService(repository);
+
+    const result = await service.getAuditTrail('v11-1', { storefrontToken: 'opaque-storefront-token' });
+
+    const metadata = result.events[0]?.payload['metadata'] as Record<string, unknown>;
+    expect(metadata['acknowledged_unverified_prices']).toBeUndefined();
+    expect(metadata['acknowledged_line_labels']).toBeUndefined();
+    expect(metadata['via_rpc']).toBe('transition_tenant_order_status');
+  });
+
+  // Non-régression : la branche atelier (storefrontToken null, magrit_user)
+  // doit continuer à recevoir la liste nominative — c est elle qui a
+  // acquitté, elle doit pouvoir se relire.
+  it("n affecte PAS la branche atelier (storefrontToken null) — la liste nominative reste visible", async () => {
+    const repository = repositoryStub();
+    repository.listAuditEvents = vi.fn(async () => [{
+      eventId: 'event-marked', orderId: 'v11-1', kind: 'status', eventType: 'status_transition',
+      actorId: 'user-1', actorEmail: 'admin@magrit.test',
+      shopCustomerAccountId: null, actedByMagritUserId: null, roleName: null,
+      payload: {
+        from_status: 'draft', to_status: 'validated',
+        metadata: { acknowledged_unverified_prices: true, acknowledged_line_labels: ['Flyers A5'] },
+      },
+      occurredAt: '2026-09-19T12:00:00.000Z',
+    }]);
+    const service = new OrdersService(repository);
+
+    const result = await service.getAuditTrail('v11-1', { storefrontToken: null });
+
+    const metadata = result.events[0]?.payload['metadata'] as Record<string, unknown>;
+    expect(metadata['acknowledged_unverified_prices']).toBe(true);
+    expect(metadata['acknowledged_line_labels']).toEqual(['Flyers A5']);
+  });
+
+  // Sur-masquage ASSUMÉ (qa-review round 6) — `authorization.storefrontToken`
+  // n'est PAS exactement la condition que la RPC teste pour choisir sa
+  // branche (voir le commentaire de `getAuditTrail`) : c'est un sur-ensemble
+  // strict, délibérément du côté sûr. Conséquence RÉELLE, épinglée ici : un
+  // membre de l'atelier qui porte AUSSI un cookie de session boutique valide
+  // (cas ordinaire — smoke E2E de la DoD, pilote ERAM) perd la liste
+  // nominative sur une commande QU'IL A LUI-MÊME acquittée, sans signal, dès
+  // lors que ce cookie est présent — même si la RPC, elle, lui aurait rendu
+  // la branche atelier (compte/boutique de la session ne correspondant PAS
+  // à la commande consultée). Ce test prouve que ce choix est VOULU et
+  // testé, pas un oubli : `storefrontToken` non nul suffit à masquer, quel
+  // que soit l acteur réel derrière.
+  it("sur-masquage assume : storefrontToken non nul masque MEME quand l acteur reel est l atelier qui vient d acquitter", async () => {
+    const repository = repositoryStub();
+    repository.listAuditEvents = vi.fn(async () => [{
+      eventId: 'event-marked', orderId: 'v11-1', kind: 'status', eventType: 'status_transition',
+      actorId: 'user-1', actorEmail: 'admin@magrit.test',
+      shopCustomerAccountId: null, actedByMagritUserId: null, roleName: null,
+      payload: {
+        from_status: 'draft', to_status: 'validated',
+        metadata: { acknowledged_unverified_prices: true, acknowledged_line_labels: ['Flyers A5'] },
+      },
+      occurredAt: '2026-09-19T12:00:00.000Z',
+    }]);
+    const service = new OrdersService(repository);
+
+    // Un cookie de session boutique existe (present sur toute requete de
+    // meme origine, path '/'), MEME si l acteur reel qui consulte est un
+    // membre de l atelier venu se relire apres avoir acquitte.
+    const result = await service.getAuditTrail('v11-1', { storefrontToken: 'session-boutique-du-meme-navigateur' });
+
+    const metadata = result.events[0]?.payload['metadata'] as Record<string, unknown>;
+    expect(metadata['acknowledged_unverified_prices']).toBeUndefined();
+    expect(metadata['acknowledged_line_labels']).toBeUndefined();
   });
 
   it('ne notifie une transition qu au premier traitement idempotent', async () => {
@@ -114,7 +315,8 @@ function repositoryStub(): OrdersRepository & Record<'listLegacyOrders', ReturnT
   const v11 = {
     id: 'v11-1', shopId: 'shop-1', createdAt: '2026-08-11T12:00:00.000Z',
     customerName: 'Xav 12', customerEmail: 'xav.12@laposte.net',
-    items: [{ name: 'Affiche', quantity: 2, unitPriceHt: 50 }], totalHt: 100, status: 'draft',
+    items: [{ name: 'Affiche', quantity: 2, unitPriceHt: 50, priceOrigin: 'catalog' as const }],
+    totalHt: 100, status: 'draft', hasUnverifiedPrices: false,
   };
   return {
     getTenantTaxRegime: vi.fn(async () => 'dom_tom' as const),

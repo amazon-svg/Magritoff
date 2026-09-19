@@ -7,6 +7,7 @@ import type {
   UpdateDraftOrderCommand,
   UpdateDraftOrderResult,
   OrderRolesResponse,
+  PriceOrigin,
   TransitionOrderCommand,
   TransitionOrderResult,
 } from '../api/contracts.ts';
@@ -36,9 +37,17 @@ export type TenantOrderRecord = Readonly<{
   createdAt: string;
   customerName: string | null;
   customerEmail: string | null;
-  items: readonly Readonly<{ name: string; quantity: number; unitPriceHt: number }>[];
+  items: readonly Readonly<{
+    name: string;
+    quantity: number;
+    unitPriceHt: number;
+    /** Q17-c (point 12 (h)) — `null` sur un chemin qui ne l a pas encore renseigné. */
+    priceOrigin: PriceOrigin | null;
+  }>[];
   totalHt: number;
   status: string;
+  /** Q17-c (point 12 (h)) — miroir de `tenant_orders.has_unverified_prices`. */
+  hasUnverifiedPrices: boolean;
 }>;
 
 export type AuditEventRecord = Readonly<{

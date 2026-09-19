@@ -24,6 +24,7 @@ import {
   isOrderNotEditable,
   isPermissionDenied,
   isTransitionConflict,
+  isUnverifiedPrices,
   type RpcLikeError,
 } from '@/modules/orders/ui/storefront/orderTransitionErrors.helpers';
 
@@ -54,6 +55,12 @@ export function formatValidateErrorMessage(err: RpcLikeError | null | undefined)
     // BCP-5 (docs/api/CONVENTIONS.md §8.25 point 5.1(c), qa-review) : le
     // libelle est tire de la table unique, jamais recopie a la main.
     return `Cette commande n'est plus ${getStatusLabelLowerFirst('draft')} (peut-etre deja validee ou annulee).`;
+  }
+  // Q17-c (point 12 (c)) — repli defensif : la confirmation nommee acquitte
+  // deja ce refus dans le cas nominal ; s il atteint quand meme l ecran,
+  // c est que l etat affiche a change entre le chargement et le clic.
+  if (isUnverifiedPrices(err, msg)) {
+    return 'Cette commande porte au moins une ligne dont le prix n a pas pu etre verifie. Rechargez la page puis validez a nouveau pour confirmer explicitement.';
   }
   if (msg.length > 0) {
     return `Erreur lors de la validation : ${err?.message}`;

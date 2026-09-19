@@ -1497,6 +1497,7 @@ export type Database = {
           id: string
           line_total_ht: number
           order_id: string
+          price_origin: string
           product_id: string | null
           product_label: string
           quantity: number
@@ -1509,6 +1510,7 @@ export type Database = {
           id?: string
           line_total_ht: number
           order_id: string
+          price_origin: string
           product_id?: string | null
           product_label: string
           quantity: number
@@ -1521,6 +1523,7 @@ export type Database = {
           id?: string
           line_total_ht?: number
           order_id?: string
+          price_origin?: string
           product_id?: string | null
           product_label?: string
           quantity?: number
@@ -1782,6 +1785,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           currency: string
+          has_unverified_prices: boolean
           id: string
           invoice_number: string | null
           invoice_status: string | null
@@ -1802,6 +1806,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           currency?: string
+          has_unverified_prices?: boolean
           id?: string
           invoice_number?: string | null
           invoice_status?: string | null
@@ -1822,6 +1827,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           currency?: string
+          has_unverified_prices?: boolean
           id?: string
           invoice_number?: string | null
           invoice_status?: string | null

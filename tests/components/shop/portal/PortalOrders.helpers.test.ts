@@ -7,11 +7,13 @@ import {
   mergeAndSortOrders,
   normalizeShopOrder,
   normalizeTenantOrder,
+  orderSummaryToUi,
   STATUS_LABELS,
   type OrderUI,
   type ShopOrderRow,
   type TenantOrderRow,
 } from '@/modules/orders/ui/storefront/PortalOrders.helpers';
+import type { OrderSummary } from '@/modules/orders';
 
 const SHOP_ID = '9d6d69f8-e26b-4d10-8bd6-ba1519c0338b';
 const TENANT_ID = '662cae96-79e7-4a33-ab98-820a4f758501';
@@ -112,6 +114,38 @@ describe('normalizeTenantOrder (cohort v1.1)', () => {
     expect(ui.items).toEqual([]);
     expect(ui.total_ht).toBe(0);
     expect(ui.total_ttc).toBe(0);
+  });
+});
+
+// Q17-c (docs/api/CONVENTIONS.md §8.25 point 12 (h)) — la façade est le SEUL
+// chemin par lequel l atelier reçoit `hasUnverifiedPrices`/`priceOrigin`.
+// Avant ce lot, `orderSummaryToUi` ne les copiait pas (absents de OrderSummary) :
+// ce test échoue sur le code d avant (propriétés `undefined`).
+describe('orderSummaryToUi (Q17-c)', () => {
+  function summary(overrides: Partial<OrderSummary> = {}): OrderSummary {
+    return {
+      id: 'order-1', shopId: 'shop-1', source: 'v1_1', createdAt: '2026-09-19T10:00:00Z',
+      customerName: 'Client', customerEmail: 'client@test.fr',
+      items: [{ name: 'Flyers', quantity: 10, unitPriceHt: 5, priceOrigin: 'client_unverified' }],
+      totalHt: 50, totalTtc: 60, status: 'draft', hasUnverifiedPrices: true,
+      ...overrides,
+    };
+  }
+
+  it('copie has_unverified_prices et price_origin par ligne', () => {
+    const ui = orderSummaryToUi(summary());
+    expect(ui.hasUnverifiedPrices).toBe(true);
+    expect(ui.items[0].priceOrigin).toBe('client_unverified');
+  });
+
+  it('cohorte legacy : has_unverified_prices false, price_origin null par ligne', () => {
+    const ui = orderSummaryToUi(summary({
+      source: 'legacy',
+      hasUnverifiedPrices: false,
+      items: [{ name: 'Cartes', quantity: 500, unitPriceHt: 2.5, priceOrigin: null }],
+    }));
+    expect(ui.hasUnverifiedPrices).toBe(false);
+    expect(ui.items[0].priceOrigin).toBeNull();
   });
 });
 

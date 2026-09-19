@@ -1204,15 +1204,19 @@ components:
     OrderItem:
       type: object
       additionalProperties: false
-      required: [name, quantity, unitPriceHt]
+      required: [name, quantity, unitPriceHt, priceOrigin]
       properties:
         name: { type: string }
         quantity: { type: number }
         unitPriceHt: { type: number }
+        # Q17-c (docs/api/CONVENTIONS.md §8.25 point 12 (h)) — provenance du
+        # prix de la ligne, pour affichage atelier uniquement. `null` pour la
+        # cohorte legacy `shop_orders`, qui n a pas cette notion.
+        priceOrigin: { type: [string, "null"], enum: [catalog, quoted, client_unverified, legacy, null] }
     OrderSummary:
       type: object
       additionalProperties: false
-      required: [id, shopId, source, createdAt, customerName, customerEmail, items, totalHt, totalTtc, status]
+      required: [id, shopId, source, createdAt, customerName, customerEmail, items, totalHt, totalTtc, status, hasUnverifiedPrices]
       properties:
         id: { type: string }
         shopId: { type: string }
@@ -1224,6 +1228,9 @@ components:
         totalHt: { type: number }
         totalTtc: { type: number }
         status: { type: string }
+        # Q17-c (point 12 (h)) — miroir de `tenant_orders.has_unverified_prices`
+        # (Q17-a). `false` pour la cohorte legacy `shop_orders`.
+        hasUnverifiedPrices: { type: boolean }
     OrdersList:
       type: object
       additionalProperties: false
