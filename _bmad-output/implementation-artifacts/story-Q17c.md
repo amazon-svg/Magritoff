@@ -2,7 +2,7 @@
 story_id: Q17-c
 epic: Sprint 5 — chantier boutique « chaîne des prix Magrit → panier et qualité d'affichage » (hors E10, docs/api/CONVENTIONS.md §8.25)
 title: Ce que l'atelier voit — rendre visible l'écart de prix que Q17-a a rendu vrai côté serveur
-status: round 6 — corrigé un commentaire affirmant une équivalence fausse (le sur-masquage de l'audit trail est maintenant nommé, argumenté et testé comme un choix), en attente de nouvelle qa-review distincte
+status: round 7 — rebasé sur le nettoyeur de commentaires lexé (0cc54e27) ; DEUX des trois mutations collées survivent sur OrderHistoryTable.wiring.test.ts, signalé sans contournement, cause identifiée (le lexer désynchronise vers la ligne 647 du fichier réel) ; en attente de décision du coordinateur
 branch: feat/gescom-q17c-ecart-prix-visible
 base_round1: origin/main (03933044), Q17-a déjà fusionné
 base_round2: HEAD round 1 (115648b0, commité et poussé)
@@ -10,12 +10,40 @@ base_round3: HEAD round 2 (075fe5cc, commité et poussé)
 base_round4: origin/fix/strip-comments-fin-de-ligne (b0d81f2b, rebase demandé par le coordinateur) + HEAD round 3 (d692b6b4, rebasé sur b0d81f2b)
 base_round5: origin/fix/strip-comments-fin-de-ligne (711fd93d, seconde correction du coordinateur — source unique tests/_helpers/stripComments.ts) + HEAD round 4 (9330f9da, rebasé sur 711fd93d)
 base_round6: HEAD round 5 (56df1e0d, commité et poussé) — pas de rebase, le coordinateur n a pas encore repoussé fix/strip-comments-fin-de-ligne
+base_round7: origin/fix/strip-comments-fin-de-ligne (0cc54e27, nettoyeur passé au lexer TypeScript) + HEAD round 6 (7827a6ca, rebasé sur 0cc54e27)
 agent: dev-story (Sonnet 5)
 cadrage_opposable: docs/api/CONVENTIONS.md §8.25 point 12 (h), lignes Q17-c des points 6 et 9 (i)
 citation_cadrage: « Le filet d'aujourd'hui est l'œil de la personne qui valide, et il est aveugle. »
 ---
 
 # Story Q17-c — l'atelier voit l'écart de prix
+
+## ROUND 7 — rebase sur le nettoyeur lexé ; DEUX mutations collées survivent, signalé sans contournement
+
+**Ce que le coordinateur a corrigé, repris tel quel, non modifié** : `tests/_helpers/stripComments.ts` (commit `0cc54e27`) ne devine plus à quoi ressemble un commentaire par expression régulière, il passe le source au **lexer de TypeScript** (`ts.createScanner`). Les commentaires sont blanchis (remplacés par des espaces, sauts de ligne préservés), pas supprimés, pour que les décalages du fichier — dont dépend le bornage par fenêtre de `OrderHistoryTable.wiring.test.ts` — restent valides. Rebase (`git fetch origin --prune` puis `git rebase origin/fix/strip-comments-fin-de-ligne`) sur `0cc54e27` : succès sans conflit. Je n'ai touché ni `tests/_helpers/stripComments.ts` ni `tests/_helpers/stripComments.test.ts`, sur instruction explicite.
+
+**Ce qui était demandé** : rejouer les trois mutations de la revue sur `OrderHistoryTable.wiring.test.ts`, sous leur forme **collée** (`/*` collé directement à une parenthèse ou une virgule, sans blanc avant — la forme qui avait défait la version précédente du nettoyeur). Fait, un par un, mutation appliquée puis fichier restauré à chaque fois :
+
+1. **Badge** (`{showsUnverifiedPriceBadge(o, appearance) && (` → `{o.hasUnverifiedPrices && (/* showsUnverifiedPriceBadge(o, appearance) && ( */`, ligne 1160) — **SURVIT**. Le test reste vert (3/3 passés) : la mutation n'est PAS détectée.
+2. **Bouton de détail** (`{isAtelierAppearance(appearance) ? (` → `{true ? (/* isAtelierAppearance(appearance) ? ( */`, ligne 1097) — **SURVIT**. Même résultat : 3/3 passés, mutation non détectée.
+3. **Ligne de détail** (`{showsOrderDetail(o, appearance, expandedOrderIds) && (` → `{expandedOrderIds.has(o.id) && (/* showsOrderDetail(o, appearance, expandedOrderIds) && ( */`, ligne 1300) — **CAPTURÉE**, comme attendu (1 échec sur 3, le test dédié à ce site rougit).
+
+**Je le dis, comme demandé, au lieu de le contourner.** Deux des trois mutations survivent. Je n'ai ni réécrit le test pour les couvrir autrement, ni ajouté un filet dans `OrderHistoryTable.tsx`, ni touché au helper.
+
+**Cause identifiée, pas seulement le symptôme** — mesurée sur le fichier réel, pas supposée. `stripComments` appliqué au fichier `OrderHistoryTable.tsx` **actuel, non modifié** (aucune mutation) laisse déjà passer un commentaire PRÉEXISTANT et réel :
+
+```
+lignes 1066-1068 (non stripées, texte intact dans la sortie nettoyée) :
+// Q17-c (point 12 (h)) — nombre de colonnes réel de CETTE
+// ligne, pour que le `colSpan` du détail ne déborde ni ne
+// laisse de cellules orphelines selon extraColumn/actions.
+```
+
+Comparaison caractère par caractère entre le source brut et la sortie de `stripComments()` sur ce fichier : le dernier caractère où les deux diffèrent est à l'**index 24362**, qui tombe sur la **ligne 647** — un commentaire JSX `{/* ─── Barre de filtres ── */}` contenant des caractères de dessin de boîte Unicode (`─`), juste avant la barre de filtres du tableau. **Au-delà de cette ligne, dans ce fichier précis, `stripComments` ne modifie plus rien** : ni les commentaires réels existants (1066-1068, vérifié), ni les commentaires que j'y insère par mutation (badge à 1160, bouton à 1097 — tous deux après la ligne 647). La mutation à la ligne 1300 (ligne de détail) est elle aussi après la ligne 647 et pourtant CAPTURÉE : la désynchronisation n'est donc pas un simple « arrêt total après tel point », son effet dépend du contenu exact rencontré ensuite — je n'ai pas poussé le diagnostic jusqu'à isoler la construction précise qui déclenche la désynchronisation du scanner (probablement liée au passage `ts.createScanner().scan()` en boucle simple sur un vrai fichier `.tsx`, sans le suivi de contexte JSX que seul le parseur complet effectue d'ordinaire via `reScanJsxToken`/`scanJsxToken`).
+
+**Ce que cela signifie pour ce lot** : `OrderHistoryTable.wiring.test.ts` protège réellement les trois sites contre une régression accidentelle en texte SIMPLE (déjà démontré aux rounds 4/5), mais sa protection contre un commentaire de bloc collé est **partielle et dépendante du contenu environnant** sur ce fichier précis, pas uniforme sur les trois sites. Ce n'est pas la limite déjà documentée dans `stripComments.ts` (l'évasion délibérée via un attribut JSX) : c'est une désynchronisation du scanner sur un fichier réel de taille normale, qui n'apparaît pas sur les fragments courts du fichier de test du helper.
+
+**Reproduction, pour qui voudra creuser** : `stripComments(readFileSync('src/modules/orders/ui/storefront/OrderHistoryTable.tsx', 'utf8'))` puis comparer caractère par caractère avec le source brut — le dernier écart tombe à l'index 24362 (ligne 647), et `cleaned.includes('colSpan\` du détail')` rend `true` sur le fichier NON modifié (devrait être `false`).
 
 ## ROUND 6 — un commentaire affirmait une équivalence fausse ; le sur-masquage est maintenant un choix nommé, argumenté et testé
 
@@ -193,7 +221,7 @@ Aucune nouvelle. Ce lot ne touche à aucun endpoint E10, ne modifie pas `openapi
 - **Dette `src/types/database.types.ts`** — voir ROUND 2/3/4, MAJEUR 3. Mesure réelle, tranchée par jointure SQL au round 4 (requêtes exactes dans `SPRINT_HANDOFF.md`) : 75 tables en base, 38 déclarées dont 36 réellement des tables et **2 fantômes** (`quotes`, `quote_lines`, disparues au 2026-09-02), **39 absentes** (quasi-totalité E10) — le fichier ne couvre qu'environ la moitié du schéma. Contourné au cas par cas par le code applicatif. Remonté dans `SPRINT_HANDOFF.md`, pas résolu dans ce lot (hors périmètre, diff sans rapport).
 - **Troisième chemin de fuite acheteur, round 3, TOUJOURS OUVERT** — `getDraftOrder`/`draftOrderSchema` exposent aussi `priceOrigin`/`hasUnverifiedPrices`, et `GET /api/v1/orders/{orderId}/draft` est appelé par trois hooks acheteur (`useStorefrontOrderLifecycle.ts`, `useStorefrontOrderEditor.ts`, `useStorefrontOrderReceipt.ts`, vérifié par grep). Pas une régression de ce lot (vient de Q17-a) ; pas fermé ici (périmètre déclaré de Q17-c limité à `OrderSummary`/`listPortalOrders`). Contrairement au quatrième chemin (audit trail, ci-dessous), je n'ai pas trouvé de correctif purement applicatif pour celui-ci sans en avoir vérifié la faisabilité en détail — reste nommé, pas classé « corrigé ».
 - **Quatrième chemin de fuite acheteur, round 5, CORRIGÉ ; sur-masquage nommé au round 6** — `GET /orders/{orderId}/audit`, branche `storefront_session`, rendait `acknowledged_unverified_prices`/`acknowledged_line_labels` (liste NOMINATIVE des lignes douteuses) verbatim à l'acheteur qui consulte sa propre commande. Corrigé par `hideAcknowledgedPriceMetadata()`, sans nouvelle migration. **Round 6** : le prédicat de masquage (`storefrontToken !== null`) n'est PAS exactement la condition testée par la RPC (qui vérifie en plus que la session correspond au compte ET à la boutique de LA commande) — c'est un sur-ensemble strict, assumé côté sûr. Conséquence nommée : un membre de l'atelier porteur d'un cookie de session boutique (cas ordinaire, DoD/pilote ERAM) perd la liste nominative sur une commande qu'il a lui-même acquittée. Tranché : le sur-masquage reste tel quel dans ce lot, testé comme un choix ; la mise en conformité fidèle demanderait à la RPC de rendre elle-même la branche prise (migration SQL, hors périmètre front-only déclaré).
-- **`OrderHistoryTable.wiring.test.ts` reste vulnérable à la même classe de défaut que le BLOQUANT round 3 (`stripComments` ne retire pas les commentaires de fin de ligne)**, sur instruction explicite du coordinateur : il corrige `stripComments` lui-même en parallèle (partagé avec Q14-a/Q20). Non touché dans ce round. **Round 4 : CORRIGÉ** (motif repris de son commit, trois mutations rejouées, aucune ne survit). **Round 5 : le round 4 était lui-même incomplet** (règle de bloc encore ancrée en début de ligne) — corrigé en pointant vers la source unique `tests/_helpers/stripComments.ts` du coordinateur, trois mutations rejouées SOUS FORME BLOC, aucune ne survit.
+- **`OrderHistoryTable.wiring.test.ts` reste vulnérable à la même classe de défaut que le BLOQUANT round 3 (`stripComments` ne retire pas les commentaires de fin de ligne)**, sur instruction explicite du coordinateur : il corrige `stripComments` lui-même en parallèle (partagé avec Q14-a/Q20). Non touché dans ce round. **Round 4 : CORRIGÉ** (motif repris de son commit, trois mutations rejouées, aucune ne survit). **Round 5 : le round 4 était lui-même incomplet** (règle de bloc encore ancrée en début de ligne) — corrigé en pointant vers la source unique `tests/_helpers/stripComments.ts` du coordinateur, trois mutations rejouées SOUS FORME BLOC, aucune ne survit. **Round 7, OUVERT À NOUVEAU, PAS CORRIGÉ, SIGNALÉ SANS CONTOURNEMENT** : le nettoyeur du coordinateur passe désormais au lexer TypeScript (`0cc54e27`), mais sur le fichier réel `OrderHistoryTable.tsx`, il désynchronise après la ligne 647 (un commentaire JSX `{/* ─── ... */}` avec des caractères Unicode de dessin de boîte) — vérifié en comparant caractère par caractère le source brut et la sortie nettoyée sur le fichier NON modifié : un commentaire réel préexistant (lignes 1066-1068) n'est plus stripé. Conséquence : les mutations collées à la parenthèse sur le badge (ligne 1160) et le bouton de détail (ligne 1097) survivent (testé, 3/3 restent verts) ; celle sur la ligne de détail (ligne 1300) est capturée (testé, rougit). Voir section ROUND 7 en tête de ce document pour le détail complet. Je n'ai touché ni au helper ni à son test, sur instruction explicite ; je n'ai pas non plus modifié `OrderHistoryTable.wiring.test.ts` pour compenser — la demande portait sur rejouer et signaler, pas sur corriger.
 
 ## Ce que je n'ai PAS su faire / limites assumées
 
@@ -277,10 +305,24 @@ Test Files  8 failed | 11 passed (19)
 - `pnpm gen:api:check` → **aligné**, aucune dérive.
 - `pnpm test` (suite complète) → **3410 tests passés, 88 skippés** (337 fichiers : 325 passés, 12 skippés) — soit **+1** par rapport au round 5 (3409), le test du sur-masquage.
 
+**Round 7 — rebase sur `0cc54e27`, trois mutations collées rejouées sur `OrderHistoryTable.wiring.test.ts` (mutation appliquée, test rejoué, fichier restauré — à chaque fois)** :
+1. Badge, `/*` collé à une parenthèse → **test reste VERT (3/3)** : mutation NON détectée.
+2. Bouton de détail, `/*` collé à une parenthèse → **test reste VERT (3/3)** : mutation NON détectée.
+3. Ligne de détail, `/*` collé à une parenthèse → **test rougit (2/3, 1 échec)** : mutation détectée, comme attendu.
+
+**Vérification de la cause sur le fichier NON modifié** : `stripComments()` appliqué à `OrderHistoryTable.tsx` tel qu'il est committé (aucune mutation) laisse un commentaire réel intact aux lignes 1066-1068 ; comparaison caractère par caractère avec le source brut, dernier écart à l'index 24362 (ligne 647).
+
+**Gates complètes, rejouées après le rebase round 7 (aucun changement de code applicatif ce round)** :
+- `pnpm typecheck` → **0 erreur**.
+- `pnpm test:architecture` → **461 tests passés** (49 fichiers) — inchangé.
+- `pnpm test:contract` → **434 tests passés** (23 fichiers) — inchangé.
+- `pnpm gen:api:check` → **aligné**, aucune dérive.
+- `pnpm test` (suite complète) → **3423 tests passés, 88 skippés** (338 fichiers : 326 passés, 12 skippés) — soit **+13** par rapport au round 6 (3410), les 13 cas du nouveau `tests/_helpers/stripComments.test.ts` du coordinateur, apportés par le rebase.
+
 ## Critères d'acceptation, un par un (dérivés du point 12 (h), pas de CA numérotés BMAD pour ce lot)
 
-1. **Pastille « Prix non vérifié » sur la grille atelier quand `has_unverified_prices`** — **FAIT**. `showsUnverifiedPriceBadge()`, testée en comportement (4 cas) ET son site d'appel réel vérifié (round 2, `OrderHistoryTable.wiring.test.ts`, réparé au round 4 avec le motif corrigé, trois mutations rejouées et létales).
-2. **Le prix reçu, et le prix catalogue à côté quand le serveur sait le calculer, au détail de la ligne** — **FAIT**, sous la forme tranchée (libellé de provenance, pas un second montant), et son affichage réservé à l'atelier prouvé par site d'appel (round 2).
+1. **Pastille « Prix non vérifié » sur la grille atelier quand `has_unverified_prices`** — **FAIT**. `showsUnverifiedPriceBadge()`, testée en comportement (4 cas). Le site d'appel réel est aussi vérifié par `OrderHistoryTable.wiring.test.ts`, mais **round 7** a démontré que cette vérification textuelle ne détecte plus une mutation par commentaire de bloc COLLÉ sur ce site précis (désynchronisation du nettoyeur lexé sur ce fichier, voir section ROUND 7) — la fonction elle-même reste prouvée juste, le filet de câblage contre CETTE forme précise de régression ne l'est plus.
+2. **Le prix reçu, et le prix catalogue à côté quand le serveur sait le calculer, au détail de la ligne** — **FAIT**, sous la forme tranchée (libellé de provenance, pas un second montant). Son affichage réservé à l'atelier repose sur `isAtelierAppearance()`, prouvée en comportement ; le site d'appel du bouton d'ouverture du détail (ligne 1097) est celui pour lequel **round 7** a démontré que le filet textuel ne détecte plus une mutation par commentaire de bloc collé — même réserve que le critère 1.
 3. **La confirmation de validation nomme les lignes concernées sur une commande marquée** — **FAIT**. `unverifiedLineNamesOf()`, notice nommée, second bouton distinct ; l'acquittement réellement transmis est prouvé en comportement de bout en bout (round 3, `runValidateConfirm`/`runValidateOrder`/`runDashboardOrderTransition`, sans dépendre d'aucune lecture de source).
 4. **Aucune nouvelle migration, aucune Edge Function** — **RESPECTÉ**, mais **la dépendance de déploiement à la migration Q17-a est désormais déclarée nommément** (round 2, BLOQUANT 1) — l'affirmation initiale « aucun déploiement Supabase » sans nuance était fausse.
 5. **Aucune lecture directe de table ; `price_origin`/`has_unverified_prices` remontent par la façade, jamais vers l'acheteur** — **FAIT, COMPLÉTÉ, ET RESTREINT** : le trou laissé par Q17-a sur `listPortalOrders`/`OrderSummary` est comblé pour l'atelier (round 1, via `listTenantOrders`) et explicitement NEUTRALISÉ pour l'acheteur sur la TOTALITÉ de `listPortalOrders` (round 3, MAJEUR 4 — le round 2 ne couvrait qu'une branche sur deux) **et sur `getAuditTrail`** (round 5 — `acknowledged_line_labels`, la liste nominative des lignes douteuses, ne fuit plus vers l'acheteur via « Historique »). Le troisième chemin (`getDraft`) reste ouvert, nommé, pas classé « corrigé ».
