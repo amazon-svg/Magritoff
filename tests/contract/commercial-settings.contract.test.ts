@@ -65,13 +65,13 @@ async function expectContract(
 }
 
 describe('module Reglages commerciaux (E10.10a) contre le contrat', () => {
-  it('getCommercialSettings — cree implicitement la ressource, default_validity_days null par defaut', async () => {
+  it('getCommercialSettings — cree implicitement la ressource, default_validity_days = 30 par defaut (migration 20260919000200, Q18)', async () => {
     const response = await call('/api/v1/commercial-settings', { headers: asUser });
     await expectContract(response, { status: 200, dataSchema: 'CommercialSettings' });
     expect(response.headers.get('etag')).toBeTruthy();
     const { data } = (await response.json()) as { data: CommercialSettingsDto };
     expect(data.tenant_id).toBe(TENANT);
-    expect(data.default_validity_days).toBeNull();
+    expect(data.default_validity_days).toBe(30);
   });
 
   it('updateCommercialSettings — protege par ETag/If-Match (CA9), garde can_manage_pricing (403 identity.role_required)', async () => {

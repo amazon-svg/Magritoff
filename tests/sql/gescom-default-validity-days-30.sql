@@ -5,20 +5,30 @@
 -- ----------------------------------------------------------------------------
 -- Test COMPORTEMENTAL, execute par psql contre la base locale : un `SELECT`
 -- sur le texte de la migration ne prouve pas qu un INSERT reel recoit bien
--- 30 par defaut, ni que le backfill ne touche QUE les lignes deja a NULL.
+-- 30 par defaut, ni qu aucune ligne existante n est modifiee.
 --
 -- AVANT cette migration, le scenario A echoue (defaut de colonne absent :
 -- un INSERT sans `default_validity_days` produisait NULL, jamais 30).
+--
+-- CORRECTIF qa-review (2026-09-19, round suivant la premiere version de ce
+-- fichier) : la premiere version portait un scenario B qui REJOUAIT SA
+-- PROPRE COPIE d un `UPDATE` de backfill au lieu d exercer la migration
+-- elle-meme -- retirer les trois lignes de backfill de la migration
+-- n aurait rien fait rougir. La migration ne backfille plus AUCUNE ligne
+-- existante (Q24, question ouverte : rien en base ne distingue « jamais
+-- decide » de « explicitement choisi null », un backfill aveugle ecraserait
+-- le second). Le scenario B ci-dessous verifie desormais l INVERSE de
+-- l ancien : une ligne deja creee, explicitement a NULL, reste a NULL apres
+-- l ALTER (pas d effet de bord sur les donnees existantes).
 --
 -- Scenarios :
 --   A. Un nouvel espace amorce EXACTEMENT comme `api_get_commercial_settings`
 --      le fait (`insert into commercial_settings (tenant_id) values (...)`,
 --      sans jamais nommer `default_validity_days`) recoit 30 sans qu aucune
 --      valeur ne soit ecrite explicitement.
---   B. Le backfill (le meme UPDATE que celui de la migration) porte a 30
---      une ligne deja creee et deja a NULL explicitement -- reproduit l
---      effet "espaces deja crees" sans dependre d un etat historique de la
---      base qui n existe plus une fois la migration appliquee une fois.
+--   B. Un espace DEJA CREE avant l alter (ligne existante, `default_
+--      validity_days` explicitement `null`) N EST PAS touche : la migration
+--      ne modifie que le defaut de colonne, jamais une ligne existante.
 --   C. Le defaut de colonne ne rend pas NULL indisponible pour autant : un
 --      commercial peut encore reposer explicitement `default_validity_days
 --      = null` (PATCH /commercial-settings sans valeur de duree) -- ce test
@@ -49,7 +59,7 @@ begin
 end;
 $$;
 
--- ── B — backfill : une ligne deja a NULL explicite est portee a 30 ─────────
+-- ── B — un espace DEJA CREE a NULL EXPLICITE n est jamais retrofite ────────
 do $$
 declare
   v_tenant uuid;
@@ -57,28 +67,23 @@ declare
 begin
   insert into public.tenants (slug, name) values ('gescom-validite-b', 'Gescom Validite B') returning id into v_tenant;
 
-  -- NULL EXPLICITE (pas une omission) : reproduit l etat d un espace deja
-  -- cree AVANT cette migration, la ou le defaut de colonne n existait pas
-  -- encore.
+  -- NULL EXPLICITE (pas une omission) : reproduit une ligne deja existante
+  -- avant que le defaut de colonne n existe -- qu elle porte ce null parce
+  -- que personne n a jamais decide, ou parce qu un commercial l a choisi
+  -- explicitement, la base ne distingue pas les deux cas (Q24).
   insert into public.commercial_settings (tenant_id, default_validity_days) values (v_tenant, null);
+
+  -- Rejoue l effet de la migration (idempotent, sans donnee) sur le schema
+  -- courant : poser un DEFAUT de colonne ne touche jamais une ligne deja
+  -- ecrite, contrairement a un UPDATE.
+  alter table public.commercial_settings alter column default_validity_days set default 30;
 
   select default_validity_days into v_days from public.commercial_settings where tenant_id = v_tenant;
   if v_days is not null then
-    raise exception 'scenario B : fixture invalide -- la ligne devrait etre NULL avant le backfill';
+    raise exception 'scenario B : une ligne DEJA CREEE a NULL explicite ne doit JAMAIS etre retrofitee par le defaut de colonne, obtenu %', v_days;
   end if;
 
-  -- Rejoue EXACTEMENT l UPDATE de la migration (idempotent : ne touche que
-  -- les lignes encore a NULL).
-  update public.commercial_settings
-     set default_validity_days = 30
-   where default_validity_days is null;
-
-  select default_validity_days into v_days from public.commercial_settings where tenant_id = v_tenant;
-  if v_days is distinct from 30 then
-    raise exception 'scenario B : le backfill doit porter une ligne deja NULL a 30, obtenu %', v_days;
-  end if;
-
-  raise notice 'scenario B (backfill des espaces deja crees a NULL) OK';
+  raise notice 'scenario B (aucun retrofit des espaces deja crees, Q24 reste ouverte) OK';
 end;
 $$;
 

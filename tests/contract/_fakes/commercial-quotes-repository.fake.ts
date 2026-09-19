@@ -179,7 +179,16 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
    * pour exercer la garde 403 `identity.role_required`.
    */
   private readonly actorCapabilities = new Map<string, boolean>();
-  /** `commercial_settings.default_validity_days` par tenant (E10.10a). `undefined` = jamais ouvert -> `null`. */
+  /**
+   * `commercial_settings.default_validity_days` par tenant (E10.10a).
+   * `undefined` = jamais ouvert -> `30` depuis la migration
+   * 20260919000200_gescom_default_validity_days_30.sql (arbitrage Arnaud du
+   * 2026-09-19, Q18 : defaut de colonne pour tout NOUVEL espace). Le
+   * retrofit des espaces DEJA CREES a `null` reste une question ouverte
+   * (Q24) -- `setDefaultValidityDaysForTest(tenantId, null)` reste le seul
+   * moyen d obtenir explicitement `null` dans ce faux, exactement comme un
+   * `PATCH /commercial-settings` reel.
+   */
   private readonly defaultValidityDays = new Map<string, number | null>();
   /** `tenants.tax_regime` par tenant. Absent = `metropole_fr` (defaut reel de la colonne). */
   private readonly tenantTaxRegimes = new Map<string, TaxRegimeDto>();
@@ -627,10 +636,20 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
     return this.resolveDefaultValidUntilFor(tenantId, current.valid_until);
   }
 
-  /** Reproduit `resolve_quote_default_valid_until` (SQL, migration 20260909050000) : `p_current` s il n est pas nul, sinon la date derivee de `default_validity_days`, sinon `null`. */
+  /**
+   * Reproduit `resolve_quote_default_valid_until` (SQL, migration
+   * 20260909050000) : `p_current` s il n est pas nul, sinon la date derivee
+   * de `default_validity_days`, sinon `null`.
+   *
+   * `?? 30` (et non `?? null`) depuis la migration 20260919000200
+   * (arbitrage Arnaud 2026-09-19, Q18) : un tenant qui n a jamais appele
+   * `setDefaultValidityDaysForTest()` modelise un espace NEUF, qui recoit
+   * desormais 30 par defaut de colonne — jamais un espace deja existant
+   * avant cette migration (dont le retrofit reste Q24, question ouverte).
+   */
   private resolveDefaultValidUntilFor(tenantId: TenantId, currentValidUntil: string | null): string | null {
     if (currentValidUntil !== null) return currentValidUntil;
-    const defaultDays = this.defaultValidityDays.get(tenantId) ?? null;
+    const defaultDays = this.defaultValidityDays.get(tenantId) ?? 30;
     if (defaultDays === null) return null;
     const boundary = new Date();
     boundary.setUTCDate(boundary.getUTCDate() + defaultDays);
