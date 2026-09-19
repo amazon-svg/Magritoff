@@ -11,9 +11,12 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { stripComments } from './stripComments';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { stripComments, countComments } from './stripComments';
 
 const NEEDLE = 'canAddAsIs(product, clariprintQuote)';
+const root = resolve(__dirname, '../..');
 
 describe('stripComments — les formes qui ont defait les versions precedentes', () => {
   it('retire un commentaire de ligne en FIN de ligne (a defait la version 2)', () => {
@@ -75,6 +78,43 @@ describe('stripComments — ce qui ne doit PAS etre retire', () => {
     expect(stripComments('const t = `a /* pas un commentaire */ b`;\nconst z = 4;')).toContain(
       'const z = 4',
     );
+  });
+});
+
+describe('stripComments — sur les VRAIS fichiers du depot, pas seulement des extraits', () => {
+  // C est la verification qui manquait, et son absence a coute un round
+  // complet. La version au `ts.createScanner` passait tous les cas ci-dessus
+  // — ecrits a la main, donc courts — et echouait sur un fichier reel : le
+  // backtick de FIN d un `className={`...`}` pris pour un DEBUT de gabarit,
+  // un token de 9 792 caracteres, et tous les commentaires au-dela intacts.
+  // Un extrait de trois lignes ne pouvait pas le montrer. Un fichier de 50 ko
+  // le montre immediatement.
+  const FICHIERS = [
+    'src/modules/catalog/ui/storefront/ShopProductCard.tsx',
+    'src/modules/shops/ui/storefront/PublicShop.tsx',
+    'src/modules/orders/ui/storefront/PortalCart.tsx',
+    'src/modules/orders/ui/hooks/useStorefrontOrderLifecycle.ts',
+  ];
+
+  it.each(FICHIERS)('ne laisse AUCUN commentaire dans %s', (relPath) => {
+    const source = readFileSync(resolve(root, relPath), 'utf-8');
+    // Garde-fou : si le fichier ne contenait aucun commentaire, l assertion
+    // suivante serait vraie sans rien prouver.
+    expect(countComments(source)).toBeGreaterThan(0);
+    expect(countComments(stripComments(source))).toBe(0);
+  });
+
+  it('survit a un gabarit de chaine a substitution suivi de commentaires', () => {
+    // La construction exacte qui a fait derailler la version 5.
+    const src = [
+      'const cls = `px-2 ${actif ? "on" : "off"} py-1`;',
+      'const x = 1; // marqueur-de-ligne',
+      'const y = 2; /* marqueur-de-bloc */',
+    ].join('\n');
+    const out = stripComments(src);
+    expect(out).not.toContain('marqueur-de-ligne');
+    expect(out).not.toContain('marqueur-de-bloc');
+    expect(countComments(out)).toBe(0);
   });
 });
 
