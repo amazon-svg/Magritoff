@@ -1,6 +1,6 @@
 import { parseId, type UserId } from '../../kernel/ids/index.ts';
-import { computeEntityTag } from '../../modules/_shared/application/index.ts';
-import { ETAG_HEADER, IF_MATCH_HEADER } from '../../modules/_shared/api/index.ts';
+import { assertPrecondition, computeEntityTag, ProblemError, readIfMatch } from '../../modules/_shared/application/index.ts';
+import { ETAG_HEADER } from '../../modules/_shared/api/index.ts';
 import {
   orderAuditTrailSchema,
   ordersListSchema,
@@ -89,23 +89,25 @@ export function createOrdersRoutes(
           // façade historique sans précondition obligatoire ; l exiger
           // casserait un onglet resté ouvert. Chemin de mise en conformité :
           // la migration de cette route vers l enveloppe E10, après Q17-b).
-          const ifMatch = context.request.headers.get(IF_MATCH_HEADER);
-          if (ifMatch !== null && ifMatch.trim().length > 0) {
+          // DURCISSEMENT D3 (qa-review round 1) — `readIfMatch`/
+          // `assertPrecondition` sont les utilitaires PARTAGÉS du socle
+          // (`src/modules/_shared/application/concurrency.ts`), pas une
+          // réimplémentation locale : ils refusent déjà en 400
+          // `api.if_match_invalid` un `If-Match: *` ou un ETag malformé
+          // (round 1 les acceptait à tort en 409), avant même de comparer
+          // quoi que ce soit.
+          const ifMatch = readIfMatch(context.request, false);
+          if (ifMatch !== null) {
             const current = await service.getDraft(orderId, authorization);
             const currentTag = await computeEntityTag(current);
-            if (ifMatch.replace(/^W\//, '').trim() !== currentTag) {
-              throw new ApiHttpError({
-                type: 'about:blank', title: 'Brouillon modifié depuis sa dernière lecture', status: 409,
-                code: 'orders.draft_changed',
-                detail: 'Le brouillon a changé depuis la lecture référencée par If-Match. Rechargez-le avant de le modifier.',
-              });
-            }
+            assertPrecondition(ifMatch, currentTag, current as unknown as Record<string, unknown>);
           }
           return {
             status: 200,
             body: await service.updateDraft(orderId, command, authorization),
           };
         } catch (error) {
+          if (error instanceof ProblemError) throw toApiHttpError(error);
           if (error instanceof OrderCommandRejectedError) throw toHttpError(error);
           throw error;
         }
@@ -286,6 +288,30 @@ async function transitionAuthorization(
     });
   }
   return { storefrontToken, magritUserId };
+}
+
+/**
+ * Q17-a durcissement D3 (qa-review round 1) — `readIfMatch`/
+ * `assertPrecondition` (socle E10, `_shared/application/concurrency.ts`)
+ * lèvent un `ProblemError`, rendu nativement par la façade E10
+ * (`createGescomApiHandler`). Cette route appartient à la façade
+ * HISTORIQUE (`createApiV1Handler`), qui ne connaît que `ApiHttpError` —
+ * sans cette conversion, un `ProblemError` non catché tombe dans le
+ * `catch` générique et ressort en 500 masqué, exactement le défaut que ce
+ * durcissement corrige pour B1.
+ */
+function toApiHttpError(error: ProblemError): ApiHttpError {
+  const init = error.init;
+  return new ApiHttpError({
+    type: init.type ?? 'about:blank',
+    title: init.title,
+    status: init.status,
+    code: init.code,
+    ...(init.detail === undefined ? {} : { detail: init.detail }),
+    ...(init.currentState === undefined || init.currentState === null
+      ? {}
+      : { currentState: init.currentState }),
+  });
 }
 
 function toHttpError(error: OrderCommandRejectedError): ApiHttpError {

@@ -429,6 +429,16 @@ paths:
       responses:
         '200':
           description: Brouillon et lignes de son auteur
+          headers:
+            ETag:
+              description: >-
+                Q17-a (point 12 (e)) — empreinte SHA-256 du brouillon
+                (`computeEntityTag`, socle E10). Lisible pour un `If-Match`
+                sur le PUT suivant, mais jamais exigée : cette route reste un
+                PUT de la façade historique sans précondition obligatoire
+                (dérogation R5, chemin de mise en conformité = migration vers
+                l enveloppe E10 après Q17-b).
+              schema: { type: string }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/DraftOrder' }
@@ -444,6 +454,15 @@ paths:
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: orderId, in: path, required: true, schema: { type: string, format: uuid } }
+        - name: If-Match
+          in: header
+          required: false
+          description: >-
+            Q17-a (point 12 (e)) — honoré QUAND IL EST PRÉSENT (repris de
+            l ETag de GET), jamais exigé. Syntaxe validée par `readIfMatch`
+            (socle E10) : `*` ou un ETag malformé → 400 api.if_match_invalid,
+            AVANT toute comparaison.
+          schema: { type: string }
       requestBody:
         required: true
         content:
@@ -455,6 +474,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/UpdateDraftOrderResult' }
+        '400':
+          description: Q17-a — If-Match présent mais `*` ou syntaxiquement invalide (code api.if_match_invalid)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ApiProblem' }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403':
           description: Acteur non autorisé
@@ -462,7 +486,12 @@ paths:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ApiProblem' }
         '409':
-          description: La commande n est plus en brouillon, ou Q17-a a détecté un écart de prix recalculé (code orders.price_changed)
+          description: >-
+            La commande n est plus en brouillon (orders.order_not_editable),
+            Q17-a a détecté un écart de prix recalculé (orders.price_changed,
+            errors[] porte product_label/submitted/current), ou l If-Match
+            fourni ne correspond plus au brouillon lu (api.resource_conflict,
+            current_state porte l état courant)
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ApiProblem' }
@@ -1047,6 +1076,13 @@ components:
           type: string
         requestId:
           type: string
+        currentState:
+          type: [object, 'null']
+          description: >-
+            Q17-a durcissement D3 — état courant d un conflit optimiste
+            (api.resource_conflict), porté par `assertPrecondition` (socle
+            E10). Absent des Problem historiques qui ne gardent pas de
+            précondition ; présent uniquement sur ce conflit précis.
         errors:
           type: array
           items:
@@ -1277,7 +1313,7 @@ components:
         quantity: { type: integer, minimum: 1 }
         expectedUnitPriceHt:
           type: string
-          pattern: '^-?[0-9]{1,10}\.[0-9]{2}$'
+          pattern: '^[0-9]{1,10}\.[0-9]{2}$'
           description: >-
             Q17-a (point 12 (f)) — Money, chaîne décimale à deux décimales,
             jamais un flottant JSON. Renommé depuis unitPriceHt : ce champ
@@ -1307,7 +1343,7 @@ components:
         orderId: { type: string, format: uuid }
         tenantId: { type: string, format: uuid }
         shopId: { type: string, format: uuid }
-        totalHt: { type: string, pattern: '^-?[0-9]{1,10}\.[0-9]{2}$', description: 'Q17-a (point 12 (f)) — Money, chaîne décimale.' }
+        totalHt: { type: string, pattern: '^[0-9]{1,10}\.[0-9]{2}$', description: 'Q17-a (point 12 (f)) — Money, chaîne décimale.' }
         currency: { type: string }
         replayed: { type: boolean }
     DraftOrderItem:
@@ -1320,8 +1356,8 @@ components:
         productLabel: { type: string }
         clariprintOptions: { type: [object, 'null'] }
         quantity: { type: integer, minimum: 1 }
-        unitPriceHt: { type: string, pattern: '^-?[0-9]{1,10}\.[0-9]{2}$', description: 'Q17-a (point 12 (f)) — Money, chaîne décimale. Nom INCHANGÉ (lecture, pas une commande) : ce que le serveur a effectivement retenu.' }
-        lineTotalHt: { type: string, pattern: '^-?[0-9]{1,10}\.[0-9]{2}$' }
+        unitPriceHt: { type: string, pattern: '^[0-9]{1,10}\.[0-9]{2}$', description: 'Q17-a (point 12 (f)) — Money, chaîne décimale. Nom INCHANGÉ (lecture, pas une commande) : ce que le serveur a effectivement retenu.' }
+        lineTotalHt: { type: string, pattern: '^[0-9]{1,10}\.[0-9]{2}$' }
         priceOrigin:
           type: string
           enum: [catalog, quoted, client_unverified, legacy]
@@ -1339,7 +1375,7 @@ components:
         orderId: { type: string, format: uuid }
         status: { type: string }
         createdAt: { type: string, format: date-time }
-        totalHt: { type: string, pattern: '^-?[0-9]{1,10}\.[0-9]{2}$', description: 'Q17-a (point 12 (f)) — Money, chaîne décimale.' }
+        totalHt: { type: string, pattern: '^[0-9]{1,10}\.[0-9]{2}$', description: 'Q17-a (point 12 (f)) — Money, chaîne décimale.' }
         hasUnverifiedPrices:
           type: boolean
           description: >-
@@ -1359,7 +1395,7 @@ components:
         quantity: { type: integer, minimum: 1 }
         expectedUnitPriceHt:
           type: string
-          pattern: '^-?[0-9]{1,10}\.[0-9]{2}$'
+          pattern: '^[0-9]{1,10}\.[0-9]{2}$'
           description: >-
             Q17-a (point 12 (e), (f)) — Money. Ni productId ni
             clariprintOptions ici : l identité catalogue d une ligne n est
@@ -1382,7 +1418,7 @@ components:
       required: [orderId, totalHt, replayed]
       properties:
         orderId: { type: string, format: uuid }
-        totalHt: { type: string, pattern: '^-?[0-9]{1,10}\.[0-9]{2}$', description: 'Q17-a (point 12 (f)) — Money, chaîne décimale.' }
+        totalHt: { type: string, pattern: '^[0-9]{1,10}\.[0-9]{2}$', description: 'Q17-a (point 12 (f)) — Money, chaîne décimale.' }
         replayed: { type: boolean }
     OrderCapabilities:
       type: object

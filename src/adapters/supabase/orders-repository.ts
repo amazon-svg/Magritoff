@@ -513,7 +513,21 @@ function parsePriceMismatches(raw: string): PriceMismatchDetail[] {
   }
 }
 
-/** `numeric(12,2)` : PostgREST rend un nombre ou une chaîne selon le driver, normalisé en Money. */
+/**
+ * `numeric(12,2)` : PostgREST rend un nombre ou une chaîne selon le driver,
+ * normalisé en Money.
+ *
+ * SIGNALÉ (D6, qa-review round 1), NON CORRIGÉ ici : `.toFixed(2)` sur un
+ * `number` refait, côté client JS, exactement le calcul flottant que
+ * `Money` (chaîne décimale) existe pour éviter. Le risque réel est faible
+ * (PostgREST rend déjà une chaîne pour `numeric` dans la configuration
+ * actuelle de ce dépôt — la branche `number` de cette fonction n est prise
+ * qu en repli), mais il existe. Même motif de non-correction que
+ * `commercial-orders-repository.ts` (`toMoneyString`, convention déjà
+ * établie ailleurs dans le dépôt) : corriger ce point demande une décision
+ * transverse (introduire un parseur décimal exact partagé), pas un
+ * correctif local à ce module.
+ */
 function toMoneyString(value: unknown): string {
   if (typeof value === 'string') return value;
   if (typeof value === 'number') return value.toFixed(2);

@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { moneySchema } from '../../_shared/api/index.ts';
 
 /**
  * Q17-a (docs/api/CONVENTIONS.md §8.25 point 12 (c)) — provenance du prix
@@ -11,6 +10,20 @@ import { moneySchema } from '../../_shared/api/index.ts';
  * code applicatif).
  */
 export const priceOriginSchema = z.enum(['catalog', 'quoted', 'client_unverified', 'legacy']);
+
+/**
+ * DURCISSEMENT D5 (qa-review round 1) — `moneySchema` (`_shared/api`)
+ * accepte un signe négatif (`/^-?[0-9]{1,10}\.[0-9]{2}$/`), utile ailleurs
+ * (remises, avoirs). Un montant de ligne, de brouillon ou de commande
+ * boutique n est JAMAIS négatif : le SQL le refusait déjà
+ * (`coalesce(...)::numeric, -1) < 0`), mais rien n empêchait un prix négatif
+ * de franchir la frontière d API avant d atteindre cette garde. Refusé ici,
+ * à la validation de la requête — précédent : `nonNegativeRateSchema`
+ * (`src/modules/pricing/api/contracts.ts`).
+ */
+export const nonNegativeMoneySchema = z.string().regex(/^[0-9]{1,10}\.[0-9]{2}$/, {
+  message: 'Un montant de commande se serialise en chaine decimale non negative a deux decimales, ex. "1234.50".',
+});
 
 export const orderSourceSchema = z.enum(['legacy', 'v1_1']);
 export const portalOrdersTabSchema = z.enum(['mine', 'to_validate', 'to_approve', 'to_produce']);
@@ -105,7 +118,7 @@ export const createOrderItemSchema = z.object({
   productLabel: z.string().trim().min(1),
   clariprintOptions: z.record(z.string(), z.json()).nullable(),
   quantity: z.number().int().positive(),
-  expectedUnitPriceHt: moneySchema,
+  expectedUnitPriceHt: nonNegativeMoneySchema,
 });
 
 export const createOrderCommandSchema = z.object({
@@ -120,7 +133,7 @@ export const createOrderResultSchema = z.object({
   orderId: z.uuid(),
   tenantId: z.uuid(),
   shopId: z.uuid(),
-  totalHt: moneySchema,
+  totalHt: nonNegativeMoneySchema,
   currency: z.string().length(3),
   replayed: z.boolean(),
 });
@@ -131,8 +144,8 @@ export const draftOrderItemSchema = z.object({
   productLabel: z.string(),
   clariprintOptions: z.record(z.string(), z.json()).nullable(),
   quantity: z.number().int().positive(),
-  unitPriceHt: moneySchema,
-  lineTotalHt: moneySchema,
+  unitPriceHt: nonNegativeMoneySchema,
+  lineTotalHt: nonNegativeMoneySchema,
   /** Q17-a (point 12 (h)) — sert Q17-c (pastille « Prix non vérifié »). */
   priceOrigin: priceOriginSchema,
 });
@@ -141,7 +154,7 @@ export const draftOrderSchema = z.object({
   orderId: z.uuid(),
   status: z.string(),
   createdAt: z.iso.datetime({ offset: true }),
-  totalHt: moneySchema,
+  totalHt: nonNegativeMoneySchema,
   /** Q17-a (point 12 (h)) — miroir de `tenant_orders.has_unverified_prices`. */
   hasUnverifiedPrices: z.boolean(),
   items: z.array(draftOrderItemSchema),
@@ -158,7 +171,7 @@ export const updateDraftOrderItemSchema = z.object({
   id: z.uuid(),
   productLabel: z.string().trim().min(1),
   quantity: z.number().int().positive(),
-  expectedUnitPriceHt: moneySchema,
+  expectedUnitPriceHt: nonNegativeMoneySchema,
 });
 
 export const updateDraftOrderCommandSchema = z.object({
@@ -168,7 +181,7 @@ export const updateDraftOrderCommandSchema = z.object({
 
 export const updateDraftOrderResultSchema = z.object({
   orderId: z.uuid(),
-  totalHt: moneySchema,
+  totalHt: nonNegativeMoneySchema,
   replayed: z.boolean(),
 });
 
