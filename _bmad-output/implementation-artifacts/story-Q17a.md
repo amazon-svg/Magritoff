@@ -202,7 +202,7 @@ Rejoués un par un contre la base locale (migrations jusqu'à `20260915000100` i
 - `pnpm test:architecture` → **458 tests passés** (48 fichiers) — identique au round 2.
 - `pnpm test:contract` → **434 tests passés** (23 fichiers) — identique au round 2.
 - `pnpm gen:api:check` → **aligné**, aucune dérive (je n'ai pas touché `openapi/magrit-core.v1.yaml`).
-- `pnpm test:storefront:sql` → **53 fichiers SQL rejoués, 0 `ERROR`, code de sortie 0**, y compris les 3 nouveaux scénarios round 3 (15bis, 19, 20) dans `storefront-order-price-revaluation.sql` (20 blocs `do $$` au total, 21 scénarios nommés).
+- `pnpm test:storefront:sql` → **53 fichiers SQL rejoués, 0 `ERROR`, code de sortie 0**, y compris les 3 nouveaux scénarios round 3 (15bis, 19, 20) dans `storefront-order-price-revaluation.sql` (17 blocs `do $$` au total, 21 scénarios nommés).
 - `supabase migration up --local --include-all` → appliquée proprement depuis zéro (`pnpm run db:local:reset`) après chaque changement de la migration round 3.
 
 **Historique des chiffres, corrigé une dernière fois (C7)** : consigne initiale (avant round 1) — typecheck 0 erreur, 3173 tests passés/88 skippés, 288 tests d'architecture. Round 1 → 3188 tests (+15, corrigé en round 2 : l'arithmétique était fausse mais le total juste). Round 2 → 3348 tests (+160, durcissement D4 : 157 fichiers de migration balayés, 165 tests dans ce seul fichier — les deux nombres, longtemps confondus dans ce document, sont maintenant distingués partout). Round 3 → 3348 tests, inchangé (aucun fichier TS modifié). Les écarts s'expliquent entièrement par les tests ajoutés, aucun test existant n'a changé de statut à travers les trois rounds.
@@ -220,3 +220,60 @@ Rejoués un par un contre la base locale (migrations jusqu'à `20260915000100` i
 Le mode d'accès des boutiques actives (`shops.access_mode`) doit être vérifié en production avant l'élargissement du pilote ERAM — lecture de production hors de portée de cet agent, à faire par Arnaud ou l'architecte (même geste que la porte du point 3.7 (f)).
 
 **Round 3, BLOQUANT C1** : `revoke insert, update, delete on public.tenant_order_items from anon, authenticated` et `revoke update on public.tenant_orders from anon, authenticated` doivent être **confirmés contre toute surface d'administration HORS de ce dépôt** (SQL editor Supabase, scripts d'exploitation, outillage support, tout accès direct aux tables depuis l'extérieur du code applicatif) avant mise en production — je n'ai vérifié que `src/` et `supabase/functions/` (grep), aucune écriture ni lecture de production n'étant possible depuis cet agent.
+
+## Durcissements du coordinateur apres approbation (qa-review round 3)
+
+La qa-review approuve le comportement livre et n approuve PAS sa durabilite
+sans H1. Traite par le coordinateur.
+
+**H1 — le revoke de C1 n avait aucune garde en CI. FAIT.** Nouveau test
+`tests/architecture/orders-direct-write-revoked.test.ts`, qui tourne sans base
+et sans Docker, donc en CI (`.github/workflows/architecture.yml` lance
+`test:architecture`, jamais `test:storefront:sql`). Il tient trois proprietes :
+les deux `revoke` sont presents dans la migration Q17-a ; aucune migration
+POSTERIEURE ne redonne ces droits, ni par un grant global sur le schema, ni par
+un grant cible sur les deux tables ; et le grant global historique
+(`20260811000100`) est bien anterieur a Q17-a. Motif : le revoke est une
+exception par table a un grant global, et ce grant global a deja ete rejoue une
+fois dans l histoire du depot (`20260819000100`) — une migration distraite
+rouvrirait C1 en silence.
+**Trois mutations rejouees par le coordinateur, chacune annulee ensuite** :
+(1) une migration posterieure rejouant le grant global -> 2 tests rouges, le
+diagnostic NOMME le fichier fautif ; (2) un grant cible
+`grant update on public.tenant_order_items to authenticated` -> 1 test rouge ;
+(3) le `revoke` retire de la migration Q17-a -> 1 test rouge. Vert sur le code
+sain (3/3). **Limite dite** : c est une lecture de texte, normalisee
+(commentaires retires, espaces ecrases, car le grant du depot s ecrit sur trois
+lignes) ; un grant construit dynamiquement par `execute format(...)` lui
+echapperait. Elle couvre la reecriture distraite du grant global, qui est le
+scenario reel. Le correctif, si ce test rougit un jour, n est PAS d ajouter une
+exception : c est de re-revoquer les deux tables a la fin de la migration
+fautive — c est ecrit dans le test.
+
+**H3 — `service_role` non revoque : EXEMPTION DECLAREE, pas un oubli.**
+`service_role` est l identite du serveur, pas celle d un utilisateur : c est le
+modele de menace de la cle serveur, distinct de C1 (qui portait sur ce qu un
+membre de l atelier peut faire avec sa propre session). Les deux edge functions
+qui touchent `tenant_orders` ne font que `select` (verifie par la qa). Le
+revoquer n ajouterait rien contre C1 et casserait tout futur travail serveur
+legitime. Si la cle serveur fuit, ce revoke ne serait de toute facon pas la
+ligne de defense.
+
+**H4 — story doc, « 20 blocs `do $$` » corrige en 17** (compte reel verifie :
+`grep -ciE '^\s*do \$\$'` = 17).
+
+**H2 — PORTE A ARNAUD ET A L ARCHITECTE, hors de ce lot.** `tenant_orders`
+conserve `DELETE` pour `anon`/`authenticated` : un membre `can_manage_tenant_orders`
+peut SUPPRIMER une commande facturee, lignes comprises par cascade. Ce n est pas
+une falsification de prix et le cadrage ne le couvre pas, mais c est desormais le
+dernier vecteur d ecriture directe sur ces deux tables. Aucun code du depot ne
+supprime une commande (`grep` sur `src/` et `supabase/functions/` : que des
+`select`). A trancher : `revoke delete`, ou decision ecrite que la suppression
+reste un geste legitime.
+
+Gates apres durcissements : voir la section suivante.
+
+**Gates apres les durcissements du coordinateur** (rejouees, chiffres reels) :
+`pnpm typecheck` 0 erreur ; `pnpm test:architecture` **461** (458 + les 3 du
+nouveau garde) ; `pnpm exec vitest run` **3 351 passes / 88 skip, 0 echec**
+(3 348 + 3) ; `pnpm test:contract` **434**, inchange.
