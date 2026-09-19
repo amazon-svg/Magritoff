@@ -388,8 +388,13 @@ begin
 
   -- La commande passe `validated` par un update DIRECT du statut (raccourci
   -- de test : le passage par la RPC de transition est couvert aux cas
-  -- 8 a 11).
+  -- 8 a 11). Le laissez-passer transactionnel est leve explicitement ici
+  -- SEULEMENT parce que c est une fixture de test, pas un appel applicatif :
+  -- `tenant_orders_status_change_guard` (durcissement D1) refuserait sinon
+  -- cette ecriture directe, exactement ce que le cas 17 verifie par ailleurs.
+  perform set_config('app.q17a_allow_status_transition', 'true', true);
   update public.tenant_orders set status = 'validated' where id = v_order_id;
+  perform set_config('app.q17a_allow_status_transition', 'false', true);
 
   -- Cas 6 — un UPDATE direct sur tenant_order_items d une commande
   -- `validated` (contournement PostgREST direct, pas par une RPC) doit
@@ -621,6 +626,380 @@ begin
   if v_timing is distinct from 'BEFORE' then
     raise exception 'Cas 13 : tenant_order_items_immutable_after_draft a pour timing % (attendu BEFORE)', v_timing;
   end if;
+end;
+$$;
+
+-- ── Cas 14 (BLOQUANT B1, qa-review round 1) — le chemin `magrit_user` de
+--    POST /orders (`api_create_tenant_order`) ne doit plus lever une erreur
+--    NOT NULL sur price_origin, et doit ecrire client_unverified partout
+--    (echec ferme : cette fonction ne verifie toujours rien).
+do $$
+declare
+  v_owner uuid := gen_random_uuid();
+  v_admin uuid := gen_random_uuid();
+  v_tenant uuid;
+  v_shop uuid;
+  v_product uuid;
+  v_result jsonb;
+  v_order_id uuid;
+  v_origin text;
+  v_has_unverified boolean;
+begin
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, aud, role)
+    values
+      (v_owner, 'q17a-case14-owner@example.test', 'x', now(), now(), now(), 'authenticated', 'authenticated'),
+      (v_admin, 'q17a-case14-admin@example.test', 'x', now(), now(), now(), 'authenticated', 'authenticated');
+  insert into public.tenants (slug, name) values ('q17a-case14', 'Q17a Case14') returning id into v_tenant;
+  insert into public.tenant_members (tenant_id, user_id, role, access_scope, allowed_shop_ids)
+    values (v_tenant, v_admin, 'admin', 'magrit_full', '{}');
+  insert into public.shops (owner_user_id, tenant_id, slug, name) values (v_owner, v_tenant, 'q17a-case14-shop', 'Q17a Shop')
+    returning id into v_shop;
+  insert into public.product_library (user_id, tenant_id, name, price_ht, active)
+    values (v_owner, v_tenant, 'Depliant atelier', 12.00, true) returning id into v_product;
+  insert into public.shop_products (shop_id, tenant_id, product_id, name, price_ht)
+    values (v_shop, v_tenant, v_product, 'Depliant atelier', 12.00);
+
+  perform set_config('request.jwt.claims', json_build_object('sub', v_admin::text, 'role', 'authenticated')::text, true);
+
+  -- Round 1 : levait "null value in column price_origin ... violates
+  -- not-null constraint" ici meme (aucun try/catch : l echec DOIT etre
+  -- absent, pas seulement rattrape).
+  select public.api_create_tenant_order(
+    v_shop, 'EUR', '',
+    jsonb_build_array(jsonb_build_object(
+      'product_id', v_product, 'product_label', 'Depliant atelier',
+      'clariprint_options', '{}'::jsonb, 'quantity', 1, 'unit_price_ht', 0.01
+    )),
+    'q17a-case14-create'
+  ) into v_result;
+  v_order_id := (v_result->>'order_id')::uuid;
+
+  select price_origin into v_origin from public.tenant_order_items where order_id = v_order_id;
+  select has_unverified_prices into v_has_unverified from public.tenant_orders where id = v_order_id;
+
+  if v_origin <> 'client_unverified' then
+    raise exception 'Cas 14 : api_create_tenant_order a ecrit price_origin=% (attendu client_unverified)', v_origin;
+  end if;
+  if not v_has_unverified then
+    raise exception 'Cas 14 : has_unverified_prices est reste a false alors que la ligne est client_unverified';
+  end if;
+
+  reset role;
+  perform set_config('request.jwt.claims', null, true);
+end;
+$$;
+
+-- ── Cas 15 (BLOQUANT B2, qa-review round 1) — un prix soumis sous le
+--    centime (11,995 EUR pour un produit a 12,00 EUR) ne doit PAS etre
+--    stocke tel quel : le serveur ecrit le prix RESOLU (12,00), jamais la
+--    valeur brute recue, sur unit_price_ht, line_total_ht ET total_ht.
+--    Reproduction exacte de la qa : quantite 100 000, ecart de 500 EUR entre
+--    la valeur brute (1 199 500,00) et la valeur correcte (1 200 000,00).
+do $$
+declare
+  v_owner uuid := gen_random_uuid();
+  v_tenant uuid;
+  v_shop uuid;
+  v_account uuid;
+  v_token text := encode(extensions.gen_random_bytes(32), 'hex');
+  v_product uuid;
+  v_result jsonb;
+  v_order_id uuid;
+  v_item_id uuid;
+  v_stored_unit_price numeric;
+  v_stored_line_total numeric;
+  v_stored_total numeric;
+begin
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, aud, role)
+    values (v_owner, 'q17a-case15-owner@example.test', 'x', now(), now(), now(), 'authenticated', 'authenticated');
+  insert into public.tenants (slug, name) values ('q17a-case15', 'Q17a Case15') returning id into v_tenant;
+  insert into public.shops (owner_user_id, tenant_id, slug, name) values (v_owner, v_tenant, 'q17a-case15-shop', 'Q17a Shop')
+    returning id into v_shop;
+  insert into public.product_library (user_id, tenant_id, name, price_ht, active)
+    values (v_owner, v_tenant, 'Grand tirage', 12.00, true) returning id into v_product;
+  insert into public.shop_products (shop_id, tenant_id, product_id, name, price_ht)
+    values (v_shop, v_tenant, v_product, 'Grand tirage', 12.00);
+  insert into public.shop_customer_accounts (shop_id, email, full_name, status, activated_at)
+    values (v_shop, 'buyer-case15@example.com', 'Buyer', 'active', now()) returning id into v_account;
+  insert into private.shop_customer_sessions (shop_customer_account_id, shop_id, token_hash, expires_at)
+    values (v_account, v_shop, extensions.digest(convert_to(v_token, 'UTF8'), 'sha256'), now() + interval '1 hour');
+
+  select public.api_create_storefront_order(
+    v_token, v_shop, 'EUR', '',
+    jsonb_build_array(jsonb_build_object(
+      'product_id', v_product, 'product_label', 'Grand tirage',
+      'clariprint_options', '{}'::jsonb, 'quantity', 100000, 'unit_price_ht', 11.995
+    )),
+    'q17a-case15-create'
+  ) into v_result;
+  v_order_id := (v_result->>'order_id')::uuid;
+
+  select unit_price_ht, line_total_ht into v_stored_unit_price, v_stored_line_total
+    from public.tenant_order_items where order_id = v_order_id;
+  select total_ht into v_stored_total from public.tenant_orders where id = v_order_id;
+
+  if v_stored_unit_price <> 12.00 then
+    raise exception 'Cas 15 (creation) : unit_price_ht stocke = % (attendu 12.00, la valeur RESOLUE, pas 11.995)', v_stored_unit_price;
+  end if;
+  if v_stored_line_total <> 1200000.00 then
+    raise exception 'Cas 15 (creation) : line_total_ht = % (attendu 1200000.00)', v_stored_line_total;
+  end if;
+  if v_stored_total <> 1200000.00 then
+    raise exception 'Cas 15 (creation) : total_ht = % (attendu 1200000.00, ecart de manque a gagner si different)', v_stored_total;
+  end if;
+
+  -- Meme preuve sur la MODIFICATION de brouillon (branche storefront) :
+  -- resoumettre un prix sous le centime pour la meme ligne doit encore
+  -- stocker la valeur resolue.
+  select id into v_item_id from public.tenant_order_items where order_id = v_order_id;
+  perform public.api_update_order_draft_for_identity(
+    v_order_id,
+    jsonb_build_array(jsonb_build_object('id', v_item_id, 'product_label', 'Grand tirage', 'quantity', 100000, 'unit_price_ht', 11.996)),
+    'q17a-case15-update',
+    v_token
+  );
+  select unit_price_ht into v_stored_unit_price from public.tenant_order_items where id = v_item_id;
+  if v_stored_unit_price <> 12.00 then
+    raise exception 'Cas 15 (modification) : unit_price_ht stocke = % (attendu 12.00)', v_stored_unit_price;
+  end if;
+end;
+$$;
+
+-- ── Cas 16 (BLOQUANT B3, qa-review round 1) — la branche ATELIER du PUT
+--    /orders/{orderId}/draft (api_update_tenant_order_draft, atteinte quand
+--    l acteur authentifie EST le created_by, sans cookie boutique — le cas
+--    d une commande creee via une session boutique DELEGUEE, ou created_by
+--    est le membre de l atelier qui agissait pour le client) doit refuser
+--    le meme ecart de prix que la branche storefront.
+do $$
+declare
+  v_owner uuid := gen_random_uuid();
+  v_staff uuid := gen_random_uuid();
+  v_tenant uuid;
+  v_shop uuid;
+  v_account uuid;
+  v_delegation uuid;
+  v_delegated_token text := encode(extensions.gen_random_bytes(32), 'hex');
+  v_product uuid;
+  v_result jsonb;
+  v_order_id uuid;
+  v_item_id uuid;
+  v_rejected boolean := false;
+  v_stored_unit_price numeric;
+  v_stored_origin text;
+begin
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, aud, role)
+    values
+      (v_owner, 'q17a-case16-owner@example.test', 'x', now(), now(), now(), 'authenticated', 'authenticated'),
+      (v_staff, 'q17a-case16-staff@example.test', 'x', now(), now(), now(), 'authenticated', 'authenticated');
+  insert into public.tenants (slug, name) values ('q17a-case16', 'Q17a Case16') returning id into v_tenant;
+  insert into public.shops (owner_user_id, tenant_id, slug, name) values (v_owner, v_tenant, 'q17a-case16-shop', 'Q17a Shop')
+    returning id into v_shop;
+  insert into public.product_library (user_id, tenant_id, name, price_ht, active)
+    values (v_owner, v_tenant, 'Carte de voeux', 12.00, true) returning id into v_product;
+  insert into public.shop_products (shop_id, tenant_id, product_id, name, price_ht)
+    values (v_shop, v_tenant, v_product, 'Carte de voeux', 12.00);
+  insert into public.shop_customer_accounts (shop_id, email, full_name, status, activated_at)
+    values (v_shop, 'buyer-case16@example.com', 'Buyer', 'active', now()) returning id into v_account;
+
+  -- Session boutique DELEGUEE : le membre de l atelier (v_staff) agit pour
+  -- le client. La commande creee porte created_by = v_staff (voir
+  -- storefront-order-identity.sql, meme mecanisme).
+  insert into private.shop_customer_delegations (
+    shop_customer_account_id, shop_id, actor_magrit_user_id, expires_at, reason
+  ) values (
+    v_account, v_shop, v_staff, now() + interval '30 minutes', 'Test Q17a case 16'
+  ) returning id into v_delegation;
+  insert into private.shop_customer_sessions (
+    shop_customer_account_id, shop_id, token_hash, session_kind,
+    actor_magrit_user_id, delegation_id, expires_at
+  ) values (
+    v_account, v_shop,
+    extensions.digest(convert_to(v_delegated_token, 'UTF8'), 'sha256'),
+    'delegated', v_staff, v_delegation, now() + interval '30 minutes'
+  );
+
+  select public.api_create_storefront_order(
+    v_delegated_token, v_shop, 'EUR', '',
+    jsonb_build_array(jsonb_build_object(
+      'product_id', v_product, 'product_label', 'Carte de voeux',
+      'clariprint_options', '{}'::jsonb, 'quantity', 1, 'unit_price_ht', 12.00
+    )),
+    'q17a-case16-create'
+  ) into v_result;
+  v_order_id := (v_result->>'order_id')::uuid;
+  select id into v_item_id from public.tenant_order_items where order_id = v_order_id;
+
+  -- PUT SANS cookie boutique, authentifie comme le membre delegue (auth.uid()
+  -- = created_by) : c est le chemin `api_update_tenant_order_draft`, round 1
+  -- l avait laisse totalement sans garde.
+  perform set_config('request.jwt.claims', json_build_object('sub', v_staff::text, 'role', 'authenticated')::text, true);
+
+  begin
+    perform public.api_update_order_draft_for_identity(
+      v_order_id,
+      jsonb_build_array(jsonb_build_object('id', v_item_id, 'product_label', 'Carte de voeux', 'quantity', 1, 'unit_price_ht', 0.01)),
+      'q17a-case16-update-bad',
+      null
+    );
+  exception
+    when others then
+      if sqlerrm like 'price_changed:%' then
+        v_rejected := true;
+      else
+        raise;
+      end if;
+  end;
+  if not v_rejected then
+    raise exception 'Cas 16 : la branche atelier (session deleguee) a accepte un prix a 0,01 EUR sur un produit de catalogue a 12,00 EUR (attendu : refus price_changed)';
+  end if;
+
+  -- Non-regression : un prix CORRECT sur cette meme branche passe et reste
+  -- correctement classifie/totalise.
+  perform public.api_update_order_draft_for_identity(
+    v_order_id,
+    jsonb_build_array(jsonb_build_object('id', v_item_id, 'product_label', 'Carte de voeux premium', 'quantity', 2, 'unit_price_ht', 12.00)),
+    'q17a-case16-update-good',
+    null
+  );
+  select unit_price_ht, price_origin into v_stored_unit_price, v_stored_origin
+    from public.tenant_order_items where id = v_item_id;
+  if v_stored_origin <> 'catalog' or v_stored_unit_price <> 12.00 then
+    raise exception 'Cas 16 (non-regression) : origin=%, prix=% (attendu catalog / 12.00)', v_stored_origin, v_stored_unit_price;
+  end if;
+
+  reset role;
+  perform set_config('request.jwt.claims', null, true);
+end;
+$$;
+
+-- ── Cas 17 (DURCISSEMENT D1, qa-review round 1) — le gel s etend a INSERT,
+--    et le statut d une commande ne se modifie plus en direct hors RPC.
+do $$
+declare
+  v_owner uuid := gen_random_uuid();
+  v_tenant uuid;
+  v_shop uuid;
+  v_order_id uuid;
+  v_rejected boolean := false;
+begin
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, aud, role)
+    values (v_owner, 'q17a-case17-owner@example.test', 'x', now(), now(), now(), 'authenticated', 'authenticated');
+  insert into public.tenants (slug, name) values ('q17a-case17', 'Q17a Case17') returning id into v_tenant;
+  insert into public.shops (owner_user_id, tenant_id, slug, name) values (v_owner, v_tenant, 'q17a-case17-shop', 'Q17a Shop')
+    returning id into v_shop;
+
+  -- Fixture directe (pas par une RPC) : une commande deja `shipped`, comme
+  -- si elle avait progresse normalement avant ce test.
+  insert into public.tenant_orders (tenant_id, shop_id, created_by, status, total_ht)
+    values (v_tenant, v_shop, v_owner, 'shipped', 50.00)
+    returning id into v_order_id;
+
+  -- Volet 1 — INSERT direct d une ligne dans une commande shipped.
+  begin
+    insert into public.tenant_order_items (
+      order_id, product_id, product_label, clariprint_options,
+      quantity, unit_price_ht, line_total_ht, price_origin
+    ) values (
+      v_order_id, null, 'Ligne ajoutee apres expedition', '{}'::jsonb,
+      1, 999.00, 999.00, 'client_unverified'
+    );
+  exception
+    when others then
+      if sqlerrm like 'order_item.immutable:%' then
+        v_rejected := true;
+      else
+        raise;
+      end if;
+  end;
+  if not v_rejected then
+    raise exception 'Cas 17 (volet 1) : une ligne a pu etre INSEREE directement dans une commande shipped (attendu : order_item.immutable)';
+  end if;
+
+  -- Volet 2 — regression de statut hors RPC (shipped -> draft), en direct.
+  v_rejected := false;
+  begin
+    update public.tenant_orders set status = 'draft' where id = v_order_id;
+  exception
+    when others then
+      if sqlerrm like 'order.status_immutable:%' then
+        v_rejected := true;
+      else
+        raise;
+      end if;
+  end;
+  if not v_rejected then
+    raise exception 'Cas 17 (volet 2) : le statut d une commande a pu regresser (shipped -> draft) par ecriture directe (attendu : order.status_immutable)';
+  end if;
+end;
+$$;
+
+-- ── Cas 18 (DURCISSEMENT D2, qa-review round 1) — la re-verification ne
+--    doit pas dependre du libelle `validated` : un tenant qui personnalise
+--    sa matrice avec une transition `draft -> in_production` doit rester
+--    soumis au meme refus `unverified_prices`.
+do $$
+declare
+  v_owner uuid := gen_random_uuid();
+  v_admin uuid := gen_random_uuid();
+  v_tenant uuid;
+  v_shop uuid;
+  v_account uuid;
+  v_token text := encode(extensions.gen_random_bytes(32), 'hex');
+  v_result jsonb;
+  v_order_id uuid;
+  v_rejected boolean := false;
+begin
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, aud, role)
+    values
+      (v_owner, 'q17a-case18-owner@example.test', 'x', now(), now(), now(), 'authenticated', 'authenticated'),
+      (v_admin, 'q17a-case18-admin@example.test', 'x', now(), now(), now(), 'authenticated', 'authenticated');
+  insert into public.tenants (slug, name) values ('q17a-case18', 'Q17a Case18') returning id into v_tenant;
+  insert into public.tenant_members (tenant_id, user_id, role, access_scope, allowed_shop_ids)
+    values (v_tenant, v_admin, 'admin', 'magrit_full', '{}');
+  insert into public.shops (owner_user_id, tenant_id, slug, name) values (v_owner, v_tenant, 'q17a-case18-shop', 'Q17a Shop')
+    returning id into v_shop;
+  insert into public.shop_customer_accounts (shop_id, email, full_name, status, activated_at)
+    values (v_shop, 'buyer-case18@example.com', 'Buyer', 'active', now()) returning id into v_account;
+  insert into private.shop_customer_sessions (shop_customer_account_id, shop_id, token_hash, expires_at)
+    values (v_account, v_shop, extensions.digest(convert_to(v_token, 'UTF8'), 'sha256'), now() + interval '1 hour');
+
+  -- Le tenant personnalise sa matrice : une transition directe vers
+  -- in_production, sans passer par validated (self_service_creator=true
+  -- pour ne pas dependre d une capability supplementaire dans ce test).
+  insert into public.tenant_order_status_transitions
+    (tenant_id, from_status_code, to_status_code, required_capability, self_service_creator)
+  values (v_tenant, 'draft', 'in_production', null, true);
+
+  -- Ligne CONFIGUREE (client_unverified) : le point d attaque du durcissement.
+  select public.api_create_storefront_order(
+    v_token, v_shop, 'EUR', '',
+    jsonb_build_array(jsonb_build_object(
+      'product_id', null, 'product_label', 'Produit configure',
+      'clariprint_options', '{"format":"sur-mesure"}'::jsonb, 'quantity', 1, 'unit_price_ht', 250.00
+    )),
+    'q17a-case18-create'
+  ) into v_result;
+  v_order_id := (v_result->>'order_id')::uuid;
+
+  perform set_config('request.jwt.claims', json_build_object('sub', v_admin::text, 'role', 'authenticated')::text, true);
+
+  begin
+    perform public.transition_tenant_order_status(v_order_id, 'in_production', null, false);
+  exception
+    when others then
+      if sqlerrm like 'unverified_prices:%' then
+        v_rejected := true;
+      else
+        raise;
+      end if;
+  end;
+  if not v_rejected then
+    raise exception 'Cas 18 : draft -> in_production (statut hors validated/cancelled) a laisse passer une ligne client_unverified sans acquittement (attendu : refus unverified_prices)';
+  end if;
+
+  reset role;
+  perform set_config('request.jwt.claims', null, true);
 end;
 $$;
 

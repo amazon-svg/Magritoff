@@ -66,6 +66,13 @@ comment on column public.tenant_orders.has_unverified_prices is
 -- immuable TOUT COURT : l auteur a le droit documente de modifier son
 -- brouillon (`api_update_order_draft_for_identity`), ce n est pas une dette.
 
+-- DURCISSEMENT D1 (qa-review round 1) — `before update or delete` seul
+-- laissait passer un `INSERT` direct sur une commande deja hors `draft` (la
+-- qa a ajoute une ligne a 999 EUR dans une commande `shipped`). Le trigger
+-- couvre maintenant aussi `INSERT` : `NEW` existe toujours pour ce cas,
+-- `OLD` jamais, d ou le `coalesce(old.order_id, new.order_id)` deja en place
+-- et le nouveau garde `tg_op = 'INSERT'` traite comme `UPDATE` cote retour
+-- (rendre `new`, jamais `old`, qui n existe pas a l insertion).
 create or replace function public.tenant_order_items_immutable_after_draft()
 returns trigger
 language plpgsql
@@ -79,6 +86,8 @@ begin
 
   if v_status is null then
     -- Cascade depuis la suppression de la commande parente : legitime.
+    -- (Seul un DELETE ou un UPDATE peut atteindre cette branche : un INSERT
+    -- reference toujours une commande existante via la FK order_id.)
     return old;
   end if;
 
@@ -99,17 +108,53 @@ begin
     raise exception 'order_item.immutable: une ligne de commande ne se supprime plus une fois la commande hors brouillon (commande %, statut %)', old.order_id, v_status;
   end if;
 
+  if tg_op = 'INSERT' then
+    raise exception 'order_item.immutable: aucune ligne ne s ajoute a une commande qui n est plus en brouillon (commande %, statut %)', new.order_id, v_status;
+  end if;
+
   raise exception 'order_item.immutable: une ligne de commande ne se modifie plus une fois la commande hors brouillon (commande %, statut %)', old.order_id, v_status;
 end;
 $$;
 
 drop trigger if exists tenant_order_items_immutable_after_draft on public.tenant_order_items;
 create trigger tenant_order_items_immutable_after_draft
-  before update or delete on public.tenant_order_items
+  before insert or update or delete on public.tenant_order_items
   for each row execute function public.tenant_order_items_immutable_after_draft();
 
 comment on trigger tenant_order_items_immutable_after_draft on public.tenant_order_items is
-  'Q17-a (point 12 (g)) — ferme le constat du 2026-09-19 : avant ce trigger, la seule policy (tenant_order_items_update, 20260824000400) autorisait tout acteur can_manage_tenant_orders() a reecrire le prix d une ligne validee/produite/expediee/facturee, sans laisser de trace.';
+  'Q17-a (point 12 (g)) — ferme le constat du 2026-09-19 : avant ce trigger, la seule policy (tenant_order_items_update, 20260824000400) autorisait tout acteur can_manage_tenant_orders() a reecrire le prix d une ligne validee/produite/expediee/facturee, sans laisser de trace. Etendu a INSERT (durcissement D1, qa-review round 1) : sans cela, un membre de l atelier pouvait ajouter une ligne neuve a une commande deja shipped/invoiced.';
+
+-- DURCISSEMENT D1 (volet 2) — `tenant_orders.status` reste ecrivable en
+-- direct par tout acteur `can_manage_tenant_orders` (policy
+-- `tenant_orders_update`) : rien n empechait de repasser `shipped -> draft`,
+-- reecrire le prix d une ligne (desormais bloque par le trigger ci-dessus
+-- UNIQUEMENT si la commande reste hors `draft` — la ligne redevient
+-- modifiable des que le statut regresse), puis remettre `shipped`, sans
+-- produire le moindre evenement dans `tenant_order_status_events`. Le
+-- marqueur de transaction `app.q17a_allow_status_transition` est pose par
+-- `transition_tenant_order_status` (seule fonction autorisee a faire
+-- progresser ou reculer un statut) juste avant son propre UPDATE ; toute
+-- autre ecriture de `status` — RPC ou PostgREST direct — est refusee.
+create or replace function public.tenant_orders_status_change_guard()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.status is distinct from old.status
+     and coalesce(current_setting('app.q17a_allow_status_transition', true), '') <> 'true' then
+    raise exception 'order.status_immutable: le statut d une commande ne se modifie que via transition_tenant_order_status (commande %, % -> %)', old.id, old.status, new.status;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists tenant_orders_status_change_guard on public.tenant_orders;
+create trigger tenant_orders_status_change_guard
+  before update on public.tenant_orders
+  for each row execute function public.tenant_orders_status_change_guard();
+
+comment on trigger tenant_orders_status_change_guard on public.tenant_orders is
+  'Q17-a durcissement D1, volet 2 (qa-review round 1) — sans ce trigger, can_manage_tenant_orders() suffit a reecrire tenant_orders.status en direct (shipped -> draft -> reprix -> shipped), sans passer par transition_tenant_order_status ni laisser de trace dans tenant_order_status_events.';
 
 -- ─── 4. Hierarchie opposable du prix ferme (point 12 (b)) ──────────────────
 -- Reprend exactement `publicCatalog` (shops-repository.ts) : ne la reecrit
@@ -199,14 +244,33 @@ comment on function private.resolve_storefront_catalog_price is
 -- Ne LEVE jamais : rend une classification, la RPC appelante decide de la
 -- politique (create refuse le hors-perimetre, update ne le peut pas puisque
 -- le product_id n est pas resoumis).
+--
+-- BLOQUANT B2 (qa-review round 1, corrige) — `resolved_unit_price_ht` est
+-- ajoute au retour. Round 1 comparait `round(p_unit_price_ht, 2)` au prix
+-- catalogue pour decider du refus, mais les trois appelants ECRIVAIENT
+-- ensuite la valeur BRUTE recue (`item->>'unit_price_ht'`, non arrondie) :
+-- un prix soumis a `11.995` pour un produit a `12.00` passait le test
+-- d egalite (arrondi a `12.00`) mais la ligne stockee restait a `11.995`,
+-- et `line_total_ht`/`total_ht` etaient calcules sur cette valeur non
+-- arrondie — sur une grande quantite, l ecart se chiffre en centaines
+-- d euros (500 EUR sur l exemple reproduit par la qa : 100 000 x 0,005).
+-- Cette fonction rend maintenant LA VALEUR A ECRIRE, jamais aux appelants
+-- de la recalculer depuis `p_items` : `reference_price` pour une ligne
+-- `catalog` (le prix SERVEUR, jamais celui du navigateur), la valeur
+-- soumise arrondie a deux decimales pour une ligne `client_unverified`
+-- (rien a verifier, mais toujours ecrite arrondie).
 
+drop function if exists private.classify_storefront_order_line(uuid, uuid, jsonb, numeric);
 create or replace function private.classify_storefront_order_line(
   p_shop_id uuid,
   p_product_id uuid,
   p_clariprint_options jsonb,
   p_unit_price_ht numeric
 )
-returns table (price_origin text, in_scope boolean, reference_price numeric(12,2), mismatch boolean)
+returns table (
+  price_origin text, in_scope boolean, reference_price numeric(12,2),
+  mismatch boolean, resolved_unit_price_ht numeric(12,2)
+)
 language plpgsql
 stable
 set search_path = public, private
@@ -215,7 +279,7 @@ declare
   v_resolved record;
 begin
   if p_product_id is null then
-    return query select 'client_unverified'::text, true, null::numeric(12,2), false;
+    return query select 'client_unverified'::text, true, null::numeric(12,2), false, round(p_unit_price_ht, 2);
     return;
   end if;
 
@@ -233,13 +297,15 @@ begin
       'catalog'::text,
       v_resolved.in_scope,
       v_resolved.price_ht,
-      round(p_unit_price_ht, 2) <> v_resolved.price_ht;
+      round(p_unit_price_ht, 2) <> v_resolved.price_ht,
+      v_resolved.price_ht;
   else
     return query select
       'client_unverified'::text,
       v_resolved.in_scope,
       v_resolved.price_ht,
-      false;
+      false,
+      round(p_unit_price_ht, 2);
   end if;
 end;
 $$;
@@ -357,8 +423,16 @@ begin
       v_has_unverified := true;
     end if;
 
+    -- BLOQUANT B2 (qa-review round 1) — `resolved_unit_price_ht` est LA
+    -- valeur ecrite plus bas, jamais `item->>'unit_price_ht'` (la valeur
+    -- brute recue). Pour une ligne `catalog`, c est le prix SERVEUR
+    -- (`reference_price`), pas la precision infra-centime que le
+    -- navigateur a pu soumettre.
     v_computed_items := v_computed_items || jsonb_build_array(
-      v_item || jsonb_build_object('price_origin', v_classified.price_origin)
+      v_item || jsonb_build_object(
+        'price_origin', v_classified.price_origin,
+        'resolved_unit_price_ht', v_classified.resolved_unit_price_ht
+      )
     );
   end loop;
 
@@ -366,10 +440,12 @@ begin
     raise exception 'price_changed:%', v_mismatches::text;
   end if;
 
+  -- BLOQUANT B2 — le total est calcule sur `v_computed_items`
+  -- (`resolved_unit_price_ht`), jamais sur `p_items` (la valeur brute).
   select round(sum(
-    ((item->>'quantity')::numeric * (item->>'unit_price_ht')::numeric)
+    ((item->>'quantity')::numeric * (item->>'resolved_unit_price_ht')::numeric)
   ), 2) into v_total_ht
-    from jsonb_array_elements(p_items) item;
+    from jsonb_array_elements(v_computed_items) item;
 
   v_actor := case when v_session.session_kind = 'delegated'
     then v_session.actor_magrit_user_id else null end;
@@ -384,6 +460,9 @@ begin
     v_has_unverified
   ) returning id into v_order_id;
 
+  -- BLOQUANT B2 — `unit_price_ht` et `line_total_ht` viennent de
+  -- `resolved_unit_price_ht` (v_computed_items), jamais de
+  -- `item->>'unit_price_ht'` (la valeur brute recue de p_items).
   insert into public.tenant_order_items (
     order_id, product_id, product_label, clariprint_options,
     quantity, unit_price_ht, line_total_ht, price_origin
@@ -394,8 +473,8 @@ begin
     trim(item->>'product_label'),
     coalesce(item->'clariprint_options', '{}'::jsonb),
     (item->>'quantity')::integer,
-    (item->>'unit_price_ht')::numeric,
-    round((item->>'quantity')::numeric * (item->>'unit_price_ht')::numeric, 2),
+    (item->>'resolved_unit_price_ht')::numeric,
+    round((item->>'quantity')::numeric * (item->>'resolved_unit_price_ht')::numeric, 2),
     item->>'price_origin'
   from jsonb_array_elements(v_computed_items) item;
 
@@ -424,10 +503,148 @@ $$;
 revoke all on function public.api_create_storefront_order(text, uuid, text, text, jsonb, text) from public;
 grant execute on function public.api_create_storefront_order(text, uuid, text, text, jsonb, text) to anon, authenticated;
 
+-- ─── 6bis. api_create_tenant_order — RECREATION (BLOQUANT B1, qa-review round 1) ─
+-- Cette fonction porte le chemin `magrit_user` de `POST /orders` (un membre
+-- de l atelier cree une commande boutique). Round 1 ne la recreait PAS, au
+-- motif qu elle n est pas nommee dans le tableau de fichiers du point 9 (i).
+-- Mais le point 12 (c) rend `price_origin` NOT NULL SANS defaut de colonne
+-- (« echec ferme »), et cette fonction insere dans `tenant_order_items`
+-- sans cette colonne : premier appel -> `null value in column "price_origin"
+-- ... violates not-null constraint`, un message qui ne correspond a AUCUN
+-- prefixe de `mapOrderCommandError`, donc un 500 masque au lieu d un Problem
+-- Details. Aucune gate ne le voyait : aucun cas SQL du depot n appelait
+-- cette fonction, et `orders-routes.test.ts` (faux repository) ne l atteint
+-- jamais. C est une REGRESSION, pas un defaut preexistant : avant Q17-a,
+-- cette fonction fonctionnait (juste sans aucune verification de prix).
+--
+-- Correction MINIMALE, motivee : `price_origin` est ecrit explicitement a
+-- `client_unverified` sur CHAQUE ligne (echec ferme du point 12 (c) — cette
+-- fonction ne verifie toujours RIEN, donc ne peut RIEN certifier), et
+-- `has_unverified_prices` a `true` sur la commande. Le FOND — cette fonction
+-- n a aucun controle de catalogue ni de recalcul de prix, exactement le
+-- defaut d origine sur une seconde surface — N EST PAS traite ici : porte a
+-- l architecte par le coordinateur, pas tranche de ma propre initiative.
+-- Aucune autre ligne de cette fonction ne change.
+
+create or replace function public.api_create_tenant_order(
+  p_shop_id uuid,
+  p_currency text,
+  p_notes text,
+  p_items jsonb,
+  p_idempotency_key text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_actor uuid := auth.uid();
+  v_tenant_id uuid;
+  v_order_id uuid;
+  v_total_ht numeric(12,2);
+  v_result jsonb;
+begin
+  if v_actor is null then
+    raise exception 'authentication_required';
+  end if;
+  if nullif(trim(p_idempotency_key), '') is null then
+    raise exception 'idempotency_key_required';
+  end if;
+  if jsonb_typeof(p_items) <> 'array' or jsonb_array_length(p_items) = 0 then
+    raise exception 'invalid_order_items: at least one item is required';
+  end if;
+  if p_currency !~ '^[A-Z]{3}$' then
+    raise exception 'invalid_currency';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtextextended(v_actor::text || ':order.create:' || p_idempotency_key, 0));
+
+  select result into v_result
+    from public.order_command_receipts
+   where actor_user_id = v_actor
+     and command_type = 'order.create'
+     and idempotency_key = p_idempotency_key;
+  if v_result is not null then
+    return v_result || jsonb_build_object('replayed', true);
+  end if;
+
+  select tenant_id into v_tenant_id
+    from public.shops
+   where id = p_shop_id and active = true;
+  if v_tenant_id is null then
+    raise exception 'shop_not_found';
+  end if;
+  if not public.current_user_can_access_shop(p_shop_id)
+     or not public.user_can_create_order(v_tenant_id) then
+    raise exception 'permission_denied: order creation forbidden';
+  end if;
+
+  if exists (
+    select 1
+      from jsonb_array_elements(p_items) item
+     where nullif(trim(item->>'product_label'), '') is null
+        or coalesce((item->>'quantity')::numeric, 0) <= 0
+        or coalesce((item->>'unit_price_ht')::numeric, -1) < 0
+  ) then
+    raise exception 'invalid_order_items: invalid label, quantity or price';
+  end if;
+
+  select round(sum(
+    ((item->>'quantity')::numeric * (item->>'unit_price_ht')::numeric)
+  ), 2) into v_total_ht
+    from jsonb_array_elements(p_items) item;
+
+  insert into public.tenant_orders
+    (tenant_id, shop_id, created_by, status, total_ht, currency, notes, has_unverified_prices)
+  values
+    (v_tenant_id, p_shop_id, v_actor, 'draft', v_total_ht, p_currency, coalesce(p_notes, ''), true)
+  returning id into v_order_id;
+
+  -- BLOQUANT B1 — `price_origin` explicite, `client_unverified` sur toute
+  -- ligne : cette fonction ne verifie rien, elle ne peut rien ecrire
+  -- d autre sans mentir (point 12 (c), echec ferme).
+  insert into public.tenant_order_items
+    (order_id, product_id, product_label, clariprint_options, quantity, unit_price_ht, line_total_ht, price_origin)
+  select
+    v_order_id,
+    case when nullif(item->>'product_id', '') is null then null else (item->>'product_id')::uuid end,
+    trim(item->>'product_label'),
+    coalesce(item->'clariprint_options', '{}'::jsonb),
+    (item->>'quantity')::integer,
+    (item->>'unit_price_ht')::numeric,
+    round((item->>'quantity')::numeric * (item->>'unit_price_ht')::numeric, 2),
+    'client_unverified'
+  from jsonb_array_elements(p_items) item;
+
+  v_result := jsonb_build_object(
+    'order_id', v_order_id,
+    'tenant_id', v_tenant_id,
+    'shop_id', p_shop_id,
+    'total_ht', v_total_ht,
+    'currency', p_currency,
+    'replayed', false
+  );
+
+  insert into public.order_command_receipts
+    (actor_user_id, command_type, idempotency_key, aggregate_id, result)
+  values
+    (v_actor, 'order.create', p_idempotency_key, v_order_id, v_result);
+
+  return v_result;
+exception
+  when invalid_text_representation then
+    raise exception 'invalid_order_items: malformed product id or numeric value';
+end;
+$$;
+
+grant execute on function public.api_create_tenant_order(uuid, text, text, jsonb, text) to authenticated;
+
 -- ─── 6b. api_update_order_draft_for_identity — RECREATION (branche storefront) ─
--- La branche `magrit_user` continue de deleguer a
--- `api_update_tenant_order_draft`, INCHANGEE (hors perimetre de Q17-a, point
--- 9 (i) : cette fonction n est pas dans la liste des fichiers recrees).
+-- La branche `magrit_user` (l acteur est le `created_by`, sans session
+-- boutique) delegue a `api_update_tenant_order_draft`, elle-meme RECREEE
+-- plus bas (BLOQUANT B3, qa-review round 1) : cette branche n est pas
+-- couverte ici, elle est couverte par la recreation de la fonction cible.
 
 create or replace function public.api_get_order_draft_for_identity(
   p_order_id uuid,
@@ -608,8 +825,13 @@ begin
       v_has_unverified := true;
     end if;
 
+    -- BLOQUANT B2 — meme correction qu a la creation : la valeur ECRITE est
+    -- `resolved_unit_price_ht`, jamais la valeur brute soumise.
     v_computed_items := v_computed_items || jsonb_build_array(
-      v_item || jsonb_build_object('price_origin', v_classified.price_origin)
+      v_item || jsonb_build_object(
+        'price_origin', v_classified.price_origin,
+        'resolved_unit_price_ht', v_classified.resolved_unit_price_ht
+      )
     );
   end loop;
 
@@ -625,8 +847,8 @@ begin
   update public.tenant_order_items existing
      set product_label = trim(item->>'product_label'),
          quantity = (item->>'quantity')::integer,
-         unit_price_ht = (item->>'unit_price_ht')::numeric,
-         line_total_ht = round((item->>'quantity')::numeric * (item->>'unit_price_ht')::numeric, 2),
+         unit_price_ht = (item->>'resolved_unit_price_ht')::numeric,
+         line_total_ht = round((item->>'quantity')::numeric * (item->>'resolved_unit_price_ht')::numeric, 2),
          price_origin = item->>'price_origin'
     from jsonb_array_elements(v_computed_items) item
    where existing.order_id = p_order_id and existing.id = (item->>'id')::uuid;
@@ -658,6 +880,210 @@ revoke all on function public.api_get_order_draft_for_identity(uuid, text) from 
 revoke all on function public.api_update_order_draft_for_identity(uuid, jsonb, text, text) from public;
 grant execute on function public.api_get_order_draft_for_identity(uuid, text) to anon, authenticated;
 grant execute on function public.api_update_order_draft_for_identity(uuid, jsonb, text, text) to anon, authenticated;
+
+-- ─── 6c. api_update_tenant_order_draft — RECREATION (BLOQUANT B3, qa-review round 1) ─
+-- Round 1 ne fermait que la branche storefront de `api_update_order_draft_
+-- for_identity` (point 12 (e)). La branche `magrit_user` (l acteur EST le
+-- `created_by` de la commande, sans session boutique — c est notamment le
+-- cas d une commande CREEE par une session boutique DELEGUEE, ou created_by
+-- vaut l identifiant du membre de l atelier qui agissait pour le client,
+-- cf `shop_customer_delegations`) delegue integralement a cette fonction,
+-- INCHANGEE : aucun recalcul, `price_origin` jamais mis a jour,
+-- `has_unverified_prices` jamais rafraichi. Reproduction : PUT sans cookie
+-- boutique, authentifie comme le membre delegue, prix a 0,01 EUR, la ligne
+-- se retrouve `price_origin = catalog` (heritee de la creation) alors que
+-- le prix stocke ne correspond plus a rien de verifie — le refus n arrivait
+-- qu a la validation, laissant la base mentir entre-temps (point 12 (f),
+-- « un champ qui ment sur son role »).
+--
+-- Meme regle que la branche storefront (point 12 (e)) : le product_id et
+-- les clariprint_options d une ligne ne sont pas resoumis par cette
+-- commande, ils restent ceux deja en base, et c est contre eux que le
+-- nouveau prix est recalcule. `shop_id` de la commande est desormais lu
+-- pour pouvoir appeler `classify_storefront_order_line`.
+
+create or replace function public.api_update_tenant_order_draft(
+  p_order_id uuid,
+  p_items jsonb,
+  p_idempotency_key text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, private
+as $$
+declare
+  v_actor uuid := auth.uid();
+  v_created_by uuid;
+  v_shop_id uuid;
+  v_status text;
+  v_total_ht numeric(12,2);
+  v_result jsonb;
+  v_item jsonb;
+  v_existing record;
+  v_classified record;
+  v_unit_price numeric;
+  v_computed_items jsonb := '[]'::jsonb;
+  v_mismatches jsonb := '[]'::jsonb;
+  v_has_unverified boolean := false;
+begin
+  if v_actor is null then
+    raise exception 'authentication_required';
+  end if;
+  if nullif(trim(p_idempotency_key), '') is null then
+    raise exception 'idempotency_key_required';
+  end if;
+  if jsonb_typeof(p_items) <> 'array' or jsonb_array_length(p_items) = 0 then
+    raise exception 'invalid_order_items: at least one item is required';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtextextended(v_actor::text || ':order.update:' || p_idempotency_key, 0));
+
+  select result into v_result
+    from public.order_command_receipts
+   where actor_user_id = v_actor
+     and command_type = 'order.update'
+     and idempotency_key = p_idempotency_key;
+  if v_result is not null then
+    return v_result || jsonb_build_object('replayed', true);
+  end if;
+
+  select created_by, shop_id, status::text
+    into v_created_by, v_shop_id, v_status
+    from public.tenant_orders
+   where id = p_order_id
+   for update;
+  if v_created_by is null then
+    raise exception 'order_not_found: %', p_order_id;
+  end if;
+  if v_created_by <> v_actor then
+    raise exception 'permission_denied: only the order author can edit it';
+  end if;
+  if v_status <> 'draft' then
+    raise exception 'order_not_editable: status is %', v_status;
+  end if;
+
+  if exists (
+    select 1
+      from jsonb_array_elements(p_items) item
+     where nullif(item->>'id', '') is null
+        or nullif(trim(item->>'product_label'), '') is null
+        or coalesce((item->>'quantity')::numeric, 0) <= 0
+        or (item->>'quantity')::numeric <> trunc((item->>'quantity')::numeric)
+        or coalesce((item->>'unit_price_ht')::numeric, -1) < 0
+  ) then
+    raise exception 'invalid_order_items: invalid id, label, quantity or price';
+  end if;
+
+  if (select count(*) from jsonb_array_elements(p_items)) <>
+     (select count(distinct item->>'id') from jsonb_array_elements(p_items) item) then
+    raise exception 'invalid_order_items: duplicate item id';
+  end if;
+
+  if exists (
+    select 1
+      from jsonb_array_elements(p_items) item
+      left join public.tenant_order_items existing
+        on existing.id = (item->>'id')::uuid
+       and existing.order_id = p_order_id
+     where existing.id is null
+  ) then
+    raise exception 'invalid_order_items: item does not belong to order';
+  end if;
+
+  -- BLOQUANT B3 — meme classification, meme refus que la branche
+  -- storefront : le prix soumis pour une ligne `catalog` est recalcule
+  -- contre le catalogue de la boutique de la commande.
+  for v_item in select * from jsonb_array_elements(p_items)
+  loop
+    select product_id, clariprint_options into v_existing
+      from public.tenant_order_items
+     where id = (v_item->>'id')::uuid and order_id = p_order_id;
+
+    v_unit_price := round((v_item->>'unit_price_ht')::numeric, 2);
+
+    select * into v_classified
+      from private.classify_storefront_order_line(
+        v_shop_id, v_existing.product_id, v_existing.clariprint_options, v_unit_price
+      );
+
+    if v_classified.mismatch then
+      v_mismatches := v_mismatches || jsonb_build_array(jsonb_build_object(
+        'product_label', trim(v_item->>'product_label'),
+        'submitted', v_unit_price::text,
+        'current', v_classified.reference_price::text
+      ));
+    end if;
+
+    if v_classified.price_origin = 'client_unverified' then
+      v_has_unverified := true;
+    end if;
+
+    v_computed_items := v_computed_items || jsonb_build_array(
+      v_item || jsonb_build_object(
+        'price_origin', v_classified.price_origin,
+        'resolved_unit_price_ht', v_classified.resolved_unit_price_ht
+      )
+    );
+  end loop;
+
+  if jsonb_array_length(v_mismatches) > 0 then
+    raise exception 'price_changed:%', v_mismatches::text;
+  end if;
+
+  delete from public.tenant_order_items existing
+   where existing.order_id = p_order_id
+     and not exists (
+       select 1
+         from jsonb_array_elements(p_items) item
+        where (item->>'id')::uuid = existing.id
+     );
+
+  update public.tenant_order_items existing
+     set product_label = trim(item->>'product_label'),
+         quantity = (item->>'quantity')::integer,
+         unit_price_ht = (item->>'resolved_unit_price_ht')::numeric,
+         line_total_ht = round(
+           (item->>'quantity')::numeric * (item->>'resolved_unit_price_ht')::numeric,
+           2
+         ),
+         price_origin = item->>'price_origin'
+    from jsonb_array_elements(v_computed_items) item
+   where existing.order_id = p_order_id
+     and existing.id = (item->>'id')::uuid;
+
+  select round(sum(line_total_ht), 2)
+    into v_total_ht
+    from public.tenant_order_items
+   where order_id = p_order_id;
+
+  update public.tenant_orders
+     set total_ht = v_total_ht,
+         has_unverified_prices = exists (
+           select 1 from public.tenant_order_items
+            where order_id = p_order_id and price_origin = 'client_unverified'
+         )
+   where id = p_order_id;
+
+  v_result := jsonb_build_object(
+    'order_id', p_order_id,
+    'total_ht', v_total_ht,
+    'replayed', false
+  );
+
+  insert into public.order_command_receipts
+    (actor_user_id, command_type, idempotency_key, aggregate_id, result)
+  values
+    (v_actor, 'order.update', p_idempotency_key, p_order_id, v_result);
+
+  return v_result;
+exception
+  when invalid_text_representation then
+    raise exception 'invalid_order_items: malformed item id or numeric value';
+end;
+$$;
+
+grant execute on function public.api_update_tenant_order_draft(uuid, jsonb, text) to authenticated;
 
 -- ─── 7. La verification se REFAIT a la transition (point 12 (e)) ──────────
 -- Un `If-Match` ne fermerait pas le trou : l atelier ne modifie pas la
@@ -752,10 +1178,16 @@ begin
     raise exception 'permission_denied: transition requires admin tenant';
   end if;
 
-  -- Q17-a (point 12 (c), (d), (e)) — SEULE la transition draft -> validated
-  -- rejoue la verification : c est le seul moment ou l atelier engage la
-  -- commande sans plus pouvoir revenir en arriere sur ce qu il a vu.
-  if _old_status = 'draft' and p_new_status_code = 'validated' then
+  -- DURCISSEMENT D2 (qa-review round 1) — indexee sur « quitter draft »,
+  -- PAS sur le libelle `validated`. La matrice `tenant_order_status_
+  -- transitions` est PAR TENANT et modifiable (droit can_manage_roles) : un
+  -- tenant qui ajoute `draft -> in_production` (ou tout autre statut hors
+  -- `cancelled`) contournerait a la fois le refus `unverified_prices` et la
+  -- re-verification `price_changed` — et c est la SEULE chose qui rattrape
+  -- le durcissement B3 si une commande arrive un jour a ce point autrement
+  -- que par `validated`. `cancelled` est exempte : annuler ne certifie rien
+  -- sur le prix, retenir la commande n a aucun sens pour ce refus.
+  if _old_status = 'draft' and p_new_status_code <> 'cancelled' then
     for _item in
       select id, product_id, clariprint_options, unit_price_ht, product_label, price_origin
         from public.tenant_order_items
@@ -789,12 +1221,23 @@ begin
     end if;
   end if;
 
-  -- UPDATE statut + audit
+  -- UPDATE statut + audit. Le marqueur transactionnel ci-dessous est la
+  -- SEULE porte que le trigger `tenant_orders_status_change_guard`
+  -- (durcissement D1) laisse ouverte : poser un statut par tout autre
+  -- chemin (RPC ou PostgREST direct) leve desormais `order.status_immutable`.
+  perform set_config('app.q17a_allow_status_transition', 'true', true);
   update public.tenant_orders
     set status = p_new_status_code::public.tenant_order_status,
         updated_at = now(),
         cancelled_at = case when p_new_status_code = 'cancelled' then now() else cancelled_at end
     where id = p_order_id;
+  -- Refermer IMMEDIATEMENT le laissez-passer : `set_config(..., true)` est
+  -- porte par la TRANSACTION, pas par l instruction. En production chaque
+  -- appel RPC est sa propre transaction (le refermer ne change rien), mais
+  -- un appelant qui chainerait deux operations dans la meme transaction (un
+  -- futur script, un test) ne doit trouver la porte ouverte que pour CETTE
+  -- ecriture-ci, jamais pour une suivante.
+  perform set_config('app.q17a_allow_status_transition', 'false', true);
 
   insert into public.tenant_order_status_events
     (order_id, actor_id, from_status, to_status, reason, metadata)
@@ -808,7 +1251,7 @@ begin
       'is_admin_tenant', _is_admin_tenant,
       'is_creator', _is_creator,
       'capability_used', _transition.required_capability
-    ) || case when _old_status = 'draft' and p_new_status_code = 'validated' and _has_unverified
+    ) || case when _old_status = 'draft' and p_new_status_code <> 'cancelled' and _has_unverified
       then jsonb_build_object(
         'acknowledged_unverified_prices', p_acknowledge_unverified_prices,
         'acknowledged_line_labels', to_jsonb(_unverified_labels)
@@ -947,9 +1390,15 @@ begin
     raise exception 'transition_not_allowed: % -> cancelled', v_order.status;
   end if;
 
+  -- Durcissement D1, volet 2 : ce chemin d annulation storefront ecrit
+  -- aussi `status` directement, hors de `transition_tenant_order_status` ;
+  -- il doit donc lever le meme laissez-passer transactionnel que celle-ci,
+  -- sans quoi `tenant_orders_status_change_guard` le refuserait a son tour.
+  perform set_config('app.q17a_allow_status_transition', 'true', true);
   update public.tenant_orders
      set status = 'cancelled', cancelled_at = now(), updated_at = now()
    where id = p_order_id;
+  perform set_config('app.q17a_allow_status_transition', 'false', true);
   insert into public.tenant_order_status_events (
     order_id, actor_id, shop_customer_account_id, acted_by_magrit_user_id,
     from_status, to_status, reason, metadata
