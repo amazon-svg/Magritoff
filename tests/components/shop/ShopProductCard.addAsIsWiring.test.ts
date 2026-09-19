@@ -40,39 +40,11 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const root = resolve(__dirname, '../../..');
-/**
- * Retire les commentaires de bloc (`/* ... *‍/`) et de ligne (`// ...`,
- * lignes ENTIÈREMENT commentées) avant de chercher un motif — seul le code
- * réellement exécuté doit pouvoir satisfaire une assertion (défaut D5).
- * Ne retire PAS un commentaire de fin de ligne collé à du code réel
- * (`code(); // note`) : aucune ligne de ce dépôt n'en a besoin pour les
- * motifs testés ici, et une regex plus agressive risquerait de manger du
- * code contenant `//` dans une chaîne (URL, par exemple).
- */
-const stripComments = (src: string): string =>
-  // Durcissement H3 du coordinateur (qa-review round 3, N3) : la version
-  // precedente retirait TOUT `/* ... */`, y compris dans une chaine. Un
-  // attribut correct comme `data-accept="image/*"` avalait alors le code
-  // jusqu au prochain `*/` et faisait echouer W1/W2 avec un diagnostic
-  // trompeur. On ne retire plus que les commentaires JSX `{/* ... */}` et les
-  // blocs ouverts en debut de ligne. Limite declaree : un `/* ... */` en
-  // milieu de ligne apres du code n est pas retire (evasion deliberee).
-  src
-    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
-    .replace(/^\s*\/\*[\s\S]*?\*\//gm, '')
-    // Le `//` n est PLUS ancre en debut de ligne. Il l etait, et c etait un
-    // trou beant : un commentaire de FIN DE LIGNE survivait au nettoyage, si
-    // bien qu il suffisait d ecrire
-    //     () => true, // canAddAsIs(product, clariprintQuote)
-    // pour neutraliser la regle d Arnaud du 16/09 -- tout produit redevenait
-    // ajoutable au panier, chiffre ou non -- en laissant ce garde VERT sur
-    // ses 13 tests. Mutation rejouee par le coordinateur avant correction.
-    //
-    // `(^|[^:])` epargne le `//` d une URL (`https://`), seul faux positif
-    // realiste. Motif repris de `tests/architecture/order-status-single-source.test.ts`,
-    // qui l avait deja juste : la bonne version existait dans le depot, ce
-    // fichier en avait ecrit une plus faible.
-    .replace(/(^|[^:])\/\/.*$/gm, '$1');
+// Le nettoyage des commentaires vit DESORMAIS dans un seul fichier :
+// `tests/_helpers/stripComments.ts`. Il etait recopie a la main ici, et la
+// copie etait plus faible que l original -- deux fois de suite, chaque fois
+// exploitee par la qa-review. Le detail et les limites sont documentes la-bas.
+import { stripComments } from '../../_helpers/stripComments';
 
 /**
  * Durcissement H2 du coordinateur (qa-review round 3, N2) : W1 et W2
