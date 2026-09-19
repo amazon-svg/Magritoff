@@ -20,6 +20,7 @@ import type {
   LegacyOrderRecord,
   OrdersRepository,
   OrderResourceAuthorization,
+  PriceMismatchDetail,
   TaxRegime,
   TenantOrderRecord,
   StorefrontPortalOrdersRecord,
@@ -176,12 +177,28 @@ export class SupabaseOrdersRepository implements OrdersRepository {
     const { data, error } = await this.client.rpc('api_transition_order_for_identity', {
       p_order_id: orderId,
       p_new_status_code: command.toStatus,
-      p_reason: command.reason,
+      p_reason: command.reason ?? null,
       p_idempotency_key: command.idempotencyKey,
       p_opaque_token: authorization.storefrontToken,
+      p_acknowledge_unverified_prices: command.acknowledgeUnverifiedPrices ?? false,
     });
     if (error) {
       const message = error.message;
+      // Q17-a (point 12 (d), (c)) — préfixes DISTINCTIFS vérifiés en PREMIER,
+      // par `startsWith` et non `includes` : `product_label` porte un texte
+      // choisi par l acheteur (`orders.price_changed`) et pourrait sinon
+      // contenir accidentellement la sous-chaîne d un autre code
+      // (`order_not_found`, etc.) et le faire classer à tort.
+      if (message.startsWith('price_changed:')) {
+        throw new OrderCommandRejectedError(
+          'price_changed',
+          'Le prix de certaines lignes a changé depuis leur dernière vérification.',
+          parsePriceMismatches(message.slice('price_changed:'.length)),
+        );
+      }
+      if (message.startsWith('unverified_prices:')) {
+        throw new OrderCommandRejectedError('unverified_prices', message);
+      }
       if (message.includes('order_not_found')) {
         throw new OrderCommandRejectedError('order_not_found', message);
       }
@@ -230,12 +247,18 @@ export class SupabaseOrdersRepository implements OrdersRepository {
       p_shop_id: command.shopId,
       p_currency: command.currency,
       p_notes: command.notes,
+      // Q17-a (point 12 (f)) — le serveur ne prétend écrire aucun prix
+      // ferme pour une ligne catalogue : il compare `expectedUnitPriceHt`
+      // (ce que l acheteur a vu) au prix qu il recalcule lui-même, et ne
+      // l écrit que pour une ligne `client_unverified`. La clé JSON envoyée
+      // à la RPC reste `unit_price_ht` : c est un `numeric` côté SQL, une
+      // chaîne décimale s y caste exactement comme un nombre.
       p_items: command.items.map((item) => ({
         product_id: item.productId,
         product_label: item.productLabel,
         clariprint_options: item.clariprintOptions,
         quantity: item.quantity,
-        unit_price_ht: item.unitPriceHt,
+        unit_price_ht: item.expectedUnitPriceHt,
       })),
       p_idempotency_key: command.idempotencyKey,
     };
@@ -246,14 +269,14 @@ export class SupabaseOrdersRepository implements OrdersRepository {
     const result = toRecord(data);
     if (
       typeof result.order_id !== 'string' || typeof result.tenant_id !== 'string'
-      || typeof result.shop_id !== 'string' || typeof result.total_ht !== 'number'
+      || typeof result.shop_id !== 'string' || (typeof result.total_ht !== 'number' && typeof result.total_ht !== 'string')
       || typeof result.currency !== 'string'
     ) throw new Error('La création de commande a retourné un résultat invalide.');
     return {
       orderId: result.order_id,
       tenantId: result.tenant_id,
       shopId: result.shop_id,
-      totalHt: result.total_ht,
+      totalHt: toMoneyString(result.total_ht),
       currency: result.currency,
       replayed: result.replayed === true,
     };
@@ -284,8 +307,10 @@ export class SupabaseOrdersRepository implements OrdersRepository {
       const item = toRecord(value);
       if (
         typeof item.id !== 'string' || typeof item.product_label !== 'string'
-        || typeof item.quantity !== 'number' || typeof item.unit_price_ht !== 'number'
-        || typeof item.line_total_ht !== 'number'
+        || typeof item.quantity !== 'number'
+        || (typeof item.unit_price_ht !== 'number' && typeof item.unit_price_ht !== 'string')
+        || (typeof item.line_total_ht !== 'number' && typeof item.line_total_ht !== 'string')
+        || !isPriceOrigin(item.price_origin)
       ) throw new Error('Le brouillon a retourné une ligne invalide.');
       return {
         id: item.id,
@@ -293,20 +318,23 @@ export class SupabaseOrdersRepository implements OrdersRepository {
         productLabel: item.product_label,
         clariprintOptions: (item.clariprint_options ?? null) as DraftOrder['items'][number]['clariprintOptions'],
         quantity: item.quantity,
-        unitPriceHt: item.unit_price_ht,
-        lineTotalHt: item.line_total_ht,
+        unitPriceHt: toMoneyString(item.unit_price_ht),
+        lineTotalHt: toMoneyString(item.line_total_ht),
+        priceOrigin: item.price_origin,
       };
     }) : [];
     if (
       typeof result.order_id !== 'string' || typeof result.status !== 'string'
       || typeof result.created_at !== 'string'
-      || typeof result.total_ht !== 'number'
+      || (typeof result.total_ht !== 'number' && typeof result.total_ht !== 'string')
+      || typeof result.has_unverified_prices !== 'boolean'
     ) throw new Error('Le brouillon a retourné un résultat invalide.');
     return {
       orderId: result.order_id,
       status: result.status,
       createdAt: result.created_at,
-      totalHt: result.total_ht,
+      totalHt: toMoneyString(result.total_ht),
+      hasUnverifiedPrices: result.has_unverified_prices,
       items,
     };
   }
@@ -319,22 +347,28 @@ export class SupabaseOrdersRepository implements OrdersRepository {
     const { data, error } = await this.client.rpc('api_update_order_draft_for_identity', {
       p_order_id: orderId,
       p_opaque_token: authorization.storefrontToken,
+      // Q17-a (point 12 (e)) — ni `product_id` ni `clariprint_options` :
+      // l identité catalogue de la ligne n est pas resoumise, elle reste
+      // celle déjà en base (contrat `updateDraftOrderItemSchema`).
       p_items: command.items.map((item) => ({
         id: item.id,
         product_label: item.productLabel,
         quantity: item.quantity,
-        unit_price_ht: item.unitPriceHt,
+        unit_price_ht: item.expectedUnitPriceHt,
       })),
       p_idempotency_key: command.idempotencyKey,
     });
     if (error) throw mapOrderCommandError(error.message, 'Édition du brouillon impossible');
     const result = toRecord(data);
-    if (typeof result.order_id !== 'string' || typeof result.total_ht !== 'number') {
+    if (
+      typeof result.order_id !== 'string'
+      || (typeof result.total_ht !== 'number' && typeof result.total_ht !== 'string')
+    ) {
       throw new Error('L édition du brouillon a retourné un résultat invalide.');
     }
     return {
       orderId: result.order_id,
-      totalHt: result.total_ht,
+      totalHt: toMoneyString(result.total_ht),
       replayed: result.replayed === true,
     };
   }
@@ -414,6 +448,27 @@ function toRecord(value: unknown): Record<string, unknown> {
 }
 
 function mapOrderCommandError(message: string, fallback: string): Error {
+  // Q17-a (point 12 (b), (d)) — préfixes DISTINCTIFS vérifiés en PREMIER,
+  // par `startsWith`, jamais `includes` : le message embarque un
+  // `product_label` choisi par l acheteur (`price_changed`) ou un
+  // `product_id` (`product_not_in_shop`), et l un ou l autre pourrait
+  // accidentellement contenir la sous-chaîne d un autre code
+  // (`order_not_found`, `permission_denied`...). Un `includes` générique les
+  // classerait à tort — exactement la famille de défaut de câblage que ce
+  // lot doit éviter.
+  if (message.startsWith('price_changed:')) {
+    return new OrderCommandRejectedError(
+      'price_changed',
+      'Le prix de certaines lignes a changé depuis leur ajout au panier.',
+      parsePriceMismatches(message.slice('price_changed:'.length)),
+    );
+  }
+  if (message.startsWith('product_not_in_shop:')) {
+    return new OrderCommandRejectedError('product_not_in_shop', message);
+  }
+  if (message.startsWith('unverified_prices:')) {
+    return new OrderCommandRejectedError('unverified_prices', message);
+  }
   if (message.includes('order_not_found')) {
     return new OrderCommandRejectedError('order_not_found', message);
   }
@@ -433,4 +488,52 @@ function mapOrderCommandError(message: string, fallback: string): Error {
     return new OrderCommandRejectedError('transition_not_allowed', message);
   }
   return new Error(`${fallback}: ${message}`);
+}
+
+/**
+ * Q17-a (point 12 (d)) — `raise exception 'price_changed:%', v_mismatches`
+ * embarque un tableau JSON compact après le préfixe. Echec fermé : un
+ * contenu illisible rend un tableau vide plutôt que de faire planter le
+ * mapping d erreur (l appelant verra alors juste le message générique).
+ */
+function parsePriceMismatches(raw: string): PriceMismatchDetail[] {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.flatMap((entry) => {
+      if (entry === null || typeof entry !== 'object') return [];
+      const record = entry as Record<string, unknown>;
+      const productLabel = typeof record.product_label === 'string' ? record.product_label : '';
+      const submitted = typeof record.submitted === 'string' ? record.submitted : '0.00';
+      const current = typeof record.current === 'string' ? record.current : '0.00';
+      return [{ productLabel, submitted, current }];
+    });
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * `numeric(12,2)` : PostgREST rend un nombre ou une chaîne selon le driver,
+ * normalisé en Money.
+ *
+ * SIGNALÉ (D6, qa-review round 1), NON CORRIGÉ ici : `.toFixed(2)` sur un
+ * `number` refait, côté client JS, exactement le calcul flottant que
+ * `Money` (chaîne décimale) existe pour éviter. Le risque réel est faible
+ * (PostgREST rend déjà une chaîne pour `numeric` dans la configuration
+ * actuelle de ce dépôt — la branche `number` de cette fonction n est prise
+ * qu en repli), mais il existe. Même motif de non-correction que
+ * `commercial-orders-repository.ts` (`toMoneyString`, convention déjà
+ * établie ailleurs dans le dépôt) : corriger ce point demande une décision
+ * transverse (introduire un parseur décimal exact partagé), pas un
+ * correctif local à ce module.
+ */
+function toMoneyString(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number') return value.toFixed(2);
+  return '0.00';
+}
+
+function isPriceOrigin(value: unknown): value is 'catalog' | 'quoted' | 'client_unverified' | 'legacy' {
+  return value === 'catalog' || value === 'quoted' || value === 'client_unverified' || value === 'legacy';
 }

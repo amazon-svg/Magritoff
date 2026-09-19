@@ -396,7 +396,12 @@ paths:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ApiProblem' }
         '422':
-          description: Panier invalide
+          description: Panier invalide, ou une ligne référence un produit hors catalogue de la boutique (Q17-a, code orders.product_not_in_shop)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ApiProblem' }
+        '409':
+          description: Q17-a — le prix recalculé par le serveur diffère du prix soumis (code orders.price_changed, errors[] porte product_label/submitted/current)
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ApiProblem' }
@@ -424,6 +429,16 @@ paths:
       responses:
         '200':
           description: Brouillon et lignes de son auteur
+          headers:
+            ETag:
+              description: >-
+                Q17-a (point 12 (e)) — empreinte SHA-256 du brouillon
+                (`computeEntityTag`, socle E10). Lisible pour un `If-Match`
+                sur le PUT suivant, mais jamais exigée : cette route reste un
+                PUT de la façade historique sans précondition obligatoire
+                (dérogation R5, chemin de mise en conformité = migration vers
+                l enveloppe E10 après Q17-b).
+              schema: { type: string }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/DraftOrder' }
@@ -439,6 +454,15 @@ paths:
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: orderId, in: path, required: true, schema: { type: string, format: uuid } }
+        - name: If-Match
+          in: header
+          required: false
+          description: >-
+            Q17-a (point 12 (e)) — honoré QUAND IL EST PRÉSENT (repris de
+            l ETag de GET), jamais exigé. Syntaxe validée par `readIfMatch`
+            (socle E10) : `*` ou un ETag malformé → 400 api.if_match_invalid,
+            AVANT toute comparaison.
+          schema: { type: string }
       requestBody:
         required: true
         content:
@@ -450,6 +474,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/UpdateDraftOrderResult' }
+        '400':
+          description: Q17-a — If-Match présent mais `*` ou syntaxiquement invalide (code api.if_match_invalid)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ApiProblem' }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403':
           description: Acteur non autorisé
@@ -457,7 +486,13 @@ paths:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ApiProblem' }
         '409':
-          description: La commande n est plus en brouillon
+          description: >-
+            La commande n est plus en brouillon (orders.order_not_editable),
+            Q17-a a détecté un écart de prix recalculé (orders.price_changed,
+            errors[] porte product_label/submitted/current), ou l If-Match
+            fourni ne correspond plus au brouillon lu (api.resource_conflict,
+            currentState porte l état courant — camelCase, comme le reste de
+            la façade historique, PAS current_state qui est la forme E10)
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ApiProblem' }
@@ -486,7 +521,12 @@ paths:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ApiProblem' }
         '409':
-          description: Transition absente de la matrice ou statut déjà modifié
+          description: >-
+            Transition absente de la matrice ou statut déjà modifié ; Q17-a
+            ajoute deux codes sur `draft -> validated` : orders.price_changed
+            (le prix catalogue a bougé depuis, errors[] porte
+            product_label/submitted/current) et orders.unverified_prices (une
+            ligne non vérifiable bloque la validation sans acknowledgeUnverifiedPrices)
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ApiProblem' }
@@ -1037,16 +1077,35 @@ components:
           type: string
         requestId:
           type: string
+        currentState:
+          type: [object, 'null']
+          description: >-
+            Q17-a durcissement D3 — état courant d un conflit optimiste
+            (api.resource_conflict), porté par `assertPrecondition` (socle
+            E10). Absent des Problem historiques qui ne gardent pas de
+            précondition ; présent uniquement sur ce conflit précis.
         errors:
           type: array
           items:
             type: object
             additionalProperties: false
-            required: [field, message]
+            description: >-
+              Deux formes coexistent, additives l une envers l autre :
+              {field, message} (validation de requête, forme d origine) et
+              {product_label, submitted, current} (Q17-a, un écart de prix
+              par ligne divergente — docs/api/CONVENTIONS.md §8.25 point
+              12 (d)). Aucune propriété n est requise : un consommateur qui
+              ne connaît qu une forme reste valide face à l autre.
             properties:
               field:
                 type: string
               message:
+                type: string
+              product_label:
+                type: string
+              submitted:
+                type: string
+              current:
                 type: string
     MemberPermissions:
       type: object
@@ -1226,6 +1285,15 @@ components:
           enum: [validated, in_production, shipped, delivered, invoiced, cancelled]
         reason: { type: [string, 'null'] }
         idempotencyKey: { type: string, minLength: 8, maxLength: 200 }
+        acknowledgeUnverifiedPrices:
+          type: boolean
+          default: false
+          description: >-
+            Q17-a (docs/api/CONVENTIONS.md §8.25 point 12 (c)) — geste
+            DISTINCT requis pour que draft -> validated passe malgré une
+            ligne price_origin=client_unverified. Absent (défaut false), la
+            transition refuse en 409 orders.unverified_prices dès qu une
+            ligne n a pas pu être vérifiée par le serveur.
     TransitionOrderResult:
       type: object
       additionalProperties: false
@@ -1238,13 +1306,23 @@ components:
     CreateOrderItem:
       type: object
       additionalProperties: false
-      required: [productId, productLabel, clariprintOptions, quantity, unitPriceHt]
+      required: [productId, productLabel, clariprintOptions, quantity, expectedUnitPriceHt]
       properties:
         productId: { type: [string, 'null'], format: uuid }
         productLabel: { type: string, minLength: 1 }
         clariprintOptions: { type: [object, 'null'] }
         quantity: { type: integer, minimum: 1 }
-        unitPriceHt: { type: number, minimum: 0 }
+        expectedUnitPriceHt:
+          type: string
+          pattern: '^[0-9]{1,10}\.[0-9]{2}$'
+          description: >-
+            Q17-a (point 12 (f)) — Money, chaîne décimale à deux décimales,
+            jamais un flottant JSON. Renommé depuis unitPriceHt : ce champ
+            porte ce que l acheteur a VU, pas ce que le serveur écrit. Une
+            ligne de catalogue voit ce prix COMPARÉ au recalcul serveur
+            (refus 409 orders.price_changed sur écart, point 12 (d)) ; une
+            ligne que le serveur ne peut pas vérifier le voit ÉCRIT tel quel
+            et marquée client_unverified (point 12 (c)).
     CreateOrderCommand:
       type: object
       additionalProperties: false
@@ -1266,42 +1344,65 @@ components:
         orderId: { type: string, format: uuid }
         tenantId: { type: string, format: uuid }
         shopId: { type: string, format: uuid }
-        totalHt: { type: number, minimum: 0 }
+        totalHt: { type: string, pattern: '^[0-9]{1,10}\.[0-9]{2}$', description: 'Q17-a (point 12 (f)) — Money, chaîne décimale.' }
         currency: { type: string }
         replayed: { type: boolean }
     DraftOrderItem:
       type: object
       additionalProperties: false
-      required: [id, productId, productLabel, clariprintOptions, quantity, unitPriceHt, lineTotalHt]
+      required: [id, productId, productLabel, clariprintOptions, quantity, unitPriceHt, lineTotalHt, priceOrigin]
       properties:
         id: { type: string, format: uuid }
         productId: { type: [string, 'null'], format: uuid }
         productLabel: { type: string }
         clariprintOptions: { type: [object, 'null'] }
         quantity: { type: integer, minimum: 1 }
-        unitPriceHt: { type: number, minimum: 0 }
-        lineTotalHt: { type: number, minimum: 0 }
+        unitPriceHt: { type: string, pattern: '^[0-9]{1,10}\.[0-9]{2}$', description: 'Q17-a (point 12 (f)) — Money, chaîne décimale. Nom INCHANGÉ (lecture, pas une commande) : ce que le serveur a effectivement retenu.' }
+        lineTotalHt: { type: string, pattern: '^[0-9]{1,10}\.[0-9]{2}$' }
+        priceOrigin:
+          type: string
+          enum: [catalog, quoted, client_unverified, legacy]
+          description: >-
+            Q17-a (point 12 (c), (h)) — provenance du prix : catalog
+            (recalculé et vérifié par le serveur), quoted (Q17-b, pas encore
+            livré), client_unverified (le serveur ne peut pas vérifier),
+            legacy (ligne antérieure à cette règle, écrite uniquement par la
+            migration de reprise).
     DraftOrder:
       type: object
       additionalProperties: false
-      required: [orderId, status, createdAt, totalHt, items]
+      required: [orderId, status, createdAt, totalHt, hasUnverifiedPrices, items]
       properties:
         orderId: { type: string, format: uuid }
         status: { type: string }
         createdAt: { type: string, format: date-time }
-        totalHt: { type: number, minimum: 0 }
+        totalHt: { type: string, pattern: '^[0-9]{1,10}\.[0-9]{2}$', description: 'Q17-a (point 12 (f)) — Money, chaîne décimale.' }
+        hasUnverifiedPrices:
+          type: boolean
+          description: >-
+            Q17-a (point 12 (h)) — miroir de "au moins une ligne
+            price_origin=client_unverified" (tenant_orders.has_unverified_prices).
+            Sert la pastille « Prix non vérifié » de Q17-c.
         items:
           type: array
           items: { $ref: '#/components/schemas/DraftOrderItem' }
     UpdateDraftOrderItem:
       type: object
       additionalProperties: false
-      required: [id, productLabel, quantity, unitPriceHt]
+      required: [id, productLabel, quantity, expectedUnitPriceHt]
       properties:
         id: { type: string, format: uuid }
         productLabel: { type: string, minLength: 1 }
         quantity: { type: integer, minimum: 1 }
-        unitPriceHt: { type: number, minimum: 0 }
+        expectedUnitPriceHt:
+          type: string
+          pattern: '^[0-9]{1,10}\.[0-9]{2}$'
+          description: >-
+            Q17-a (point 12 (e), (f)) — Money. Ni productId ni
+            clariprintOptions ici : l identité catalogue d une ligne n est
+            PAS resoumise, elle reste celle déjà en base, et c est contre
+            elle que ce prix est recalculé (même refus 409
+            orders.price_changed qu à la création).
     UpdateDraftOrderCommand:
       type: object
       additionalProperties: false
@@ -1318,7 +1419,7 @@ components:
       required: [orderId, totalHt, replayed]
       properties:
         orderId: { type: string, format: uuid }
-        totalHt: { type: number, minimum: 0 }
+        totalHt: { type: string, pattern: '^[0-9]{1,10}\.[0-9]{2}$', description: 'Q17-a (point 12 (f)) — Money, chaîne décimale.' }
         replayed: { type: boolean }
     OrderCapabilities:
       type: object

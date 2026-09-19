@@ -61,7 +61,24 @@ export type OrderCommandRejectionCode =
   | 'invalid_order_items'
   | 'order_not_editable'
   | 'transition_not_allowed'
-  | 'permission_denied';
+  | 'permission_denied'
+  /** Q17-a (point 12 (b)) — le product_id d une ligne n appartient pas au catalogue de la boutique. */
+  | 'product_not_in_shop'
+  /** Q17-a (point 12 (d)) — le prix recalculé par le serveur diffère du prix soumis. */
+  | 'price_changed'
+  /** Q17-a (point 12 (c)) — une ligne `client_unverified` bloque `draft -> validated` sans acquittement. */
+  | 'unverified_prices';
+
+/**
+ * Q17-a (point 12 (d)) — une entrée par ligne dont le prix a changé entre
+ * l affichage et la validation. `submitted`/`current` sont déjà en `Money`
+ * (chaîne décimale), tels que le serveur les a produits.
+ */
+export type PriceMismatchDetail = Readonly<{
+  productLabel: string;
+  submitted: string;
+  current: string;
+}>;
 
 export type CreateOrderAuthorization =
   | Readonly<{ kind: 'magrit_user' }>
@@ -89,6 +106,8 @@ export class OrderCommandRejectedError extends Error {
   constructor(
     public readonly code: OrderCommandRejectionCode,
     message: string,
+    /** Q17-a — renseigné seulement pour `price_changed` (point 12 (d)). */
+    public readonly priceMismatches: readonly PriceMismatchDetail[] = [],
   ) {
     super(message);
     this.name = 'OrderCommandRejectedError';

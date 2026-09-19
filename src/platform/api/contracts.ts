@@ -2,9 +2,20 @@ import { z } from 'zod';
 
 export const API_V1_BASE_PATH = '/api/v1' as const;
 
+/**
+ * Deux formes coexistent sous `errors[]`, additives l une envers l autre :
+ * `{ field, message }` (forme d origine, validation de requête) et
+ * `{ product_label, submitted, current }` (Q17-a, point 12 (d) — un écart de
+ * prix par ligne divergente, `submitted`/`current` déjà en `Money`). Aucun
+ * champ n est requis : un consommateur qui ne connaît qu une forme continue
+ * de fonctionner, l autre lui étant invisible.
+ */
 const problemFieldErrorSchema = z.object({
-  field: z.string(),
-  message: z.string(),
+  field: z.string().optional(),
+  message: z.string().optional(),
+  product_label: z.string().optional(),
+  submitted: z.string().optional(),
+  current: z.string().optional(),
 });
 
 /**

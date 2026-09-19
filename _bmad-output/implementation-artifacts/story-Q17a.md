@@ -1,0 +1,279 @@
+---
+story_id: Q17-a
+epic: Sprint 5 — chantier boutique « chaîne des prix Magrit → panier et qualité d'affichage » (hors E10, docs/api/CONVENTIONS.md §8.25)
+title: Le serveur cesse de faire confiance au prix envoyé par le navigateur — recalcul serveur du prix des lignes de catalogue d'une commande boutique
+status: round 3 — un bloquant (C1) et un majeur (C2) corrigés, quatre points tranchés par le coordinateur (C4-C7), en attente de nouvelle qa-review distincte
+branch: feat/gescom-q17a-prix-serveur
+base_round1: worktree-agent-ad0423d1a0c0bfb80 (a6a9bb12) = branche Q14-a (763078a8) + docs(v5) « Q17 cadrage du recalcul du prix cote serveur »
+base_round2: HEAD round 1 (271e8af6, commité)
+base_round3: HEAD round 2 (76c206f0, commité)
+agent: dev-story (Sonnet 5)
+cadrage_opposable: docs/api/CONVENTIONS.md §8.25 point 12 (a) à (k), lignes Q17-a du point 6, ligne Q17 du point 9, amendement du point 2.4
+verbatim_arnaud: « recalcul coté serveur lance le lot » (2026-09-19)
+---
+
+# Story Q17-a — recalcul serveur du prix des lignes de catalogue
+
+## ROUND 3 — corrections après rejet qa-review (C1, C2) et décisions du coordinateur (C4-C7)
+
+Le round 2 (commit `76c206f0`) a été **rejeté** sur un bloquant et un majeur, tout en confirmant que les trois corrections de bloquants du round 2 tiennent (rejouées par la qa avec ses propres scénarios), que les 11 mutations du cadrage plus 8 mutations de régression écrites par la qa tombent toutes — y compris `'legacy'` posé dans une AUTRE migration, fermant réellement la faille D4 —, que le laissez-passer transactionnel se referme correctement et résiste à un double-armement et à une exploitation inter-transaction, que `resolved_unit_price_ht` est bien la seule valeur écrite dans les trois RPC storefront corrigées, que le +160 est exact, que les skips sont identiques, que le recâblage `If-Match` est correct, et que les quatre corrections documentaires du round 2 sont réellement faites. La qa dit le lot « à un commit de l'approbation ».
+
+**BLOQUANT C1 (corrigé) — le marqueur `price_origin` était FORGEABLE en base par écriture directe, neutralisant toute la garde.** La policy `tenant_order_items_update` laisse tout `can_manage_tenant_orders()` écrire la table ; le trigger d'immuabilité (D1) laisse volontairement passer les lignes d'un brouillon (c'est son rôle documenté) ; `price_origin` est une colonne comme une autre pour PostgREST. La boucle de re-vérification de `transition_tenant_order_status` ne relit que les lignes `catalog` et `client_unverified` : `legacy` et `quoted` passent sans rien, par construction. Reproduction de la qa, sous RLS (`set local role authenticated`) : commande créée honnêtement à 12,00 € × 1000, `update tenant_order_items set unit_price_ht = 0.01, price_origin = 'legacy'` en direct sur le brouillon, puis validation — **passait**, avec `legacy` comme avec `quoted`, sans aucune trace, et l'acteur qui peut le faire est exactement celui que l'acquittement est censé contraindre. Corrigé par les deux lignes vérifiées par la qa : `revoke insert, update, delete on public.tenant_order_items from anon, authenticated;` et `revoke update on public.tenant_orders from anon, authenticated;`. Les trois RPC (`api_create_storefront_order`, `api_create_tenant_order`, `api_update_order_draft_for_identity`, `api_update_tenant_order_draft`) restent fonctionnelles (`SECURITY DEFINER`, propriétaire `postgres`, exemptées du revoke). Vérifié par grep sur `src/` et `supabase/functions/` : aucun code du dépôt n'écrit ces deux tables en direct. Ce revoke ferme aussi **C3** (`update tenant_orders set total_ht = 0.01` sur une commande validée, par un membre atelier). Cas SQL 19 ajouté, joué sous `set local role authenticated` (mes cas 17 et 18 tournaient en superutilisateur : ils prouvaient les triggers, pas les droits) : rouge sur le code round 2, vert après ; mutation inverse (regrant) rejouée, retombe. Cas SQL 20 ajouté pour la non-régression : les RPC continuent de fonctionner sous `authenticated` après le revoke.
+
+**MAJEUR C2 (corrigé) — B2 subsistait sur la fonction que le round 2 venait de réécrire.** `resolved_unit_price_ht` a été appliqué aux trois RPC storefront (B2) mais pas à `api_create_tenant_order`, recréée dans le MÊME round pour B1 : le corps recopié gardait `total_ht` et `line_total_ht` sur la valeur BRUTE. Reproduction : membre atelier, `unit_price_ht = 11.995`, `quantity = 100000` → `unit=12.00 line_total=1199500.00 total=1199500.00`, 500 € d'écart et une ligne incohérente avec elle-même, atteignable en direct par PostgREST. Corrigé par `round((item->>'unit_price_ht')::numeric, 2)` aux trois emplacements (somme, colonne `unit_price_ht`, calcul de `line_total_ht`) — de l'arithmétique de cohérence interne, pas une vérification : le fond (cette fonction ne vérifie toujours rien) reste porté à l'architecte. Cas SQL 15bis ajouté, rouge sur le code round 2 (`line_total_ht = 1199500.00`), vert après ; mutation inverse rejouée, retombe.
+
+**C4 (tranché par le coordinateur, fait)** — `api_create_tenant_order_core` était orpheline : round 2 a recréé `api_create_tenant_order` avec un corps complet, remplaçant de fait l'enveloppe self-signup posée par `20260811000800_create_order_self_signup.sql` sans plus jamais appeler `..._core`. Vérifié avant suppression : aucun appelant dans `src/` ni `supabase/functions/` (grep). Elle avait déjà des privilèges réduits à `postgres` et portait toujours le défaut `price_origin` NOT NULL sans la colonne dans son INSERT. Supprimée (`drop function`).
+
+**C6.1 (tranché par le coordinateur, fait)** — `public.update_tenant_order_status` (l'ancienne RPC v1.1, antérieure à `transition_tenant_order_status`) écrit `tenant_orders.status` sans poser le laissez-passer transactionnel : elle lève désormais `order.status_immutable` à chaque appel (durcissement D1). Aucun appelant vivant (grep sur `src/`). Exécution révoquée pour `authenticated`.
+
+**C6.2 (déclaration demandée, faite)** — round 2 a supprimé, EN RECRÉANT `api_create_tenant_order`, l'enveloppe self-signup (`perform public.self_register_shop_buyer(p_shop_id)` pour les boutiques `access_mode = 'self_signup'`). La qa a vérifié que ce n'est **pas** une régression : `self_register_shop_buyer` a déjà son exécution révoquée pour `authenticated` depuis `20260818000300_storefront_self_registration.sql` (antérieure à Q17-a). Je ne l'avais pas déclaré au round 2 — une enveloppe supprimée en silence se déclare, c'est fait ici.
+
+**C5 (tranché par le coordinateur, fait)** — le marqueur de laissez-passer transactionnel est renommé de `app.q17a_allow_status_transition` vers `magrit.order_status_transition`, le préfixe `magrit.` étant la convention réelle du dépôt (`magrit.change_set_id`, `magrit.quote_transition`, `magrit.allow_legacy_shop_only_write`). Le refermement après usage suit aussi la convention observée (`set_config(..., '', true)`, chaîne vide, plutôt que `'false'`).
+
+**C7 (corrigé, deux imprécisions)** — le story doc écrivait tantôt 165 tantôt 157 pour le nombre de fichiers de migration balayés par le durcissement D4 : **157** est le bon compte (fichiers) ; **165** est le nombre de TESTS dans le fichier (157 fichiers + 1 garde-fou de comptage + 1 vérification des exceptions + 6 tests par fonction nommée). Corrigé partout dans ce document. `docs/architecture/api/openapi.yaml` annonçait `current_state` (forme E10) dans la description du 409 de `updateDraftOrder`, alors que la façade historique sérialise `currentState` (camelCase) — corrigé.
+
+**À dire, sans corriger, comme demandé** — le durcissement D4 (`orders-price-origin-no-implicit-legacy.test.ts`) est un **grep textuel** sur le corps SQL : il ne verrait pas un `'legacy'` écrit par concaténation de chaîne (`'leg' || 'acy'`), par un paramètre, ou par toute construction qui n'écrit pas le littéral `'legacy'` tel quel dans le fichier. `stripSqlComments` retire tout ce qui suit `--` sur une ligne, y compris si `--` apparaissait à l'intérieur d'un littéral de chaîne (aucun cas réel dans ce dépôt aujourd'hui, mais le test ne le détecterait pas). Acceptable pour une garde **statique** contre une régression de code écrit à la main — ce n'est pas une preuve d'absence de tout chemin possible, seulement du chemin le plus probable (un littéral copié-collé).
+
+**Réserve de déploiement, à porter au story doc (fait ici)** — le revoke de ce round doit être confirmé contre toute surface d'administration HORS dépôt (SQL editor Supabase, scripts d'exploitation, outillage support) qui écrirait `tenant_order_items`/`tenant_orders` en direct, AVANT mise en production. Vérification hors de portée de cet agent (aucune écriture ni lecture de production).
+
+## ROUND 2 — corrections après rejet qa-review (B1, B2, B3, D1-D6)
+
+Le round 1 (commit `271e8af6`) a été **rejeté** sur trois défauts bloquants, tout en confirmant que la garde SQL, les 11 cas et les 11 mutations du point 12 (j) tenaient, que les deux défauts trouvés en testant au round 1 étaient réellement corrigés, que les chiffres étaient exacts et qu'aucune dérogation nouvelle n'avait été introduite.
+
+**BLOQUANT B1 (corrigé) — `api_create_tenant_order` (chemin `magrit_user` de `POST /orders`) levait une erreur NOT NULL sur `price_origin` dès le premier appel.** Ma migration ajoute `price_origin` NOT NULL sans défaut de colonne, et cette fonction — que j'avais explicitement décidé de ne pas toucher — insérait dans `tenant_order_items` sans cette colonne. C'était une **régression** que je n'avais pas mesurée : mon affirmation « `api_create_tenant_order` porte le même défaut » et « je ne l'ai pas touché » était fausse sur le second point, puisque ne pas la recréer la CASSAIT quand même. Corrigé par le minimum motivé : `price_origin = 'client_unverified'` explicite sur chaque ligne, `has_unverified_prices = true` sur la commande (échec fermé, cette fonction ne vérifie toujours rien). Le fond — aucun contrôle de catalogue ni de prix sur ce chemin — reste porté à l'architecte, pas tranché par moi. Cas SQL 14 ajouté, rejoué ROUGE sur le code de round 1, VERT après correction ; mutation inverse (retirer `price_origin` de l'insert) rejouée, cas 14 retombe.
+
+**BLOQUANT B2 (corrigé) — le serveur écrivait le total sur le prix REÇU, pas sur celui qu'il avait résolu.** `classify_storefront_order_line` comparait `round(p_unit_price_ht, 2)` au prix catalogue pour décider du refus, mais les trois écritures (`api_create_storefront_order`, la branche storefront et — après B3 — la branche atelier de la modification de brouillon) reprenaient ensuite la valeur BRUTE reçue (`item->>'unit_price_ht'`) pour `unit_price_ht`, `line_total_ht` et `total_ht`. Un prix soumis à 11,995 € pour un produit à 12,00 € passait le test d'égalité (arrondi à 12,00) mais la ligne stockée restait à 11,995 € — sur une grande quantité (100 000), l'écart se chiffre en centaines d'euros (500 € reproduits exactement par la qa). Corrigé à la source : `classify_storefront_order_line` rend maintenant `resolved_unit_price_ht` (le prix SERVEUR pour une ligne `catalog`, la valeur soumise arrondie pour une ligne `client_unverified`), et les trois écritures utilisent cette seule valeur, plus jamais `item->>'unit_price_ht'`. Cas SQL 15 ajouté (11,995 € × 100 000, puis 11,996 € à la modification), rejoué ROUGE sur le code de round 1 (`line_total_ht = 1199500.00` au lieu de `1200000.00`), VERT après correction ; mutation inverse rejouée, retombe.
+
+**BLOQUANT B3 (corrigé) — la branche ATELIER de `PUT /orders/{orderId}/draft` (`api_update_tenant_order_draft`, atteinte quand l'acteur authentifié EST le `created_by` sans cookie boutique — notamment une commande créée via une session boutique DÉLÉGUÉE) n'avait aucune garde.** Le round 1 ne fermait que la branche storefront de `api_update_order_draft_for_identity` ; l'autre déléguait intégralement à une fonction inchangée, sans recalcul, sans mise à jour de `price_origin` ni de `has_unverified_prices`. Corrigé : `api_update_tenant_order_draft` est recréée avec la même classification et le même refus que la branche storefront, en lisant le `shop_id` de la commande. Cas SQL 16 ajouté (session déléguée, PUT sans cookie, prix falsifié à 0,01 € sur une ligne à 12,00 €), rejoué ROUGE sur le code de round 1, VERT après correction, plus une non-régression sur un prix correct ; mutation inverse (fonction round 1 réinjectée telle quelle) rejouée, retombe.
+
+**DURCISSEMENT D1 (fait, deux volets)** — le trigger de gel ne couvrait que `UPDATE`/`DELETE` : un `INSERT` direct dans une commande `shipped` passait. Étendu à `INSERT`. Deuxième volet, plus large : `tenant_orders.status` restait écrivable en direct par tout `can_manage_tenant_orders` (`shipped → draft → reprix → shipped` sans le moindre événement). Un nouveau trigger `tenant_orders_status_change_guard` refuse tout changement de `status` hors d'un laissez-passer transactionnel (`magrit.order_status_transition` depuis le round 3, C5 — nommé `app.q17a_allow_status_transition` au round 2) posé uniquement par `transition_tenant_order_status` et par l'annulation storefront, juste avant leur propre `UPDATE`, et refermé juste après (le laissez-passer est porté par la transaction, pas par l'instruction — un test qui enchaîne plusieurs opérations dans une même transaction l'aurait laissé ouvert sans ce refermement explicite, défaut que j'ai trouvé en écrivant mon propre cas de test). Cas SQL 17 (deux volets), rejoués ROUGE sur le code non durci, VERT après ; mutations inverses (retirer `insert` du trigger, retirer le second trigger) rejouées, retombent.
+
+**DURCISSEMENT D2 (fait)** — la re-vérification était indexée sur le libellé `validated`, alors que `tenant_order_status_transitions` est une matrice PAR TENANT modifiable : un tenant ajoutant `draft → in_production` aurait contourné le refus `unverified_prices` ET la re-vérification `price_changed`. Condition changée en « quitter `draft` sauf vers `cancelled` ». Cas SQL 18 ajouté (transition personnalisée `draft → in_production`), rejoué ROUGE sur la condition round 1, VERT après ; mutation inverse rejouée, retombe.
+
+**DURCISSEMENT D3 (fait)** — l'`If-Match`/`ETag` du round 1 était réimplémenté à la main, avec un code `orders.draft_changed` inventé, sans le contrôle de syntaxe de `readIfMatch` (`If-Match: *` ou un ETag malformé donnaient 409 au lieu de 400) et sans `current_state`. Recâblé sur les utilitaires PARTAGÉS du socle (`readIfMatch`, `assertPrecondition`, `computeEntityTag`, `_shared/application/concurrency.ts`), avec une conversion `ProblemError → ApiHttpError` (`toApiHttpError`) puisque cette route appartient à la façade historique, pas à la façade E10. `docs/architecture/api/openapi.yaml` documente l'`ETag` sur `GET` et les nouveaux codes (`api.if_match_invalid` 400, `api.resource_conflict` 409) sur `PUT`. Test de route étendu : `*`, ETag malformé, ETag correct, ETag faux — les quatre cas.
+
+**DURCISSEMENT D4 (fait)** — le test « aucun chemin de code n'écrit `legacy` » ne lisait qu'un seul fichier de migration en dur. Réécrit pour balayer TOUT `supabase/migrations/*.sql` (157 fichiers testés), avec une liste d'exceptions NOMMÉE (deux occurrences déclarées, motivées, dans la seule migration Q17-a).
+
+**DURCISSEMENT D5 (fait)** — `moneySchema` (partagé) accepte un signe négatif ; un montant de commande boutique ne l'est jamais. Nouveau `nonNegativeMoneySchema` (précédent : `nonNegativeRateSchema`), appliqué à tous les champs Money du module `orders` (`expectedUnitPriceHt`, `unitPriceHt`, `lineTotalHt`, `totalHt`).
+
+**DURCISSEMENT D6 (signalé, non corrigé, comme demandé)** — `toMoneyString` fait `.toFixed(2)` sur un `number`, du flottant sur un montant. Convention déjà établie ailleurs dans le dépôt (`commercial-orders-repository.ts`) ; corriger demande une décision transverse (parseur décimal partagé), pas un correctif local. Documenté dans le code et ici.
+
+**Corrections documentaires demandées, faites** : l'arithmétique des tests ajoutés était fausse (j'avais écrit 4+5+5=14 ; c'est 5+5+5=15) — section « Tests exécutés » corrigée avec les VRAIS comptes du round 2 ; le fichier de cas SQL est renommé en `tests/sql/storefront-order-price-revaluation.sql`, exactement le nom prescrit par le point 12 (j) (je l'avais préfixé `gescom-q17a-` par analogie avec les stories E10, à tort — ce lot n'est pas une story E10) ; les mentions « non rejouées par manque de temps » sur M7, M8, M10, M11 sont retirées de la section mutations (la qa les a rejouées, elles tombent) ; la phrase sur `api_create_tenant_order` est corrigée : ce n'était pas « inchangé », c'était **cassé par ce lot** (B1).
+
+## Résumé en une phrase
+
+Le serveur ne fait plus confiance à `unit_price_ht` envoyé par le navigateur pour une ligne de catalogue : il recalcule le prix contre la hiérarchie opposable `shop_product_pricing → shop_products → product_library`, refuse en 409 `orders.price_changed` sur écart, marque `client_unverified` toute ligne qu'il ne peut pas vérifier, ferme le catalogue de la boutique en 422 `orders.product_not_in_shop`, gèle les lignes hors `draft`, et refuse `draft → validated` en 409 `orders.unverified_prices` sans acquittement explicite. Zéro appel Clariprint sur tout ce chemin.
+
+## Critères d'acceptation, un par un
+
+Le cadrage n'énumère pas de CA numérotés au sens BMAD classique pour ce lot ; je les dérive des points 12 (a) à (k) et je les traite un par un.
+
+1. **Le serveur recalcule le prix d'une ligne de catalogue contre la hiérarchie opposable (b)** — **FAIT**. `private.resolve_storefront_catalog_price` (migration `20260919000100`) : rang 1 `shop_product_pricing.price_ht_override`, rang 2 `shop_products.price_ht` (par `product_id`), rang 3 `product_library.price_ht` si dans le périmètre de la boutique, rang 4 aucun prix ferme. Prouvé par le cas SQL 4 (quatre lignes, une par rang, dont le zéro). **Round 2** : la valeur ÉCRITE (`unit_price_ht`, `line_total_ht`, `total_ht`) est désormais garantie être le prix RÉSOLU par cette hiérarchie (`resolved_unit_price_ht`), jamais la valeur brute reçue — BLOQUANT B2, prouvé par le cas SQL 15. **Round 3** : cette même garantie s'étend à `api_create_tenant_order` (chemin atelier), recréée dans le même round 2 pour B1 mais oubliée pour l'arithmétique — MAJEUR C2, cas SQL 15bis.
+2. **Écart entre prix soumis et prix recalculé → refus 409 `orders.price_changed`, aucune tolérance** — **FAIT**. Cas SQL 1, 2, 11 (création, modification de brouillon, transition). Cas SQL 12 ajouté par moi pour prouver l'absence de tolérance (écart de 0,50 €, aucun de mes autres cas n'ayant un écart < 1 €). `errors[]` porte `product_label`/`submitted`/`current`, prouvé par un test de route dédié. **Round 2** : cette règle s'applique désormais aussi à la branche ATELIER de la modification de brouillon (`api_update_tenant_order_draft`, BLOQUANT B3, cas SQL 16), et la re-vérification à la transition ne dépend plus du libellé `validated` mais de « quitter `draft` » (DURCISSEMENT D2, cas SQL 18).
+3. **`product_id` hors catalogue de la boutique → 422 `orders.product_not_in_shop`** — **FAIT**. Cas SQL 3 (produit de la bibliothèque d'un autre espace). Le périmètre reproduit exactement celui de `publicCatalog` (`shops-repository.ts`) : `shop_products` de la boutique, ou `product_library` actif hors `excluded_product_ids` et dans `library_ids`/`pim_gamme_slugs`.
+4. **Aucun prix ferme → commande créée, jamais refusée pour ce seul motif, marquée `client_unverified`** — **FAIT**. Cas SQL 4 (rang 4) et 5 (ligne configurée, `clariprint_options` différent du catalogue). Zéro n'est jamais un prix ferme (rang 4 du cas 4).
+5. **Discriminant catalogue/configuré = comparaison serveur des `clariprint_options`, jamais une déclaration du navigateur** — **FAIT**. Égalité `jsonb` (normalisation de clés déjà assurée par le type `jsonb` de Postgres), pas de canonicalisation applicative à écrire. Cas SQL 5.
+6. **`tenant_order_items.price_origin` : énumération fermée, `not null`, sans défaut implicite dans le code** — **FAIT**. Colonne ajoutée sans `default` au niveau table ; chaque RPC qui écrit une ligne calcule explicitement la valeur. Prouvé négativement par `tests/architecture/orders-price-origin-no-implicit-legacy.test.ts` (mutation M11). **Round 3, BLOQUANT C1** : « aucun chemin de CODE n'écrit une valeur mensongère » ne suffisait pas — sans revoke, une écriture DIRECTE (hors de tout code applicatif) pouvait poser `price_origin = 'legacy'` sur une ligne fraîche pour court-circuiter toute vérification, la table étant ouverte en écriture à tout `can_manage_tenant_orders()`. `revoke insert, update, delete on tenant_order_items from anon, authenticated` ferme ce troisième vecteur, symétrique de celui que D1 fermait pour le prix et le statut. Cas SQL 19, joué sous RLS (`set local role authenticated`), pas en superutilisateur.
+7. **`tenant_orders.has_unverified_prices` : miroir maintenu par les mêmes RPC** — **FAIT**, sur `api_create_storefront_order`, `api_create_tenant_order` (round 2, toujours `true` — BLOQUANT B1), la branche storefront ET la branche atelier (round 2, BLOQUANT B3) de la modification de brouillon.
+8. **`draft → validated` refuse en 409 `orders.unverified_prices` sans acquittement explicite, nommé et journalisé** — **FAIT**. Cas SQL 8 (refus) et 9 (acquittement, événement `tenant_order_status_events` nommant l'acteur). Le paramètre `p_acknowledge_unverified_prices` est un booléen distinct, jamais une case cochée par défaut (`default false`). **Round 2** : le refus s'applique à toute transition qui quitte `draft` (sauf `cancelled`), pas seulement vers `validated` — DURCISSEMENT D2, cas SQL 18.
+9. **La vérification se refait à la transition, un `If-Match` ne fermerait pas le trou** — **FAIT**. `transition_tenant_order_status` recalcule les lignes `catalog` et bloque les lignes `client_unverified` non acquittées, sur toute transition qui quitte `draft` (round 2, DURCISSEMENT D2). Cas SQL 11 (le prix catalogue bouge entre la création et la validation) et 18 (transition personnalisée hors `validated`). **Round 2** : l'`If-Match` du `PUT /orders/{orderId}/draft`, quand il est présent, est désormais vérifié via les utilitaires PARTAGÉS du socle (`readIfMatch`/`assertPrecondition`, DURCISSEMENT D3), pas une réimplémentation locale.
+10. **Commandes existantes non retouchées, lignes anciennes en `legacy`, jamais bloquantes** — **FAIT**. Backfill `update ... set price_origin = 'legacy' where price_origin is null` ; cas SQL 10 (transition d'une commande `legacy` sans acquittement, passe). **Round 2 (D4)** : preuve statique étendue à tout le corpus de migrations (157 fichiers), pas un seul fichier en dur.
+11. **`tenant_order_items` immuable hors `draft`** — **FAIT**. Trigger `tenant_order_items_immutable_after_draft`, `before insert or update or delete` (round 2 : étendu à `insert`, DURCISSEMENT D1 volet 1 — round 1 ne couvrait que `update or delete`). Cas SQL 6 (update direct sur une commande `validated` → lève), 7 (même update sur `draft`, par la RPC → passe, non-régression) et 17 volet 1 (round 2, insert direct dans une commande `shipped` → lève). **Round 2, DURCISSEMENT D1 volet 2** : `tenant_orders.status` est lui-même protégé par un trigger dédié (`tenant_orders_status_change_guard`) contre toute écriture directe hors de `transition_tenant_order_status` — cas SQL 17 volet 2. **Round 3, BLOQUANT C1/C3** : le trigger de gel laisse volontairement passer une ligne de brouillon (c'est son rôle documenté) — restait donc une fenêtre où `price_origin` ET `total_ht` pouvaient être réécrits en direct sur une commande encore `draft`, avant sa validation, avec les conséquences décrites au critère 6. Fermée par le même revoke. **Défaut réel trouvé et corrigé en cours de route (round 1)** : voir section « Défaut trouvé en testant ».
+12. **Montants en `Money` (chaîne décimale), `unitPriceHt` → `expectedUnitPriceHt` côté commande, les deux côtés dans le même commit** — **FAIT**. `src/modules/orders/api/contracts.ts` + `docs/architecture/api/openapi.yaml`, mêmes commits.
+13. **`openapi/magrit-core.v1.yaml` non modifié** — **RESPECTÉ**. Je n'y ai touché à aucune ligne. `pnpm gen:api:check` reste vert.
+14. **Zéro appel Clariprint sur la création, la modification et la validation** — **FAIT**, prouvé par `tests/architecture/orders-price-revaluation-zero-clariprint.test.ts` (grep source + espion `fetch` dynamique).
+
+## Ce que je n'ai PAS fait, et pourquoi (hors périmètre déclaré)
+
+- **Q17-b** (produit configuré adossé à un devis serveur) : non commencée, dépend de BCP-1b/la campagne.
+- **Q17-c** (pastille « Prix non vérifié » à l'écran) : non commencée. J'ai néanmoins exposé `priceOrigin` (par ligne) et `hasUnverifiedPrices` (par commande) sur `GET /orders/{orderId}/draft`, comme l'exige le point 12 (h) (« Q17-c ... remontent par listPortalOrders et getDraft, donc par la façade »), pour que Q17-c n'ait rien à re-migrer.
+- **`priceResolver.ts`, `PortalCart.tsx`, `ShopProductCard.tsx`, le normaliseur, la passerelle Clariprint** : non touchés, conformément à l'interdiction explicite.
+- **`api_create_tenant_order`** (chemin `magrit_user` de `POST /orders`) : **CORRIGÉ en round 2 (B1)**. Round 1 disait « inchangé, remonté à l'architecte » — c'était faux : ne pas la recréer la CASSAIT (crash 500 sur le premier appel, colonne `price_origin` NOT NULL sans défaut). Le minimum a été corrigé (`price_origin = 'client_unverified'` explicite, `has_unverified_prices = true`) ; le FOND — cette fonction n'a toujours aucun contrôle de catalogue ni de prix — reste porté à l'architecte, non tranché par moi.
+- **`listPortalOrders`/`OrderSummary`** (grille de l'atelier, utilisée par `OrderHistoryTable.tsx`) : n'expose **toujours pas** `hasUnverifiedPrices` — non redemandé par la qa-review round 1, laissé en l'état, voir section « Écart remonté ».
+
+## Écart remonté (je ne l'ai pas tranché en silence)
+
+- **`listPortalOrders`/`OrderSummary.hasUnverifiedPrices`** — le point 12 (h) dit que Q17-c lira `has_unverified_prices` « par `listPortalOrders` et `getDraft` », mais le tableau du point 9 (i) ne donne à Q17-c comme fichiers que `OrderHistoryTable.tsx`, le détail de commande, `testIds.ts` — aucun moyen d'ajouter un champ de DTO depuis ces seuls fichiers. J'ai exposé le champ sur `getDraft` (dans mon périmètre déclaré) mais **pas** sur `listPortalOrders`, faute de fichier de contrat listé pour Q17-c. Signalé pour arbitrage : soit Q17-a l'ajoute aussi (petite extension, additive), soit Q17-c porte elle-même ce petit ajout à `contracts.ts`/`orders-repository.ts` au moment de sa propre implémentation. **Non rouvert par la qa-review round 1** : reste un écart ouvert, pas un défaut corrigé.
+
+**Écart round 1 CLOS par la qa-review** : `api_create_tenant_order` — round 1 remontait ce point à l'architecte pour arbitrage. La qa-review l'a requalifié en BLOQUANT B1 (régression, pas une question d'arbitrage) et l'a fait corriger dans ce round. Le fond (aucune vérification de catalogue/prix sur ce chemin) reste, lui, porté à l'architecte — la qa l'a confirmé explicitement : « le fond ... est porté à l'architecte par moi, ne le traite pas de ta propre initiative ».
+
+## Défaut trouvé en testant (pas en relisant)
+
+En exécutant les cas SQL réellement contre la base locale (Docker + Supabase disponibles dans cet environnement), j'ai trouvé et corrigé **deux défauts réels** avant de les livrer :
+
+1. **Colonnes ambiguës** — `private.resolve_storefront_catalog_price` sélectionnait `price_ht, config` sans qualifier la table : ces noms sont AUSSI ceux des colonnes de sortie de la fonction (`returns table (price_ht, reference_config, in_scope)`), donc des variables PL/pgSQL implicites. Postgres levait `column reference "price_ht" is ambiguous` dès le premier appel. Corrigé en qualifiant chaque colonne par sa table.
+2. **Trigger d'immuabilité qui renvoyait `old` sur la branche autorisée** — sur `before update`, `return old` réécrit la ligne **inchangée** au lieu de laisser passer la modification demandée : le cas 7 (non-régression, modification d'un brouillon) « passait » sans erreur, mais silencieusement, **le prix n'était pas réellement modifié**. Trouvé uniquement parce que j'ai ajouté une assertion post-condition (relire la valeur après l'appel) plutôt que de me contenter d'« aucune exception levée ». Corrigé : `return new` sur la branche `draft`/`UPDATE`, `return old` réservé à `DELETE` et à la cascade de suppression de la commande parente. C'est exactement le défaut « la règle juste mais branchée au mauvais endroit » que la consigne m'invitait à chercher.
+
+**Round 2 — un troisième défaut trouvé en écrivant mon propre cas de test (pas signalé par la qa)** : le laissez-passer transactionnel (durcissement D1, renommé `magrit.order_status_transition` au round 3 — C5) est posé via `set_config(..., true)`, qui le porte pour toute la DURÉE DE LA TRANSACTION, pas pour la seule instruction suivante. Mon premier jet du cas SQL 6/7 (qui pose ce laissez-passer une fois, en fixture, avant de tester le cas 6) faisait **passer à tort** le cas 17 (volet 2, régression de statut) exécuté plus loin dans le MÊME fichier — puisque le fichier entier tourne dans une seule transaction `begin; ... rollback;`, le laissez-passer restait ouvert. Corrigé en refermant le laissez-passer immédiatement après chaque usage (dans le code ET dans le test), avec un commentaire explicite sur pourquoi ce refermement est nécessaire.
+
+## Fichiers créés
+
+- `supabase/migrations/20260919000100_gescom_q17a_storefront_order_price_revaluation.sql` — migration additive (voir détail ci-dessous). **Amendée en round 2** : `api_create_tenant_order` (B1), `resolved_unit_price_ht` sur `classify_storefront_order_line` et ses trois appelants (B2), `api_update_tenant_order_draft` (B3), trigger étendu à `INSERT` + `tenant_orders_status_change_guard` (D1), condition de re-vérification (D2). **Amendée en round 3** : `round(..., 2)` sur les trois emplacements de `api_create_tenant_order` (C2) ; `revoke insert, update, delete on tenant_order_items` / `revoke update on tenant_orders` de `anon, authenticated` (C1, ferme aussi C3) ; `drop function api_create_tenant_order_core` (C4) ; `revoke execute on update_tenant_order_status` (C6.1) ; marqueur transactionnel renommé `magrit.order_status_transition` (C5).
+- `tests/sql/storefront-order-price-revaluation.sql` — **renommé en round 2** depuis `tests/sql/gescom-q17a-storefront-order-price-revaluation.sql` (nom exact prescrit par le point 12 (j)). 17 blocs `do $$ ... $$`, 21 scénarios nommés au total : les 11 du point 12 (j), 2 inventés en round 1 (tolérance = cas 12, timing de trigger = cas 13), 5 ajoutés en round 2 (B1 = cas 14, B2 = cas 15, B3 = cas 16, D1 deux volets = cas 17, D2 = cas 18), 3 ajoutés en round 3 (C2 sur la fonction atelier = cas 15bis, C1 = cas 19, non-régression C1 = cas 20).
+- `tests/architecture/orders-price-revaluation-zero-clariprint.test.ts` — preuve statique + dynamique du zéro appel Clariprint (inchangé en round 2).
+- `tests/architecture/orders-price-origin-no-implicit-legacy.test.ts` — preuve statique qu'aucun chemin de code n'écrit `legacy` (mutation M11). **Réécrit en round 2** (D4) : balaie tout `supabase/migrations/*.sql` (157 fichiers) avec une liste d'exceptions nommée, au lieu d'un seul fichier en dur.
+
+## Fichiers modifiés
+
+- `src/modules/orders/api/contracts.ts` — `priceOriginSchema`, `expectedUnitPriceHt` (Money) sur `createOrderItemSchema`/`updateDraftOrderItemSchema`, `Money` sur les totaux de lecture (`createOrderResultSchema.totalHt`, `draftOrderSchema.totalHt`/`hasUnverifiedPrices`, `draftOrderItemSchema.unitPriceHt`/`lineTotalHt`/`priceOrigin`, `updateDraftOrderResultSchema.totalHt`), `acknowledgeUnverifiedPrices` sur `transitionOrderCommandSchema`, `TransitionOrderCommand` passé en `z.input` (précédent : `CreateShopCommand`). **Round 2 (D5)** : `nonNegativeMoneySchema` (précédent `nonNegativeRateSchema`) remplace `moneySchema` sur tous ces champs — un montant de commande boutique n'est jamais négatif.
+- `src/modules/orders/application/orders-repository.ts` — `OrderCommandRejectionCode` étendu (`product_not_in_shop`, `price_changed`, `unverified_prices`), `PriceMismatchDetail`, `OrderCommandRejectedError` porte `priceMismatches`.
+- `src/adapters/supabase/orders-repository.ts` — mapping `expectedUnitPriceHt`/Money aux deux frontières, `toMoneyString`, `isPriceOrigin`, `parsePriceMismatches`, priorité des préfixes distinctifs (`price_changed:`, `product_not_in_shop:`, `unverified_prices:`) AVANT les `.includes()` génériques (pour ne pas être trompé par un `product_label` choisi par l'acheteur), transmission de `p_acknowledge_unverified_prices`. **Round 2 (D6, signalé)** : commentaire ajouté sur `toMoneyString` documentant le flottant non corrigé.
+- `src/server/api/orders-routes.ts` — nouveaux codes → statuts (422/409), `errors[]` sur `price_changed`, `ETag` sur `GET /orders/{orderId}/draft`, `If-Match` honoré (jamais exigé) sur `PUT /orders/{orderId}/draft` (point 12 (e), dérogation R5 déjà déclarée par le cadrage). **Recâblé en round 2 (D3)** : `readIfMatch`/`assertPrecondition`/`computeEntityTag` du socle E10 (`_shared/application/concurrency.ts`) remplacent ma réimplémentation manuelle round 1 ; `toApiHttpError` convertit le `ProblemError` du socle vers `ApiHttpError` (façade historique).
+- `src/platform/api/contracts.ts` — `problemFieldErrorSchema` étendu (`product_label`/`submitted`/`current`, tous optionnels, additif).
+- `src/modules/orders/ui/hooks/useStorefrontOrderLifecycle.ts` — **mappage des items de `submitCart` et son `catch`, rien d'autre** (conforme au périmètre imposé) : `expectedUnitPriceHt` en `Money`, message dédié sur `orders.price_changed`. Un mécanique nécessaire hors de ce strict périmètre : la ligne `unit_price_ht: item.unitPriceHt` de `renewOrder` (lecture de `getDraft`, jamais consommée par `rebuildCartFromOrderItems`) convertie en `Number(...)` — ripple mécanique du renommage de type, pas un changement de logique.
+- `src/modules/orders/ui/hooks/useStorefrontOrderEditor.ts` — ripple du même renommage (éditeur atelier des brouillons) : ingestion `Number(...)`, soumission `expectedUnitPriceHt: ....toFixed(2)`.
+- `src/modules/orders/ui/storefront/PortalThankYou.tsx` — ripple : `order.totalHt`/`item.lineTotalHt` (désormais `Money`) convertis en nombre avant `applyTax`/`formatEuro`.
+- `docs/architecture/api/openapi.yaml` — `CreateOrderItem.expectedUnitPriceHt`, `CreateOrderResult.totalHt`, `DraftOrderItem` (`unitPriceHt`/`lineTotalHt`/`priceOrigin`), `DraftOrder.hasUnverifiedPrices`, `UpdateDraftOrderItem.expectedUnitPriceHt`, `UpdateDraftOrderResult.totalHt` en `Money` ; `TransitionOrderCommand.acknowledgeUnverifiedPrices` ; `ApiProblem.errors[]` étendu ; réponses 409/422 documentées sur les trois opérations.
+- `scripts/test-storefront-sql.sh` — enregistrement du nouveau cas dans `SQL_CASES`.
+- `tests/server/api/orders-routes.test.ts` — renommage des fixtures, 5 tests ajoutés (nombre JSON refusé, `price_changed` avec `errors[]`, `product_not_in_shop`, `unverified_prices`, ETag/If-Match).
+- `tests/modules/orders/orders-service.test.ts` — renommage des fixtures.
+- `tests/sql/gescom-devis-unification-pim-triggers.sql` — un INSERT direct (hors RPC, fixture de test d'un trigger PIM sans rapport) explicite désormais `price_origin = 'client_unverified'`, faute de quoi la colonne `not null` sans défaut lève. Ripple mécanique du NOT NULL sans défaut, pas un changement de comportement testé.
+
+## Dérogations R5
+
+**Aucune nouvelle dérogation.** Les deux déjà déclarées par le cadrage (point 10 du dixième round) sont traitées ainsi :
+
+1. **Montant de la commande boutique en `z.number()`** — **SOLDÉE** par ce lot : passage en `Money` (chaîne décimale) sur toute la chaîne création/lecture/modification. À signaler au scribe/architecte pour clore la ligne dans `docs/api/CONVENTIONS.md`.
+2. **`PUT /orders/{orderId}/draft` sans précondition obligatoire** — **implémentée comme prévu, toujours ouverte** : `GET` émet un `ETag`, `PUT` l'honore quand il est présent, mais ne l'exige pas. Chemin de mise en conformité inchangé : migration de cette route vers l'enveloppe E10, après Q17-b (décision de l'architecte, non rouverte ici).
+
+## Les 11 cas SQL du point 12 (j) — verdict sur le code AVANT migration (base réelle, Docker + Supabase locaux disponibles)
+
+Rejoués un par un contre la base locale (migrations jusqu'à `20260915000100` incluse, HEAD de la branche avant ce lot), chacun isolé dans sa propre transaction `begin; ... rollback;` :
+
+| # | Scénario | Attendu | Verdict AVANT migration | Verdict APRÈS migration |
+|---|---|---|---|---|
+| 1 | Prix falsifié à 0 sur un produit de catalogue à 12,00 € | refus `price_changed` | **ÉCHOUE** — accepté à 0,00 | **PASSE** |
+| 2 | Modification de brouillon à 0,01 € (créé à 12,00 €) | refus | **ÉCHOUE** — accepté | **PASSE** |
+| 3 | Produit de la bibliothèque d'un autre espace | 422 `product_not_in_shop` | **ÉCHOUE** — commande créée | **PASSE** |
+| 4 | Hiérarchie (b), 4 rangs (override, shop_products, product_library, zéro) | 3× `catalog` au bon prix, 1× `client_unverified` | **ÉCHOUE** — colonne `price_origin` inexistante | **PASSE** |
+| 5 | `clariprint_options` différent du catalogue | `client_unverified`, prix reçu conservé | **ÉCHOUE** — colonne inexistante | **PASSE** |
+| 6 | `update` direct sur `tenant_order_items` d'une commande `validated` | exception | **ÉCHOUE** — l'update passe | **PASSE** |
+| 7 | Le même `update`, sur `draft`, par la RPC | passe (non-régression) | **PASSE** (déjà vert) | **PASSE** |
+| 8 | `draft → validated`, ligne `client_unverified`, sans acquittement | refus `unverified_prices` | **ÉCHOUE** — fonction à 4 arguments inexistante | **PASSE** |
+| 9 | La même, avec acquittement | passe, événement nommant l'acteur | **ÉCHOUE** — idem | **PASSE** |
+| 10 | `draft → validated` d'une commande `legacy` | passe sans acquittement | **ÉCHOUE** — idem | **PASSE** |
+| 11 | `draft → validated`, prix catalogue déplacé depuis la création | refus `price_changed` | **ÉCHOUE** — idem | **PASSE** |
+
+**10 sur 11 échouent avant migration, 1 (le cas 7) était déjà vert** — exactement la répartition annoncée par le cadrage. Les 11 passent après migration.
+
+### Cas ajoutés au-delà du point 12 (j)
+
+| # | Scénario | Origine | Verdict avant correction du round concerné | Verdict après |
+|---|---|---|---|---|
+| 12 | Écart de 0,50 € (aucune tolérance) | Round 1, mutation M2 | (case neuve, pas de « avant » applicable) | **PASSE** |
+| 13 | Timing du trigger d'immuabilité = BEFORE | Round 1, mutation M8 | (assertion structurelle, pas de « avant » applicable) | **PASSE** |
+| 14 | `api_create_tenant_order` (chemin `magrit_user`) écrit `price_origin` | Round 2, BLOQUANT B1 | **ÉCHOUE** — `null value in column "price_origin" ... violates not-null constraint` | **PASSE** |
+| 15 | Prix sous le centime (11,995 €) × 100 000, création ET modification | Round 2, BLOQUANT B2 | **ÉCHOUE** — `line_total_ht = 1199500.00` (attendu 1200000.00) | **PASSE** |
+| 16 | Session boutique déléguée, `PUT` sans cookie, branche atelier | Round 2, BLOQUANT B3 | **ÉCHOUE** — prix falsifié à 0,01 € accepté | **PASSE** |
+| 17 | `INSERT` direct dans une commande `shipped` (volet 1) + régression de statut `shipped → draft` hors RPC (volet 2) | Round 2, DURCISSEMENT D1 | **ÉCHOUE** (les deux volets, sur le code non durci) | **PASSE** |
+| 18 | Transition personnalisée `draft → in_production` (hors `validated`/`cancelled`) | Round 2, DURCISSEMENT D2 | **ÉCHOUE** — ligne `client_unverified` validée sans acquittement | **PASSE** |
+| 15bis | Prix sous le centime (11,995 €) × 100 000 sur `api_create_tenant_order` (chemin atelier) | Round 3, MAJEUR C2 | **ÉCHOUE** — `line_total_ht = 1199500.00` (attendu 1200000.00), incohérent avec `unit_price_ht = 12.00` | **PASSE** |
+| 19 | Écriture directe `unit_price_ht = 0.01, price_origin = 'legacy'` sur un brouillon, **sous `set local role authenticated`** (deux volets, second = C3 sur `tenant_orders.total_ht`) | Round 3, BLOQUANT C1 | **ÉCHOUE** — les deux écritures directes passent (les cas 17/18 tournaient en superutilisateur, ils ne prouvaient rien sur les droits) | **PASSE** — `permission denied for table` sur les deux |
+| 20 | Non-régression : `api_create_storefront_order` sous `set local role authenticated` après le revoke C1 | Round 3, non-régression C1 | (case neuve, pas de « avant » applicable) | **PASSE** |
+
+## Les 11 mutations du point 12 (j) — rejouées, verdict et assertion nommée
+
+**Round 2 — corrigé** : round 1 affirmait que M7, M8 (volet minuterie), M10 et M11 n'avaient « pas été rejouées par manque de temps ». La qa-review les a rejouées elle-même et confirmé qu'elles tombent toutes : la preuve existait dans le code (les assertions structurelles/statiques listées ci-dessous), elle n'avait simplement pas été exécutée par moi. Ce round confirme, sous le code CORRIGÉ (round 2), que ces quatre assertions restent vertes (`pnpm exec vitest run` et `pnpm test:storefront:sql`, chiffres ci-dessous) — le mécanisme de chacune n'a pas changé depuis le round 1.
+
+**Round 3 — la qa a rejoué les 11 mutations du cadrage PLUS 8 mutations de régression qu'elle a écrites elle-même, contre le code round 2, et confirmé qu'elles tombent toutes**, y compris un `'legacy'` posé dans une AUTRE migration (que mon durcissement D4, réécrit en round 2 pour balayer tout le corpus, a bien détecté). Je n'ai pas la liste exacte des 8 mutations de la qa (elle ne les a pas toutes nommées dans son message), donc je ne les récapitule pas ici ligne à ligne — mais leur verdict global (« tombent toutes ») est celui qui ouvre ce round 3 comme acquis, non remis en cause par mes corrections C1/C2 (aucune des deux ne touche au mécanisme qu'elles testaient : le trigger d'immuabilité, le trigger de statut, le balayage D4, le laissez-passer transactionnel).
+
+| # | Mutation | Rejouée réellement, sous quel code ? | Verdict | Assertion qui tue la mutation |
+|---|---|---|---|---|
+| M1 | Refus du (d) remplacé par une correction silencieuse | **Oui**, round 1 ET round 2 (re-rejouée contre le code round 2 après B2, pour vérifier la non-régression) | **TUÉE** | Cas SQL 1 |
+| M2 | Tolérance élargie (`< 0.01` → `< 1`) | **Oui**, round 1 | **TUÉE** | Cas SQL 12 |
+| M3 | Rangs 2 et 3 de la hiérarchie inversés | **Oui**, round 1 | **TUÉE** | Cas SQL 4 |
+| M4 | `price_ht = 0` accepté comme prix ferme | **Oui**, round 1 | **TUÉE** | Cas SQL 4 (rang 4) |
+| M5 | `catalog` posé par défaut au lieu de `client_unverified` | **Oui**, round 1 | **TUÉE** | Cas SQL 4 (rang 4) |
+| M6 | Contrôle de périmètre boutique retiré | **Oui**, round 1 ET round 2 (re-rejouée contre le code round 2, non-régression) | **TUÉE** | Cas SQL 3 |
+| M7 | Recalcul déplacé de la RPC vers un service TypeScript | Prouvé par construction : le run « avant migration » (round 1) EST cet état, 10/11 cas SQL échouent alors, et le cas SQL n'exécute aucune ligne de TypeScript | **TUÉE** | Absence totale de vérification en SQL sur le code pré-Q17-a |
+| M8 | Trigger d'immuabilité `after` au lieu de `before`, ou étendu à `draft` | **Oui, round 2** — le volet minuterie rejoué en mutant réellement le trigger (`before update or delete` sans `insert`, et le trigger `after`) | **TUÉE** | Cas SQL 13 (assertion structurelle `action_timing = 'BEFORE'`) ; volet « étendu à `draft` » couvert par le cas 7 (non-régression) |
+| M9 | Acquittement absent laissé passer | **Oui**, round 1 | **TUÉE** | Cas SQL 8 |
+| M10 | `z.number()` réaccepté à côté de `z.string()` | Test statique TypeScript (Zod refuse structurellement un nombre JSON), vérifié vert à chaque exécution de la suite, rounds 1 et 2 | **TUÉE** | `tests/server/api/orders-routes.test.ts` — « refuse un prix de ligne envoyé en nombre JSON » |
+| M11 | `legacy` écrit par un chemin de code | Test statique, **réécrit en round 2 (D4)** pour balayer tout le corpus de migrations, vérifié vert | **TUÉE** | `tests/architecture/orders-price-origin-no-implicit-legacy.test.ts` (157 fichiers de migration balayés, 165 tests au total dans ce fichier) |
+
+## Tests exécutés — chiffres réels (commandes rejouées, pas recopiées)
+
+**Round 2.** Correction de l'arithmétique du round 1 (qui affirmait à tort 4+5+5=14) : l'écart round 1 était de **5+5+5=15** tests ajoutés (5 dans `orders-routes.test.ts`, 5 dans `orders-price-revaluation-zero-clariprint.test.ts`, 5 dans `orders-price-origin-no-implicit-legacy.test.ts`), soit 3173 + 15 = 3188 — exactement le chiffre rapporté, l'erreur portait sur le détail du calcul, pas sur le total.
+
+**Round 3.** Aucun fichier TypeScript n'a changé en round 3 (uniquement la migration SQL, le fichier de cas SQL, et deux descriptions dans `docs/architecture/api/openapi.yaml`) : les chiffres `vitest`/`architecture`/`contract` sont donc **identiques au round 2**, revérifiés pour ne rien affirmer sans l'avoir rejoué.
+
+- `pnpm typecheck` → **0 erreur**.
+- `pnpm exec vitest run` (suite complète) → **3348 tests passés, 88 skippés** (335 fichiers : 323 passés, 12 skippés) — identique au round 2, aucun fichier TS touché en round 3.
+- `pnpm test:architecture` → **458 tests passés** (48 fichiers) — identique au round 2.
+- `pnpm test:contract` → **434 tests passés** (23 fichiers) — identique au round 2.
+- `pnpm gen:api:check` → **aligné**, aucune dérive (je n'ai pas touché `openapi/magrit-core.v1.yaml`).
+- `pnpm test:storefront:sql` → **53 fichiers SQL rejoués, 0 `ERROR`, code de sortie 0**, y compris les 3 nouveaux scénarios round 3 (15bis, 19, 20) dans `storefront-order-price-revaluation.sql` (17 blocs `do $$` au total, 21 scénarios nommés).
+- `supabase migration up --local --include-all` → appliquée proprement depuis zéro (`pnpm run db:local:reset`) après chaque changement de la migration round 3.
+
+**Historique des chiffres, corrigé une dernière fois (C7)** : consigne initiale (avant round 1) — typecheck 0 erreur, 3173 tests passés/88 skippés, 288 tests d'architecture. Round 1 → 3188 tests (+15, corrigé en round 2 : l'arithmétique était fausse mais le total juste). Round 2 → 3348 tests (+160, durcissement D4 : 157 fichiers de migration balayés, 165 tests dans ce seul fichier — les deux nombres, longtemps confondus dans ce document, sont maintenant distingués partout). Round 3 → 3348 tests, inchangé (aucun fichier TS modifié). Les écarts s'expliquent entièrement par les tests ajoutés, aucun test existant n'a changé de statut à travers les trois rounds.
+
+## Ce que ce lot ne fait PAS (rappel du cadrage, point 12 (k))
+
+- Aucun calcul de prix nouveau : le serveur choisit entre des prix déjà écrits par un humain dans l'atelier.
+- Ne solde pas §8.6 p7 (le prix d'une ligne de projet repris du navigateur, côté atelier) — attend `PricingEngine` (E10.21).
+- Aucun appel Clariprint, à aucun moment du cycle de vie couvert.
+- `openapi/magrit-core.v1.yaml` non modifié.
+- Ne corrige pas `canAddAsIs` sur les lignes configurées (Q17-b).
+
+## Porte avant déploiement (rappel, non vérifiable ici)
+
+Le mode d'accès des boutiques actives (`shops.access_mode`) doit être vérifié en production avant l'élargissement du pilote ERAM — lecture de production hors de portée de cet agent, à faire par Arnaud ou l'architecte (même geste que la porte du point 3.7 (f)).
+
+**Round 3, BLOQUANT C1** : `revoke insert, update, delete on public.tenant_order_items from anon, authenticated` et `revoke update on public.tenant_orders from anon, authenticated` doivent être **confirmés contre toute surface d'administration HORS de ce dépôt** (SQL editor Supabase, scripts d'exploitation, outillage support, tout accès direct aux tables depuis l'extérieur du code applicatif) avant mise en production — je n'ai vérifié que `src/` et `supabase/functions/` (grep), aucune écriture ni lecture de production n'étant possible depuis cet agent.
+
+## Durcissements du coordinateur apres approbation (qa-review round 3)
+
+La qa-review approuve le comportement livre et n approuve PAS sa durabilite
+sans H1. Traite par le coordinateur.
+
+**H1 — le revoke de C1 n avait aucune garde en CI. FAIT.** Nouveau test
+`tests/architecture/orders-direct-write-revoked.test.ts`, qui tourne sans base
+et sans Docker, donc en CI (`.github/workflows/architecture.yml` lance
+`test:architecture`, jamais `test:storefront:sql`). Il tient trois proprietes :
+les deux `revoke` sont presents dans la migration Q17-a ; aucune migration
+POSTERIEURE ne redonne ces droits, ni par un grant global sur le schema, ni par
+un grant cible sur les deux tables ; et le grant global historique
+(`20260811000100`) est bien anterieur a Q17-a. Motif : le revoke est une
+exception par table a un grant global, et ce grant global a deja ete rejoue une
+fois dans l histoire du depot (`20260819000100`) — une migration distraite
+rouvrirait C1 en silence.
+**Trois mutations rejouees par le coordinateur, chacune annulee ensuite** :
+(1) une migration posterieure rejouant le grant global -> 2 tests rouges, le
+diagnostic NOMME le fichier fautif ; (2) un grant cible
+`grant update on public.tenant_order_items to authenticated` -> 1 test rouge ;
+(3) le `revoke` retire de la migration Q17-a -> 1 test rouge. Vert sur le code
+sain (3/3). **Limite dite** : c est une lecture de texte, normalisee
+(commentaires retires, espaces ecrases, car le grant du depot s ecrit sur trois
+lignes) ; un grant construit dynamiquement par `execute format(...)` lui
+echapperait. Elle couvre la reecriture distraite du grant global, qui est le
+scenario reel. Le correctif, si ce test rougit un jour, n est PAS d ajouter une
+exception : c est de re-revoquer les deux tables a la fin de la migration
+fautive — c est ecrit dans le test.
+
+**H3 — `service_role` non revoque : EXEMPTION DECLAREE, pas un oubli.**
+`service_role` est l identite du serveur, pas celle d un utilisateur : c est le
+modele de menace de la cle serveur, distinct de C1 (qui portait sur ce qu un
+membre de l atelier peut faire avec sa propre session). Les deux edge functions
+qui touchent `tenant_orders` ne font que `select` (verifie par la qa). Le
+revoquer n ajouterait rien contre C1 et casserait tout futur travail serveur
+legitime. Si la cle serveur fuit, ce revoke ne serait de toute facon pas la
+ligne de defense.
+
+**H4 — story doc, « 20 blocs `do $$` » corrige en 17** (compte reel verifie :
+`grep -ciE '^\s*do \$\$'` = 17).
+
+**H2 — PORTE A ARNAUD ET A L ARCHITECTE, hors de ce lot.** `tenant_orders`
+conserve `DELETE` pour `anon`/`authenticated` : un membre `can_manage_tenant_orders`
+peut SUPPRIMER une commande facturee, lignes comprises par cascade. Ce n est pas
+une falsification de prix et le cadrage ne le couvre pas, mais c est desormais le
+dernier vecteur d ecriture directe sur ces deux tables. Aucun code du depot ne
+supprime une commande (`grep` sur `src/` et `supabase/functions/` : que des
+`select`). A trancher : `revoke delete`, ou decision ecrite que la suppression
+reste un geste legitime.
+
+Gates apres durcissements : voir la section suivante.
+
+**Gates apres les durcissements du coordinateur** (rejouees, chiffres reels) :
+`pnpm typecheck` 0 erreur ; `pnpm test:architecture` **461** (458 + les 3 du
+nouveau garde) ; `pnpm exec vitest run` **3 351 passes / 88 skip, 0 echec**
+(3 348 + 3) ; `pnpm test:contract` **434**, inchange.

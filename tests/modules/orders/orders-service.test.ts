@@ -78,12 +78,12 @@ describe('OrdersService', () => {
       currency: 'EUR', notes: '', idempotencyKey: 'create-af5-2a',
       items: [{
         productId: null, productLabel: 'Flyers', clariprintOptions: null,
-        quantity: 2, unitPriceHt: 75,
+        quantity: 2, expectedUnitPriceHt: '75.00',
       }],
     };
 
     await expect(service.create(command, 'https://magrit.test')).resolves.toMatchObject({
-      totalHt: 150, replayed: false,
+      totalHt: '150.00', replayed: false,
     });
     expect(repository.notifyOrderCreated).toHaveBeenCalledOnce();
   });
@@ -97,10 +97,10 @@ describe('OrdersService', () => {
     await expect(service.updateDraft('22222222-2222-4222-8222-222222222222', {
       items: [{
         id: '44444444-4444-4444-8444-444444444444',
-        productLabel: 'Flyers premium', quantity: 3, unitPriceHt: 60,
+        productLabel: 'Flyers premium', quantity: 3, expectedUnitPriceHt: '60.00',
       }],
       idempotencyKey: 'update-af5-2b',
-    })).resolves.toMatchObject({ totalHt: 180, replayed: false });
+    })).resolves.toMatchObject({ totalHt: '180.00', replayed: false });
   });
 
   it('expose les capacités Orders calculées par le serveur', async () => {
@@ -144,22 +144,23 @@ function repositoryStub(): OrdersRepository & Record<'listLegacyOrders', ReturnT
       orderId: '22222222-2222-4222-8222-222222222222',
       tenantId: '33333333-3333-4333-8333-333333333333',
       shopId: command.shopId,
-      totalHt: command.items.reduce((sum, item) => sum + item.quantity * item.unitPriceHt, 0),
+      totalHt: command.items.reduce((sum, item) => sum + item.quantity * Number(item.expectedUnitPriceHt), 0).toFixed(2),
       currency: command.currency,
       replayed: false,
     })),
     notifyOrderCreated: vi.fn(async () => undefined),
     getDraftOrder: vi.fn(async (orderId) => ({
-      orderId, status: 'draft', createdAt: '2026-08-11T12:00:00.000Z', totalHt: 150,
+      orderId, status: 'draft', createdAt: '2026-08-11T12:00:00.000Z', totalHt: '150.00',
+      hasUnverifiedPrices: false,
       items: [{
         id: '44444444-4444-4444-8444-444444444444', productId: null,
         productLabel: 'Flyers', clariprintOptions: null, quantity: 2,
-        unitPriceHt: 75, lineTotalHt: 150,
+        unitPriceHt: '75.00', lineTotalHt: '150.00', priceOrigin: 'client_unverified',
       }],
     })),
     updateDraftOrder: vi.fn(async (orderId, command) => ({
       orderId,
-      totalHt: command.items.reduce((sum, item) => sum + item.quantity * item.unitPriceHt, 0),
+      totalHt: command.items.reduce((sum, item) => sum + item.quantity * Number(item.expectedUnitPriceHt), 0).toFixed(2),
       replayed: false,
     })),
     getOrderRoles: vi.fn(async () => orderRolesFixture()),

@@ -66,7 +66,11 @@ export function PortalThankYou({ orderId, taxRate, userEmail, onBackToCatalog, o
   }, []);
 
   const shortId = formatShortOrderId(orderId);
-  const totalTtc = order?.totalHt ? applyTax(order.totalHt, taxRate) : 0;
+  // Q17-a (docs/api/CONVENTIONS.md §8.25 point 12 (f)) — `order.totalHt` est
+  // un `Money` (chaîne décimale) depuis ce lot ; converti ici pour `applyTax`,
+  // qui reste une fonction numérique inchangée.
+  const totalHt = order?.totalHt ? Number(order.totalHt) : 0;
+  const totalTtc = totalHt ? applyTax(totalHt, taxRate) : 0;
 
   return (
     <div
@@ -143,7 +147,7 @@ export function PortalThankYou({ orderId, taxRate, userEmail, onBackToCatalog, o
                     </span>
                   </span>
                   <span className="text-ink-2 font-mono" style={{ fontSize: "13px", fontVariantNumeric: "tabular-nums" }}>
-                    {formatEuro(item.lineTotalHt)} HT
+                    {formatEuro(Number(item.lineTotalHt))} HT
                   </span>
                 </div>
               ))}
