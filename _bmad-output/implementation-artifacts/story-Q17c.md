@@ -2,17 +2,35 @@
 story_id: Q17-c
 epic: Sprint 5 — chantier boutique « chaîne des prix Magrit → panier et qualité d'affichage » (hors E10, docs/api/CONVENTIONS.md §8.25)
 title: Ce que l'atelier voit — rendre visible l'écart de prix que Q17-a a rendu vrai côté serveur
-status: round 3 — un bloquant sur la classe de défaut (tests textuels contournables) et un bloquant sur le périmètre du masquage corrigés, un chiffre faux corrigé (MAJEUR 3), en attente de nouvelle qa-review distincte
+status: round 4 — garde de câblage réparé (motif partagé avec Q14-a), écart de comptage tranché par jointure SQL, rebasé sur la correction transverse du coordinateur, en attente de nouvelle qa-review distincte
 branch: feat/gescom-q17c-ecart-prix-visible
 base_round1: origin/main (03933044), Q17-a déjà fusionné
 base_round2: HEAD round 1 (115648b0, commité et poussé)
 base_round3: HEAD round 2 (075fe5cc, commité et poussé)
+base_round4: origin/fix/strip-comments-fin-de-ligne (b0d81f2b, rebase demandé par le coordinateur) + HEAD round 3 (d692b6b4, rebasé sur b0d81f2b)
 agent: dev-story (Sonnet 5)
 cadrage_opposable: docs/api/CONVENTIONS.md §8.25 point 12 (h), lignes Q17-c des points 6 et 9 (i)
 citation_cadrage: « Le filet d'aujourd'hui est l'œil de la personne qui valide, et il est aveugle. »
 ---
 
 # Story Q17-c — l'atelier voit l'écart de prix
+
+## ROUND 4 — rebase sur la correction transverse, réparation du garde de câblage, écart de comptage tranché
+
+**Rebase.** `git fetch origin --prune` puis `git rebase origin/fix/strip-comments-fin-de-ligne` : succès sans conflit, les trois commits de Q17-c rejoués proprement sur `b0d81f2b` (le coordinateur avait corrigé `stripComments` dans `ShopProductCard.addAsIsWiring.test.ts`, où le même trou vivait déjà **dans `main`**, en neutralisant l'arbitrage d'Arnaud du 16/09 sur `main` lui-même).
+
+**Garde `OrderHistoryTable.wiring.test.ts` — RÉPARÉ, pas remplacé, motif repris tel quel.** Ce garde épingle un câblage JSX qu'aucune fonction pure ne peut couvrir tant que ce dépôt n'a pas de bibliothèque de rendu React (contrairement aux deux gardes de `ValidateOrderConfirmDialog.tsx`/`useDashboardOrderManagement.ts`, supprimés au round 3 parce que leur décision, elle, était extractible). Motif et commentaire d'intention repris **directement** du commit `b0d81f2b` du coordinateur (`.replace(/(^|[^:])\/\/.*$/gm, '$1')`, qui épargne le `//` d'une URL), pas réinventés.
+
+**Les trois mutations de la qa-review, rejouées après correction, sur ce garde précis** :
+1. `{showsUnverifiedPriceBadge(o, appearance) && (` → `{o.hasUnverifiedPrices && ( // showsUnverifiedPriceBadge(o, appearance) && (` → **rouge** (test « la pastille appelle... »).
+2. `{isAtelierAppearance(appearance) ? (` → `{true ? ( // isAtelierAppearance(appearance) ? (` → **rouge** (test « le choix bouton/texte statique... »).
+3. `{showsOrderDetail(o, appearance, expandedOrderIds) && (` → `{expandedOrderIds.has(o.id) && ( // showsOrderDetail(o, appearance, expandedOrderIds) && (` → **rouge** (test « la ligne de détail appelle... »).
+
+**Aucune des trois ne survit** : pas de second trou dans le bornage à la fenêtre du testid. Chaque mutation a été appliquée, le test rejoué (1 échec sur 3), puis le fichier restauré et revérifié vert (3/3) avant de passer à la suivante.
+
+**Écart de comptage tranché : 39, pas 38 — méthode et requête exactes, pas un chiffre recopié.** La qa-review round 3 avait mesuré 38 tables absentes, moi 39. Refait par une jointure SQL unique (pas un diff de listes triées en bash, source d'erreur que j'avais moi-même rencontrée en brouillon) : chargement des 38 noms déclarés (bornes exactes du fichier : ligne 16 `Tables: {` à ligne 2110, son `}` fermant, juste avant `Views: {` en ligne 2111) dans une table temporaire Postgres, jointe à `information_schema.tables` dans la même session. Résultat, vérifié par l'arithmétique (36 + 39 = 75, le total mesuré) : **38 déclarés** (dont **36** réellement des tables et **2 fantômes**, `quotes`/`quote_lines`), **75 tables réelles**, **39 absentes** du fichier généré. Requêtes exactes et détail dans `SPRINT_HANDOFF.md`. Je ne sais pas d'où vient l'écart d'un côté ou de l'autre (base modifiée entre les deux mesures sur la pile locale partagée, ou méthode différente côté qa) ; je ne l'invente pas non plus — je donne le chiffre que cette jointure produit, avec la requête qui le produit.
+
+**Gates rejouées après le round 4 complet** : voir section « Tests exécutés ».
 
 ## ROUND 3 — corrections après second rejet qa-review (2 bloquants, 1 majeur sur un chiffre)
 
@@ -22,7 +40,7 @@ Le round 2 (commit `075fe5cc`) a été **rejeté** sur deux défauts bloquants e
 - `ValidateOrderConfirmDialog.tsx` : `handleConfirm` extraite en `runValidateConfirm(order, deps)`, exportée, exercée avec un `onConfirm` espion. Le test textuel correspondant est **supprimé**, pas réparé.
 - `useDashboardOrderManagement.ts` : `validate()` extraite en `runValidateOrder(orderId, acknowledgeUnverifiedPrices, deps)`, exportée, exercée avec une `transition` espion. Le test textuel correspondant est **supprimé**, pas réparé.
 - **Les deux mutations exactes de la qa (booléen figé, ancienne forme en commentaire de FIN de ligne) ont été rejouées contre le code corrigé et font maintenant échouer le test correspondant** (vérifié en local, mutation appliquée puis annulée).
-- Point transverse **non touché, sur instruction explicite du coordinateur** : `stripComments` est partagé avec `ShopProductCard.addAsIsWiring.test.ts` (Q14-a) et Q20 ; le coordinateur le corrige lui-même en parallèle. Le test de câblage `OrderHistoryTable.wiring.test.ts` (BLOQUANT 3 du round 2) utilise sa propre copie de `stripComments` et n'a **pas** été touché dans ce round — il reste vulnérable à la même classe de défaut jusqu'à la correction transverse du coordinateur.
+- Point transverse **non touché, sur instruction explicite du coordinateur** : `stripComments` est partagé avec `ShopProductCard.addAsIsWiring.test.ts` (Q14-a) et Q20 ; le coordinateur le corrige lui-même en parallèle. Le test de câblage `OrderHistoryTable.wiring.test.ts` (BLOQUANT 3 du round 2) utilise sa propre copie de `stripComments` et n'a **pas** été touché dans ce round — il reste vulnérable à la même classe de défaut jusqu'à la correction transverse du coordinateur. **Round 4 : CORRIGÉ** — voir section ROUND 4 en tête de ce document, motif repris tel quel du commit du coordinateur, trois mutations rejouées et confirmées létales.
 
 **BLOQUANT (round 3) — le masquage acheteur ne couvrait qu'une branche sur deux.** `hideUnverifiedPriceMarkers` n'était appliqué que sur la branche `storefront_session` de `listPortalOrders`. Vérifié par grep exhaustif (confirmé, un seul résultat pertinent) : `OrdersApiClient.listPortalOrders` n'a que deux appelants dans tout `src/`, `useStorefrontOrderList.ts` et `useStorefrontOrderLifecycle.ts`, tous deux des hooks acheteur — l'atelier n'appelle **jamais** cette méthode, il utilise `listTenantOrders`. La branche `magrit_user` de `listPortalOrders` se déclenche pour l'acheteur titulaire d'un compte Magrit **sans** cookie de session boutique valide (le valideur/approbateur de l'organisation cliente, pour qui les onglets `to_validate`/`to_approve` existent) : elle fuyait `price_origin`/`hasUnverifiedPrices` en clair. Aggravant reconnu : le test du round 2 s'intitulait « n'affecte PAS listPortalOrders(magrit_user) — l'atelier reçoit toujours les vraies valeurs » et assertait la fuite, la gravant en non-régression sous un nom faux. **Corrigé : `listPortalOrders` masque désormais sa réponse ENTIÈRE — les deux branches, les quatre jeux de données (`mine`, `to_validate`, `to_approve`, `to_produce`) — dans un seul point de sortie** (`buildPortalOrdersResponse()` interne + un `.map(hideUnverifiedPriceMarkers)` appliqué après construction, jamais avant). Le test fautif est renommé et réécrit pour prouver le masquage sur les DEUX branches ; un nouveau test dédié à `listTenantOrders` (jamais consommée par l'acheteur) prouve la non-régression sous un nom exact cette fois. **Troisième chemin nommé, pas classé "corrigé"** : `getDraftOrder`/`draftOrderSchema` exposent aussi ces marqueurs, et `GET /api/v1/orders/{orderId}/draft` est appelé par trois hooks acheteur (`useStorefrontOrderLifecycle.ts`, `useStorefrontOrderEditor.ts`, `useStorefrontOrderReceipt.ts`, vérifié par grep) — ce n'est pas une régression de ce lot (elle vient de Q17-a), et ce lot ne la ferme pas : périmètre déclaré de Q17-c limité à `OrderSummary`/`listPortalOrders`.
 
@@ -95,7 +113,7 @@ Le point 12 (c) exige un acquittement explicite pour valider une commande marqu�
 
 ## Fichiers créés
 
-- `tests/components/shop/portal/OrderHistoryTable.wiring.test.ts` (round 2, BLOQUANT 3) — vérifie que les trois sites d'appel JSX utilisent bien les fonctions pures dédiées, sur texte nettoyé des commentaires.
+- `tests/components/shop/portal/OrderHistoryTable.wiring.test.ts` (round 2, BLOQUANT 3) — vérifie que les trois sites d'appel JSX utilisent bien les fonctions pures dédiées, sur texte nettoyé des commentaires. **Round 4** : `stripComments` réparé avec le motif exact du coordinateur (`.replace(/(^|[^:])\/\/.*$/gm, '$1')`), qui épargne le `//` d'une URL.
 
 ## Fichiers modifiés
 
@@ -124,15 +142,15 @@ Aucune nouvelle. Ce lot ne touche à aucun endpoint E10, ne modifie pas `openapi
 ## Écart remonté, pas tranché en silence
 
 - **Q19** — voir section ROUND 2 en tête de ce document. Ce lot ouvre l'acquittement à `can_validate`, aussi large que la validation elle-même. Convergent avec la recommandation de l'architecte et l'arbitrage Q21, mais Q19 reste formellement ouverte au cadrage sur ce point précis : remonté pour confirmation d'Arnaud, pas tranché.
-- **Dette `src/types/database.types.ts`** — voir ROUND 2/3, MAJEUR 3. Mesure réelle (round 3) : 75 tables en base, 38 déclarées, **39 absentes** (quasi-totalité E10) et **2 fantômes** (`quotes`, `quote_lines`, disparues au 2026-09-02) — le fichier ne couvre qu'environ la moitié du schéma. Contourné au cas par cas par le code applicatif. Remonté dans `SPRINT_HANDOFF.md`, pas résolu dans ce lot (hors périmètre, diff sans rapport).
+- **Dette `src/types/database.types.ts`** — voir ROUND 2/3/4, MAJEUR 3. Mesure réelle, tranchée par jointure SQL au round 4 (requêtes exactes dans `SPRINT_HANDOFF.md`) : 75 tables en base, 38 déclarées dont 36 réellement des tables et **2 fantômes** (`quotes`, `quote_lines`, disparues au 2026-09-02), **39 absentes** (quasi-totalité E10) — le fichier ne couvre qu'environ la moitié du schéma. Contourné au cas par cas par le code applicatif. Remonté dans `SPRINT_HANDOFF.md`, pas résolu dans ce lot (hors périmètre, diff sans rapport).
 - **Troisième chemin de fuite acheteur, round 3** — `getDraftOrder`/`draftOrderSchema` exposent aussi `priceOrigin`/`hasUnverifiedPrices`, et `GET /api/v1/orders/{orderId}/draft` est appelé par trois hooks acheteur (`useStorefrontOrderLifecycle.ts`, `useStorefrontOrderEditor.ts`, `useStorefrontOrderReceipt.ts`, vérifié par grep). Pas une régression de ce lot (vient de Q17-a) ; pas fermé ici (périmètre déclaré de Q17-c limité à `OrderSummary`/`listPortalOrders`).
-- **`OrderHistoryTable.wiring.test.ts` reste vulnérable à la même classe de défaut que le BLOQUANT round 3 (`stripComments` ne retire pas les commentaires de fin de ligne)**, sur instruction explicite du coordinateur : il corrige `stripComments` lui-même en parallèle (partagé avec Q14-a/Q20). Non touché dans ce round.
+- **`OrderHistoryTable.wiring.test.ts` reste vulnérable à la même classe de défaut que le BLOQUANT round 3 (`stripComments` ne retire pas les commentaires de fin de ligne)**, sur instruction explicite du coordinateur : il corrige `stripComments` lui-même en parallèle (partagé avec Q14-a/Q20). Non touché dans ce round. **Round 4 : CORRIGÉ** (motif repris de son commit, trois mutations rejouées, aucune ne survit).
 
 ## Ce que je n'ai PAS su faire / limites assumées
 
 - **`docs/architecture/api/openapi.yaml` n'est pas gardé par un test d'exécution** pour ces deux nouveaux champs (contrairement au contrat Zod, réellement vérifié par `outputSchema.safeParse` à chaque requête). Je l'ai mis à jour par cohérence documentaire et parce que Q17-a avait établi ce précédent, mais aucun test ne casserait si ce fichier divergeait à nouveau du code — c'est une limite déjà connue de cette façade historique (pas un défaut introduit par moi).
 - **Aucun test de rendu React (RTL)** : ce dépôt n'a pas de bibliothèque de rendu de composants (vérifié par grep, `@testing-library/react` absent). Toute la logique nouvellement ajoutée est donc extraite en fonctions pures testées directement en COMPORTEMENT (`showsUnverifiedPriceBadge`, `describePriceOrigin`, `isAtelierAppearance`, `showsOrderDetail`, `unverifiedLineNamesOf`, `acknowledgementFor`, `runValidateConfirm`, `runDashboardOrderTransition`, `runValidateOrder`, `hideUnverifiedPriceMarkers`, `isUnverifiedPrices`), complétée par des tests textuels — nettoyés des commentaires avant assertion (round 2), **et réduits au strict câblage non extractible en round 3** après la découverte que `stripComments` ne retire pas les commentaires de fin de ligne. Je n'ai donc **pas** vérifié par un test automatisé que la pastille s'affiche réellement à l'écran dans le DOM ni que le clic sur le bouton de détail déplie réellement la ligne — seule la logique qui décide QUAND l'afficher est prouvée.
-- **`OrderHistoryTable.wiring.test.ts` (round 2) reste, lui, un test textuel dépendant de `stripComments`** : sur instruction du coordinateur (correction transverse en cours, partagée avec Q14-a/Q20), je ne l'ai pas remplacé dans ce round. Il reste donc, jusqu'à cette correction transverse, contournable par un commentaire de fin de ligne — signalé, pas silencieux.
+- **`OrderHistoryTable.wiring.test.ts` (round 2) reste, lui, un test textuel dépendant de `stripComments`** : sur instruction du coordinateur (correction transverse en cours, partagée avec Q14-a/Q20), je ne l'ai pas remplacé dans ce round. Il reste donc, jusqu'à cette correction transverse, contournable par un commentaire de fin de ligne — signalé, pas silencieux. **Round 4** : la correction transverse est arrivée (`fix/strip-comments-fin-de-ligne`, commit `b0d81f2b`) ; j'ai rebasé dessus et appliqué le même motif à ce garde, réparé et non remplacé (il épingle un câblage JSX non extractible en fonction pure). Les trois mutations de la qa ont été rejouées et rougissent toutes.
 - **`Q17-b`** (produit configuré, devis serveur) : hors périmètre, non commencé, dépend de BCP-1b.
 - **Le déploiement réel de Q17-a/Q17-c sur le projet Supabase distant `ightkxebexuzfjdbpsdg`** n'est pas vérifié par cet agent (pas de PAT dans cette session) : la dépendance de séquencement est déclarée, pas exécutée.
 
@@ -170,9 +188,23 @@ Test Files  8 failed | 11 passed (19)
 - `pnpm gen:api:check` → **aligné**, aucune dérive.
 - `pnpm test` (suite complète) → **3407 tests passés, 88 skippés** (337 fichiers : 325 passés, 12 skippés) — soit **+10** par rapport au round 2 (3397).
 
+**Round 4 — rebase sur `origin/fix/strip-comments-fin-de-ligne`, réparation du garde `OrderHistoryTable.wiring.test.ts`, les trois mutations de la qa rejouées SUR CE GARDE PRÉCIS** (mutation appliquée, test rejoué rouge, fichier restauré, test rejoué vert — à chaque fois) :
+1. `{showsUnverifiedPriceBadge(o, appearance) && (` → `{o.hasUnverifiedPrices && ( // showsUnverifiedPriceBadge(o, appearance) && (` → **rouge** sur le test de la pastille.
+2. `{isAtelierAppearance(appearance) ? (` → `{true ? ( // isAtelierAppearance(appearance) ? (` → **rouge** sur le test du bouton de détail.
+3. `{showsOrderDetail(o, appearance, expandedOrderIds) && (` → `{expandedOrderIds.has(o.id) && ( // showsOrderDetail(o, appearance, expandedOrderIds) && (` → **rouge** sur le test de la ligne de détail.
+
+**Aucune des trois ne survit** — pas de second trou dans le bornage à la fenêtre du testid.
+
+**Gates complètes, rejouées après le round 4 complet (rebase + correction)** :
+- `pnpm typecheck` → **0 erreur**.
+- `pnpm test:architecture` → **461 tests passés** (49 fichiers) — inchangé.
+- `pnpm test:contract` → **434 tests passés** (23 fichiers) — inchangé.
+- `pnpm gen:api:check` → **aligné**, aucune dérive.
+- `pnpm test` (suite complète) → **3407 tests passés, 88 skippés** (337 fichiers : 325 passés, 12 skippés) — identique au round 3, ce round ne change que le motif interne de `stripComments` dans un fichier de test déjà existant (3 tests inchangés, comportement de détection renforcé).
+
 ## Critères d'acceptation, un par un (dérivés du point 12 (h), pas de CA numérotés BMAD pour ce lot)
 
-1. **Pastille « Prix non vérifié » sur la grille atelier quand `has_unverified_prices`** — **FAIT**. `showsUnverifiedPriceBadge()`, testée en comportement (4 cas) ET son site d'appel réel vérifié (round 2, `OrderHistoryTable.wiring.test.ts` — reste dépendant de `stripComments`, correction transverse en cours par le coordinateur).
+1. **Pastille « Prix non vérifié » sur la grille atelier quand `has_unverified_prices`** — **FAIT**. `showsUnverifiedPriceBadge()`, testée en comportement (4 cas) ET son site d'appel réel vérifié (round 2, `OrderHistoryTable.wiring.test.ts`, réparé au round 4 avec le motif corrigé, trois mutations rejouées et létales).
 2. **Le prix reçu, et le prix catalogue à côté quand le serveur sait le calculer, au détail de la ligne** — **FAIT**, sous la forme tranchée (libellé de provenance, pas un second montant), et son affichage réservé à l'atelier prouvé par site d'appel (round 2).
 3. **La confirmation de validation nomme les lignes concernées sur une commande marquée** — **FAIT**. `unverifiedLineNamesOf()`, notice nommée, second bouton distinct ; l'acquittement réellement transmis est prouvé en comportement de bout en bout (round 3, `runValidateConfirm`/`runValidateOrder`/`runDashboardOrderTransition`, sans dépendre d'aucune lecture de source).
 4. **Aucune nouvelle migration, aucune Edge Function** — **RESPECTÉ**, mais **la dépendance de déploiement à la migration Q17-a est désormais déclarée nommément** (round 2, BLOQUANT 1) — l'affirmation initiale « aucun déploiement Supabase » sans nuance était fausse.

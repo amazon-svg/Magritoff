@@ -28,7 +28,19 @@ const stripComments = (src: string): string =>
   src
     .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
     .replace(/^\s*\/\*[\s\S]*?\*\//gm, '')
-    .replace(/^\s*\/\/.*$/gm, '');
+    // Le `//` n est PLUS ancre en debut de ligne. Il l etait, et c etait un
+    // trou beant : un commentaire de FIN DE LIGNE survivait au nettoyage, si
+    // bien qu il suffisait d ecrire
+    //     {o.hasUnverifiedPrices && ( // showsUnverifiedPriceBadge(o, appearance) && (
+    // pour neutraliser la garde et laisser fuir la pastille/le detail cote
+    // acheteur, en laissant ce garde VERT. Mutation rejouee par le
+    // coordinateur avant correction (qa-review de Q17-c, round 3).
+    //
+    // `(^|[^:])` epargne le `//` d une URL (`https://`), seul faux positif
+    // realiste. Motif repris de `tests/architecture/order-status-single-source.test.ts`,
+    // qui l avait deja juste : la bonne version existait dans le depot, ce
+    // fichier en avait ecrit une plus faible.
+    .replace(/(^|[^:])\/\/.*$/gm, '$1');
 
 const source = stripComments(readFileSync(
   resolve(process.cwd(), 'src/modules/orders/ui/storefront/OrderHistoryTable.tsx'),

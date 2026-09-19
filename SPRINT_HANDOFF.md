@@ -1344,7 +1344,29 @@ Claude doit alors :
 
 **Verifie, pas suppose** : la migration Q17-a est appliquee sur la pile Supabase locale partagee (`supabase_db_magritoff-v5`) — confirme par requete directe (`information_schema.columns`) le 2026-09-19. `src/types/database.types.ts` a ete corrige en consequence (ajout cible de `has_unverified_prices` sur `tenant_orders` et `price_origin` sur `tenant_order_items`, sans regeneration complete du fichier — voir constat ci-dessous). **Non verifie ici** : l'etat du projet Supabase distant `ightkxebexuzfjdbpsdg` (B4/B5) — a confirmer avant tout `supabase db push --linked`/deploiement de ces deux branches.
 
-**Constat trouve en corrigeant ce point, hors perimetre de Q17-c, a traiter separement — CHIFFRE CORRIGE au round 3 (qa-review) apres mesure directe, le "~95 tables" du round 2 etait faux d'un facteur 2,5 : la mesure precedente comptait aussi les entrees `Functions`/`Views`/`Enums` du meme fichier, pas seulement les tables.** Mesure reelle sur la pile locale (`select count(*) from information_schema.tables where table_schema='public' and table_type='BASE TABLE'` ; comptage scope aux seules entrees de la section `Tables` de `database.types.ts`) : **75 tables existent en base, 38 sont declarees dans `database.types.ts`, 39 en sont absentes** (la quasi-totalite relevant du module E10 gestion commerciale : `commercial_orders`, `commercial_quotes`, `price_rules`, `client_price_rules`, `production_steps`, `notification_logs`, `outbox_events`, `customers`, `project_items`, etc.), **et 2 tables y sont declarees alors qu'elles n'existent plus** : `quotes` et `quote_lines`, disparues a l'unification des devis du 2026-09-02 (cf. note memoire `project_devis_unification_2026-09-02`) — un chiffre faux se recopie, celui-la ne l'est plus. Le fichier ne couvre donc qu'**environ la moitie** du schema reel. Une regeneration complete (`pnpm db:types`, PAT requis, ou `supabase gen types typescript --local`) apporterait un diff enorme et sans rapport avec ce lot : **remonte ici comme dette a traiter par un lot dedie**, pas resolue en silence par Q17-c.
+**Constat trouve en corrigeant ce point, hors perimetre de Q17-c, a traiter separement — CHIFFRE CORRIGE au round 3 (qa-review) apres mesure directe, le "~95 tables" du round 2 etait faux d'un facteur 2,5 : la mesure precedente comptait aussi les entrees `Functions`/`Views`/`Enums` du meme fichier, pas seulement les tables.** **Ecart de comptage tranche au round 4** (39 chez moi, 38 chez la qa-review au round 3) : mesure refaite via une jointure SQL unique, dans la MEME session, sur la pile locale (`supabase_db_magritoff-v5`), methode et requetes ci-dessous.
+
+Methode : la liste des **38** noms de table declares dans `database.types.ts` a ete extraite du fichier (`sed -n '16,2110p' src/types/database.types.ts` — bornes exactes : ligne 16 `Tables: {`, ligne 2110 son `}` fermant, juste avant `Views: {` a la ligne 2111 ; motif `grep -nP '^      \w+: \{'`, 38 lignes), chargee dans une table temporaire Postgres, puis jointe a `information_schema.tables` :
+
+```sql
+create temporary table declared_tables (name text);
+\copy declared_tables from '/tmp/declared_tables.txt'
+select count(*) from declared_tables;                                    -- 38
+select count(*) from declared_tables d
+  join information_schema.tables t on t.table_schema='public'
+    and t.table_type='BASE TABLE' and t.table_name = d.name;             -- 36 (declares ET reels)
+select d.name from declared_tables d
+  left join information_schema.tables t on t.table_schema='public'
+    and t.table_type='BASE TABLE' and t.table_name = d.name
+  where t.table_name is null;                                            -- quote_lines, quotes (2 fantomes)
+select count(*) from information_schema.tables
+  where table_schema='public' and table_type='BASE TABLE';               -- 75 (total reel)
+select count(*) from information_schema.tables t
+  where t.table_schema='public' and t.table_type='BASE TABLE'
+  and not exists (select 1 from declared_tables d where d.name = t.table_name); -- 39 (absentes)
+```
+
+**Resultat, verifie par l'arithmetique** (36 declares-et-reels + 39 absentes = 75, le total mesure) : **75 tables reelles, 38 declarees dont 36 reellement existantes et 2 fantomes** (`quotes`, `quote_lines`, disparues a l'unification des devis du 2026-09-02, cf. note memoire `project_devis_unification_2026-09-02`), **et 39 tables reelles absentes du fichier genere** (la quasi-totalite relevant du module E10 gestion commerciale : `commercial_orders`, `commercial_quotes`, `price_rules`, `client_price_rules`, `production_steps`, `notification_logs`, `outbox_events`, `customers`, `project_items`, etc.). Le fichier ne couvre donc qu'**environ la moitie** du schema reel. Une regeneration complete (`pnpm db:types`, PAT requis, ou `supabase gen types typescript --local`) apporterait un diff enorme et sans rapport avec ce lot : **remonte ici comme dette a traiter par un lot dedie**, pas resolue en silence par Q17-c.
 
 ### BCP-11 — la regle du paquet ramenee a un domicile unique (2026-09-16, FUSIONNE)
 
