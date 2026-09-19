@@ -82,13 +82,20 @@ begin
   -- Un `gen_random_uuid()` viole la FK des qu aucune ligne `product_library`
   -- ne porte cet id par hasard (artefact de fixture, sans lien avec le
   -- trigger PIM verifie par ce fichier).
+  -- Q17-a (docs/api/CONVENTIONS.md §8.25 point 12 (c)) a ajoute
+  -- `price_origin`, NOT NULL et SANS defaut de colonne (echec ferme : un
+  -- chemin de code qui l omettrait doit lever, pas silencieusement passer
+  -- pour une ligne verifiee). Ce fixture est un INSERT direct hors RPC,
+  -- sans produit catalogue (product_id null) : `client_unverified` est la
+  -- valeur exacte que `private.classify_storefront_order_line` aurait
+  -- rendue pour cette ligne.
   insert into public.tenant_order_items (
     order_id, product_id, product_label, clariprint_options,
-    quantity, unit_price_ht, line_total_ht
+    quantity, unit_price_ht, line_total_ht, price_origin
   ) values (
     v_order, null, 'Flyer A5 test PIM',
     '{"kind": "flyer", "gamme_slug": "flyers"}'::jsonb,
-    100, 0.50, 50.00
+    100, 0.50, 50.00, 'client_unverified'
   );
 
   select count(*) into v_candidate_count_tenant_item
