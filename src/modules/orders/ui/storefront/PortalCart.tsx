@@ -7,6 +7,7 @@ import { ProductMockup } from '@/modules/mockups/ui/components';
 import { TEST_IDS } from '@/shared/presentation/testIds';
 import { applyTax, extractTaxAmount, formatTaxLabel } from '@/modules/orders/ui/helpers/tax';
 import { resolveCartLinePricing } from '@/modules/orders/ui/storefront/cartPricing';
+import { renewalBannerSections } from '@/modules/orders/ui/storefront/orderRenewal.helpers';
 
 interface Props {
   cart: CartLine[];
@@ -44,6 +45,14 @@ interface Props {
    * ou automatiquement apres un submit reussi.
    */
   renewalWarnings?: string[] | undefined;
+  /**
+   * Q14-a round 2 (docs/api/CONVENTIONS.md §8.25 point 3.7 (c-bis)) — noms
+   * des produits AJOUTES au panier par le dernier renouvellement, dont le
+   * prix re-resolu n'est pas ferme. Rendu dans une SECONDE section du meme
+   * bandeau, jamais fusionne avec `renewalWarnings` (defaut D1 : le titre de
+   * ce dernier dit "non ajoute", ce qui serait faux pour ces produits-la).
+   */
+  renewalPriceNotFirm?: string[] | undefined;
   onDismissRenewalWarnings?: (() => void) | undefined;
 }
 
@@ -64,8 +73,13 @@ export function PortalCart({
   canCreateOrder = true,
   createOrderBlockedMessage = 'Permission insuffisante pour créer une commande. Contactez votre administrateur.',
   renewalWarnings = [],
+  renewalPriceNotFirm = [],
   onDismissRenewalWarnings,
 }: Props) {
+  // Q14-a round 2, point 3.7 (c-bis) — fonction pure : ce composant ne
+  // compose AUCUN texte, il ne fait que parcourir les sections rendues ici.
+  const renewalSections = renewalBannerSections(renewalWarnings, renewalPriceNotFirm);
+
   // Resolution unifiee du prix par ligne via priceResolver (decision Arnaud
   // 2026-05-09 fix prix marche). Une ligne en "prix marche" devient
   // hasMarketPriceLine=true → on affiche un badge global "Prix marche" en
@@ -110,8 +124,13 @@ export function PortalCart({
           </h3>
         )}
 
-        {/* S3.3 : banner warnings du dernier renouvellement (dismissable) */}
-        {renewalWarnings.length > 0 && (
+        {/* S3.3 + Q14-a round 2 (point 3.7 (c-bis)) : banner warnings du
+            dernier renouvellement (dismissable), DEUX sections separees —
+            "non ajoute" (defaut D1 : sens d'origine, inchange) et "prix non
+            ferme" (nouvelle). Ce composant ne compose aucun texte : il
+            parcourt `renewalSections`, deja calcule par la fonction pure
+            `renewalBannerSections`. */}
+        {renewalSections.length > 0 && (
           <div
             data-testid={TEST_IDS.shop.cartRenewalWarningsBanner}
             role="status"
@@ -119,15 +138,29 @@ export function PortalCart({
             style={{ fontSize: '12.5px', lineHeight: 1.45 }}
           >
             <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" strokeWidth={1.8} aria-hidden="true" />
-            <div className="flex-1">
-              <p className="m-0 font-medium mb-1">
-                {renewalWarnings.length} produit{renewalWarnings.length > 1 ? 's' : ''} indisponible{renewalWarnings.length > 1 ? 's' : ''} (non ajouté{renewalWarnings.length > 1 ? 's' : ''} au panier)
-              </p>
-              <ul className="m-0 pl-4 list-disc" style={{ fontSize: '11.5px' }}>
-                {renewalWarnings.map((w, i) => (
-                  <li key={i}>{w}</li>
-                ))}
-              </ul>
+            <div className="flex-1 flex flex-col gap-2.5">
+              {renewalSections.map((section) => (
+                <div
+                  key={section.kind}
+                  data-testid={
+                    section.kind === 'not-added'
+                      ? TEST_IDS.shop.cartRenewalNotAddedSection
+                      : TEST_IDS.shop.cartRenewalPriceNotFirmSection
+                  }
+                >
+                  <p className="m-0 font-medium mb-1">{section.title}</p>
+                  {section.detail && (
+                    <p className="m-0 mb-1" style={{ fontSize: '11.5px' }}>
+                      {section.detail}
+                    </p>
+                  )}
+                  <ul className="m-0 pl-4 list-disc" style={{ fontSize: '11.5px' }}>
+                    {section.items.map((item, i) => (
+                      <li key={i}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
             </div>
             {onDismissRenewalWarnings && (
               <button

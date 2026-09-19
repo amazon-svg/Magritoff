@@ -5,6 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   rebuildCartFromOrderItems,
+  renewalBannerSections,
   type OrderItemRow,
 } from '@/modules/orders/ui/storefront/orderRenewal.helpers';
 import { resolveCartLinePricing } from '@/modules/orders/ui/storefront/cartPricing';
@@ -192,5 +193,71 @@ describe('rebuildCartFromOrderItems', () => {
     expect(r.lines).toHaveLength(1);
     expect(r.lines[0].qty).toBe(500);
     expect(resolveCartLinePricing(r.lines[0]).lineTotalHt).toBe(35 * 500);
+  });
+});
+
+/**
+ * Q14-a round 2, défaut D1 (docs/api/CONVENTIONS.md §8.25 point 3.7 (c-bis)) —
+ * deux sections jamais confondues sous un seul titre.
+ */
+describe('renewalBannerSections — point 3.7 (c-bis)', () => {
+  it('aucune liste non vide -> aucune section', () => {
+    expect(renewalBannerSections([], [])).toEqual([]);
+  });
+
+  it('scenario exact de la qa-review : 1 retire + 2 prix non fermes -> deux sections, dans cet ordre, titres accordes', () => {
+    const sections = renewalBannerSections(
+      ['Produit indisponible : Flyer A5 (retiré du catalogue)'],
+      ['Cartes de visite', 'Kakemono'],
+    );
+    expect(sections).toHaveLength(2);
+    expect(sections[0]).toEqual({
+      kind: 'not-added',
+      title: '1 produit indisponible (non ajouté au panier)',
+      items: ['Produit indisponible : Flyer A5 (retiré du catalogue)'],
+    });
+    expect(sections[1]).toEqual({
+      kind: 'price-not-firm',
+      title: '2 produits ajoutés au panier avec un prix non définitif',
+      detail: "Le prix définitif est confirmé par l'imprimeur à la validation de la commande.",
+      items: ['Cartes de visite', 'Kakemono'],
+    });
+  });
+
+  it('un seul produit non ajoute, singulier correct, aucune section prix', () => {
+    const sections = renewalBannerSections(['Produit indisponible : X'], []);
+    expect(sections).toHaveLength(1);
+    expect(sections[0]?.title).toBe('1 produit indisponible (non ajouté au panier)');
+  });
+
+  it('un seul produit a prix non ferme, singulier correct, aucune section non-ajoute', () => {
+    const sections = renewalBannerSections([], ['Flyer A5']);
+    expect(sections).toHaveLength(1);
+    expect(sections[0]?.kind).toBe('price-not-firm');
+    expect(sections[0]?.title).toBe('1 produit ajouté au panier avec un prix non définitif');
+  });
+
+  it('items de la section non-ajoutes sont les avertissements complets (sens d origine, inchange)', () => {
+    const sections = renewalBannerSections(['Produit indisponible : Y (retiré du catalogue)'], []);
+    expect(sections[0]?.items).toEqual(['Produit indisponible : Y (retiré du catalogue)']);
+  });
+
+  it('items de la section prix-non-ferme sont les NOMS seuls, jamais une phrase complete', () => {
+    const sections = renewalBannerSections([], ['Brochure catalogue']);
+    // Mutation implicite testee : si la fonction composait une phrase par
+    // ligne (comme le round 1 le faisait), cet item ne serait pas EGAL au nom
+    // seul.
+    expect(sections[0]?.items).toEqual(['Brochure catalogue']);
+  });
+
+  // Mutation exigee par le cadrage : "reverser les prix dans renewalWarnings
+  // doit faire echouer un test" — verifie ici que la fonction ne fusionne
+  // JAMAIS les deux listes dans une seule section.
+  it('ne fusionne jamais les deux categories dans une seule section', () => {
+    const sections = renewalBannerSections(['Produit indisponible : A'], ['B']);
+    const notAddedSection = sections.find((s) => s.kind === 'not-added');
+    const priceNotFirmSection = sections.find((s) => s.kind === 'price-not-firm');
+    expect(notAddedSection?.items).not.toContain('B');
+    expect(priceNotFirmSection?.items).not.toContain('Produit indisponible : A');
   });
 });

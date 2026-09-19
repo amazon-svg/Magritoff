@@ -17,6 +17,13 @@
  *    la suite complète au vert. Le test qui compte est sur DEUX arguments :
  *    c'est le seul qui compile avant ce lot (canal ouvert) et plus après
  *    (canal retiré).
+ *
+ * Q14-a round 2 (docs/api/CONVENTIONS.md §8.25 point 3.7, réserve "repli sur
+ * onAddToCart", tranchée le 2026-09-17) :
+ *  - `onConfigure` devient OBLIGATOIRE. Un objet de props qui l'omet ne doit
+ *    plus satisfaire `ShopProductCardProps` — c'est le pendant compile-time
+ *    du retrait du repli silencieux dans le JSX (aucun appelant ne pouvait de
+ *    toute façon l'atteindre, vérifié).
  */
 
 import type { ShopProduct } from '@/modules/shops';
@@ -35,3 +42,11 @@ onAddToCart(product);
 // erreur, avant comme après).
 // @ts-expect-error BCP-11 T10 — onAddToCart ne prend plus qu un seul argument.
 onAddToCart(product, 1);
+
+// Q14-a round 2 — un objet de props SANS onConfigure ne doit plus satisfaire
+// ShopProductCardProps (compilait avant ce lot, où onConfigure était
+// optionnel).
+declare const propsWithoutOnConfigure: Omit<ShopProductCardProps, 'onConfigure'>;
+// @ts-expect-error Q14-a round 2 — onConfigure est desormais requis.
+const _propsMissingOnConfigure: ShopProductCardProps = propsWithoutOnConfigure;
+void _propsMissingOnConfigure;

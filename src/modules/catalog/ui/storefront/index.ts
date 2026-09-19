@@ -22,3 +22,10 @@ export {
   UNPRICED_PRICE_LABEL,
   resolveProductPriceDisplay,
 } from './productPriceDisplay';
+// Q14-a round 3 (docs/api/CONVENTIONS.md §8.25 point 3.7 (c-bis), défaut D4)
+// — le module `orders` (renouvellement) doit appeler le MÊME verdict que la
+// carte, jamais en recopier la règle : le garde d'architecture refuse
+// l'import direct de `addAsIs.ts` depuis `orders`, donc le verdict est
+// exposé ici, par l'entrée publique du module `catalog`, déjà importée par
+// `orders` (`CheckoutPage.tsx`, `ResumeBanner.tsx`).
+export { canAddAsIs } from './addAsIs';
