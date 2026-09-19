@@ -134,6 +134,7 @@ export function PublicShop() {
     lastOrder,
     renewalWarnings,
     renewalPriceNotFirm,
+    renewalPriceChanged,
     dismissRenewalWarnings,
     renewOrder: handleRenewOrder,
     submitCart,
@@ -513,6 +514,9 @@ export function PublicShop() {
           // Q14-a round 2 (point 3.7 (c-bis)) : seconde section du meme
           // bandeau, produits ajoutes a prix non ferme.
           renewalPriceNotFirm={renewalPriceNotFirm}
+          // Q20 qa-review round 1 (defaut 2) : troisieme section du meme
+          // bandeau, produits renouveles a un prix different du prix paye.
+          renewalPriceChanged={renewalPriceChanged}
           onDismissRenewalWarnings={dismissRenewalWarnings}
         />
       }

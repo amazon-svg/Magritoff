@@ -53,6 +53,13 @@ interface Props {
    * ce dernier dit "non ajoute", ce qui serait faux pour ces produits-la).
    */
   renewalPriceNotFirm?: string[] | undefined;
+  /**
+   * Q20 qa-review round 1, défaut 2 — noms des produits AJOUTÉS au panier par
+   * le dernier renouvellement dont le prix re-résolu DIFFÈRE du prix payé à
+   * la commande d'origine (que ce prix soit ferme ou non). Troisième section
+   * du même bandeau, jamais fusionnée avec les deux autres.
+   */
+  renewalPriceChanged?: string[] | undefined;
   onDismissRenewalWarnings?: (() => void) | undefined;
 }
 
@@ -74,11 +81,12 @@ export function PortalCart({
   createOrderBlockedMessage = 'Permission insuffisante pour créer une commande. Contactez votre administrateur.',
   renewalWarnings = [],
   renewalPriceNotFirm = [],
+  renewalPriceChanged = [],
   onDismissRenewalWarnings,
 }: Props) {
   // Q14-a round 2, point 3.7 (c-bis) — fonction pure : ce composant ne
   // compose AUCUN texte, il ne fait que parcourir les sections rendues ici.
-  const renewalSections = renewalBannerSections(renewalWarnings, renewalPriceNotFirm);
+  const renewalSections = renewalBannerSections(renewalWarnings, renewalPriceNotFirm, renewalPriceChanged);
 
   // Resolution unifiee du prix par ligne via priceResolver (decision Arnaud
   // 2026-05-09 fix prix marche). Une ligne en "prix marche" devient
@@ -124,10 +132,11 @@ export function PortalCart({
           </h3>
         )}
 
-        {/* S3.3 + Q14-a round 2 (point 3.7 (c-bis)) : banner warnings du
-            dernier renouvellement (dismissable), DEUX sections separees —
-            "non ajoute" (defaut D1 : sens d'origine, inchange) et "prix non
-            ferme" (nouvelle). Ce composant ne compose aucun texte : il
+        {/* S3.3 + Q14-a round 2 (point 3.7 (c-bis)) + Q20 qa-review round 1
+            (defaut 2) : banner warnings du dernier renouvellement
+            (dismissable), TROIS sections separees — "non ajoute" (defaut D1 :
+            sens d'origine, inchange), "prix non ferme" et "prix change depuis
+            l achat" (Q20). Ce composant ne compose aucun texte : il
             parcourt `renewalSections`, deja calcule par la fonction pure
             `renewalBannerSections`. */}
         {renewalSections.length > 0 && (
@@ -145,7 +154,9 @@ export function PortalCart({
                   data-testid={
                     section.kind === 'not-added'
                       ? TEST_IDS.shop.cartRenewalNotAddedSection
-                      : TEST_IDS.shop.cartRenewalPriceNotFirmSection
+                      : section.kind === 'price-not-firm'
+                        ? TEST_IDS.shop.cartRenewalPriceNotFirmSection
+                        : TEST_IDS.shop.cartRenewalPriceChangedSection
                   }
                 >
                   <p className="m-0 font-medium mb-1">{section.title}</p>

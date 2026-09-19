@@ -128,17 +128,48 @@ export function resolveFinalPriceHT(
   return product.price_ht;
 }
 
-/** Produit configuré prêt pour le panier (prix final + payload). PURE. */
+/**
+ * Produit configuré prêt pour le panier (prix final + payload). PURE.
+ *
+ * Q20 (docs/api/CONVENTIONS.md §8.25 point 9 et point 12 (a) constat 3,
+ * défaut vivant vérifié) — cette fonction recopiait `product.config` EN
+ * ENTIER, `clariprintQuote` compris. Or `PortalCatalog.tsx:231` pose un
+ * `clariprintQuote` sur chaque suggestion chiffrée par Magrit, et le bouton
+ * « Configurer » de cette grille passe ce produit ici. Résultat : l'acheteur
+ * configurait, changeait la quantité et le papier, et le panier lui
+ * comptait le prix D'AVANT la configuration — `resolveCartLinePricing`
+ * (`src/modules/orders/ui/storefront/cartPricing.ts`) donne la priorité au
+ * `clariprintQuote` trouvé dans `config` sur le `price_ht` fraîchement
+ * calculé par cette fonction, et `resolvePrice` étiquette ce prix résiduel
+ * `clariprint`, la source la plus forte de la hiérarchie.
+ *
+ * Correctif : une configuration NEUVE n'a pas de devis tant qu'elle n'en a
+ * pas obtenu un. Ce produit configuré n'écrit d'ailleurs lui-même AUCUN
+ * `clariprintQuote` — son prix vit dans `price_ht` (`resolveFinalPriceHT`,
+ * ci-dessus) — donc un `clariprintQuote` hérité de la configuration
+ * d'origine ne pourrait de toute façon jamais correspondre à CETTE
+ * configuration. Le supprimer explicitement, plutôt que de le laisser
+ * survivre par un spread muet, ferme le chemin.
+ *
+ * Ne touche pas au cas légitime (règle d'ajout direct au panier, arbitrage
+ * Arnaud du 16/09, `canAddAsIs` dans
+ * `src/modules/catalog/ui/storefront/addAsIs.ts`) : ce chemin-là n'appelle
+ * jamais `buildConfiguredProduct` — un produit ajouté « tel quel » ne passe
+ * pas par le configurateur, donc son `clariprintQuote` (posé pour SA
+ * configuration réelle) n'est jamais rogné ici.
+ */
 export function buildConfiguredProduct(
   product: ShopProduct,
   options: ConfigOptions,
   phase: ConfiguratorPhase,
 ): ShopProduct {
+  const { clariprintQuote: _staleClariprintQuote, ...configWithoutStaleQuote } =
+    (product.config as Record<string, unknown>) ?? {};
   return {
     ...product,
     price_ht: resolveFinalPriceHT(phase, product),
     config: {
-      ...(product.config as Record<string, unknown>),
+      ...configWithoutStaleQuote,
       clariprintData: buildClariprintPayload(options, product.config),
     },
   } as ShopProduct;

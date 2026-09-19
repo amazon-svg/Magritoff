@@ -17,6 +17,8 @@ import {
 } from '@/modules/clariprint/ui/hooks/useProductConfigurator';
 import { extractInitialOptions } from '@/modules/catalog/ui/storefront/ProductOverlay.helpers';
 import type { ShopProduct } from '@/modules/shops/ui/runtime/ShopsContext';
+import { resolveCartLinePricing } from '@/modules/orders/ui/storefront/cartPricing';
+import type { CartLine } from '@/modules/orders/ui/storefront/types';
 
 const product = {
   id: 'p-1',
@@ -140,6 +142,93 @@ describe('buildConfiguredProduct', () => {
     expect((configured.config as Record<string, unknown>).clariprintData).toBeDefined();
     // Le produit d origine n est pas muté
     expect(product.price_ht).toBe(99.5);
+  });
+
+  /**
+   * Q20 (docs/api/CONVENTIONS.md §8.25 point 9, point 12 (a) constat 3) —
+   * `PortalCatalog.tsx:231` pose un `clariprintQuote` sur chaque suggestion
+   * chiffrée par Magrit ; le bouton « Configurer » passe ce produit ici.
+   */
+  describe('Q20 — un devis Clariprint ne doit pas survivre à la configuration', () => {
+    const suggestionWithQuote = {
+      ...product,
+      config: {
+        ...(product.config as Record<string, unknown>),
+        quantity: 500,
+        clariprintQuote: { success: true, priceHT: 99.5 },
+      },
+    } as ShopProduct;
+
+    it("supprime le clariprintQuote hérité de la configuration produite", () => {
+      const options = extractInitialOptions(suggestionWithQuote);
+      const phase: ConfiguratorPhase = { kind: 'ready', priceHT: 55, priceTTC: 66 };
+      const configured = buildConfiguredProduct(suggestionWithQuote, options, phase);
+      expect(
+        (configured.config as Record<string, unknown>).clariprintQuote,
+      ).toBeUndefined();
+    });
+
+    it(
+      'reproduit le parcours complet suggestion -> configuration (quantité ET ' +
+        'papier changés) -> panier : le panier ne compte plus le prix d avant, ' +
+        "ni l origine 'clariprint' — ce test échoue sur le code d avant le correctif",
+      () => {
+        // L acheteur change la quantité (500 -> 2000) ET le papier.
+        const changedOptions = {
+          ...extractInitialOptions(suggestionWithQuote),
+          quantity: 2000,
+          paper: '170g couché',
+        };
+        // Le moteur a recalculé un NOUVEAU prix pour cette configuration.
+        const freshPhase: ConfiguratorPhase = { kind: 'ready', priceHT: 250, priceTTC: 300 };
+
+        const configured = buildConfiguredProduct(suggestionWithQuote, changedOptions, freshPhase);
+        const line: CartLine = { qty: 1, product: configured };
+        const pricing = resolveCartLinePricing(line);
+
+        // AVANT correctif : le clariprintQuote (99.5, posé pour 500 ex.)
+        // survivait dans `config` et `resolveCartLinePricing` le retrouvait,
+        // donnant `unitPriceHt: 99.5` et `source: 'clariprint'` — le prix
+        // du devis D AVANT la configuration, pas celui de la config reconfigurée.
+        expect(pricing.unitPriceHt).toBe(250);
+        expect(pricing.unitPriceHt).not.toBe(99.5);
+        expect(pricing.resolution.source).not.toBe('clariprint');
+      },
+    );
+  });
+});
+
+describe('cas légitime (Q14, canAddAsIs) — resolveCartLinePricing seul, PAS une garde de câblage', () => {
+  /**
+   * Q20 qa-review round 1 — CORRECTIF DE RÉDACTION. Ce test n'appelle PAS
+   * `buildConfiguredProduct` : il vérifie seulement que `resolveCartLinePricing`
+   * résout bien `clariprint` pour un produit qui porte un devis légitime
+   * dans sa `config`. Il resterait VERT même si `buildConfiguredProduct`
+   * était remis à fuir son `clariprintQuote` hérité — ce n'est donc PAS une
+   * garantie que le chemin d'ajout direct (`canAddAsIs`, arbitrage Arnaud
+   * du 16/09) est étanche au correctif. **La vraie garde de câblage est
+   * `tests/architecture/build-configured-product-single-callsite.test.ts`** :
+   * elle vérifie structurellement que `buildConfiguredProduct` n'est appelé
+   * PAR SON NOM nulle part ailleurs que dans `confirm()` de
+   * `useProductConfigurator.ts`, donc jamais depuis le chemin d'ajout direct.
+   * Sa limite est déclarée dans son propre docblock : un appel par alias
+   * d'import ou par import de namespace lui échappe. Ce test-ci ne fait que documenter
+   * le comportement attendu de `resolveCartLinePricing` sur ce cas.
+   */
+  it("resolveCartLinePricing resout 'clariprint' pour un produit qui porte un devis dans sa config", () => {
+    const addedAsIs = {
+      ...product,
+      config: {
+        ...(product.config as Record<string, unknown>),
+        clariprintQuote: { success: true, priceHT: 99.5 },
+      },
+    } as ShopProduct;
+
+    const line: CartLine = { qty: 1, product: addedAsIs };
+    const pricing = resolveCartLinePricing(line);
+
+    expect(pricing.unitPriceHt).toBe(99.5);
+    expect(pricing.resolution.source).toBe('clariprint');
   });
 });
 

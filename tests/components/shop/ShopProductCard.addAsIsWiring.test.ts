@@ -113,7 +113,7 @@ describe('ShopProductCard — le cablage du bouton + Panier lit REELLEMENT les f
   });
 });
 
-describe('Volet renouvellement — le cablage D1 (deux canaux separes) tient de bout en bout (W6 adaptee)', () => {
+describe('Volet renouvellement — le cablage D1 (TROIS canaux separes, Q20 qa-review round 1 ajoute le troisieme) tient de bout en bout (W6 adaptee)', () => {
   it('le hook appelle REELLEMENT collectPriceNotFirmProductNames et pose son resultat dans renewalPriceNotFirm', () => {
     const src = read(LIFECYCLE_PATH);
     expect(src).toMatch(/setRenewalPriceNotFirm\(collectPriceNotFirmProductNames\(lines\)\)/);
@@ -131,37 +131,48 @@ describe('Volet renouvellement — le cablage D1 (deux canaux separes) tient de 
     expect(src).toMatch(/setRenewalWarnings\(warnings\);/);
     expect(src).not.toMatch(/setRenewalWarnings\(\[\.\.\.warnings/);
     expect(src).not.toMatch(/setRenewalWarnings\(merged\)/);
+    // Q20 qa-review round 1, defaut 2 : le troisieme canal recoit EXACTEMENT
+    // `priceChanged`, la liste rendue par `rebuildCartFromOrderItems`
+    // elle-meme (seule fonction qui connait a la fois le prix paye et le
+    // prix fraichement resolu) — jamais une recomputation locale au hook.
+    expect(src).toMatch(/setRenewalPriceChanged\(priceChanged\)/);
   });
 
-  it('dismissRenewalWarnings et submitCart vident les DEUX canaux, jamais un seul', () => {
+  it('dismissRenewalWarnings et submitCart vident les TROIS canaux, jamais un seul', () => {
     const src = read(LIFECYCLE_PATH);
     const setPriceNotFirmCalls = (src.match(/setRenewalPriceNotFirm\(\[\]\)/g) ?? []).length;
     const setWarningsCalls = (src.match(/setRenewalWarnings\(\[\]\)/g) ?? []).length;
+    const setPriceChangedCalls = (src.match(/setRenewalPriceChanged\(\[\]\)/g) ?? []).length;
     // Trois sites de remise a zero : changement de slug, submitCart reussi,
-    // dismissRenewalWarnings — les deux etats doivent etre vides aux TROIS.
+    // dismissRenewalWarnings — les TROIS etats doivent etre vides aux TROIS.
     expect(setPriceNotFirmCalls).toBe(3);
     expect(setWarningsCalls).toBe(3);
+    expect(setPriceChangedCalls).toBe(3);
   });
 
-  it('PublicShop transmet REELLEMENT renewalPriceNotFirm a PortalCart (pas seulement destructure)', () => {
+  it('PublicShop transmet REELLEMENT renewalPriceNotFirm ET renewalPriceChanged a PortalCart (pas seulement destructure)', () => {
     const src = read(PUBLIC_SHOP_PATH);
     expect(src).toMatch(/renewalPriceNotFirm,/); // destructure du hook
     expect(src).toMatch(/renewalPriceNotFirm=\{renewalPriceNotFirm\}/); // prop transmise au JSX
+    expect(src).toMatch(/renewalPriceChanged,/); // destructure du hook
+    expect(src).toMatch(/renewalPriceChanged=\{renewalPriceChanged\}/); // prop transmise au JSX
   });
 
   it('PortalCart calcule les sections par la fonction pure, ne compose aucun texte lui-meme', () => {
     const src = read(CART_PATH);
-    expect(src).toMatch(/renewalBannerSections\(renewalWarnings,\s*renewalPriceNotFirm\)/);
+    expect(src).toMatch(
+      /renewalBannerSections\(renewalWarnings,\s*renewalPriceNotFirm,\s*renewalPriceChanged\)/,
+    );
     // Le titre du round 1 ("N produit(s) indisponible(s)...") ne doit plus
     // etre COMPOSE dans PortalCart : seule renewalBannerSections le fait.
     expect(src).not.toMatch(/indisponible\$\{/);
     expect(src).not.toMatch(/\{renewalWarnings\.length\} produit/);
   });
 
-  it('PortalCart rend les DEUX data-testid de section, associes au bon kind, jamais inverses', () => {
+  it('PortalCart rend les TROIS data-testid de section, associes au bon kind, jamais inverses', () => {
     const src = read(CART_PATH);
     expect(src).toMatch(
-      /section\.kind === 'not-added'\s*\n?\s*\?\s*TEST_IDS\.shop\.cartRenewalNotAddedSection\s*\n?\s*:\s*TEST_IDS\.shop\.cartRenewalPriceNotFirmSection/,
+      /section\.kind === 'not-added'\s*\n?\s*\?\s*TEST_IDS\.shop\.cartRenewalNotAddedSection\s*\n?\s*:\s*section\.kind === 'price-not-firm'\s*\n?\s*\?\s*TEST_IDS\.shop\.cartRenewalPriceNotFirmSection\s*\n?\s*:\s*TEST_IDS\.shop\.cartRenewalPriceChangedSection/,
     );
   });
 
@@ -170,12 +181,12 @@ describe('Volet renouvellement — le cablage D1 (deux canaux separes) tient de 
     expect(src).toMatch(/\{section\.detail && \(/);
   });
 
-  it('le bandeau entier est conditionne sur renewalSections.length, jamais sur un seul des deux canaux', () => {
+  it('le bandeau entier est conditionne sur renewalSections.length, jamais sur un seul des trois canaux', () => {
     const src = read(CART_PATH);
     expect(src).toMatch(/\{renewalSections\.length > 0 && \(/);
     // Round 1 conditionnait sur renewalWarnings.length seul : un retour a
-    // cette forme masquerait la section prix-non-ferme quand aucun produit
-    // n est indisponible.
+    // cette forme masquerait les autres sections quand aucun produit n est
+    // indisponible.
     expect(src).not.toMatch(/\{renewalWarnings\.length > 0 && \(/);
   });
 });

@@ -48,6 +48,7 @@
 import type { ShopProduct } from '@/modules/shops';
 import type { CartLine } from '@/modules/orders/ui/storefront/types';
 import { copies, packLine, packs, toPackLine } from '@/modules/orders/ui/storefront/cartLine';
+import { resolveCartLinePricing } from '@/modules/orders/ui/storefront/cartPricing';
 
 /**
  * Q14-a round 2 (docs/api/CONVENTIONS.md §8.25 point 3.7 (c-bis)) — défaut D1
@@ -59,12 +60,13 @@ import { copies, packLine, packs, toPackLine } from '@/modules/orders/ui/storefr
  * effectivement AJOUTÉE au panier s'affichait comme non ajoutée. La faute
  * était au cadrage, qui prescrivait le canal sans lire son titre.
  *
- * Deux catégories, jamais un seul titre pour les deux : cette fonction pure
- * rend les sections non vides, DANS CET ORDRE (non ajoutés, puis prix non
- * ferme), avec leurs textes déjà composés. `PortalCart` ne compose AUCUN
- * texte : il ne fait que parcourir le tableau rendu ici.
+ * Trois catégories, jamais un seul titre pour plusieurs : cette fonction pure
+ * rend les sections non vides, DANS CET ORDRE (non ajoutés, prix non ferme,
+ * PUIS prix changé — Q20 qa-review round 1, défaut 2), avec leurs textes déjà
+ * composés. `PortalCart` ne compose AUCUN texte : il ne fait que parcourir le
+ * tableau rendu ici.
  */
-export type RenewalBannerSectionKind = 'not-added' | 'price-not-firm';
+export type RenewalBannerSectionKind = 'not-added' | 'price-not-firm' | 'price-changed';
 
 export interface RenewalBannerSection {
   kind: RenewalBannerSectionKind;
@@ -82,9 +84,19 @@ export interface RenewalBannerSection {
 const PRICE_NOT_FIRM_DETAIL =
   "Le prix définitif est confirmé par l'imprimeur à la validation de la commande.";
 
+/**
+ * Q20 qa-review round 1, défaut 2 — un renouvellement peut désormais rendre
+ * un prix DIFFÉRENT de celui payé (voir `rebuildCartFromOrderItems`, exclusion
+ * du `clariprintQuote` snapshoté). Le rendre silencieusement fermé
+ * (`library_cached`) sans le dire serait un changement de prix caché.
+ */
+const PRICE_CHANGED_DETAIL =
+  "Le prix affiché est celui du catalogue actuel : il peut différer du prix payé lors de la commande précédente.";
+
 export function renewalBannerSections(
   notAdded: readonly string[],
   priceNotFirm: readonly string[],
+  priceChanged: readonly string[] = [],
 ): RenewalBannerSection[] {
   const sections: RenewalBannerSection[] = [];
 
@@ -106,6 +118,16 @@ export function renewalBannerSections(
       title: `${n} produit${n > 1 ? 's' : ''} ajouté${n > 1 ? 's' : ''} au panier avec un prix non définitif`,
       detail: PRICE_NOT_FIRM_DETAIL,
       items: priceNotFirm,
+    });
+  }
+
+  if (priceChanged.length > 0) {
+    const n = priceChanged.length;
+    sections.push({
+      kind: 'price-changed',
+      title: `${n} produit${n > 1 ? 's' : ''} renouvelé${n > 1 ? 's' : ''} à un prix différent de celui payé`,
+      detail: PRICE_CHANGED_DETAIL,
+      items: priceChanged,
     });
   }
 
@@ -132,6 +154,15 @@ export interface RebuildResult {
    * Format prêt à afficher dans un banner.
    */
   warnings: string[];
+  /**
+   * Q20 qa-review round 1, défaut 2 — noms des produits dont le prix
+   * renouvelé (`resolveCartLinePricing` sur la ligne reconstruite) DIFFÈRE du
+   * prix réellement payé (`item.unit_price_ht`), quelle que soit la
+   * fermeté de la nouvelle source. Une ligne peut apparaître ici ET dans
+   * `priceNotFirm` — les deux avertissements répondent à des questions
+   * différentes (le prix est-il ferme ? / le prix a-t-il changé ?).
+   */
+  priceChanged: string[];
   /** Métriques pour debug / observabilité (logs ou banner détaillé). */
   stats: {
     matched: number;
@@ -139,6 +170,9 @@ export interface RebuildResult {
     total: number;
   };
 }
+
+/** Tolérance de comparaison des montants (numeric(12,2), deux décimales). */
+const PRICE_COMPARISON_EPSILON = 0.005;
 
 /**
  * Reconstruit un cart depuis les items d'une commande passée.
@@ -156,6 +190,7 @@ export function rebuildCartFromOrderItems(
 
   const lines: CartLine[] = [];
   const warnings: string[] = [];
+  const priceChanged: string[] = [];
   let matched = 0;
   let skipped = 0;
 
@@ -207,10 +242,38 @@ export function rebuildCartFromOrderItems(
     // unique, jamais une fusion antérieure qui porterait accidentellement la
     // même valeur.
     const { quantity: _snapshotQuantity, ...clariprintOptionsRest } = item.clariprint_options ?? {};
-    const mergedConfig: Record<string, unknown> = {
+    const rawMergedConfig: Record<string, unknown> = {
       ...(product.config ?? {}),
       ...(isConfigured ? clariprintOptionsRest : (item.clariprint_options ?? {})),
     };
+
+    // Q20 (docs/api/CONVENTIONS.md §8.25 point 9, chemin supplémentaire
+    // vérifié en instruisant ce lot, non nommé par le cadrage d'origine) —
+    // `submitCart` (`useStorefrontOrderLifecycle.ts`) envoie `line.product.
+    // config` EN ENTIER comme `clariprintOptions`, et `api_create_storefront_
+    // order`/`api_update_order_draft_for_identity` le persistent tel quel
+    // dans `tenant_order_items.clariprint_options` (aucun filtrage côté SQL,
+    // `coalesce(item->'clariprint_options', '{}'::jsonb)`). Si ce config
+    // portait un `clariprintQuote` légitime au moment de l'ajout (produit
+    // ajouté « tel quel », `canAddAsIs`), ce devis — potentiellement vieux
+    // de plusieurs semaines au moment du renouvellement — resurgirait ici et
+    // reprendrait l'étiquette `clariprint` (prix ferme) sur un panier
+    // reconstruit, sans jamais avoir été revérifié.
+    //
+    // qa-review round 1, DÉFAUT 1 (corrigé) — filtrer uniquement le snapshot
+    // de commande laissait ouverte L'AUTRE MOITIÉ du même `mergedConfig` : un
+    // `clariprintQuote` posé dans `product.config` (la config CATALOGUE
+    // courante, pas le snapshot) survivait au premier spread ci-dessus, sans
+    // jamais passer par le filtre. Ce n'est pas un chemin théorique :
+    // `createShopProductCommandSchema`/`updateShopProductCommandSchema`
+    // (`src/modules/shops/api/contracts.ts`) déclarent `config: z.record(
+    // z.string(), z.unknown())`, sans clé interdite — un membre de l'atelier
+    // peut poser `clariprintQuote` sur un produit catalogue par un simple
+    // appel à l'API publiée. Le filtre porte
+    // donc maintenant sur le `mergedConfig` ASSEMBLÉ, une seule fois, après
+    // les deux spreads : aucune des deux sources (snapshot de commande, config
+    // catalogue courante) ne peut plus rouvrir le chemin.
+    const { clariprintQuote: _leakedClariprintQuote, ...mergedConfig } = rawMergedConfig;
     const productMerged: ShopProduct = { ...product, config: mergedConfig };
 
     const line: CartLine = isConfigured
@@ -219,11 +282,44 @@ export function rebuildCartFromOrderItems(
 
     lines.push(line);
     matched++;
+
+    // qa-review round 1, DÉFAUT 2 (corrigé) — exclure le devis snapshoté fait
+    // parfois retomber le prix renouvelé sur le prix catalogue courant
+    // (`library_cached`), qui peut différer du prix réellement PAYÉ à la
+    // commande d'origine (`item.unit_price_ht`). Rendre ce nouveau prix sans
+    // le dire serait un changement de prix silencieux — exactement ce que
+    // Q14-a (bandeau à deux sections) existe pour éviter côté fermeté. Ici,
+    // c'est un canal séparé : la question n'est pas "le prix est-il ferme ?"
+    // mais "le prix a-t-il changé depuis l'achat ?". Les deux peuvent être
+    // vraies en même temps pour une même ligne, sur des lignes différentes,
+    // ou pas du tout.
+    if (typeof item.unit_price_ht === 'number' && Number.isFinite(item.unit_price_ht)) {
+      const renewedUnitPriceHt = resolveCartLinePricing(line).unitPriceHt;
+      if (Math.abs(renewedUnitPriceHt - item.unit_price_ht) > PRICE_COMPARISON_EPSILON) {
+        // Le nom CATALOGUE COURANT (`product.name`), pas le libellé commandé
+        // (`item.product_label`), et c'est délibéré — arbitrage du
+        // coordinateur sur la réserve 2 de la qa-review, qui relevait que les
+        // sections du bandeau ne désignent pas un produit de la même façon.
+        //
+        // La raison tient à ce que chaque section DÉSIGNE : celle-ci parle
+        // d'une ligne QUI EST dans le panier, sous les yeux de l'acheteur, et
+        // qui y porte son nom d'aujourd'hui — le désigner autrement le
+        // renverrait à un libellé introuvable à l'écran. La section
+        // `warnings`, elle, parle de lignes qui n'ont PAS pu être
+        // reconstruites (produit retiré de la boutique) : le nom catalogue
+        // n'existe plus, `item.product_label` est le seul repère possible.
+        // Les deux sections divergent donc parce que leurs objets diffèrent,
+        // pas par inadvertance. À revoir si un jour le bandeau rappelle le
+        // libellé d'origine — un produit renommé reste alors ambigu.
+        priceChanged.push(product.name);
+      }
+    }
   }
 
   return {
     lines,
     warnings,
+    priceChanged,
     stats: { matched, skipped, total: items.length },
   };
 }

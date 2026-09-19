@@ -175,6 +175,154 @@ describe('rebuildCartFromOrderItems', () => {
     expect(resolveCartLinePricing(r.lines[0]).lineTotalHt).toBe(35);
   });
 
+  // Q20 (docs/api/CONVENTIONS.md §8.25 point 9) — chemin supplémentaire
+  // vérifié en instruisant ce lot : `submitCart` envoie `line.product.config`
+  // ENTIER comme `clariprintOptions`, persisté tel quel par
+  // `api_create_storefront_order` dans `tenant_order_items.clariprint_options`
+  // (aucun filtrage SQL). Un `clariprintQuote` légitime au moment de l'ajout
+  // resurgirait donc, potentiellement périmé, au renouvellement.
+
+  it('Q20 — un clariprintQuote snapshotte (produit configuré, quantity present) n est PAS reinjecte dans le panier renouvele', () => {
+    const items = [
+      makeItem({
+        product_id: 'prod-1',
+        quantity: 1,
+        clariprint_options: { quantity: 500, material: 'Couché 350g', clariprintQuote: { success: true, priceHT: 35 } },
+        unit_price_ht: 35,
+      }),
+    ];
+    const products = [makeProduct({ id: 'prod-1', price_ht: 40 })];
+    const r = rebuildCartFromOrderItems(items, products);
+    expect(r.lines).toHaveLength(1);
+    expect((r.lines[0].product.config as any).clariprintQuote).toBeUndefined();
+    // Le prix vient du catalogue courant (40), pas du vieux devis (35),
+    // et la source n est plus 'clariprint'.
+    const pricing = resolveCartLinePricing(r.lines[0]);
+    expect(pricing.resolution.source).not.toBe('clariprint');
+    expect(pricing.unitPriceHt).toBe(40);
+    // qa-review round 1, défaut 2 : le prix a changé (35 payé -> 40
+    // renouvelé), l acheteur doit en être informé.
+    expect(r.priceChanged).toEqual(['Produit test']);
+  });
+
+  it('Q20 — un clariprintQuote snapshotte (produit NON configuré) n est PAS reinjecte non plus', () => {
+    const items = [
+      makeItem({
+        product_id: 'prod-1',
+        quantity: 3,
+        clariprint_options: { material: 'Couché 350g', clariprintQuote: { success: true, priceHT: 12 } },
+        unit_price_ht: 12,
+      }),
+    ];
+    const products = [makeProduct({ id: 'prod-1', price_ht: 15 })];
+    const r = rebuildCartFromOrderItems(items, products);
+    expect(r.lines).toHaveLength(1);
+    expect((r.lines[0].product.config as any).clariprintQuote).toBeUndefined();
+    const pricing = resolveCartLinePricing(r.lines[0]);
+    expect(pricing.resolution.source).not.toBe('clariprint');
+    expect(r.priceChanged).toEqual(['Produit test']);
+  });
+
+  // qa-review round 1, DÉFAUT 1 — le clariprintQuote peut venir de l AUTRE
+  // moitié du merge : la config CATALOGUE courante (`product.config`), pas
+  // seulement le snapshot de commande (`item.clariprint_options`). Chemin
+  // atteignable par l API publiée (createShopProductCommandSchema /
+  // updateShopProductCommandSchema, `config: z.record(z.string(),
+  // z.unknown())`, aucune clé interdite). Ce test isole EXACTEMENT ce
+  // second chemin : le snapshot de commande NE porte AUCUN clariprintQuote,
+  // seule la config catalogue en porte un.
+  it('Q20 qa-review défaut 1 — un clariprintQuote pose sur la config CATALOGUE (pas le snapshot de commande) n est pas reinjecte non plus', () => {
+    const items = [
+      makeItem({
+        product_id: 'prod-1',
+        quantity: 1,
+        // Snapshot de commande SANS clariprintQuote — seule la faute serait
+        // de le laisser filtrer depuis product.config ci-dessous.
+        clariprint_options: { material: 'Couché 350g' },
+        unit_price_ht: 35,
+      }),
+    ];
+    const products = [
+      makeProduct({
+        id: 'prod-1',
+        price_ht: 40,
+        config: {
+          material: 'Couché 350g',
+          // Devis pose sur le produit CATALOGUE lui-meme, par ex. via un
+          // appel a l API publiee de gestion du catalogue boutique.
+          clariprintQuote: { success: true, priceHT: 5 },
+        },
+      }),
+    ];
+    const r = rebuildCartFromOrderItems(items, products);
+    expect(r.lines).toHaveLength(1);
+    expect((r.lines[0].product.config as any).clariprintQuote).toBeUndefined();
+    const pricing = resolveCartLinePricing(r.lines[0]);
+    expect(pricing.resolution.source).not.toBe('clariprint');
+    // Le prix catalogue (40), pas le devis catalogue périmé (5).
+    expect(pricing.unitPriceHt).toBe(40);
+  });
+
+  // qa-review round 1, DÉFAUT 2 — un renouvellement à prix STRICTEMENT
+  // IDENTIQUE ne doit produire AUCUN avertissement de changement de prix.
+  it('Q20 qa-review défaut 2 — renouvellement a prix identique : AUCUN avertissement de changement', () => {
+    const items = [
+      makeItem({
+        product_id: 'prod-1',
+        quantity: 1,
+        clariprint_options: { material: 'Couché 350g' },
+        unit_price_ht: 40,
+      }),
+    ];
+    const products = [makeProduct({ id: 'prod-1', price_ht: 40 })];
+    const r = rebuildCartFromOrderItems(items, products);
+    expect(r.lines).toHaveLength(1);
+    expect(r.priceChanged).toEqual([]);
+  });
+
+  // qa-review round 1, DÉFAUT 2 — un renouvellement à prix DIFFÉRENT doit
+  // être signalé, même quand la nouvelle source est ferme (library_cached).
+  it('Q20 qa-review défaut 2 — renouvellement a prix different (35 paye -> 40 catalogue) : avertissement emis, meme si le nouveau prix est ferme', () => {
+    const items = [
+      makeItem({
+        product_id: 'prod-1',
+        quantity: 1,
+        clariprint_options: { material: 'Couché 350g' },
+        unit_price_ht: 35,
+      }),
+    ];
+    const products = [makeProduct({ id: 'prod-1', name: 'Cartes pro', price_ht: 40 })];
+    const r = rebuildCartFromOrderItems(items, products);
+    expect(r.lines).toHaveLength(1);
+    const pricing = resolveCartLinePricing(r.lines[0]);
+    expect(pricing.resolution.source).toBe('library_cached'); // ferme
+    expect(r.priceChanged).toEqual(['Cartes pro']);
+
+    // Le bandeau restitue bien une troisieme section distincte.
+    const sections = renewalBannerSections([], [], r.priceChanged);
+    expect(sections).toHaveLength(1);
+    expect(sections[0]).toMatchObject({
+      kind: 'price-changed',
+      title: '1 produit renouvelé à un prix différent de celui payé',
+      items: ['Cartes pro'],
+    });
+  });
+
+  it('Q20 qa-review défaut 2 — unit_price_ht absent (null) : pas de comparaison possible, aucun avertissement', () => {
+    const items = [
+      makeItem({
+        product_id: 'prod-1',
+        quantity: 1,
+        clariprint_options: { material: 'Couché 350g' },
+        unit_price_ht: null,
+      }),
+    ];
+    const products = [makeProduct({ id: 'prod-1', price_ht: 999 })];
+    const r = rebuildCartFromOrderItems(items, products);
+    expect(r.lines).toHaveLength(1);
+    expect(r.priceChanged).toEqual([]);
+  });
+
   it('T7 — quantity suspecte SANS clariprint_options.quantity : pas de reinterpretation silencieuse en exemplaires', () => {
     // Forme qu'une fuite d'exemplaires dans tenant_order_items.quantity aurait
     // gravee AVANT ce lot (aucun signal clariprint_options.quantity separe).

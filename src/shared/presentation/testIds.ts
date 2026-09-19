@@ -343,6 +343,9 @@ export const TEST_IDS = {
     // cadrage (architecte), pas le prefixe habituel "shop-".
     cartRenewalNotAddedSection: 'cart-renewal-not-added-section',
     cartRenewalPriceNotFirmSection: 'cart-renewal-price-not-firm-section',
+    // Q20 qa-review round 1, défaut 2 — troisième section du même bandeau :
+    // prix renouvelé différent du prix payé à la commande d'origine.
+    cartRenewalPriceChangedSection: 'cart-renewal-price-changed-section',
     // S3.4 (Sprint 5, 2026-05-23) : annulation commande draft + modal AlertDialog.
     orderCancelBtn: 'shop-order-cancel-btn',
     // 2026-07-08 : édition commande draft (acheteur) — miroir éditeur de devis.
