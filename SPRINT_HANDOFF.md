@@ -2,7 +2,7 @@
 
 > Document de reprise pour démarrer une nouvelle session de Claude code sur le projet sans recharger tout l'historique. À tenir à jour à chaque fin de sprint.
 >
-> **Dernière mise à jour : 2026-09-14 — Sprint 5 Gestion commerciale (Epic E10), sur `feat/gescom-e10-4-entite-client` : E10.18e-1 (grille + menu) livré après revue de grille avec Arnaud et recette navigateur ; E10.18d livré et déployé le 13, purge de fichiers ACTIVÉE, gate SQL verte. Même jour : PR #8 de Xavier Péchoultres (architecture de contrôle qualité agentique) mergée sur `main` et sur cette branche — section ci-dessous.**
+> **Dernière mise à jour : 2026-09-20 — Sprint 5 Gestion commerciale (Epic E10), chantier boutique. CINQ lots fusionnés dans `main` (Q14-a bouton panier grisé, Q17-a recalcul serveur du prix, Q17-c écart visible à l'atelier, Q20 chiffrage qui survit à la configuration, Q18 validité des devis), plus un correctif transverse sur un garde de tests et deux rounds de cadrage. RIEN N'EST DÉPLOYÉ — voir la section de clôture en fin de document, dont une dépendance de déploiement impérative et quatre dettes nommées.**
 
 ## ▶️ CONTRÔLE QUALITÉ AGENTIQUE — PR #8
 
@@ -1334,7 +1334,7 @@ Claude doit alors :
 
 **Erreur du PV du 15/09 corrigée** : le « 172,00 € » face à un sous-total de 60,00 € n'était pas une anomalie, mais la quantité « 1 » collée au montant « 72,00 € » dans le texte extrait.
 
-### Q17-a / Q17-c — recalcul serveur du prix boutique + visibilite atelier (2026-09-19, sur branches, NON FUSIONNE, NON DEPLOYE)
+### Q17-a / Q17-c — recalcul serveur du prix boutique + visibilite atelier (2026-09-19/20, **FUSIONNES dans `main`**, NON DEPLOYE)
 
 **Q17-a** (`feat/gescom-q17a-prix-serveur`) : le serveur cesse de croire le prix envoye par le navigateur sur une commande boutique. Migration `20260919000100_gescom_q17a_storefront_order_price_revaluation.sql` (colonnes `tenant_order_items.price_origin`, `tenant_orders.has_unverified_prices`, triggers d'immuabilite et de garde de statut, revokes directs sur les deux tables). Detail complet et rounds de qa-review : `_bmad-output/implementation-artifacts/story-Q17a.md`.
 
@@ -1407,3 +1407,49 @@ select count(*) from information_schema.tables t
 **Limites ecrites, dans le code et dans le story doc** : une erreur de VALEUR reste possible (`copies(1)` au lieu de `copies(500)` compile) ; une `CartLine` assemblee en plusieurs instructions echappe au garde ; `CartContext.tsx` est un second panier independant, hors perimetre.
 
 **Donnees ERAM, geste d Arnaud du 2026-09-16** : sur sa decision (« exclure »), les **23 produits sans prix** ont ete retires de la boutique par `shops.excluded_product_ids` — **aucune suppression**, le catalogue de bibliotheque partage est intact, l etat avant est sauvegarde. La boutique affiche desormais **7 produits, tous chiffres**. Trois points a connaitre : **« Flyers A5 recto-verso » est parmi les exclus** alors que c est le produit du parcours de recette et de la campagne (a reintegrer ou a tarifer avant le smoke de cloture) ; les 7 restants comportent des doublons de demonstration ; et **« Affiches A1 offset » est a 17 500 EUR**, montant a verifier.
+
+---
+
+## CLOTURE DE SESSION 2026-09-19/20 — chantier boutique, cinq lots fusionnes
+
+### Ce qui est dans `main`, et ce qui ne l est pas
+
+| PR | Lot | Commit de fusion |
+|---|---|---|
+| #13 | Q14-a — bouton panier grise quand le produit n est pas chiffre | `878916bc` |
+| #14 | Q17-a — le prix d une commande boutique est recalcule cote serveur | `7416aa9b` |
+| #17 | correctif transverse — le garde de la regle du panier redevient reellement gardant | `361bbbbe` |
+| #18 | Q17-c — l atelier voit l ecart de prix | `1928c91c` |
+| #19 | Q20 — un chiffrage ne survit plus a la configuration | `392b3c5b` |
+| #20 | Q18 — validite des devis a 30 jours, reglage dans le menu Devis | `32bbe191` |
+
+Plus les PR #15 et #16 (arbitrages d Arnaud consignes au cadrage, adresse HopeStudio corrigee).
+
+**RIEN N EST DEPLOYE.** Deux migrations attendent : `20260919000100` (Q17-a) et `20260919000200` (Q18). Les deux sont appliquees sur la pile locale `magritoff-v5` ; **l etat du projet Supabase distant n a pas ete verifie**.
+
+### Dependance de deploiement, imperative
+
+**`20260919000100` DOIT etre appliquee AVANT tout deploiement du code de Q17-c.** Sans elle, `listTenantOrders` / `listPortalOrders` levent `42703 column does not exist` : la grille de l atelier **et** l onglet « Mes commandes » de l acheteur tombent en erreur pour **tous** les espaces. Le lot cense rendre l atelier voyant le rendrait aveugle. Detail au point Q17-a / Q17-c ci-dessus.
+
+Rappel du relevé du 2026-09-17, toujours valable : **aucun deploiement de `magrit-api` depuis un `main` posterieur a `f7326363`** avant l application en production de `20260826000100` et `20260827000100` (HopStudio), sous peine de 503 sur tout `/assistant/chat` authentifie.
+
+### Quatre dettes nommees, aucune traitee
+
+1. **Un quatrieme chemin laisse passer le marqueur de prix non verifie vers l acheteur** : `getDraftOrder` / `draftOrderSchema`, appele par trois hooks acheteur. Trois chemins sur quatre sont masques. `draftOrderSchema.priceOrigin` est **non nullable** : sa fermeture coutera un changement de contrat, plus cher chaque jour.
+2. **Le renouvellement d un produit configure repart au prix catalogue** sans le dire. Paye 250 EUR pour 2 000 exemplaires, il revient a 40 EUR. L acheteur est desormais averti que le prix a change, mais pas que la **base de calcul** a change. Defaut anterieur a ces lots.
+3. **Les commandes deja enregistrees gardent leur chiffrage fige en base** : `tenant_order_items.clariprint_options` est persiste sans filtrage, et le panier y ecrit la configuration entiere. Les correctifs de Q20 agissent **a la lecture**, pas sur le stock.
+4. **`src/types/database.types.ts` ne couvre qu environ la moitie du schema.** Mesure sur la pile locale par jointure SQL : **75 tables reelles, 38 declarees dont 36 existent, 39 absentes** (quasi tout E10), plus **2 fantomes** (`quotes`, `quote_lines`, disparues a l unification des devis du 2026-09-02). Une regeneration complete est un lot a part : elle produirait un diff sans rapport avec les lots en cours.
+
+### Une cause racine, a porter a Arnaud
+
+**Ce depot n a aucune bibliotheque de test de rendu React.** Faute de pouvoir observer ce qu un ecran affiche, les gardes de cablage lisent le **texte du source** — et un simple commentaire les trompe. **Quatre fois** dans ce chantier, dont deux sur du code ecrit par le coordinateur : a chaque fois, tests verts, typecheck silencieux, **regle metier neutralisee**. Un defaut etait vivant dans `main` (PR #17).
+
+La reponse retenue, quand elle est possible, est d **extraire la decision en fonction pure** et de la tester sur son comportement, puis de **supprimer** le garde textuel — pas de le durcir. La ou aucune fonction pure ne couvre le cablage JSX, le garde reste, et sa **limite est ecrite** : il attrape la regression accidentelle, jamais l evasion deliberee. Le nettoyage de commentaires vit desormais dans un seul fichier, `tests/_helpers/stripComments.ts`, appuye sur le **parseur** TypeScript et verifie sur cinq fichiers reels du depot par un oracle non circulaire.
+
+### Etat de la pile locale
+
+Migrations a jour (`20260919000100` et `20260919000200` appliquees, defaut de colonne a `30` verifie). **Aucun compte** dans `auth.users` : un `db:local:reset` joue par precaution pendant un lot a efface le compte d Arnaud. La pile est **partagee** entre tous les worktrees et avec son poste. Les cas SQL de Q18 **ne necessitent pas** de reset — `db:local:push` suffit, c est ecrit dans l en-tete du fichier de cas.
+
+### Cinq decisions attendues d Arnaud
+
+Prix au renouvellement (prix paye ou prix du jour ?) · retrofit des espaces existants pour la validite des devis (Q24) · acquitter doit-il etre plus etroit que valider (Q19) · bouton « Personnaliser » de Q16 (retirer ou griser) · bibliotheque de test de rendu React.
