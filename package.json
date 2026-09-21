@@ -29,6 +29,7 @@
     "supabase:env:status": "./scripts/supabase-env.sh status",
     "gen:api": "./scripts/gen-api-types.sh",
     "gen:api:check": "./scripts/gen-api-types.sh --check",
+    "openapi:validate": "node ./scripts/validate-openapi-contract.mjs",
     "test": "vitest run --maxWorkers=2",
     "specs:validate": "node ./scripts/validate-functional-specs.mjs",
     "quality:audit": "node ./scripts/run-quality-audit.mjs",

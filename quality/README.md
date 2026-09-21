@@ -106,6 +106,23 @@ Les contrôles navigateur se déclenchent manuellement avec `run_e2e`. La suite
 complète exige en plus `run_staging_e2e` et les secrets GitHub préfixés par
 `QUALITY_SUPABASE_` et `QUALITY_E2E_` déclarés dans le workflow.
 
+### Contrat OpenAPI
+
+Le contrat `openapi/magrit-core.v1.yaml` est la source de vérité. Toute
+génération de types passe d'abord par `pnpm openapi:validate`, qui vérifie :
+
+- le parsing YAML et la version OpenAPI 3.1.0 ;
+- la présence des chemins, des `operationId`, des `summary` et des réponses ;
+- l'unicité des `operationId` ;
+- la longueur des `summary`.
+
+Les summaries trop longs sont actuellement des avertissements afin de permettre
+l'adoption progressive de la règle. Le mode strict, prévu pour la phase
+d'alignement qualitatif, s'active avec `OPENAPI_STRICT_SUMMARIES=1`.
+
+`pnpm gen:api:check` exécute automatiquement cette validation avant de vérifier
+la dérive entre le contrat et `src/platform/api/generated/magrit-core.v1.ts`.
+
 Les requêtes OpenAI utilisent `store: false` et une sortie structurée par le
 schéma `quality/schemas/agent-assessment.schema.json`. Un endpoint compatible
 Chat Completions, notamment local, reçoit le même schéma dans

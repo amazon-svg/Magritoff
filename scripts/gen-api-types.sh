@@ -20,6 +20,8 @@ if [[ ! -f "$CONTRACT" ]]; then
   exit 1
 fi
 
+pnpm openapi:validate
+
 CHECK_ONLY=0
 if [[ "${1:-}" == "--check" ]]; then
   CHECK_ONLY=1
