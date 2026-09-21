@@ -14,6 +14,22 @@ status: review
 
 # R9 — a11y light : axe-core CI sur 3 pages critiques
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> Aucune story du Sprint Board Notion n'est rattachée à ce story document : c'est une story née dans le dépôt (refonte technique, lot d'architecture ou correctif). Son périmètre est celui décrit ci-dessous. Si elle relève d'une story Notion, renseigner ce rattachement et régénérer cette section.
+
+### Cas de test fonctionnels rattachés (Notion)
+
+| TF | Cas de test | Statut | Priorité | Parcours | Cible | Stories liées |
+|---|---|---|---|---|---|---|
+| [TF-75](https://app.notion.com/35ed0131973c814b94fcc181bc5230ab) | R9 — axe-core CI a11y : 0 violation Critical sur 3 routes (login / atelier / boutique) | OK | P1 — Importante | P09 — Boutique portail B2B | B5 | R9 |
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 ## Origine
 
 Story refacto livrée suite à l'arbitrage **ADR-R7 décidé Arnaud 2026-05-11** : a11y light V1.2 + i18n V2.

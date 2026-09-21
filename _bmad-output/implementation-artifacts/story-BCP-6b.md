@@ -9,6 +9,43 @@ parallelisable_avec: [] (aucun fichier commun avec BCP-7, BCP-8, BCP-9 — cf. c
 ---
 # BCP-6b — Fin de la boucle de requêtes `session/current` + `catalog` de la boutique
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> **Source qui fait foi : Notion** — [BCP-6b — Fin de la boucle d'appels session et catalogue](https://app.notion.com/p/3ddd0131973c8192adedd3721eb8562b) · extrait le 17/09/2026 · page modifiée le 16/09/2026.
+> Copie destinée à tout intervenant (développement, QA, revue, agent) : lire ce périmètre avant la partie implémentation. En cas d'écart, Notion prévaut. Le statut Notion peut retarder sur la livraison réelle, décrite plus bas.
+
+| Epic | Sprint | Priorité | Effort | Statut Notion | Assigné à | Offre | Source | Ordre |
+|---|---|---|---|---|---|---|---|---|
+| E10 — Gestion commerciale | Sprint 5 — Gestion commerciale | P0 | L | Terminé | Claude code | — | — | — |
+
+### Description fonctionnelle (Notion)
+
+Chantier boutique. Une page de boutique laissée ouverte déclenchait deux appels toutes les cinq secondes, dont le rechargement complet du catalogue. Mesuré en navigateur, non détecté par les tests.
+
+**Livré** :
+
+- plus aucun appel périodique : la boutique ne réagit qu'à un retour sur l'onglet, avec des délais ;
+- une session expirée ramène l'écran de connexion au lieu de laisser l'en-tête afficher « connecté » indéfiniment ;
+- garde contre l'emballement : une seule revalidation à la fois.
+
+**Relecture adversariale** : deux rejets avant approbation. Le premier parce que la session expirée n'était pas traitée ; le second parce que la garde n'était prouvée par aucun test — un test qui « échouait » en saturant le processeur a été refusé comme preuve.
+
+**Contrôle navigateur du 16/09** : zéro appel au repos sur deux minutes et demie, une seule revalidation quand la session expire, reproduit deux fois.
+
+**Reste ouvert, non bloquant** : à la reconnexion, la liste des commandes est demandée quatre fois dont une annulée.
+
+Détail : `story-BCP-6b.md`.
+
+### Cas de test fonctionnels rattachés (Notion)
+
+_Aucun cas de test rattaché dans la base Notion « 🧪 Cahiers de tests fonctionnels Magrit »._
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 Cadrage opposable : `docs/api/CONVENTIONS.md` §8.25, point **5.2** (la partie
 BCP-6b) et la ligne BCP-6b du tableau de découpage (§6). Fichiers possédés :
 `src/modules/shops/ui/hooks/usePublicShopCatalog.ts`,

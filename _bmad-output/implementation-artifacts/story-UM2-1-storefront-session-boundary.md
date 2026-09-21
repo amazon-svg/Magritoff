@@ -8,6 +8,22 @@ depends_on: [UM1.4]
 ---
 # UM2.1 — Poser la frontière de session storefront
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> Aucune story du Sprint Board Notion n'est rattachée à ce story document : c'est une story née dans le dépôt (refonte technique, lot d'architecture ou correctif). Son périmètre est celui décrit ci-dessous. Si elle relève d'une story Notion, renseigner ce rattachement et régénérer cette section.
+
+### Cas de test fonctionnels rattachés (Notion)
+
+| TF | Cas de test | Statut | Priorité | Parcours | Cible | Stories liées |
+|---|---|---|---|---|---|---|
+| [TF-152](https://app.notion.com/3c6d0131973c81df8252fc0a6936848b) | P12 — Un compte par boutique : même email = deux comptes, une session ne vaut que pour sa boutique | OK | P0 — Critique | P12 — Comptes clients boutique | B5 | SPEC-IDENTITY-STORE-01, UM1-1, UM2-1, UM10-4, invariant 3 |
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 ## Résultat livré
 
 - contrats de connexion et de session propres au module `shop-customers` ;

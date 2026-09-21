@@ -16,6 +16,22 @@ status: review
 
 # R0 — Spikes garde-fous + TVA configurable + modal dupliquée
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> Aucune story du Sprint Board Notion n'est rattachée à ce story document : c'est une story née dans le dépôt (refonte technique, lot d'architecture ou correctif). Son périmètre est celui décrit ci-dessous. Si elle relève d'une story Notion, renseigner ce rattachement et régénérer cette section.
+
+### Cas de test fonctionnels rattachés (Notion)
+
+| TF | Cas de test | Statut | Priorité | Parcours | Cible | Stories liées |
+|---|---|---|---|---|---|---|
+| [TF-66](https://app.notion.com/35ed0131973c81d9a161e92bd87c77df) | R0 — TVA configurable par tax_regime (5 régimes) | Bloqué | P1 — Importante | P00 — Création espace tenant | B5 | R0 |
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 ## Origine
 
 Story de garde-fou pré-refacto issue de l'**Étape D Winston** ([refacto-plan-2026-05.md](_bmad-output/refacto-artifacts/refacto-plan-2026-05.md)) consolidant 3 risques détectés par l'**Étape C review adversariale** :

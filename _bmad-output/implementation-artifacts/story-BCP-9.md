@@ -9,6 +9,35 @@ parallelisable_avec: [BCP-5]
 ---
 # BCP-9 — Libelle de l acheteur : aria-label "Mon compte (FullName)", elision corrigee
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> **Source qui fait foi : Notion** — [BCP-9 — Libellé du bouton de compte acheteur](https://app.notion.com/p/3ddd0131973c81e097bce8addf7488ed) · extrait le 17/09/2026 · page modifiée le 16/09/2026.
+> Copie destinée à tout intervenant (développement, QA, revue, agent) : lire ce périmètre avant la partie implémentation. En cas d'écart, Notion prévaut. Le statut Notion peut retarder sur la livraison réelle, décrite plus bas.
+
+| Epic | Sprint | Priorité | Effort | Statut Notion | Assigné à | Offre | Source | Ordre |
+|---|---|---|---|---|---|---|---|---|
+| E10 — Gestion commerciale | Sprint 5 — Gestion commerciale | P2 | XS | Terminé | Claude code | — | — | — |
+
+### Description fonctionnelle (Notion)
+
+Chantier boutique, lot 9. Le bouton de compte annonçait « Compte de acheteur ». Il dit désormais « Mon compte (Aline Petit) » pour un visiteur connecté, et « Compte boutique » sinon. Le texte affiché à l'écran reste inchangé.
+
+**Relecture adversariale** : approuvée au round 2.
+
+**Contrôle navigateur du 16/09** : conforme, dans les deux états.
+
+Détail : `story-BCP-9.md`.
+
+### Cas de test fonctionnels rattachés (Notion)
+
+_Aucun cas de test rattaché dans la base Notion « 🧪 Cahiers de tests fonctionnels Magrit »._
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 Cadrage opposable : `docs/api/CONVENTIONS.md` §8.25, point **5.5** :
 
 > `ShopLayout.tsx:346` : `Compte de ${fullName}` devient **« Mon compte

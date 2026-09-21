@@ -18,6 +18,23 @@ source_deferred: _bmad-output/implementation-artifacts/deferred-work.md
 
 # Story S-LLM-WRAPPER-ROBUSTNESS — Durcissement wrapper Anthropic
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> Aucune story du Sprint Board Notion n'est rattachée à ce story document : c'est une story née dans le dépôt (refonte technique, lot d'architecture ou correctif). Son périmètre est celui décrit ci-dessous. Si elle relève d'une story Notion, renseigner ce rattachement et régénérer cette section.
+
+### Cas de test fonctionnels rattachés (Notion)
+
+| TF | Cas de test | Statut | Priorité | Parcours | Cible | Stories liées |
+|---|---|---|---|---|---|---|
+| [TF-96](https://app.notion.com/36ad0131973c81569225c993c64fb54f) | Fallback démo déclenché UNIQUEMENT sur vraies erreurs Anthropic billing (401/402/403) | OK | P1 — Importante | P05 — Marguerite Mode Ouvert | B5 | S-LLM-WRAPPER-ROBUSTNESS |
+| [TF-97](https://app.notion.com/36ad0131973c810cb0b8d7d87e30adbc) | Timeout défensif 60s sur fetch Anthropic (claude-proxy + claude-proxy-stream) quand l'API hang | À jouer | P1 — Importante | P05 — Marguerite Mode Ouvert | B5 | S-LLM-WRAPPER-ROBUSTNESS |
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 ## Contexte
 
 Le wrapper `supabase/functions/_shared/anthropicClient.ts` (livré S1.5 le 2026-05-10) centralise tous les appels Anthropic des edge functions Magrit. Quatre faiblesses ont été identifiées en code review S1.5 ([deferred-work.md](deferred-work.md)) et confirmées par les 2 fixes post-Sprint 4 (`c95a7a9` CORS, `fe59be2` timeout askMagrit) :

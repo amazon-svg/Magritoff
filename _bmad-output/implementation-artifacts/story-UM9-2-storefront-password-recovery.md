@@ -7,6 +7,22 @@ depends_on: [UM2.8, UM9.1]
 ---
 # UM9.2 — Récupération de mot de passe boutique
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> Aucune story du Sprint Board Notion n'est rattachée à ce story document : c'est une story née dans le dépôt (refonte technique, lot d'architecture ou correctif). Son périmètre est celui décrit ci-dessous. Si elle relève d'une story Notion, renseigner ce rattachement et régénérer cette section.
+
+### Cas de test fonctionnels rattachés (Notion)
+
+| TF | Cas de test | Statut | Priorité | Parcours | Cible | Stories liées |
+|---|---|---|---|---|---|---|
+| [TF-154](https://app.notion.com/3c6d0131973c816599bce3fdfd4ed8e5) | P12 — Récupération de mot de passe boutique : réponse neutre, lien 1 h à usage unique, anciennes sessions révoquées | En cours | P1 — Importante | P12 — Comptes clients boutique | B5 | UM9-2, migration 20260818000400, invariant 10 |
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 ## Objectif
 
 Permettre à un client de récupérer son accès sans Supabase Auth et sans qu’un

@@ -17,6 +17,22 @@ status: review
 
 # R3 — ClariprintAdapter pattern enforcement
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> Aucune story du Sprint Board Notion n'est rattachée à ce story document : c'est une story née dans le dépôt (refonte technique, lot d'architecture ou correctif). Son périmètre est celui décrit ci-dessous. Si elle relève d'une story Notion, renseigner ce rattachement et régénérer cette section.
+
+### Cas de test fonctionnels rattachés (Notion)
+
+| TF | Cas de test | Statut | Priorité | Parcours | Cible | Stories liées |
+|---|---|---|---|---|---|---|
+| [TF-69](https://app.notion.com/35ed0131973c818b8d3fd51d8914b9c3) | R3 — Pattern ClariprintAdapter enforced : 0 fetch direct hors Adapter | OK | P1 — Importante | P08 — Devis textuel vers prix Clariprint | B5 | R3 |
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 ## Origine
 
 Story refacto P0 issue de la promotion **P1 → P0** par l'**Étape C Acceptance Auditor** : 2 callers contournent le pattern `ClariprintAdapter` documenté en ADR architecture.md §4.4. Sécurité NFR11 (sanitization Clariprint) compromise sur 2 chemins critiques.

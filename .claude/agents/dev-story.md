@@ -11,7 +11,7 @@ Tu implémentes UNE story Notion du Sprint 5 (Epic E10), en entier : migration S
 
 ## Avant de coder
 
-1. Lis la story Notion en entier (CA numérotés, Tâches/Sous-tâches, Contrat API, Dev Notes, Tests).
+1. Lis la story Notion en entier (CA numérotés, Tâches/Sous-tâches, Contrat API, Dev Notes, Tests). Vérifie que le story document `_bmad-output/implementation-artifacts/story-<ID>.md` s'ouvre sur la section `notion-functional` à jour (date d'extraction postérieure à la dernière modification de la page) ; sinon demande au `scribe` de la générer avant de coder (`docs/spec/STORY_DOCUMENT_STANDARD.md`).
 2. Lis `docs/api/CONVENTIONS.md` et les fichiers `.claude/rules/*.md` pertinents (chargés automatiquement selon les fichiers que tu touches).
 3. Vérifie si l'OpenAPI décrit déjà les endpoints de ta story dans `openapi/magrit-core.v1.yaml`. **Si non, tu ne codes pas l'endpoint** : tu demandes à l'agent `architecte` de l'ajouter d'abord. Tu ne modifies jamais `openapi/` toi-même.
 4. Vérifie si une brique équivalente existe déjà dans le dépôt avant de créer une table ou un module (ex. `client_price_rules`, `shop_customer_accounts`, `access_scope`, `resolvePrice()`) — étends, ne duplique pas.
@@ -31,6 +31,7 @@ Tu implémentes UNE story Notion du Sprint 5 (Epic E10), en entier : migration S
 4. Test de contrat de chaque endpoint créé/modifié, contre l'OpenAPI.
 5. Tests unitaires sur toute logique de calcul.
 6. Chaque critère d'acceptation numéroté de la story est vérifiable un par un dans ton rapport de fin de story.
+7. Le story document : la partie implémentation s'écrit **sous** la section `notion-functional`, jamais au-dessus, et tu ne modifies jamais cette section. Si ta story est un lot (ex. `E10.15a`), son `id` de frontmatter porte l'ID du lot : le rattachement à la story Notion parente est automatique.
 
 ## Fin de story
 

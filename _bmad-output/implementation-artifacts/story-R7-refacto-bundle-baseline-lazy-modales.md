@@ -15,6 +15,22 @@ status: partial-review
 
 # R7 — Bundle baseline (Lighthouse CI + bundle-visualizer + lazy modales)
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> Aucune story du Sprint Board Notion n'est rattachée à ce story document : c'est une story née dans le dépôt (refonte technique, lot d'architecture ou correctif). Son périmètre est celui décrit ci-dessous. Si elle relève d'une story Notion, renseigner ce rattachement et régénérer cette section.
+
+### Cas de test fonctionnels rattachés (Notion)
+
+| TF | Cas de test | Statut | Priorité | Parcours | Cible | Stories liées |
+|---|---|---|---|---|---|---|
+| [TF-73](https://app.notion.com/35ed0131973c819ba51affec04c0b664) | R7 — Lazy modales : 3 chunks séparés (QuoteModal, LibraryPickerModal, ProductOverlay) + bundle main 245 kB gz | Obsolète | P2 — Nice to have | P09 — Boutique portail B2B | B5 | R7 |
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 ## Origine
 
 Story refacto P0 issue de l'**Étape D Winston ADR-R8** + dette manquée M1 par review adversariale §1.2 : bundle size jamais auditée, 50+ icons lucide inline dans ProductCard, zéro `React.lazy()` sur modales lourdes (QuoteModal, LibraryPickerModal, ProductOverlay), pas de bundle analysis.

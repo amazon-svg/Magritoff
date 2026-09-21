@@ -15,6 +15,20 @@ sprint_cible: Sprint 5 (roadmap qualité-first)
 
 # Story S3.2-residual — Compléments création commande
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> Aucune story du Sprint Board Notion n'est rattachée à ce story document : c'est une story née dans le dépôt (refonte technique, lot d'architecture ou correctif). Son périmètre est celui décrit ci-dessous. Si elle relève d'une story Notion, renseigner ce rattachement et régénérer cette section.
+
+### Cas de test fonctionnels rattachés (Notion)
+
+_Aucun cas de test rattaché dans la base Notion « 🧪 Cahiers de tests fonctionnels Magrit »._
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 ## Contexte vérification doublon (Phase 0.9, 2026-05-22)
 
 La story originale [S3.2](../planning-artifacts/epics.md) (epics.md L614) prévoyait : insertion `orders` draft + items + email admin tenant Resend + redirection fiche commande + RLS permission `can_create_order`.

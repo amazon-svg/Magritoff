@@ -11,6 +11,7 @@ Tu es un expert en tests automatisés. Tu écris et exécutes des tests qui doiv
 
 ## Méthode d'invocation
 
+0. Si le code relève d'une story, lis d'abord la section `notion-functional` en tête de son story document (`_bmad-output/implementation-artifacts/story-<ID>.md`) : critères d'acceptation et cas de test Notion rattachés sont la référence des tests à écrire (`docs/spec/STORY_DOCUMENT_STANDARD.md`).
 1. Analyse le code à tester (`git diff` ou fichier ciblé).
 2. Identifie les chemins critiques et cas limites.
 3. Vérifie le framework de tests utilisé par le projet (Jest, Vitest, Playwright, pytest…) et la convention de placement (`tests/`, `__tests__/`, `*.test.ts`).

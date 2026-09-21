@@ -16,6 +16,22 @@ status: partial-review
 
 # R2 — ChatInterface décomposition + bugs B6 / E4 / E5
 
+<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->
+## Périmètre fonctionnel — story Notion
+
+> Aucune story du Sprint Board Notion n'est rattachée à ce story document : c'est une story née dans le dépôt (refonte technique, lot d'architecture ou correctif). Son périmètre est celui décrit ci-dessous. Si elle relève d'une story Notion, renseigner ce rattachement et régénérer cette section.
+
+### Cas de test fonctionnels rattachés (Notion)
+
+| TF | Cas de test | Statut | Priorité | Parcours | Cible | Stories liées |
+|---|---|---|---|---|---|---|
+| [TF-68](https://app.notion.com/35ed0131973c8148b424e289ed2b1207) | R2 — ChatInterface billing banner E4 + troncage 25 messages E5 + AbortController | Bloqué | P0 — Critique | P05 — Marguerite Mode Ouvert | B5 | R2 |
+
+---
+
+_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._
+<!-- notion-functional:end -->
+
 ## Origine
 
 Story refacto P0 issue de l'**Étape D Winston** sur priorité **B** + 3 bugs Élevés détectés par l'**Étape C review adversariale** :
