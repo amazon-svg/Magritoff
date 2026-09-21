@@ -106,6 +106,34 @@ Les contrôles navigateur se déclenchent manuellement avec `run_e2e`. La suite
 complète exige en plus `run_staging_e2e` et les secrets GitHub préfixés par
 `QUALITY_SUPABASE_` et `QUALITY_E2E_` déclarés dans le workflow.
 
+### Contrat OpenAPI
+
+Le contrat `openapi/magrit-core.v1.yaml` est la source de vérité. Toute
+génération de types passe d'abord par `pnpm openapi:validate`, qui vérifie :
+
+- le parsing YAML et la version OpenAPI 3.1.0 ;
+- la présence des chemins, des `operationId`, des `summary` et des réponses ;
+- l'unicité des `operationId` ;
+- la longueur des `summary`.
+
+Règle rédactionnelle : `summary` est un intitulé court, professionnel et
+orienté action, par exemple « Liste les clients », « Crée un client » ou
+« Récupère un client ». Il ne contient ni justification métier, ni liste de
+cas, ni détail technique. Ces éléments appartiennent à `description`, qui
+porte le comportement complet de l'opération et ses exceptions.
+
+Le vocabulaire doit rester homogène avec l'action exposée : `Liste`, `Crée`,
+`Récupère`, `Modifie`, `Supprime`, `Ajoute`, `Remplace`, `Envoie`, etc. Le
+`summary` est dérivé de l'intention de l'`operationId`, pas d'un paragraphe de
+cadrage copié dans la documentation.
+
+Les summaries de plus de 120 caractères font échouer la validation. Pour une
+lecture temporaire sans ce garde-fou, `OPENAPI_STRICT_SUMMARIES=0` désactive
+la règle, mais cette exception ne doit pas être utilisée dans l'audit qualité.
+
+`pnpm gen:api:check` exécute automatiquement cette validation avant de vérifier
+la dérive entre le contrat et `src/platform/api/generated/magrit-core.v1.ts`.
+
 Les requêtes OpenAI utilisent `store: false` et une sortie structurée par le
 schéma `quality/schemas/agent-assessment.schema.json`. Un endpoint compatible
 Chat Completions, notamment local, reçoit le même schéma dans

@@ -32,10 +32,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Liste les clients du tenant courant. */
+        /** Liste les clients */
         get: operations["listCustomers"];
         put?: never;
-        /** Cree un client (personne morale ou physique). */
+        /** Crée un client */
         post: operations["createCustomer"];
         delete?: never;
         options?: never;
@@ -61,14 +61,20 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Recupere la fiche detaillee d un client : coordonnees, interlocuteurs, et trois points d extension projets/devis/commandes, TOUJOURS VIDES — voir `CustomerDetail` pour la raison, qui n est plus « la story n est pas livree » depuis qu E10.1, E10.3 et E10.12 le sont. */
+        /**
+         * Récupère un client
+         * @description Recupere la fiche detaillee d un client : coordonnees, interlocuteurs, et trois points d extension projets/devis/commandes, TOUJOURS VIDES — voir `CustomerDetail` pour la raison, qui n est plus « la story n est pas livree » depuis qu E10.1, E10.3 et E10.12 le sont.
+         */
         get: operations["getCustomer"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        /** Modifie un client existant, ou le desactive (`is_active: false`). Le type (`company`/`individual`) n est pas modifiable par cette operation. */
+        /**
+         * Modifie un client
+         * @description Modifie un client existant, ou le desactive (`is_active: false`). Le type (`company`/`individual`) n est pas modifiable par cette operation.
+         */
         patch: operations["updateCustomer"];
         trace?: never;
     };
@@ -90,10 +96,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Liste les interlocuteurs d un client. */
+        /** Liste les interlocuteurs d’un client */
         get: operations["listCustomerContacts"];
         put?: never;
-        /** Ajoute un interlocuteur a un client. Donnee de gestion pure : ne cree aucun compte utilisateur, n envoie aucune invitation. */
+        /**
+         * Ajoute un interlocuteur à un client
+         * @description Ajoute un interlocuteur a un client. Donnee de gestion pure : ne cree aucun compte utilisateur, n envoie aucune invitation.
+         */
         post: operations["createCustomerContact"];
         delete?: never;
         options?: never;
@@ -119,7 +128,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Recupere un interlocuteur et son `ETag` courant — necessaire pour enchainer un `PATCH` protege par `If-Match` (CA9). `listCustomerContacts` n emet aucun `ETag` : une collection n a pas de version unique opposable a un `If-Match` portant sur UN de ses elements ; c est cet endpoint, pas la liste, qui fait foi pour la concurrence optimiste d un interlocuteur donne. */
+        /**
+         * Récupère un interlocuteur
+         * @description Recupere un interlocuteur et son `ETag` courant — necessaire pour enchainer un `PATCH` protege par `If-Match` (CA9). `listCustomerContacts` n emet aucun `ETag` : une collection n a pas de version unique opposable a un `If-Match` portant sur UN de ses elements ; c est cet endpoint, pas la liste, qui fait foi pour la concurrence optimiste d un interlocuteur donne.
+         */
         get: operations["getCustomerContact"];
         put?: never;
         post?: never;
@@ -150,9 +162,15 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Ouvre un acces boutique explicite pour cet interlocuteur : cree (ou relie) un compte `shop_customer_accounts` lie a `customer_contact_id` et emet son lien d activation. Un interlocuteur ne porte qu un seul acces par boutique (CA3). */
+        /**
+         * Ouvre l’accès boutique d’un interlocuteur
+         * @description Ouvre un acces boutique explicite pour cet interlocuteur : cree (ou relie) un compte `shop_customer_accounts` lie a `customer_contact_id` et emet son lien d activation. Un interlocuteur ne porte qu un seul acces par boutique (CA3).
+         */
         post: operations["openCustomerContactShopAccess"];
-        /** Revoque l acces boutique de cet interlocuteur dans la boutique indiquee : delie l interlocuteur du compte et suspend ce dernier. */
+        /**
+         * Révoque l’accès boutique d’un interlocuteur
+         * @description Revoque l acces boutique de cet interlocuteur dans la boutique indiquee : delie l interlocuteur du compte et suspend ce dernier.
+         */
         delete: operations["revokeCustomerContactShopAccess"];
         options?: never;
         head?: never;
@@ -179,7 +197,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Verifie le SIRET d un client aupres de l INSEE. BOUCHON (mock) tant que le compte INSEE reel n est pas cree — meme principe que le mock SIREN de E6.1 (`src/modules/tenants/ui/helpers/sirenValidator.ts`) : format + cle de Luhn controles reellement, reponse INSEE simulee de facon credible, `mocked: true` explicite dans la reponse. */
+        /**
+         * Vérifie le SIRET d’un client
+         * @description Verifie le SIRET d un client aupres de l INSEE. BOUCHON (mock) tant que le compte INSEE reel n est pas cree — meme principe que le mock SIREN de E6.1 (`src/modules/tenants/ui/helpers/sirenValidator.ts`) : format + cle de Luhn controles reellement, reponse INSEE simulee de facon credible, `mocked: true` explicite dans la reponse.
+         */
         post: operations["verifyCustomerSiret"];
         delete?: never;
         options?: never;
@@ -208,7 +229,7 @@ export interface paths {
         /** Liste les projets du tenant courant, tries par date de derniere modification decroissante (CA2). */
         get: operations["listProjects"];
         put?: never;
-        /** Cree un projet, rattache obligatoirement a un client (CA3). */
+        /** Crée un projet */
         post: operations["createProject"];
         delete?: never;
         options?: never;
@@ -234,14 +255,17 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Recupere un projet et ses elements de chiffrage (CA5). */
+        /** Récupère un projet */
         get: operations["getProject"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        /** Renomme un projet, change son client, ou l archive/reactive via `status` (CA6). Jamais un DELETE : un projet n est pas supprime physiquement. */
+        /**
+         * Modifie un projet
+         * @description Renomme un projet, change son client, ou l archive/reactive via `status` (CA6). Jamais un DELETE : un projet n est pas supprime physiquement.
+         */
         patch: operations["updateProject"];
         trace?: never;
     };
@@ -265,7 +289,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Ajoute un element de chiffrage a un projet (CA4). Conserve le payload de chiffrage tel que calcule, pour reprendre l iteration conversationnelle sans rejouer Clariprint (CA5). */
+        /**
+         * Ajoute un élément à un projet
+         * @description Ajoute un element de chiffrage a un projet (CA4). Conserve le payload de chiffrage tel que calcule, pour reprendre l iteration conversationnelle sans rejouer Clariprint (CA5).
+         */
         post: operations["addProjectItem"];
         delete?: never;
         options?: never;
@@ -293,7 +320,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Importe une ligne de panier HopeStudio dans un projet actif. */
+        /** Importe un article HopeStudio dans un projet */
         post: operations["importHopeStudioBasketItem"];
         delete?: never;
         options?: never;
@@ -322,7 +349,10 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Retire un element de chiffrage du projet : retrait du lien uniquement, jamais suppression de l historique de chiffrage si celui-ci existe ailleurs (E10.3+). */
+        /**
+         * Retire un élément d’un projet
+         * @description Retire un element de chiffrage du projet : retrait du lien uniquement, jamais suppression de l historique de chiffrage si celui-ci existe ailleurs (E10.3+).
+         */
         delete: operations["removeProjectItem"];
         options?: never;
         head?: never;
@@ -348,7 +378,10 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Remplace la liste des tags d un projet (E10.2 CA1, CA6). Retrait implicite de tout tag absent de `tag_ids` : le tag lui-meme n est jamais supprime du tenant (CA5), seul le lien au projet l est. */
+        /**
+         * Remplace les tags d’un projet
+         * @description Remplace la liste des tags d un projet (E10.2 CA1, CA6). Retrait implicite de tout tag absent de `tag_ids` : le tag lui-meme n est jamais supprime du tenant (CA5), seul le lien au projet l est.
+         */
         put: operations["replaceProjectTags"];
         post?: never;
         delete?: never;
@@ -378,7 +411,10 @@ export interface paths {
         /** Liste les tags du tenant courant (CA3), `q` sert l autocompletion depuis le champ de saisie du projet (CA2). */
         get: operations["listProjectTags"];
         put?: never;
-        /** Cree un tag a la volee depuis le champ de saisie du projet (CA2). Creation IDEMPOTENTE sur le libelle normalise (trim, casse insensible) : si le libelle existe deja dans le tenant, l operation rend 200 avec le tag EXISTANT plutot qu un 409 — ce n est pas un conflit, deux commerciaux qui saisissent le meme libelle en meme temps doivent obtenir le meme identifiant. La concurrence est geree cote base (contrainte unique + gestion du conflit d insertion), pas seulement par une verification applicative prealable. */
+        /**
+         * Crée un tag de projet
+         * @description Cree un tag a la volee depuis le champ de saisie du projet (CA2). Creation IDEMPOTENTE sur le libelle normalise (trim, casse insensible) : si le libelle existe deja dans le tenant, l operation rend 200 avec le tag EXISTANT plutot qu un 409 — ce n est pas un conflit, deux commerciaux qui saisissent le meme libelle en meme temps doivent obtenir le meme identifiant. La concurrence est geree cote base (contrainte unique + gestion du conflit d insertion), pas seulement par une verification applicative prealable.
+         */
         post: operations["createProjectTag"];
         delete?: never;
         options?: never;
@@ -407,7 +443,10 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Supprime un tag du tenant (CA5). Refuse tant qu il est encore lie a au moins un projet (`project_tag.in_use`, 409) : un tag encore utilise ne se supprime jamais silencieusement, retirer d abord le lien depuis chaque projet. */
+        /**
+         * Supprime un tag de projet
+         * @description Supprime un tag du tenant (CA5). Refuse tant qu il est encore lie a au moins un projet (`project_tag.in_use`, 409) : un tag encore utilise ne se supprime jamais silencieusement, retirer d abord le lien depuis chaque projet.
+         */
         delete: operations["deleteProjectTag"];
         options?: never;
         head?: never;
@@ -432,10 +471,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Liste les devis du tenant courant. */
+        /** Liste les devis */
         get: operations["listQuotes"];
         put?: never;
-        /** Cree un devis a partir d elements coches d un projet (CA2, CA3). Transactionnel : numerotation, creation du devis et de ses lignes aboutissent ou echouent ensemble (aucun trou de sequence, aucun devis orphelin). Le client (CA4) et les configurations produit (CA3) sont heritees du projet et de ses elements, jamais ressaisis. */
+        /**
+         * Crée un devis depuis un projet
+         * @description Cree un devis a partir d elements coches d un projet (CA2, CA3). Transactionnel : numerotation, creation du devis et de ses lignes aboutissent ou echouent ensemble (aucun trou de sequence, aucun devis orphelin). Le client (CA4) et les configurations produit (CA3) sont heritees du projet et de ses elements, jamais ressaisis.
+         */
         post: operations["createQuoteFromProject"];
         delete?: never;
         options?: never;
@@ -461,16 +503,20 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Recupere un devis et ses lignes. */
+        /** Récupère un devis */
         get: operations["getQuote"];
         put?: never;
         post?: never;
-        /** Supprime un devis A L ETAT BROUILLON UNIQUEMENT (CA6). Refuse sur tout autre statut : un devis envoye ou valide reste dans l historique commercial. */
+        /**
+         * Supprime un devis
+         * @description Supprime un devis A L ETAT BROUILLON UNIQUEMENT (CA6). Refuse sur tout autre statut : un devis envoye ou valide reste dans l historique commercial.
+         */
         delete: operations["deleteQuote"];
         options?: never;
         head?: never;
         /**
-         * Modifie l entete d un devis BROUILLON : validite, affichage des remises (CA6), remise globale (E10.10a). Jamais le numero ni le client.
+         * Modifie un devis
+         * @description Modifie l entete d un devis BROUILLON : validite, affichage des remises (CA6), remise globale (E10.10a). Jamais le numero ni le client.
          *
          *     GARDE D ETAT (E10.10a) : refuse en 409 `quote.update_requires_draft` des que `status` vaut autre chose que `draft`. Jusqu a cette story, aucune operation ne produisait un autre statut et la garde manquait sans consequence — dette datee et tracee (docs/api/CONVENTIONS.md §8.6, p4), soldee ici, en meme temps qu apparait le premier statut qui la rend necessaire. Pour modifier un devis envoye : le dupliquer (`duplicateQuote`).
          */
@@ -498,7 +544,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Ajoute une ligne a un devis brouillon, sous DEUX formes exclusives (decision d Arnaud du 01/09, capacite de l ancien editeur) :
+         * Ajoute une ligne à un devis
+         * @description Ajoute une ligne a un devis brouillon, sous DEUX formes exclusives (decision d Arnaud du 01/09, capacite de l ancien editeur) :
          *
          *     - ligne LIEE a un chiffrage du projet source (`project_item_id`
          *       fourni) : `label`, `product_config`, `quantity` et `production_price`
@@ -540,12 +587,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Recupere une ligne et son `ETag` courant — necessaire pour enchainer un `PATCH` protege par `If-Match` (CA9). `getQuote` n emet aucun `ETag` de ligne : son `ETag` porte sur l en-tete du devis, pas sur chacune de ses lignes ; c est cet endpoint, pas la fiche du devis, qui fait foi pour la concurrence optimiste d une ligne donnee (meme regle que `getCustomerContact` vis-a-vis de `listCustomerContacts`). */
+        /**
+         * Récupère une ligne de devis
+         * @description Recupere une ligne et son `ETag` courant — necessaire pour enchainer un `PATCH` protege par `If-Match` (CA9). `getQuote` n emet aucun `ETag` de ligne : son `ETag` porte sur l en-tete du devis, pas sur chacune de ses lignes ; c est cet endpoint, pas la fiche du devis, qui fait foi pour la concurrence optimiste d une ligne donnee (meme regle que `getCustomerContact` vis-a-vis de `listCustomerContacts`).
+         */
         get: operations["getQuoteLine"];
         put?: never;
         post?: never;
         /**
-         * Retire une ligne d un devis A L ETAT BROUILLON UNIQUEMENT, meme garde que `deleteQuote`. Les positions des lignes suivantes sont resserrees par le serveur pour rester contigues.
+         * Supprime une ligne de devis
+         * @description Retire une ligne d un devis A L ETAT BROUILLON UNIQUEMENT, meme garde que `deleteQuote`. Les positions des lignes suivantes sont resserrees par le serveur pour rester contigues.
          *
          *     Le retrait ne touche jamais l element de projet source (E10.3 CA7) : il reste disponible pour ce devis ou pour un autre. L audit conserve une entree `removed` portant l etat de la ligne au moment du retrait — une ligne supprimee reste opposable (CA6).
          */
@@ -553,7 +604,8 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Modifie une ligne d un devis brouillon : prix de vente OU taux de marge (CA1), et quantite (capacite reprise de l ancien editeur).
+         * Modifie une ligne de devis
+         * @description Modifie une ligne d un devis brouillon : prix de vente OU taux de marge (CA1), et quantite (capacite reprise de l ancien editeur).
          *
          *     `sale_price` et `margin_rate` sont MUTUELLEMENT EXCLUSIFS dans un meme corps : ils decrivent la meme grandeur par deux entrees, et les envoyer ensemble ne dirait pas laquelle fait foi. Le serveur derive systematiquement l autre, plus `discount_rate` et `margin_variation` (CA2, CA3), et rend la ligne COMPLETE — le client affiche, il ne recalcule pas.
          *
@@ -584,7 +636,8 @@ export interface paths {
         };
         get?: never;
         /**
-         * Reordonne les lignes d un devis brouillon. `line_ids` porte la liste COMPLETE des lignes du devis dans l ordre voulu ; le serveur reaffecte `position` de 0 a n-1 dans cet ordre.
+         * Réordonne les lignes d’un devis
+         * @description Reordonne les lignes d un devis brouillon. `line_ids` porte la liste COMPLETE des lignes du devis dans l ordre voulu ; le serveur reaffecte `position` de 0 a n-1 dans cet ordre.
          *
          *     Pourquoi un endpoint dedie plutot qu un champ `position` dans `updateQuoteLine` : deplacer UNE ligne renumerote ses voisines, donc modifie des ressources que l `If-Match` de la ligne deplacee ne couvre pas. Le reordonnancement est un etat de la COLLECTION, pas un attribut d une ligne isolee — meme raisonnement et meme forme que `replaceProjectTags` (E10.2). Un `position` dans le PATCH aurait offert deux facons divergentes de faire la meme chose, dont une silencieusement non transactionnelle.
          *
@@ -617,7 +670,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Journal d audit des lignes d un devis (CA5, CA6) : qui a change quoi, quand, de quelle valeur a quelle valeur. LECTURE SEULE et APPEND-ONLY — aucune operation d ecriture, de correction ou de purge n existe sur ce chemin, ni ici ni ailleurs dans le contrat. C est la piece qui rend un prix opposable a son auteur.
+         * Liste l’audit des lignes d’un devis
+         * @description Journal d audit des lignes d un devis (CA5, CA6) : qui a change quoi, quand, de quelle valeur a quelle valeur. LECTURE SEULE et APPEND-ONLY — aucune operation d ecriture, de correction ou de purge n existe sur ce chemin, ni ici ni ailleurs dans le contrat. C est la piece qui rend un prix opposable a son auteur.
          *
          *     Chemin `audit-entries` et non `audit` : la regle de nommage du socle (CA3, `checkResourcePath`) impose le pluriel sur tout segment de ressource, et elle est verifiee par le lint du contrat.
          *
@@ -655,7 +709,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * ENVOIE un devis au client. Geste explicite du commercial (point 1 du cadrage), jamais un effet de bord d une autre operation.
+         * Envoie un devis
+         * @description ENVOIE un devis au client. Geste explicite du commercial (point 1 du cadrage), jamais un effet de bord d une autre operation.
          *
          *     DEUX CAS, une seule operation :
          *     - devis `draft` -> PREMIER ENVOI. Transition vers `sent`, horodatage
@@ -709,7 +764,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * DUPLIQUE un devis : cree un NOUVEAU devis `draft`, meme client et meme projet source, lignes recopiees. C est la reponse au point 3 du cadrage — un devis envoye ne se modifie pas, il se reprend.
+         * Duplique un devis
+         * @description DUPLIQUE un devis : cree un NOUVEAU devis `draft`, meme client et meme projet source, lignes recopiees. C est la reponse au point 3 du cadrage — un devis envoye ne se modifie pas, il se reprend.
          *
          *     Autorise depuis N IMPORTE QUEL statut, y compris `draft` (variante d une offre en cours) : la duplication ne consomme ni ne modifie le devis source, aucune garde d etat n aurait de sens ici.
          *
@@ -773,7 +829,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Reglages commerciaux du tenant courant : la duree de validite appliquee par defaut aux devis, et l etat de la purge automatique des fichiers de commande (E10.22d).
+         * Récupère les réglages commerciaux
+         * @description Reglages commerciaux du tenant courant : la duree de validite appliquee par defaut aux devis, et l etat de la purge automatique des fichiers de commande (E10.22d).
          *
          *     Lecture OUVERTE a tout membre de l espace, sans droit metier : c est un reglage que l editeur de devis doit pouvoir afficher (« validite par defaut : 30 jours ») pour que le commercial sache ce qui s appliquera s il ne pose rien. Meme raison pour le second : « les fichiers de cet espace sont-ils detruits automatiquement, et a partir de quand ? » est une question que se pose quiconque depose une piece, pas seulement celui qui a le droit de repondre. Seule l ECRITURE est gardee.
          */
@@ -784,7 +841,8 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Modifie les reglages commerciaux du tenant.
+         * Modifie les réglages commerciaux
+         * @description Modifie les reglages commerciaux du tenant.
          *
          *     RESERVE au droit `can_manage_pricing` (E10.11), aujourd hui detenu par les seuls `admin` de l espace. Ce n est pas un reglage d affichage : fixer la duree de validite des devis d un tenant, c est fixer une politique commerciale qui s applique a tout le monde. Le droit qui gouverne les regles de prix gouverne aussi les regles qui encadrent les devis — en ouvrir un second pour une famille voisine multiplierait les habilitations sans rien clarifier.
          *
@@ -812,7 +870,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Journal d audit de l ENTETE d un devis : remise globale, affichage des remises, validite, envoi, duplication. LECTURE SEULE et APPEND-ONLY, comme le journal des lignes (E10.9).
+         * Liste l’audit d’un devis
+         * @description Journal d audit de l ENTETE d un devis : remise globale, affichage des remises, validite, envoi, duplication. LECTURE SEULE et APPEND-ONLY, comme le journal des lignes (E10.9).
          *
          *     Chemin distinct de `/quotes/{quoteId}/audit-entries`, qui porte le journal des LIGNES et rend des `QuoteLineAuditEntry`. Elargir ce dernier a une union de deux formes changerait le type de sa reponse deja publiee — interdit en v1 (§7). Le nom `header-audit-entries` dit ce qu il journalise ; renommer l existant en `line-audit-entries`, plus symetrique, serait cassant et n est donc pas fait.
          *
@@ -850,14 +909,16 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Liste les regles de prix du tenant courant : filtrables par etat (`status`), par nom (`q`), par client cible (`customer_id`) et par gamme cible (`product_range_id`), triables par date de creation et par date de debut (`sort`).
+         * Liste les règles de prix
+         * @description Liste les regles de prix du tenant courant : filtrables par etat (`status`), par nom (`q`), par client cible (`customer_id`) et par gamme cible (`product_range_id`), triables par date de creation et par date de debut (`sort`).
          *
          *     Tous les filtres se combinent en ET logique. `customer_id` et `product_range_id` fournis ENSEMBLE ne rendent donc que les regles `customer_range` visant exactement ce couple : une regle `customer` seule, ou `range` seule, ne satisfait pas les deux predicats. C est voulu — cette liste filtre sur la CIBLE DECLAREE de la regle, elle ne simule pas son applicabilite. Pour « quelle regle s appliquerait a ce client sur cette gamme a cette date », appeler `resolvePriceRule` (E10.7), seul a arbitrer la specificite, la recence et les bornes de validite.
          */
         get: operations["listPriceRules"];
         put?: never;
         /**
-         * Cree une regle de prix. Ne modifie, ne decoupe et ne duplique JAMAIS une regle existante (E10.7) : deux regles applicables a la meme date sont un etat normal du referentiel, tranche a la resolution.
+         * Crée une règle de prix
+         * @description Cree une regle de prix. Ne modifie, ne decoupe et ne duplique JAMAIS une regle existante (E10.7) : deux regles applicables a la meme date sont un etat normal du referentiel, tranche a la resolution.
          *
          *     Exige le droit `can_manage_pricing` (E10.11), aujourd hui detenu par les seuls `admin` de l espace : ce droit n est pas delegable a un membre ordinaire en l etat (bloc E10.11 au-dessus de `securitySchemes`).
          */
@@ -888,7 +949,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Resout LA regle applicable a un contexte (client, gamme, date) et rend le motif de sa selection (E10.7). Operation de LECTURE : elle n ecrit rien, ne cree rien et n emet aucun evenement — POST parce que le contexte est un corps structure, pas parce qu elle mute quoi que ce soit. Elle ne porte donc ni `Idempotency-Key` ni 201. */
+        /**
+         * Résout une règle de prix
+         * @description Resout LA regle applicable a un contexte (client, gamme, date) et rend le motif de sa selection (E10.7). Operation de LECTURE : elle n ecrit rien, ne cree rien et n emet aucun evenement — POST parce que le contexte est un corps structure, pas parce qu elle mute quoi que ce soit. Elle ne porte donc ni `Idempotency-Key` ni 201.
+         */
         post: operations["resolvePriceRule"];
         delete?: never;
         options?: never;
@@ -914,7 +978,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Recupere une regle de prix et son `ETag` courant — necessaire pour enchainer un `PATCH` protege par `If-Match` (CA9), que `listPriceRules` ne permet pas puisqu une collection n emet aucun `ETag`. */
+        /**
+         * Récupère une règle de prix
+         * @description Recupere une regle de prix et son `ETag` courant — necessaire pour enchainer un `PATCH` protege par `If-Match` (CA9), que `listPriceRules` ne permet pas puisqu une collection n emet aucun `ETag`.
+         */
         get: operations["getPriceRule"];
         put?: never;
         post?: never;
@@ -922,7 +989,8 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Modifie le nom, la valeur, la periode ou l etat actif d une regle. La PORTEE, la CIBLE et le TYPE DE VALEUR ne sont pas modifiables : les changer reviendrait a reecrire l historique d arbitrage d une regle deja appliquee a des devis. Creer une nouvelle regle a la place — c est justement ce que l arbitrage par la recence rend indolore (E10.7).
+         * Modifie une règle de prix
+         * @description Modifie le nom, la valeur, la periode ou l etat actif d une regle. La PORTEE, la CIBLE et le TYPE DE VALEUR ne sont pas modifiables : les changer reviendrait a reecrire l historique d arbitrage d une regle deja appliquee a des devis. Creer une nouvelle regle a la place — c est justement ce que l arbitrage par la recence rend indolore (E10.7).
          *
          *     Exige le droit `can_manage_pricing` (E10.11), aujourd hui detenu par les seuls `admin` de l espace. Desactiver une regle (`is_active: false`) passe par ce meme PATCH : c est donc le meme droit qui gouverne l extinction d une regle et sa creation, ce qui est la seule combinaison coherente — pouvoir eteindre sans pouvoir creer laisserait un acteur demanteler une politique tarifaire sans pouvoir la retablir.
          */
@@ -950,7 +1018,8 @@ export interface paths {
         /** Lit la marge publique standard que le tenant applique a cette gamme, et son `ETag` courant. */
         get: operations["getProductRangeDefaultMargin"];
         /**
-         * Definit la marge publique standard du tenant sur cette gamme. `PUT` et non `POST` : la ressource est un singleton, l appel est idempotent par nature et son identite est celle du chemin — c est `If-Match`, pas une cle d idempotence, qui protege deux redacteurs concurrents.
+         * Définit la marge par défaut d’une gamme
+         * @description Definit la marge publique standard du tenant sur cette gamme. `PUT` et non `POST` : la ressource est un singleton, l appel est idempotent par nature et son identite est celle du chemin — c est `If-Match`, pas une cle d idempotence, qui protege deux redacteurs concurrents.
          *
          *     Exige le droit `can_manage_pricing` (E10.11), aujourd hui detenu par les seuls `admin` de l espace. Cette marge est le DEFAUT sur lequel retombe tout chiffrage d une gamme quand aucune regle ne s applique : la deplacer d un point deplace silencieusement le prix de toutes les affaires futures de cette gamme, sans qu aucun devis ne porte la trace de la decision. Elle merite au moins la garde des regles de prix, qui sont, elles, nommees et datees.
          */
@@ -970,7 +1039,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * LISTE les devis mis a disposition du client authentifie sur la boutique, du plus recemment envoye au plus ancien.
+         * Liste les devis côté boutique
+         * @description LISTE les devis mis a disposition du client authentifie sur la boutique, du plus recemment envoye au plus ancien.
          *
          *     PERIMETRE, et c est le coeur de l operation : les devis du CLIENT (`customers`, E10.4) dont depend l interlocuteur (`customer_contacts`) rattache au compte boutique de la session (`shop_customer_accounts.customer_contact_id`, E10.5 CA3). Ni la boutique, ni le compte, ni l espace ne sont des parametres : ils sont tous les trois portes par le cookie de session.
          *
@@ -997,7 +1067,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * LIT un devis mis a disposition du client, avec ses lignes, dans la representation reduite destinee a l acheteur.
+         * Récupère un devis côté boutique
+         * @description LIT un devis mis a disposition du client, avec ses lignes, dans la representation reduite destinee a l acheteur.
          *
          *     404 INDISCERNABLE, et c est delibere : identifiant inconnu, devis d un autre client, devis d un autre espace, devis encore `draft` — les quatre rendent la meme reponse. Distinguer « ce devis existe mais n est pas a vous » de « ce devis n existe pas » offrirait a n importe quel compte boutique un oracle d existence sur les devis de toute la plateforme, a raison d un UUID essaye par requete.
          *
@@ -1022,7 +1093,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * ACCEPTE ou REFUSE un devis, geste du CLIENT depuis sa boutique. Produit les statuts `accepted` et `rejected`, reserves au schema depuis E10.3 et qu aucune operation n atteignait jusqu ici.
+         * Enregistre la décision sur un devis
+         * @description ACCEPTE ou REFUSE un devis, geste du CLIENT depuis sa boutique. Produit les statuts `accepted` et `rejected`, reserves au schema depuis E10.3 et qu aucune operation n atteignait jusqu ici.
          *
          *     TERMINAL, ET DANS UN SEUL SENS. Un devis `sent` va vers `accepted` ou `rejected` ; aucune operation ne revient en arriere, ne corrige une decision ni ne la retire. Un client qui se ravise ne « change pas son devis » : il en demande un nouveau, que l atelier produit par `duplicateQuote` (E10.10a) — meme regle exactement que pour un devis envoye qu on voudrait modifier.
          *
@@ -1076,7 +1148,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * VALIDE un devis et le transforme en COMMANDE. Geste d atelier explicite — le « bouton Valider » du back-office — jamais un effet de bord de la decision du client.
+         * Convertit un devis en commande
+         * @description VALIDE un devis et le transforme en COMMANDE. Geste d atelier explicite — le « bouton Valider » du back-office — jamais un effet de bord de la decision du client.
          *
          *     RESSOURCE D ACTE, comme `/quotes/{id}/transmissions` et `/quotes/{id}/duplicates` : c est la convention deja en place pour toute transition de devis cote atelier. Un `PATCH` portant `{"status": "converted"}` aurait ouvert `status` en ecriture, alors qu une transition a des effets propres — numerotation, copie figee des lignes, entree d audit, evenement sortant — qui ne sont pas ceux d une mise a jour de champ.
          *
@@ -1151,7 +1224,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Liste les commandes du tenant courant, de la plus recente a la plus ancienne.
+         * Liste les commandes commerciales
+         * @description Liste les commandes du tenant courant, de la plus recente a la plus ancienne.
          *
          *     Le filtre `quote_id` est la contrepartie d une decision de normalisation : un devis converti ne porte PAS l identifiant de sa commande (l arete 1-1 est portee une seule fois, par `CommercialOrder.quote_id`, unique). C est par ce filtre qu un ecran de devis affiche « voir la commande », pas par un champ duplique des deux cotes qu il faudrait tenir synchrone.
          *
@@ -1185,7 +1259,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Fiche complete d une commande : entete, totaux figes et lignes. C est la lecture PRINCIPALE de l ecran de detail d une commande (E10.16), celle qui porte le document lui-meme.
+         * Récupère une commande commerciale
+         * @description Fiche complete d une commande : entete, totaux figes et lignes. C est la lecture PRINCIPALE de l ecran de detail d une commande (E10.16), celle qui porte le document lui-meme.
          *
          *     CETTE OPERATION NE SE SUFFIT PAS A ELLE-MEME, ET C EST VOULU. Elle rend des IDENTIFIANTS la ou l ecran affiche des NOMS — `customer_id`, `quote_id`, `current_production_step_id`, `created_by`. La jointure est a la charge de l appelant, conformement a la doctrine deja posee pour l etape de production (« le catalogue se lit une fois par `listProductionSteps` et se joint cote appelant »). Recopier ici un nom de client ou un numero de devis creerait une SECONDE VERITE dans une reponse dont toute la valeur est d etre figee — et obligerait a trancher si cette copie est un instantane du jour de la conversion ou une lecture du jour de l affichage, deux reponses incompatibles qu il vaut mieux ne pas melanger dans un meme document. Le sujet reste ouvert (reserve (d) de docs/api/CONVENTIONS.md §8.17) ; l ajouter plus tard serait additif.
          *
@@ -1227,7 +1302,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Liste les etapes de production du tenant courant, DANS L ORDRE du flux d atelier (`position` croissante), actives et desactivees confondues sauf filtre `status` (CA1, CA2, CA7).
+         * Liste les étapes de production
+         * @description Liste les etapes de production du tenant courant, DANS L ORDRE du flux d atelier (`position` croissante), actives et desactivees confondues sauf filtre `status` (CA1, CA2, CA7).
          *
          *     PAS DE PAGINATION, et c est un choix motive plutot qu un oubli. Le catalogue est une CONFIGURATION bornee — le jeu standard en compte six, et `createProductionStep` refuse au-dela de 50 par tenant (`production_step.limit_reached`), precisement pour que cette phrase reste vraie. Une page partielle rendrait en outre `reorderProductionSteps` inconstructible : cette commande exige la liste COMPLETE, un appelant qui n aurait vu qu une page ne pourrait jamais la former. Meme parti que `listProjectTags`.
          *
@@ -1247,7 +1323,8 @@ export interface paths {
         get: operations["listProductionSteps"];
         put?: never;
         /**
-         * Cree une etape de production dans le tenant courant (CA2).
+         * Crée une étape de production
+         * @description Cree une etape de production dans le tenant courant (CA2).
          *
          *     POSITION NON CHOISIE PAR L APPELANT : l etape est ajoutee EN FIN de flux, le serveur lui affecte `position = n`. Deplacer se fait ensuite par `reorderProductionSteps`, seule operation qui touche a l ordre — accepter une position ici offrirait deux facons divergentes de faire la meme chose, dont une incapable de renumeroter les voisines dans la meme transaction. Meme raisonnement que `reorderQuoteLines` (E10.9).
          *
@@ -1279,7 +1356,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Fiche d une etape de production, avec son `ETag`.
+         * Récupère une étape de production
+         * @description Fiche d une etape de production, avec son `ETag`.
          *
          *     Cette operation existe pour UNE raison : donner a `updateProductionStep` la precondition qu il exige. L `ETag` emis par `listProductionSteps` valide le CATALOGUE et sert au reordonnancement ; il ne vaut PAS pour le PATCH d une etape, qu il ferait echouer des qu une AUTRE etape bouge. Un ecran qui ouvre le formulaire d edition relit donc l etape ici. Meme construction que `getPriceRule` (E10.6).
          */
@@ -1287,7 +1365,8 @@ export interface paths {
         put?: never;
         post?: never;
         /**
-         * Supprime une etape du tenant. REFUSEE (409 `production_step.in_use`) des qu au moins une commande la porte comme etape courante, OU l a seulement TRAVERSEE — le journal des passages (`listOrderStepChanges`, E10.14) la cite alors, et cette citation suffit (CA3). L issue est la DESACTIVATION, qui conserve l historique.
+         * Supprime une étape de production
+         * @description Supprime une etape du tenant. REFUSEE (409 `production_step.in_use`) des qu au moins une commande la porte comme etape courante, OU l a seulement TRAVERSEE — le journal des passages (`listOrderStepChanges`, E10.14) la cite alors, et cette citation suffit (CA3). L issue est la DESACTIVATION, qui conserve l historique.
          *
          *     CITER UNE ETAPE DANS LE JOURNAL LA REND DONC DEFINITIVEMENT INDELEBILE, meme quand plus aucune commande ne s y trouve. C est voulu : un historique append-only dont on peut effacer le vocabulaire n est plus non modifiable, il devient illisible a retardement. La suppression garde le cas qui la justifie — une etape creee par erreur et jamais utilisee.
          *
@@ -1301,7 +1380,8 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Renomme une etape, change sa couleur, la marque terminale, l active ou la desactive (CA2, CA3, CA4). Modification PARTIELLE : seuls les champs presents sont appliques.
+         * Modifie une étape de production
+         * @description Renomme une etape, change sa couleur, la marque terminale, l active ou la desactive (CA2, CA3, CA4). Modification PARTIELLE : seuls les champs presents sont appliques.
          *
          *     `position` N EST PAS MODIFIABLE ICI, et son absence du corps est le point le plus important de cette operation. Deplacer UNE etape renumerote ses voisines, donc modifie des ressources que l `If-Match` de l etape deplacee ne couvre pas. L ordre est un etat de la COLLECTION, pas un attribut d un de ses elements : il se change par `reorderProductionSteps`, en une seule transaction. Meme raisonnement, meme forme qu en E10.9 (`line-positions`) et E10.2 (`replaceProjectTags`).
          *
@@ -1330,7 +1410,8 @@ export interface paths {
         };
         get?: never;
         /**
-         * Reordonne le flux d atelier du tenant (CA2, glisser-deposer). `step_ids` porte la liste COMPLETE des etapes du tenant dans l ordre voulu ; le serveur reaffecte `position` de 0 a n-1 dans cet ordre, en une seule transaction.
+         * Réordonne les étapes de production
+         * @description Reordonne le flux d atelier du tenant (CA2, glisser-deposer). `step_ids` porte la liste COMPLETE des etapes du tenant dans l ordre voulu ; le serveur reaffecte `position` de 0 a n-1 dans cet ordre, en une seule transaction.
          *
          *     LISTE EXHAUSTIVE, etapes DESACTIVEES COMPRISES. Un ordre partiel est refuse en 422 `production_step.positions_mismatch` : il laisserait les etapes omises a une position indeterminee. Les etapes desactivees conservent une position parce qu elles restent listees et reactivables — les exclure obligerait a leur en recalculer une au moment de la reactivation, sans que personne ne l ait choisie.
          *
@@ -1367,7 +1448,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Journal horodate des changements d etape de production d une commande (CA5, CA6), du PLUS RECENT au plus ancien.
+         * Liste les changements d’étape
+         * @description Journal horodate des changements d etape de production d une commande (CA5, CA6), du PLUS RECENT au plus ancien.
          *
          *     APPEND-ONLY ET LECTURE SEULE. Aucune operation de ce contrat ne modifie ni ne supprime une entree — la garantie est tenue EN BASE (`revoke update, delete`), pas par l absence d un endpoint. Une correction se fait en posant une NOUVELLE transition vers l etape voulue, qui laisse les deux mouvements lisibles : c est le propre d un journal, et c est ce que la story demande en exigeant qu il ne soit pas modifiable.
          *
@@ -1382,7 +1464,8 @@ export interface paths {
         get: operations["listOrderStepChanges"];
         put?: never;
         /**
-         * Deplace une commande sur une etape de production du tenant, et JOURNALISE le passage dans le meme geste (CA4, CA5).
+         * Change l’étape d’une commande
+         * @description Deplace une commande sur une etape de production du tenant, et JOURNALISE le passage dans le meme geste (CA4, CA5).
          *
          *     UNE SEULE TRANSACTION, DEUX ECRITURES INDISSOCIABLES : l entree de journal est inseree ET `commercial_orders.current_production_step_id` est mis a jour. La colonne est la PROJECTION du journal, pas une seconde verite : elle repond a « ou en est-on » (ce que le tableau de bord filtre et trie, E10.13 CA6), le journal repond a « par ou est-on passe, quand, et par qui ». Il ne peut exister ni entree sans deplacement, ni deplacement sans entree.
          *
@@ -1401,7 +1484,7 @@ export interface paths {
          *     `Idempotency-Key` EXIGEE, et elle sert ici plus qu ailleurs : le geste part d une grille dense, ou le double-clic et le re-envoi apres timeout sont la norme. Rejouee a l identique, elle rend la reponse initiale sans creer de seconde entree au journal.
          *
          *     AUCUNE PRECONDITION DE CONCURRENCE. `If-Match` n est ni exige, ni honore : le dernier ecrivain gagne, et deux operateurs qui deplacent la meme commande produisent DEUX entrees de journal, dans l ordre, avec leurs auteurs — ce qui est plus informatif qu un 409. Le contrat le dit plutot que de se taire, parce qu un silence ne se distingue pas d un oubli. ARBITRE PAR ARNAUD LE 2026-09-09 (cadrage E10.14, reserve (a), close) : le choix est acquis pour la duree de v1, l exiger plus tard serait cassant (428 sur un appelant existant).
-         * @description Publie `order.step_changed` dans `outbox_events` — et RIEN d autre au titre des notifications (CA7). Ce lot ne fait que DEPOSER l evenement ; son evaluation (a qui notifier, avec quel modele) est E10.15, non livree. Aucun appel direct a un moteur de notification, jamais, meme patron que `quote.sent` / `quote.accepted` / `quote.converted`.
+         *     Publie `order.step_changed` dans `outbox_events` — et RIEN d autre au titre des notifications (CA7). Ce lot ne fait que DEPOSER l evenement ; son evaluation (a qui notifier, avec quel modele) est E10.15, non livree. Aucun appel direct a un moteur de notification, jamais, meme patron que `quote.sent` / `quote.accepted` / `quote.converted`.
          */
         post: operations["changeOrderProductionStep"];
         delete?: never;
@@ -1431,7 +1514,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * EMET un billet de depot pour un fichier a rattacher a une commande, et ALLOUE l identifiant sous lequel ce fichier existera.
+         * Émet une URL de dépôt de fichier
+         * @description EMET un billet de depot pour un fichier a rattacher a une commande, et ALLOUE l identifiant sous lequel ce fichier existera.
          *
          *     REPOND 200 ET NON 201, ET NE PREND PAS D `Idempotency-Key`, meme parti et meme motif qu `issueDocumentPdfTemplateUploadUrl` : un billet n est pas une ressource metier, c est une capacite a duree de vie courte. Rejouer la demande DOIT rendre un billet neuf ; servir un billet memorise rendrait une capacite peut-etre deja expiree.
          *
@@ -1469,7 +1553,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Liste les fichiers VIVANTS d une commande, du plus recent au plus ancien.
+         * Liste les fichiers d’une commande
+         * @description Liste les fichiers VIVANTS d une commande, du plus recent au plus ancien.
          *
          *     COLLECTION BORNEE, DONC NON PAGINEE. Le nombre de fichiers vivants par commande est plafonne EN BASE a **30** : il n y a ni curseur, ni `page[size]` a offrir, exactement comme `listProductionSteps` et `listDocumentPdfTemplates`. Paginer une collection que la base empeche de croitre serait promettre une seconde page qui n arrivera jamais.
          *
@@ -1482,7 +1567,8 @@ export interface paths {
         get: operations["listOrderFiles"];
         put?: never;
         /**
-         * CONFIRME un depot : le serveur constate les octets au chemin qu il a impose, en releve la taille et le type, et cree la ligne du fichier.
+         * Confirme le dépôt d’un fichier
+         * @description CONFIRME un depot : le serveur constate les octets au chemin qu il a impose, en releve la taille et le type, et cree la ligne du fichier.
          *
          *     C EST ICI, ET NULLE PART AILLEURS, QU UN FICHIER EXISTE. Avant cette operation il n y a que des octets anonymes dans un bucket prive. Le serveur lit la METADONNEE de l objet (`info(path)` du client de stockage : taille et type reels, sans transferer les octets) — il ne telecharge pas le fichier, et ne le lit pas.
          *
@@ -1524,7 +1610,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Rend un fichier de commande et son URL de telechargement signee.
+         * Récupère un fichier de commande
+         * @description Rend un fichier de commande et son URL de telechargement signee.
          *
          *     UNE LECTURE, UNE URL, UN CLIC. L URL vaut **300 secondes**, meme valeur et meme motif que `QuoteDocument.download_url` (arbitrage Arnaud du 2026-09-09) : un telechargement est un clic, pas une session. Aucune valeur neuve n est inventee ici. L URL expiree se remplace en rappelant cette operation.
          *
@@ -1538,7 +1625,8 @@ export interface paths {
         put?: never;
         post?: never;
         /**
-         * Supprime un fichier depose : les OCTETS sont detruits, la LIGNE survit comme trace.
+         * Supprime un fichier de commande
+         * @description Supprime un fichier depose : les OCTETS sont detruits, la LIGNE survit comme trace.
          *
          *     LA SUPPRESSION EST REELLE COTE STOCKAGE, ET C EST LE POINT QUI COMPTE. « Je supprime ce fichier » ne peut pas vouloir dire « je le cache » : un BAT errone montre au client, un devis d un autre client depose par megarde, une piece d identite jointe par erreur — dans les trois cas, ce qui est attendu est que les octets cessent d exister, pas qu ils deviennent moins visibles. L objet de stockage est donc retire.
          *
@@ -1554,7 +1642,8 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Change la VISIBILITE d un fichier deja depose, et rien d autre.
+         * Modifie la visibilité d’un fichier
+         * @description Change la VISIBILITE d un fichier deja depose, et rien d autre.
          *
          *     UN SEUL CHAMP EST MODIFIABLE, ET IL EST LE SEUL QUI LE MERITE. Le nom, le poids, le type et les octets sont ce qui a ete depose : les rendre editables ferait mentir la ligne sur le fichier. La visibilite, elle, est un JUGEMENT, et un jugement se corrige — « ce document ne devait pas etre montre au client » est l erreur la plus probable et la plus consequente de tout ce lot. Obliger a supprimer puis redeposer pour la reparer detruirait le fichier et sa trace de depot pour corriger une case a cocher.
          *
@@ -1584,7 +1673,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Liste les gabarits PDF du tenant courant, `awaiting_upload` compris.
+         * Liste les modèles PDF
+         * @description Liste les gabarits PDF du tenant courant, `awaiting_upload` compris.
          *
          *     PAS DE PAGINATION, meme motif que `listProductionSteps` : c est une CONFIGURATION bornee, et `createDocumentPdfTemplate` refuse au-dela de 20 gabarits par tenant et par type de document (`document_pdf_template.limit_reached`) precisement pour que cette phrase reste vraie. Aucun `ETag` de collection non plus : aucune operation ne reecrit la collection en tant que TOUT — la concurrence se joue gabarit par gabarit, contrairement au catalogue d etapes de production que `reorderProductionSteps` reecrit d un bloc.
          *
@@ -1593,7 +1683,8 @@ export interface paths {
         get: operations["listDocumentPdfTemplates"];
         put?: never;
         /**
-         * CREE un gabarit PDF et rend le BILLET D IMPORT qui permet de televerser le fond. Le gabarit nait `awaiting_upload` : il porte un nom, un type de document, et RIEN d autre — ni fichier, ni pages, ni carte de champs.
+         * Crée un modèle PDF
+         * @description CREE un gabarit PDF et rend le BILLET D IMPORT qui permet de televerser le fond. Le gabarit nait `awaiting_upload` : il porte un nom, un type de document, et RIEN d autre — ni fichier, ni pages, ni carte de champs.
          *
          *     POURQUOI LES OCTETS NE PASSENT PAS PAR CETTE OPERATION. Le corps est du JSON, il ne contient pas le PDF. La facade rend une URL d import signee (`upload`), le navigateur y depose le fichier DIRECTEMENT, puis `confirmDocumentPdfTemplateUpload` fait valider le resultat par le serveur. Trois raisons, dans cet ordre : l enveloppe `{data, meta}` du CA6 ne sait pas transporter un binaire, la faire flechir pour ce seul cas couterait une derogation R5 permanente ; un PDF de plusieurs Mo traverserait un isolat Deno dont la memoire est bornee, alors qu il n a rien a y faire ; et un import en base64 dans du JSON gonfle la charge d un tiers pour rien. C est la symetrie exacte de la decision deja prise a la LECTURE (§8.13septies point 4, maintenue) : les octets ne transitent pas par la facade, ni dans un sens ni dans l autre.
          *
@@ -1625,7 +1716,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Fiche d un gabarit : etat de l import, GEOMETRIE des pages, et URL signee du fond a afficher dans l editeur de coordonnees.
+         * Récupère un modèle PDF
+         * @description Fiche d un gabarit : etat de l import, GEOMETRIE des pages, et URL signee du fond a afficher dans l editeur de coordonnees.
          *
          *     LA GEOMETRIE EST LA PIECE MAITRESSE de cette reponse. `pages` donne, page par page, la largeur et la hauteur en POINTS PDF telles que le serveur les a lues dans le fichier. C est ce referentiel — et lui seul — dans lequel les coordonnees de la carte des champs sont exprimees. L editeur affiche le fond a l echelle qui l arrange et convertit ; ce qu il ENREGISTRE est toujours en points, origine EN BAS A GAUCHE.
          *
@@ -1635,7 +1727,8 @@ export interface paths {
         put?: never;
         post?: never;
         /**
-         * SUPPRIME un gabarit, sa carte de champs et son fichier de fond.
+         * Supprime un modèle PDF
+         * @description SUPPRIME un gabarit, sa carte de champs et son fichier de fond.
          *
          *     REFUSE des qu un document a ete genere avec lui (`document_pdf_template.in_use`), qu il s agisse d un devis (`quote_documents`) ou d un BON DE COMMANDE (`order_documents`, E10.19). Motif : `template_id` est la SEULE trace de ce avec quoi une piece remise a un client a ete produite (§8.13septies point 3). Effacer le gabarit ferait de cette colonne un identifiant qui ne designe plus rien, sur des documents que le contrat promet par ailleurs de ne jamais regenerer. La voie normale, dans ce cas, est la desactivation (`PATCH { "is_active": false }`) : le gabarit disparait des choix sans effacer l historique.
          *
@@ -1645,7 +1738,8 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Modifie le nom d un gabarit, son etat d activation, ou le designe comme gabarit PAR DEFAUT de son type de document.
+         * Modifie un modèle PDF
+         * @description Modifie le nom d un gabarit, son etat d activation, ou le designe comme gabarit PAR DEFAUT de son type de document.
          *
          *     NE TOUCHE JAMAIS AU FICHIER. Remplacer le fond passe par un nouveau billet d import puis une confirmation — un `PATCH` qui accepterait un fichier ferait de cette operation deux choses differentes selon son corps, dont une capable d invalider silencieusement toute la carte des champs.
          *
@@ -1677,7 +1771,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * EMET un nouveau billet d import pour un gabarit existant : reprise d un import interrompu, ou REMPLACEMENT du fond d un gabarit deja `ready`.
+         * Émet une URL de dépôt de modèle PDF
+         * @description EMET un nouveau billet d import pour un gabarit existant : reprise d un import interrompu, ou REMPLACEMENT du fond d un gabarit deja `ready`.
          *
          *     REPOND 200 ET NON 201, ET NE PREND PAS D `Idempotency-Key`. Un billet d import n est pas une ressource metier : c est une capacite a duree de vie courte, revocable par expiration. La rejouer DOIT rendre un billet NEUF — servir le billet memorise d une requete precedente reviendrait a rendre une capacite peut-etre deja expiree ou deja consommee, c est-a-dire exactement le contraire du service attendu. L idempotence protege ici contre rien : deux billets emis coup sur coup pointent le meme chemin, le second ecrase le premier, et aucun etat metier n a bouge.
          *
@@ -1711,7 +1806,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * CONFIRME un import : le serveur RELIT le fichier depose, le valide, en extrait la geometrie et fait passer le gabarit a `ready`.
+         * Confirme le dépôt d’un modèle PDF
+         * @description CONFIRME un import : le serveur RELIT le fichier depose, le valide, en extrait la geometrie et fait passer le gabarit a `ready`.
          *
          *     C EST ICI, ET NULLE PART AILLEURS, QUE LE PDF EST ACCEPTE. Le serveur charge les octets avec sa propre credential, ouvre le document, compte les pages et releve la taille de chacune. Un fichier qui ne s ouvre pas, qui est chiffre, ou qui depasse le nombre de pages admis est REFUSE et l objet est retire du stockage : aucun etat intermediaire « importe mais illisible » n existe. Un controle de type ou de poids fait dans le navigateur n aurait aucune valeur ici — c est la regle generale du sprint, appliquee au seul endroit ou elle compte.
          *
@@ -1743,7 +1839,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * LIT la carte de correspondance d un gabarit : ou chaque donnee du devis est imprimee sur le fond.
+         * Récupère les champs d’un modèle PDF
+         * @description LIT la carte de correspondance d un gabarit : ou chaque donnee du devis est imprimee sur le fond.
          *
          *     Trois familles, aux regles de dessin DIFFERENTES, et c est la seule chose que l editeur doit comprendre avant d afficher quoi que ce soit :
          *     - `placements` — un champ, une position, une page. Dessine UNE fois. Les
@@ -1763,7 +1860,8 @@ export interface paths {
          */
         get: operations["getDocumentPdfTemplateFields"];
         /**
-         * REMPLACE la carte de correspondance ENTIERE d un gabarit.
+         * Remplace les champs d’un modèle PDF
+         * @description REMPLACE la carte de correspondance ENTIERE d un gabarit.
          *
          *     REMPLACEMENT INTEGRAL, PAS DE CRUD PAR CHAMP, et c est un choix motive. L editeur est un plan : l imprimeur deplace huit etiquettes puis enregistre. Un `POST`/`PATCH`/`DELETE` par champ multiplierait les allers-retours au rythme de la souris, autoriserait des etats intermediaires ou un total est place et un sous-total ne l est plus, et rendrait la garde de concurrence inoperante — deux commerciaux editant le meme gabarit se seraient ecrases champ par champ sans qu aucun `If-Match` ne le voie. Meme parti que `replaceProjectTags` et `reorderProductionSteps`.
          *
@@ -1800,7 +1898,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Rend le DOCUMENT PDF d un devis, cote atelier : son horodatage, son poids, son empreinte, et une URL de telechargement signee de courte duree.
+         * Récupère le document d’un devis
+         * @description Rend le DOCUMENT PDF d un devis, cote atelier : son horodatage, son poids, son empreinte, et une URL de telechargement signee de courte duree.
          *
          *     LES OCTETS NE TRANSITENT PAS PAR LA FACADE. Servir `application/pdf` depuis `/api/v1` casserait l enveloppe `{data, meta}` du CA6 et exigerait une derogation R5 permanente ; ici il n y en a AUCUNE. L URL signee n est emise qu apres que la chaine d autorisation a statue.
          *
@@ -1825,7 +1924,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Rend le DOCUMENT PDF d un devis au CLIENT, dans sa boutique.
+         * Récupère le document d’un devis côté boutique
+         * @description Rend le DOCUMENT PDF d un devis au CLIENT, dans sa boutique.
          *
          *     Meme piece, meme octets, meme empreinte que cote atelier : c est le document unique, pas une seconde composition. Le client telecharge exactement ce que l atelier voit, ce qui est la seule facon qu une discussion sur « le devis que vous m avez envoye » ait un objet.
          *
@@ -1861,7 +1961,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Rend le BON DE COMMANDE PDF d une commande : son horodatage, son poids, son empreinte, qui l a produit, et une URL de telechargement signee de courte duree.
+         * Récupère le document d’une commande
+         * @description Rend le BON DE COMMANDE PDF d une commande : son horodatage, son poids, son empreinte, qui l a produit, et une URL de telechargement signee de courte duree.
          *
          *     LES OCTETS NE TRANSITENT PAS PAR CETTE FACADE, meme doctrine que `getQuoteDocument` : servir `application/pdf` depuis `/api/v1` casserait l enveloppe `{data, meta}` du CA6. L URL signee n est emise qu apres que la chaine d autorisation a statue, et elle vaut **300 secondes**.
          *
@@ -1872,7 +1973,8 @@ export interface paths {
         get: operations["getOrderDocument"];
         put?: never;
         /**
-         * PRODUIT le bon de commande d une commande, une fois pour toutes.
+         * Génère le document d’une commande
+         * @description PRODUIT le bon de commande d une commande, une fois pour toutes.
          *
          *     POURQUOI UNE OPERATION DE PRODUCTION, ALORS QUE LE DEVIS N EN A PAS. Le devis est rendu DANS l envoi, parce que toutes ses valeurs existent avant la transition. La commande ne le permet pas : son numero est attribue par la transaction de conversion, donc rien n est imprimable avant qu elle ait reussi. Produire a la conversion aurait rendu l echec DEFINITIF — une commande ne se re-convertit pas — la ou la regle « jamais regenere » interdit tout rattrapage. Cette operation deplace l echec la ou il est encore gratuit : tant qu elle n a pas reussi, elle se rejoue (docs/api/CONVENTIONS.md §8.20 §5, arbitrage (C2)).
          *
@@ -1914,7 +2016,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Liste les liens de depot VIVANTS d une commande, du plus recent au plus ancien.
+         * Liste les liens de dépôt de fichiers
+         * @description Liste les liens de depot VIVANTS d une commande, du plus recent au plus ancien.
          *
          *     VIVANT = ni expire, ni revoque. Un lien expire ou revoque n apparait pas, jamais, sous aucun parametre : sa ligne survit en base comme trace d audit, le contrat ne la publie pas. Meme doctrine que `listOrderFiles` pour un fichier supprime — et meme consequence d ecran : quand il n y a plus de lien, on en emet un nouveau, on ne « reactive » rien.
          *
@@ -1925,7 +2028,8 @@ export interface paths {
         get: operations["listOrderUploadLinks"];
         put?: never;
         /**
-         * EMET un lien public de depot pour une commande, et rend le jeton EN CLAIR — la seule et unique fois.
+         * Crée un lien de dépôt de fichiers
+         * @description EMET un lien public de depot pour une commande, et rend le jeton EN CLAIR — la seule et unique fois.
          *
          *     CE QUE L ATELIER EN FAIT. Il compose l URL publique en prefixant le jeton de l origine de l application (`<origine>/depot/<jeton>`) et la transmet au client comme il veut. Le serveur ne compose pas cette URL lui-meme : la meme application est servie sous plusieurs origines (atelier, boutiques a domaine propre), et fabriquer une URL a partir d une origine devinee produirait un lien mort une fois sur deux.
          *
@@ -1966,7 +2070,8 @@ export interface paths {
         put?: never;
         post?: never;
         /**
-         * REVOQUE un lien de depot : il cesse immediatement de servir, sa ligne survit.
+         * Révoque un lien de dépôt de fichiers
+         * @description REVOQUE un lien de depot : il cesse immediatement de servir, sa ligne survit.
          *
          *     C EST LE SEUL RECOURS QUAND UN LIEN FUITE (arbitrage (C)). Transmis au mauvais destinataire, publie par erreur, transfere par le client a un tiers : sans revocation, l expiration serait le seul remede, donc l attente le seul geste possible. Le cout est nul, l interet evident.
          *
@@ -1990,7 +2095,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Rend au CLIENT ce qu il a besoin de savoir pour deposer : qui lui demande, pour quelle commande, quoi, jusqu a quand, et dans quelles limites.
+         * Récupère le contexte d’un lien de dépôt
+         * @description Rend au CLIENT ce qu il a besoin de savoir pour deposer : qui lui demande, pour quelle commande, quoi, jusqu a quand, et dans quelles limites.
          *
          *     C EST LA PREMIERE CHOSE QUE VOIT UN INCONNU. La page de depot s ouvre sans compte et sans mot de passe, souvent depuis un telephone, chez quelqu un qui ne connait pas Magrit. Sans ce contexte, il ne sait ni si le lien est le bon, ni quel fichier envoyer — et il envoie le mauvais.
          *
@@ -2017,7 +2123,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * EMET un billet de depot pour le porteur du lien, et ALLOUE l identifiant sous lequel le fichier existera.
+         * Émet une URL de dépôt via un lien
+         * @description EMET un billet de depot pour le porteur du lien, et ALLOUE l identifiant sous lequel le fichier existera.
          *
          *     PATRON EXACT D `issueOrderFileUploadUrl`, y compris ses motifs : 200 et non 201, aucune `Idempotency-Key` (un billet n est pas une ressource metier, rejouer DOIT rendre un billet neuf), aucun chemin choisi par l appelant, aucune ligne creee ici. Le chemin vaut toujours `<tenant_id>/<order_id>/<file_id>`, forme par le serveur depuis le JETON — l appelant ne designe ni son tenant, ni sa commande.
          *
@@ -2040,7 +2147,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * CONFIRME un depot fait par le porteur du lien : le serveur constate les octets au chemin qu il a impose, en releve la taille et le type, cree la ligne du fichier et publie `order.files_submitted`.
+         * Confirme un dépôt via un lien
+         * @description CONFIRME un depot fait par le porteur du lien : le serveur constate les octets au chemin qu il a impose, en releve la taille et le type, cree la ligne du fichier et publie `order.files_submitted`.
          *
          *     C EST ICI QUE LE FAIT METIER DU LOT SE PRODUIT. `order.files_submitted` est declare par le socle E10.0 depuis le debut du sprint et n avait AUCUN emetteur : il nomme « le CLIENT a remis ses fichiers », pas « un membre a joint une piece ». Cette operation en est l emetteur, et c est sa raison d etre.
          *
@@ -2080,7 +2188,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Catalogue des faits metier NOTIFIABLES, avec, pour chacun, les balises disponibles et les audiences possibles (CA1, CA4).
+         * Liste les événements notifiables
+         * @description Catalogue des faits metier NOTIFIABLES, avec, pour chacun, les balises disponibles et les audiences possibles (CA1, CA4).
          *
          *     CE N EST PAS UN SECOND VOCABULAIRE D EVENEMENTS. Les valeurs rendues sont, au caractere pres, celles de `EventName` — le nom du fait metier est le meme dans le bus, dans le journal et dans un modele. Ce que ce catalogue publie, c est le SOUS-ENSEMBLE notifiable de `EventName` (`NotificationEventName`), plus ce qu un redacteur de modele doit savoir pour ecrire son texte : quelles balises existent, lesquelles peuvent etre vides, qui peut etre destinataire.
          *
@@ -2118,7 +2227,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Liste les modeles de notification du tenant courant, actifs et desactives confondus sauf filtre `status` (CA2).
+         * Liste les modèles de notification
+         * @description Liste les modeles de notification du tenant courant, actifs et desactives confondus sauf filtre `status` (CA2).
          *
          *     PAS DE PAGINATION, meme motif que `listProductionSteps` et `listDocumentPdfTemplates` : c est une CONFIGURATION bornee, et `createNotificationTemplate` refuse au-dela de 100 modeles par tenant (`notification_template.limit_reached`) precisement pour que cette phrase reste vraie.
          *
@@ -2129,7 +2239,8 @@ export interface paths {
         get: operations["listNotificationTemplates"];
         put?: never;
         /**
-         * Cree un modele de notification dans le tenant courant (CA2, CA5).
+         * Crée un modèle de notification
+         * @description Cree un modele de notification dans le tenant courant (CA2, CA5).
          *
          *     CREE DESACTIVE SI L APPELANT LE DEMANDE, ET C EST LE PARCOURS ATTENDU : `is_active` vaut `false` par defaut. Un modele s ecrit, se previsualise (`previewNotificationTemplate`), puis s arme. L inverse — armer d abord, relire ensuite — fait partir un texte non relu chez un client.
          *
@@ -2161,7 +2272,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Fiche d un modele de notification, avec son `ETag`.
+         * Récupère un modèle de notification
+         * @description Fiche d un modele de notification, avec son `ETag`.
          *
          *     Cette operation existe pour la meme raison que `getProductionStep` : donner a `updateNotificationTemplate` la precondition qu il exige. Un ecran qui ouvre le formulaire d edition relit le modele ici.
          */
@@ -2172,7 +2284,8 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Modifie un modele : nom, sujet, corps, destinataires explicites, filtre d etape, activation. Modification PARTIELLE : seuls les champs presents sont appliques (CA2, CA3).
+         * Modifie un modèle de notification
+         * @description Modifie un modele : nom, sujet, corps, destinataires explicites, filtre d etape, activation. Modification PARTIELLE : seuls les champs presents sont appliques (CA2, CA3).
          *
          *     `event_name` ET `channel` NE SONT PAS MODIFIABLES, et leur absence du corps est le point le plus important de cette operation. Changer l evenement invaliderait les balises deja ecrites ; changer le canal transformerait un courriel en SMS en gardant un sujet et un corps dimensionnes pour un courriel. Les deux se font en creant un autre modele — geste explicite, qui laisse l ancien lisible dans le journal.
          *
@@ -2204,7 +2317,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Rend le modele avec un JEU D EXEMPLE, tel qu il partira (CA6).
+         * Prévisualise un modèle de notification
+         * @description Rend le modele avec un JEU D EXEMPLE, tel qu il partira (CA6).
          *
          *     POST ET NON GET, parce que l appelant ENVOIE le texte a rendre : un ecran d edition previsualise ce qui est A L ECRAN, pas ce qui est enregistre — sinon il faudrait enregistrer pour voir, c est-a-dire armer un texte non relu. `subject` et `body` absents -> le modele enregistre est rendu tel quel.
          *
@@ -2242,7 +2356,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Journal des notifications de l espace : une entree par destinataire et par canal, du plus recent au plus ancien (CA9).
+         * Liste les journaux de notification
+         * @description Journal des notifications de l espace : une entree par destinataire et par canal, du plus recent au plus ancien (CA9).
          *
          *     CETTE COLLECTION EST AUSSI LA FILE D ENVOI, pas seulement son archive. Une entree apparait des que le message est mis en file (`pending`), puis change d etat (`sent`, `failed`, `dropped`). Un exploitant voit donc ce qui est en train de partir, pas uniquement ce qui est parti — et c est la seule surface du produit qui montre un echec de notification. Le precedent est dans le depot : `outbox_events` est deja a la fois la file et la trace, avec les memes colonnes de suivi.
          *
@@ -2278,7 +2393,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * REGISTRE des exports de commandes de l espace, du plus recent au plus ancien : qui a demande quoi, sur quels filtres, quand, et ce qu il en est advenu.
+         * Liste les exports de commandes
+         * @description REGISTRE des exports de commandes de l espace, du plus recent au plus ancien : qui a demande quoi, sur quels filtres, quand, et ce qu il en est advenu.
          *
          *     TENANT-LARGE, PAS « MES EXPORTS ». Tout porteur de `can_export_orders` voit les demandes de TOUS les membres de l espace, avec leur auteur. C est voulu et c est la moitie de l interet de cette operation : un administrateur doit pouvoir repondre a « qui a sorti le chiffre d affaires ce mois-ci ». Le telechargement, lui, reste reserve au demandeur (voir `OrderExport.download_url`) : voir qu un export existe et pouvoir l ouvrir sont deux choses differentes.
          *
@@ -2289,7 +2405,8 @@ export interface paths {
         get: operations["listCommercialOrderExports"];
         put?: never;
         /**
-         * DEMANDE un export des commandes de l espace : un format, une granularite, et les filtres de la grille. Rend immediatement la demande en etat `pending` — elle n est pas encore executee, et RIEN dans cette reponse ne porte de donnee de commande.
+         * Demande un export de commandes
+         * @description DEMANDE un export des commandes de l espace : un format, une granularite, et les filtres de la grille. Rend immediatement la demande en etat `pending` — elle n est pas encore executee, et RIEN dans cette reponse ne porte de donnee de commande.
          *
          *     LES FILTRES SONT EXACTEMENT CEUX DE `listCommercialOrders`, ET C EST UNE REGLE, PAS UNE COMMODITE (consigne WM du 01/09/2026 : « un export doit toujours pouvoir etre reproduit a partir d une vue de la grille »). Le contrat la tient d un seul moyen : `OrderExportFilters` reprend les memes noms, les memes types et les memes refus que les parametres de requete de cette operation-la. Un filtre ajoute a la grille se rajoutera ici, et jamais l inverse — un filtre qui n existerait qu a l export produirait un fichier que personne ne pourrait verifier a l ecran avant de l envoyer a son comptable. `sort`, `page[size]` et `page[cursor]` sont les seuls parametres de la grille a NE PAS etre repris : un export a son ordre propre, impose et documente (`OrderExportGranularity`), et il n a pas de pages.
          *
@@ -2325,7 +2442,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Etat d une demande d export et, quand le fichier est pret ET que l appelant est celui qui l a demande, son URL de telechargement (CA7).
+         * Récupère un export de commandes
+         * @description Etat d une demande d export et, quand le fichier est pret ET que l appelant est celui qui l a demande, son URL de telechargement (CA7).
          *
          *     C EST L OPERATION D ATTENTE. Le client la rappelle jusqu a un etat terminal — `ready`, `failed` ou `expired`. Aucun de ces etats ne change plus, sauf `ready` qui devient `expired` a la destruction du fichier. Une demande restee `running` plus de quelques minutes est une anomalie d exploitation, pas une attente normale : c est pour cela que cet etat est publie plutot que fondu dans `pending`.
          *
@@ -2352,7 +2470,8 @@ export interface webhooks {
         get?: never;
         put?: never;
         /**
-         * Un devis a ete converti en COMMANDE par l atelier (`convertQuote`, E10.12). Charge utile : `QuoteConversionPayload` (`event_version: 1`), qui porte l identifiant et le numero de la commande creee — la seule information que la conversion produit et qu un consommateur ne peut pas deduire.
+         * Notifie la conversion d’un devis
+         * @description Un devis a ete converti en COMMANDE par l atelier (`convertQuote`, E10.12). Charge utile : `QuoteConversionPayload` (`event_version: 1`), qui porte l identifiant et le numero de la commande creee — la seule information que la conversion produit et qu un consommateur ne peut pas deduire.
          *
          *     SEUL evenement emis par la conversion : il n existe pas d `order.created` en doublon pour le meme instant. Distinct de `quote.accepted` (E10.10b-2) : accepter est un geste du CLIENT, valider est un geste de l ATELIER, et l un ne suit pas toujours l autre.
          */
@@ -2373,7 +2492,8 @@ export interface webhooks {
         get?: never;
         put?: never;
         /**
-         * Une commande a change d etape de production (`changeOrderProductionStep`, E10.14). Charge utile : `OrderStepChangedPayload` (`event_version: 1`).
+         * Notifie le changement d’étape d’une commande
+         * @description Une commande a change d etape de production (`changeOrderProductionStep`, E10.14). Charge utile : `OrderStepChangedPayload` (`event_version: 1`).
          *
          *     NOM CONSERVE TEL QUEL. `order.step_changed` est publie dans `EventName` DEPUIS LE SOCLE E10.0, sans producteur jusqu ici ; E10.14 lui en donne un. Le renommer en `commercial_order.step_changed`, plus proche de `commercial_orders` et du chemin `/commercial-orders`, aurait ete un changement CASSANT au sens du CA13 — un nom d evenement se retire aussi mal qu un champ (§7 de docs/api/CONVENTIONS.md) — et aurait laisse deux noms pour un seul fait, dont un mort. La coherence de nommage se paie ici en DESCRIPTION, pas en surface.
          *
@@ -2400,7 +2520,8 @@ export interface webhooks {
         get?: never;
         put?: never;
         /**
-         * Un fichier a ete depose PAR LE CLIENT sur une commande, via un lien public de depot (`confirmOrderUploadLinkFile`, E10.20). Charge utile : `OrderFilesSubmittedPayload` (`event_version: 1`).
+         * Notifie le dépôt de fichiers client
+         * @description Un fichier a ete depose PAR LE CLIENT sur une commande, via un lien public de depot (`confirmOrderUploadLinkFile`, E10.20). Charge utile : `OrderFilesSubmittedPayload` (`event_version: 1`).
          *
          *     DECLARE PAR LE SOCLE E10.0, EMETTEUR ENFIN LIVRE PAR E10.20. Il nomme le fait « le client a remis ce qu on attendait de lui », celui qui debloque la production — pas « un membre a joint une piece a un dossier ». `confirmOrderFileUpload` (E10.17, depot d ATELIER) ne l emet donc PAS et ne l emettra pas : le bruit du travail ordinaire rendrait le signal inexploitable le jour ou il compterait vraiment.
          *
@@ -2423,7 +2544,8 @@ export interface webhooks {
         get?: never;
         put?: never;
         /**
-         * Des fichiers de commande arrivent au terme de leur conservation et seront detruits automatiquement (E10.22). Charge utile : `OrderFilesPurgeScheduledPayload` (`event_version: 1`).
+         * Notifie la purge planifiée de fichiers
+         * @description Des fichiers de commande arrivent au terme de leur conservation et seront detruits automatiquement (E10.22). Charge utile : `OrderFilesPurgeScheduledPayload` (`event_version: 1`).
          *
          *     LE SEUL EVENEMENT DU BUS QUI N EST DECLENCHE PAR AUCUN GESTE. Tous les autres nomment ce que quelqu un a fait ; celui-ci nomme ce que le temps a fait. Il est emis par un balayage QUOTIDIEN qui compare la date de depot de chaque fichier a son echeance, jamais par une ecriture d utilisateur — un consommateur ne doit donc pas s attendre a le voir arriver « juste apres » quoi que ce soit.
          *
@@ -2452,7 +2574,8 @@ export interface webhooks {
         get?: never;
         put?: never;
         /**
-         * Des fichiers de commande ont ete detruits automatiquement (E10.22). Charge utile : `OrderFilesPurgedPayload` (`event_version: 1`).
+         * Notifie la purge de fichiers
+         * @description Des fichiers de commande ont ete detruits automatiquement (E10.22). Charge utile : `OrderFilesPurgedPayload` (`event_version: 1`).
          *
          *     EMIS APRES COUP, ET C EST TOUT CE QU IL EST. Il ne demande rien, il ne declenche rien, il constate. Les octets ne sont plus la au moment ou il part : aucun consommateur ne peut « rattraper » un fichier a partir de lui, et il ne faut pas concevoir d integration qui essaierait.
          *
@@ -2476,7 +2599,7 @@ export interface webhooks {
         };
         get?: never;
         put?: never;
-        /** Un client a ete cree dans le referentiel commercial. */
+        /** Notifie la création d’un client */
         post: operations["onCustomerCreated"];
         delete?: never;
         options?: never;
@@ -2493,7 +2616,7 @@ export interface webhooks {
         };
         get?: never;
         put?: never;
-        /** Un projet a ete cree dans le referentiel commercial. */
+        /** Notifie la création d’un projet */
         post: operations["onProjectCreated"];
         delete?: never;
         options?: never;
@@ -2510,7 +2633,10 @@ export interface webhooks {
         };
         get?: never;
         put?: never;
-        /** Un devis a ete cree depuis un projet (E10.3). Distinct de `quote.converted` (E10.12), qui signale la conversion en commande. */
+        /**
+         * Notifie la création d’un devis
+         * @description Un devis a ete cree depuis un projet (E10.3). Distinct de `quote.converted` (E10.12), qui signale la conversion en commande.
+         */
         post: operations["onQuoteCreated"];
         delete?: never;
         options?: never;
@@ -2528,14 +2654,15 @@ export interface webhooks {
         get?: never;
         put?: never;
         /**
-         * Un devis a ete envoye au client (E10.10a) : il vient de passer de `draft` a `sent` et n est plus modifiable.
+         * Notifie l’envoi d’un devis
+         * @description Un devis a ete envoye au client (E10.10a) : il vient de passer de `draft` a `sent` et n est plus modifiable.
          *
          *     C est l evenement d accroche de la mise a disposition du devis dans la boutique du client (point 1(c) du cadrage, story E10.10b) et de toute notification future.
          *
          *     Emis a CHAQUE remise au client, premier envoi comme renvoi — un renvoi doit re-notifier, sans quoi il ne servirait a rien. `payload.is_resend` les distingue : un consommateur qui materialise le devis (portail client) rafraichit son entree, un consommateur qui notifie renvoie son message. Ce n est PAS une livraison en double au sens de la deduplication : chaque remise a son propre `event_id`, et la regle « etre idempotent sur `event_id` » reste la seule qui protege des doublons de transport.
          *
          *     Distinct de `quote.created` (E10.3 / duplication) et de `quote.converted` (E10.12) : ceux-la portent l apparition et la transformation du devis, celui-ci sa REMISE AU CLIENT.
-         * @description `payload` est fige par `QuoteSentPayload` (`event_version: 1`) : identifiants et numero, aucun montant.
+         *     `payload` est fige par `QuoteSentPayload` (`event_version: 1`) : identifiants et numero, aucun montant.
          */
         post: operations["onQuoteSent"];
         delete?: never;
@@ -2554,14 +2681,15 @@ export interface webhooks {
         get?: never;
         put?: never;
         /**
-         * Le CLIENT a accepte un devis depuis sa boutique (E10.10b-2) : il vient de passer de `sent` a `accepted`.
+         * Notifie l’acceptation d’un devis
+         * @description Le CLIENT a accepte un devis depuis sa boutique (E10.10b-2) : il vient de passer de `sent` a `accepted`.
          *
          *     DEUX EVENEMENTS PLUTOT QU UN SEUL `quote.decided` porteur d un champ. Un consommateur qui n a d interet que pour les acceptations — une chaine de production qui prepare une commande — doit pouvoir s abonner sans filtrer des charges utiles ; et l abonnement est la seule granularite dont dispose un abonne du bus. Meme raison qui separe deja `quote.created`, `quote.sent` et `quote.converted`.
          *
          *     Emis UNE FOIS par devis : la decision est terminale, aucune operation ne la corrige ni ne la rejoue. Un `Idempotency-Key` rejoue ne reproduit AUCUN evenement, la reponse memorisee etant rendue sans seconde execution. La regle « etre idempotent sur `event_id` » reste neanmoins la seule qui protege des doublons de TRANSPORT.
          *
          *     Distinct de `quote.converted` (E10.12) : accepter n est pas commander. Un devis accepte reste un devis tant que l atelier n a pas cree la commande.
-         * @description `payload` est fige par `QuoteDecisionPayload` (`event_version: 1`). `aggregate_type` vaut `quote`, `aggregate_id` le devis decide.
+         *     `payload` est fige par `QuoteDecisionPayload` (`event_version: 1`). `aggregate_type` vaut `quote`, `aggregate_id` le devis decide.
          */
         post: operations["onQuoteAccepted"];
         delete?: never;
@@ -2580,12 +2708,13 @@ export interface webhooks {
         get?: never;
         put?: never;
         /**
-         * Le CLIENT a refuse un devis depuis sa boutique (E10.10b-2) : il vient de passer de `sent` a `rejected`.
+         * Notifie le refus d’un devis
+         * @description Le CLIENT a refuse un devis depuis sa boutique (E10.10b-2) : il vient de passer de `sent` a `rejected`.
          *
          *     Jumeau exact de `quote.accepted` — memes garanties, meme charge utile, meme unicite. Voir ce dernier pour le motif de deux noms plutot qu un evenement unique porteur d un champ.
          *
          *     Le MOTIF du refus ne transite pas : il n est pas collecte par E10.10b-2 (voir docs/api/CONVENTIONS.md §8.13quinquies, point ouvert). Le jour ou il le sera, il s ajoutera a `QuoteDecisionPayload` sans changement de forme.
-         * @description `payload` est fige par `QuoteDecisionPayload` (`event_version: 1`). `aggregate_type` vaut `quote`, `aggregate_id` le devis decide.
+         *     `payload` est fige par `QuoteDecisionPayload` (`event_version: 1`). `aggregate_type` vaut `quote`, `aggregate_id` le devis decide.
          */
         post: operations["onQuoteRejected"];
         delete?: never;
@@ -2604,10 +2733,11 @@ export interface webhooks {
         get?: never;
         put?: never;
         /**
-         * Une ligne de devis a ete ajoutee, modifiee, retiree ou deplacee (E10.9). Un evenement par ligne reellement changee : un reordonnancement de trois lignes en emet trois, aucun pour les lignes restees en place.
+         * Notifie la modification d’une ligne de devis
+         * @description Une ligne de devis a ete ajoutee, modifiee, retiree ou deplacee (E10.9). Un evenement par ligne reellement changee : un reordonnancement de trois lignes en emet trois, aucun pour les lignes restees en place.
          *
          *     Distinct de `quote.created` (E10.3) et de `quote.converted` (E10.12) : ceux-la portent le cycle de vie du DEVIS, celui-ci le contenu de ses lignes. Un consommateur qui cache un total de devis doit ecouter les trois.
-         * @description `payload` est fige par `QuoteLineChangedPayload` (`event_version: 1`). Il ne porte que les identifiants et l action : les montants commerciaux (prix de vente, remise, ecart de marge) ne transitent PAS par le bus — un abonne habilite les relit par `getQuoteLine`.
+         *     `payload` est fige par `QuoteLineChangedPayload` (`event_version: 1`). Il ne porte que les identifiants et l action : les montants commerciaux (prix de vente, remise, ecart de marge) ne transitent PAS par le bus — un abonne habilite les relit par `getQuoteLine`.
          */
         post: operations["onQuoteLineChanged"];
         delete?: never;
@@ -2626,8 +2756,9 @@ export interface webhooks {
         get?: never;
         put?: never;
         /**
-         * Une regle de prix commerciale a ete creee, modifiee, activee ou desactivee (E10.7). Emis a CHACUNE de ces quatre actions, y compris une simple bascule d etat : un consommateur qui cache des prix doit pouvoir invalider son cache sans distinguer les cas.
-         * @description `payload` est fige par `PriceRuleChangedPayload` (`event_version: 1`). Il ne porte que l identifiant de la regle et l action : un consommateur relit la regle par `getPriceRule` s il lui faut son contenu, plutot que de dependre d une copie transportee dans l evenement, qui aurait a etre versionnee a chaque evolution de `PriceRule`.
+         * Notifie la modification d’une règle de prix
+         * @description Une regle de prix commerciale a ete creee, modifiee, activee ou desactivee (E10.7). Emis a CHACUNE de ces quatre actions, y compris une simple bascule d etat : un consommateur qui cache des prix doit pouvoir invalider son cache sans distinguer les cas.
+         *     `payload` est fige par `PriceRuleChangedPayload` (`event_version: 1`). Il ne porte que l identifiant de la regle et l action : un consommateur relit la regle par `getPriceRule` s il lui faut son contenu, plutot que de dependre d une copie transportee dans l evenement, qui aurait a etre versionnee a chaque evolution de `PriceRule`.
          */
         post: operations["onPriceRuleChanged"];
         delete?: never;
@@ -3964,25 +4095,13 @@ export interface components {
         };
         /**
          * CommercialOrderStatus
-         * @description Etat d une commande. UNE SEULE valeur aujourd hui, et c est un choix plutot qu un oubli.
-         *
-         *     E10.12 cree la commande et s arrete la : le cycle de vie (mise en production, expedition, annulation, facturation) est le sujet des stories de suivi, qui le concoivent pour la gestion commerciale. Declarer d avance les etapes de l enumeration `tenant_order_status` de la boutique (`validated`, `in_production`, `shipped`, `delivered`, `invoiced`, `cancelled`, migration `20260509000100`) aurait publie un cycle de vie que personne n a concu pour ce module — cette enumeration-la porte la mention « Vision V2+ » sur cinq de ses sept valeurs et aucune n a jamais ete atteinte.
-         *
-         *     `validated` est en revanche repris TEL QUEL de ce vocabulaire existant : c est deja le nom de « commande engagee commercialement » dans ce produit, et le bouton du back-office s appelle « Valider ». Inventer un synonyme aurait cree deux noms pour la meme notion.
-         *
-         *     E10.13 N Y A RIEN AJOUTE, et il faut le lire comme une decision. Les etapes de production qu elle apporte ne sont PAS des statuts : elles sont configurees par chaque tenant et vivent sur un autre axe (`CommercialOrder.current_production_step_id`, `ProductionStep`). Les verser ici aurait oblige chaque tenant a publier son organisation d atelier dans une enumeration commune. L annulation et la facturation restent, elles, de futurs statuts.
-         *
-         *     Liste ADDITIVE : une story ulterieure peut y ajouter un etat, un consommateur ignore une valeur qu il ne connait pas.
+         * @description Statut commercial de la commande. `validated` signifie que la commande est engagée commercialement.
          * @enum {string}
          */
         CommercialOrderStatus: "validated";
         /**
          * ConvertedFromStatus
-         * @description Statut du DEVIS au moment ou il a ete converti. Sous-ensemble strict de `QuoteStatus`, reduit aux deux seuls statuts convertibles. Ces DEUX valeurs sont arbitrees (Arnaud, 2026-09-08, reserve (a) de docs/api/CONVENTIONS.md §8.14) ; en retirer une serait cassant.
-         *
-         *     Enumeration separee plutot que reutilisation de `QuoteStatus`, meme raison que `StorefrontQuoteStatus` : publier ici les cinq valeurs laisserait croire qu une commande peut naitre d un brouillon ou d un devis refuse.
-         *
-         *     CE QUE CE CHAMP SERT A LIRE, et c est sa seule raison d exister : `accepted` signifie que le client s est FORMELLEMENT prononce depuis son portail (E10.10b-2, engagement horodate et journalise a son nom) ; `sent` signifie que l atelier a valide sur une reponse recue hors systeme — telephone, courriel, bon de commande papier. Les deux produisent la meme commande ; elles ne se valent pas comme PREUVE, et un litige se tranche sur cette difference.
+         * @description Statut du devis au moment de sa conversion en commande. `accepted` indique une décision client ; `sent` indique une validation par l’atelier sans décision client enregistrée.
          * @enum {string}
          */
         ConvertedFromStatus: "sent" | "accepted";

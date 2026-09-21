@@ -46,6 +46,10 @@ checks:
     title: Vérifier la dérive entre OpenAPI et les types générés
     command: [pnpm, gen:api:check]
     severity: critical
+  openapi-contract:
+    title: Valider la structure et la documentation du contrat OpenAPI
+    command: [pnpm, openapi:validate]
+    severity: critical
   contract-tests:
     title: Exécuter les tests de contrat API
     command: [pnpm, test:contract]
@@ -94,16 +98,16 @@ agents:
     title: Architecture
     profile: quality/agents/architecture.md
     checks:
-      diff: [repository-secrets, typecheck, build, architecture-tests, generated-api-types]
-      module: [repository-secrets, typecheck, build, architecture-tests, generated-api-types]
-      full: [repository-secrets, typecheck, build, architecture-tests, generated-api-types]
+      diff: [repository-secrets, typecheck, build, architecture-tests, openapi-contract, generated-api-types]
+      module: [repository-secrets, typecheck, build, architecture-tests, openapi-contract, generated-api-types]
+      full: [repository-secrets, typecheck, build, architecture-tests, openapi-contract, generated-api-types]
   api:
     title: API
     profile: quality/agents/api.md
     checks:
-      diff: [generated-api-types, contract-tests]
-      module: [generated-api-types, contract-tests]
-      full: [generated-api-types, contract-tests]
+      diff: [openapi-contract, generated-api-types, contract-tests]
+      module: [openapi-contract, generated-api-types, contract-tests]
+      full: [openapi-contract, generated-api-types, contract-tests]
   functional:
     title: Conformité fonctionnelle
     profile: quality/agents/functional.md
