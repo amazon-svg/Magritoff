@@ -102,7 +102,7 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: listCustomers
-      summary: Liste les clients du tenant courant.
+      summary: "Liste les clients"
       tags: [gestion-commerciale]
       security:
         - bearerAuth: []
@@ -152,7 +152,7 @@ paths:
 
     post:
       operationId: createCustomer
-      summary: Cree un client (personne morale ou physique).
+      summary: "Crée un client"
       tags: [gestion-commerciale]
       security:
         - bearerAuth: []
@@ -215,7 +215,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: getCustomer
-      summary: >-
+      summary: "Récupère un client"
+      description: >-
         Recupere la fiche detaillee d un client : coordonnees, interlocuteurs,
         et trois points d extension projets/devis/commandes, TOUJOURS VIDES —
         voir `CustomerDetail` pour la raison, qui n est plus « la story n est
@@ -258,7 +259,8 @@ paths:
 
     patch:
       operationId: updateCustomer
-      summary: >-
+      summary: "Modifie un client"
+      description: >-
         Modifie un client existant, ou le desactive (`is_active: false`). Le
         type (`company`/`individual`) n est pas modifiable par cette
         operation.
@@ -323,7 +325,7 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: listCustomerContacts
-      summary: Liste les interlocuteurs d un client.
+      summary: "Liste les interlocuteurs d’un client"
       tags: [gestion-commerciale]
       security:
         - bearerAuth: []
@@ -356,7 +358,8 @@ paths:
 
     post:
       operationId: createCustomerContact
-      summary: >-
+      summary: "Ajoute un interlocuteur à un client"
+      description: >-
         Ajoute un interlocuteur a un client. Donnee de gestion pure : ne cree
         aucun compte utilisateur, n envoie aucune invitation.
       tags: [gestion-commerciale]
@@ -418,7 +421,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: getCustomerContact
-      summary: >-
+      summary: "Récupère un interlocuteur"
+      description: >-
         Recupere un interlocuteur et son `ETag` courant — necessaire pour
         enchainer un `PATCH` protege par `If-Match` (CA9). `listCustomerContacts`
         n emet aucun `ETag` : une collection n a pas de version unique
@@ -533,7 +537,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     post:
       operationId: openCustomerContactShopAccess
-      summary: >-
+      summary: "Ouvre l’accès boutique d’un interlocuteur"
+      description: >-
         Ouvre un acces boutique explicite pour cet interlocuteur : cree (ou
         relie) un compte `shop_customer_accounts` lie a `customer_contact_id`
         et emet son lien d activation. Un interlocuteur ne porte qu un seul
@@ -602,7 +607,8 @@ paths:
 
     delete:
       operationId: revokeCustomerContactShopAccess
-      summary: >-
+      summary: "Révoque l’accès boutique d’un interlocuteur"
+      description: >-
         Revoque l acces boutique de cet interlocuteur dans la boutique
         indiquee : delie l interlocuteur du compte et suspend ce dernier.
       tags: [gestion-commerciale]
@@ -663,7 +669,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     post:
       operationId: verifyCustomerSiret
-      summary: >-
+      summary: "Vérifie le SIRET d’un client"
+      description: >-
         Verifie le SIRET d un client aupres de l INSEE. BOUCHON (mock) tant
         que le compte INSEE reel n est pas cree — meme principe que le mock
         SIREN de E6.1 (`src/modules/tenants/ui/helpers/sirenValidator.ts`) :
@@ -814,7 +821,7 @@ paths:
 
     post:
       operationId: createProject
-      summary: Cree un projet, rattache obligatoirement a un client (CA3).
+      summary: "Crée un projet"
       tags: [gestion-commerciale]
       security:
         - bearerAuth: []
@@ -871,7 +878,7 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: getProject
-      summary: Recupere un projet et ses elements de chiffrage (CA5).
+      summary: "Récupère un projet"
       tags: [gestion-commerciale]
       security:
         - bearerAuth: []
@@ -908,7 +915,8 @@ paths:
 
     patch:
       operationId: updateProject
-      summary: >-
+      summary: "Modifie un projet"
+      description: >-
         Renomme un projet, change son client, ou l archive/reactive via
         `status` (CA6). Jamais un DELETE : un projet n est pas supprime
         physiquement.
@@ -975,7 +983,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     post:
       operationId: addProjectItem
-      summary: >-
+      summary: "Ajoute un élément à un projet"
+      description: >-
         Ajoute un element de chiffrage a un projet (CA4). Conserve le payload
         de chiffrage tel que calcule, pour reprendre l iteration
         conversationnelle sans rejouer Clariprint (CA5).
@@ -1032,7 +1041,7 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     post:
       operationId: importHopeStudioBasketItem
-      summary: Importe une ligne de panier HopeStudio dans un projet actif.
+      summary: "Importe un article HopeStudio dans un projet"
       tags: [gestion-commerciale]
       security:
         - bearerAuth: []
@@ -1075,7 +1084,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     delete:
       operationId: removeProjectItem
-      summary: >-
+      summary: "Retire un élément d’un projet"
+      description: >-
         Retire un element de chiffrage du projet : retrait du lien
         uniquement, jamais suppression de l historique de chiffrage si
         celui-ci existe ailleurs (E10.3+).
@@ -1121,7 +1131,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     put:
       operationId: replaceProjectTags
-      summary: >-
+      summary: "Remplace les tags d’un projet"
+      description: >-
         Remplace la liste des tags d un projet (E10.2 CA1, CA6). Retrait
         implicite de tout tag absent de `tag_ids` : le tag lui-meme n est
         jamais supprime du tenant (CA5), seul le lien au projet l est.
@@ -1237,7 +1248,8 @@ paths:
 
     post:
       operationId: createProjectTag
-      summary: >-
+      summary: "Crée un tag de projet"
+      description: >-
         Cree un tag a la volee depuis le champ de saisie du projet (CA2).
         Creation IDEMPOTENTE sur le libelle normalise (trim, casse
         insensible) : si le libelle existe deja dans le tenant, l operation
@@ -1314,7 +1326,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     delete:
       operationId: deleteProjectTag
-      summary: >-
+      summary: "Supprime un tag de projet"
+      description: >-
         Supprime un tag du tenant (CA5). Refuse tant qu il est encore lie a
         au moins un projet (`project_tag.in_use`, 409) : un tag encore
         utilise ne se supprime jamais silencieusement, retirer d abord le
@@ -1387,7 +1400,7 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: listQuotes
-      summary: Liste les devis du tenant courant.
+      summary: "Liste les devis"
       tags: [gestion-commerciale]
       security:
         - bearerAuth: []
@@ -1439,7 +1452,8 @@ paths:
 
     post:
       operationId: createQuoteFromProject
-      summary: >-
+      summary: "Crée un devis depuis un projet"
+      description: >-
         Cree un devis a partir d elements coches d un projet (CA2, CA3).
         Transactionnel : numerotation, creation du devis et de ses lignes
         aboutissent ou echouent ensemble (aucun trou de sequence, aucun devis
@@ -1506,7 +1520,7 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: getQuote
-      summary: Recupere un devis et ses lignes.
+      summary: "Récupère un devis"
       tags: [gestion-commerciale]
       security:
         - bearerAuth: []
@@ -1543,7 +1557,8 @@ paths:
 
     patch:
       operationId: updateQuote
-      summary: >-
+      summary: "Modifie un devis"
+      description: >-
         Modifie l entete d un devis BROUILLON : validite, affichage des
         remises (CA6), remise globale (E10.10a). Jamais le numero ni le
         client.
@@ -1625,7 +1640,8 @@ paths:
 
     delete:
       operationId: deleteQuote
-      summary: >-
+      summary: "Supprime un devis"
+      description: >-
         Supprime un devis A L ETAT BROUILLON UNIQUEMENT (CA6). Refuse sur tout
         autre statut : un devis envoye ou valide reste dans l historique
         commercial.
@@ -1720,7 +1736,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     post:
       operationId: addQuoteLine
-      summary: >-
+      summary: "Ajoute une ligne à un devis"
+      description: >-
         Ajoute une ligne a un devis brouillon, sous DEUX formes exclusives
         (decision d Arnaud du 01/09, capacite de l ancien editeur) :
 
@@ -1824,7 +1841,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: getQuoteLine
-      summary: >-
+      summary: "Récupère une ligne de devis"
+      description: >-
         Recupere une ligne et son `ETag` courant — necessaire pour enchainer un
         `PATCH` protege par `If-Match` (CA9). `getQuote` n emet aucun `ETag` de
         ligne : son `ETag` porte sur l en-tete du devis, pas sur chacune de ses
@@ -1871,7 +1889,8 @@ paths:
 
     patch:
       operationId: updateQuoteLine
-      summary: >-
+      summary: "Modifie une ligne de devis"
+      description: >-
         Modifie une ligne d un devis brouillon : prix de vente OU taux de
         marge (CA1), et quantite (capacite reprise de l ancien editeur).
 
@@ -1981,7 +2000,8 @@ paths:
 
     delete:
       operationId: deleteQuoteLine
-      summary: >-
+      summary: "Supprime une ligne de devis"
+      description: >-
         Retire une ligne d un devis A L ETAT BROUILLON UNIQUEMENT, meme garde
         que `deleteQuote`. Les positions des lignes suivantes sont resserrees
         par le serveur pour rester contigues.
@@ -2041,7 +2061,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     put:
       operationId: reorderQuoteLines
-      summary: >-
+      summary: "Réordonne les lignes d’un devis"
+      description: >-
         Reordonne les lignes d un devis brouillon. `line_ids` porte la liste
         COMPLETE des lignes du devis dans l ordre voulu ; le serveur reaffecte
         `position` de 0 a n-1 dans cet ordre.
@@ -2137,7 +2158,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: listQuoteAuditEntries
-      summary: >-
+      summary: "Liste l’audit des lignes d’un devis"
+      description: >-
         Journal d audit des lignes d un devis (CA5, CA6) : qui a change quoi,
         quand, de quelle valeur a quelle valeur. LECTURE SEULE et
         APPEND-ONLY — aucune operation d ecriture, de correction ou de purge
@@ -2304,7 +2326,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     post:
       operationId: sendQuote
-      summary: >-
+      summary: "Envoie un devis"
+      description: >-
         ENVOIE un devis au client. Geste explicite du commercial (point 1 du
         cadrage), jamais un effet de bord d une autre operation.
 
@@ -2512,7 +2535,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     post:
       operationId: duplicateQuote
-      summary: >-
+      summary: "Duplique un devis"
+      description: >-
         DUPLIQUE un devis : cree un NOUVEAU devis `draft`, meme client et meme
         projet source, lignes recopiees. C est la reponse au point 3 du
         cadrage — un devis envoye ne se modifie pas, il se reprend.
@@ -2617,7 +2641,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: getCommercialSettings
-      summary: >-
+      summary: "Récupère les réglages commerciaux"
+      description: >-
         Reglages commerciaux du tenant courant : la duree de validite appliquee
         par defaut aux devis, et l etat de la purge automatique des fichiers de
         commande (E10.22d).
@@ -2659,7 +2684,8 @@ paths:
 
     patch:
       operationId: updateCommercialSettings
-      summary: >-
+      summary: "Modifie les réglages commerciaux"
+      description: >-
         Modifie les reglages commerciaux du tenant.
 
 
@@ -2737,7 +2763,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: listQuoteHeaderAuditEntries
-      summary: >-
+      summary: "Liste l’audit d’un devis"
+      description: >-
         Journal d audit de l ENTETE d un devis : remise globale, affichage des
         remises, validite, envoi, duplication. LECTURE SEULE et APPEND-ONLY,
         comme le journal des lignes (E10.9).
@@ -2889,7 +2916,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: listPriceRules
-      summary: >-
+      summary: "Liste les règles de prix"
+      description: >-
         Liste les regles de prix du tenant courant : filtrables par etat
         (`status`), par nom (`q`), par client cible (`customer_id`) et par
         gamme cible (`product_range_id`), triables par date de creation et par
@@ -3006,7 +3034,8 @@ paths:
 
     post:
       operationId: createPriceRule
-      summary: >-
+      summary: "Crée une règle de prix"
+      description: >-
         Cree une regle de prix. Ne modifie, ne decoupe et ne duplique JAMAIS
         une regle existante (E10.7) : deux regles applicables a la meme date
         sont un etat normal du referentiel, tranche a la resolution.
@@ -3077,7 +3106,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     post:
       operationId: resolvePriceRule
-      summary: >-
+      summary: "Résout une règle de prix"
+      description: >-
         Resout LA regle applicable a un contexte (client, gamme, date) et rend
         le motif de sa selection (E10.7). Operation de LECTURE : elle n ecrit
         rien, ne cree rien et n emet aucun evenement — POST parce que le
@@ -3133,7 +3163,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: getPriceRule
-      summary: >-
+      summary: "Récupère une règle de prix"
+      description: >-
         Recupere une regle de prix et son `ETag` courant — necessaire pour
         enchainer un `PATCH` protege par `If-Match` (CA9), que
         `listPriceRules` ne permet pas puisqu une collection n emet aucun
@@ -3179,7 +3210,8 @@ paths:
 
     patch:
       operationId: updatePriceRule
-      summary: >-
+      summary: "Modifie une règle de prix"
+      description: >-
         Modifie le nom, la valeur, la periode ou l etat actif d une regle. La
         PORTEE, la CIBLE et le TYPE DE VALEUR ne sont pas modifiables : les
         changer reviendrait a reecrire l historique d arbitrage d une regle
@@ -3321,7 +3353,8 @@ paths:
 
     put:
       operationId: setProductRangeDefaultMargin
-      summary: >-
+      summary: "Définit la marge par défaut d’une gamme"
+      description: >-
         Definit la marge publique standard du tenant sur cette gamme. `PUT` et
         non `POST` : la ressource est un singleton, l appel est idempotent par
         nature et son identite est celle du chemin — c est `If-Match`, pas une
@@ -3434,7 +3467,8 @@ paths:
   /storefront-quotes:
     get:
       operationId: listStorefrontQuotes
-      summary: >-
+      summary: "Liste les devis côté boutique"
+      description: >-
         LISTE les devis mis a disposition du client authentifie sur la
         boutique, du plus recemment envoye au plus ancien.
 
@@ -3544,7 +3578,8 @@ paths:
   /storefront-quotes/{quoteId}:
     get:
       operationId: getStorefrontQuote
-      summary: >-
+      summary: "Récupère un devis côté boutique"
+      description: >-
         LIT un devis mis a disposition du client, avec ses lignes, dans la
         representation reduite destinee a l acheteur.
 
@@ -3664,7 +3699,8 @@ paths:
   /storefront-quotes/{quoteId}/decisions:
     post:
       operationId: decideStorefrontQuote
-      summary: >-
+      summary: "Enregistre la décision sur un devis"
+      description: >-
         ACCEPTE ou REFUSE un devis, geste du CLIENT depuis sa boutique. Produit
         les statuts `accepted` et `rejected`, reserves au schema depuis E10.3
         et qu aucune operation n atteignait jusqu ici.
@@ -3949,7 +3985,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     post:
       operationId: convertQuote
-      summary: >-
+      summary: "Convertit un devis en commande"
+      description: >-
         VALIDE un devis et le transforme en COMMANDE. Geste d atelier
         explicite — le « bouton Valider » du back-office — jamais un effet de
         bord de la decision du client.
@@ -4184,7 +4221,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: listCommercialOrders
-      summary: >-
+      summary: "Liste les commandes commerciales"
+      description: >-
         Liste les commandes du tenant courant, de la plus recente a la plus
         ancienne.
 
@@ -4474,7 +4512,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: getCommercialOrder
-      summary: >-
+      summary: "Récupère une commande commerciale"
+      description: >-
         Fiche complete d une commande : entete, totaux figes et lignes. C est
         la lecture PRINCIPALE de l ecran de detail d une commande (E10.16),
         celle qui porte le document lui-meme.
@@ -4621,7 +4660,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: listProductionSteps
-      summary: >-
+      summary: "Liste les étapes de production"
+      description: >-
         Liste les etapes de production du tenant courant, DANS L ORDRE du flux
         d atelier (`position` croissante), actives et desactivees confondues
         sauf filtre `status` (CA1, CA2, CA7).
@@ -4721,7 +4761,8 @@ paths:
 
     post:
       operationId: createProductionStep
-      summary: >-
+      summary: "Crée une étape de production"
+      description: >-
         Cree une etape de production dans le tenant courant (CA2).
 
 
@@ -4814,7 +4855,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: getProductionStep
-      summary: >-
+      summary: "Récupère une étape de production"
+      description: >-
         Fiche d une etape de production, avec son `ETag`.
 
 
@@ -4863,7 +4905,8 @@ paths:
 
     patch:
       operationId: updateProductionStep
-      summary: >-
+      summary: "Modifie une étape de production"
+      description: >-
         Renomme une etape, change sa couleur, la marque terminale, l active ou
         la desactive (CA2, CA3, CA4). Modification PARTIELLE : seuls les champs
         presents sont appliques.
@@ -4944,7 +4987,8 @@ paths:
 
     delete:
       operationId: deleteProductionStep
-      summary: >-
+      summary: "Supprime une étape de production"
+      description: >-
         Supprime une etape du tenant. REFUSEE (409
         `production_step.in_use`) des qu au moins une commande la porte comme
         etape courante, OU l a seulement TRAVERSEE — le journal des passages
@@ -5041,7 +5085,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     put:
       operationId: reorderProductionSteps
-      summary: >-
+      summary: "Réordonne les étapes de production"
+      description: >-
         Reordonne le flux d atelier du tenant (CA2, glisser-deposer).
         `step_ids` porte la liste COMPLETE des etapes du tenant dans l ordre
         voulu ; le serveur reaffecte `position` de 0 a n-1 dans cet ordre, en
@@ -5196,7 +5241,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: listOrderStepChanges
-      summary: >-
+      summary: "Liste les changements d’étape"
+      description: >-
         Journal horodate des changements d etape de production d une commande
         (CA5, CA6), du PLUS RECENT au plus ancien.
 
@@ -5275,7 +5321,8 @@ paths:
 
     post:
       operationId: changeOrderProductionStep
-      summary: >-
+      summary: "Change l’étape d’une commande"
+      description: >-
         Deplace une commande sur une etape de production du tenant, et
         JOURNALISE le passage dans le meme geste (CA4, CA5).
 
@@ -5352,7 +5399,7 @@ paths:
         oubli. ARBITRE PAR ARNAUD LE 2026-09-09 (cadrage E10.14, reserve (a),
         close) : le choix est acquis pour la duree de v1, l exiger plus tard
         serait cassant (428 sur un appelant existant).
-      description: >-
+
         Publie `order.step_changed` dans `outbox_events` — et RIEN d autre au
         titre des notifications (CA7). Ce lot ne fait que DEPOSER l evenement ;
         son evaluation (a qui notifier, avec quel modele) est E10.15, non
@@ -5522,7 +5569,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     post:
       operationId: issueOrderFileUploadUrl
-      summary: >-
+      summary: "Émet une URL de dépôt de fichier"
+      description: >-
         EMET un billet de depot pour un fichier a rattacher a une commande, et
         ALLOUE l identifiant sous lequel ce fichier existera.
 
@@ -5618,7 +5666,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: listOrderFiles
-      summary: >-
+      summary: "Liste les fichiers d’une commande"
+      description: >-
         Liste les fichiers VIVANTS d une commande, du plus recent au plus
         ancien.
 
@@ -5683,7 +5732,8 @@ paths:
 
     post:
       operationId: confirmOrderFileUpload
-      summary: >-
+      summary: "Confirme le dépôt d’un fichier"
+      description: >-
         CONFIRME un depot : le serveur constate les octets au chemin qu il a
         impose, en releve la taille et le type, et cree la ligne du fichier.
 
@@ -5829,7 +5879,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: getOrderFile
-      summary: >-
+      summary: "Récupère un fichier de commande"
+      description: >-
         Rend un fichier de commande et son URL de telechargement signee.
 
 
@@ -5900,7 +5951,8 @@ paths:
 
     patch:
       operationId: updateOrderFile
-      summary: >-
+      summary: "Modifie la visibilité d’un fichier"
+      description: >-
         Change la VISIBILITE d un fichier deja depose, et rien d autre.
 
 
@@ -5975,7 +6027,8 @@ paths:
 
     delete:
       operationId: deleteOrderFile
-      summary: >-
+      summary: "Supprime un fichier de commande"
+      description: >-
         Supprime un fichier depose : les OCTETS sont detruits, la LIGNE
         survit comme trace.
 
@@ -6059,7 +6112,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: listDocumentPdfTemplates
-      summary: >-
+      summary: "Liste les modèles PDF"
+      description: >-
         Liste les gabarits PDF du tenant courant, `awaiting_upload` compris.
 
 
@@ -6135,7 +6189,8 @@ paths:
 
     post:
       operationId: createDocumentPdfTemplate
-      summary: >-
+      summary: "Crée un modèle PDF"
+      description: >-
         CREE un gabarit PDF et rend le BILLET D IMPORT qui permet de televerser
         le fond. Le gabarit nait `awaiting_upload` : il porte un nom, un type de
         document, et RIEN d autre — ni fichier, ni pages, ni carte de champs.
@@ -6230,7 +6285,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: getDocumentPdfTemplate
-      summary: >-
+      summary: "Récupère un modèle PDF"
+      description: >-
         Fiche d un gabarit : etat de l import, GEOMETRIE des pages, et URL
         signee du fond a afficher dans l editeur de coordonnees.
 
@@ -6289,7 +6345,8 @@ paths:
 
     patch:
       operationId: updateDocumentPdfTemplate
-      summary: >-
+      summary: "Modifie un modèle PDF"
+      description: >-
         Modifie le nom d un gabarit, son etat d activation, ou le designe comme
         gabarit PAR DEFAUT de son type de document.
 
@@ -6374,7 +6431,8 @@ paths:
 
     delete:
       operationId: deleteDocumentPdfTemplate
-      summary: >-
+      summary: "Supprime un modèle PDF"
+      description: >-
         SUPPRIME un gabarit, sa carte de champs et son fichier de fond.
 
 
@@ -6451,7 +6509,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     post:
       operationId: issueDocumentPdfTemplateUploadUrl
-      summary: >-
+      summary: "Émet une URL de dépôt de modèle PDF"
+      description: >-
         EMET un nouveau billet d import pour un gabarit existant : reprise d un
         import interrompu, ou REMPLACEMENT du fond d un gabarit deja `ready`.
 
@@ -6513,7 +6572,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     post:
       operationId: confirmDocumentPdfTemplateUpload
-      summary: >-
+      summary: "Confirme le dépôt d’un modèle PDF"
+      description: >-
         CONFIRME un import : le serveur RELIT le fichier depose, le valide, en
         extrait la geometrie et fait passer le gabarit a `ready`.
 
@@ -6615,7 +6675,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: getDocumentPdfTemplateFields
-      summary: >-
+      summary: "Récupère les champs d’un modèle PDF"
+      description: >-
         LIT la carte de correspondance d un gabarit : ou chaque donnee du devis
         est imprimee sur le fond.
 
@@ -6685,7 +6746,8 @@ paths:
 
     put:
       operationId: replaceDocumentPdfTemplateFields
-      summary: >-
+      summary: "Remplace les champs d’un modèle PDF"
+      description: >-
         REMPLACE la carte de correspondance ENTIERE d un gabarit.
 
 
@@ -6805,7 +6867,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: getQuoteDocument
-      summary: >-
+      summary: "Récupère le document d’un devis"
+      description: >-
         Rend le DOCUMENT PDF d un devis, cote atelier : son horodatage, son
         poids, son empreinte, et une URL de telechargement signee de courte
         duree.
@@ -6902,7 +6965,8 @@ paths:
   /storefront-quotes/{quoteId}/documents:
     get:
       operationId: getStorefrontQuoteDocument
-      summary: >-
+      summary: "Récupère le document d’un devis côté boutique"
+      description: >-
         Rend le DOCUMENT PDF d un devis au CLIENT, dans sa boutique.
 
 
@@ -6998,7 +7062,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: getOrderDocument
-      summary: >-
+      summary: "Récupère le document d’une commande"
+      description: >-
         Rend le BON DE COMMANDE PDF d une commande : son horodatage, son poids,
         son empreinte, qui l a produit, et une URL de telechargement signee de
         courte duree.
@@ -7073,7 +7138,8 @@ paths:
 
     post:
       operationId: generateOrderDocument
-      summary: >-
+      summary: "Génère le document d’une commande"
+      description: >-
         PRODUIT le bon de commande d une commande, une fois pour toutes.
 
 
@@ -7239,7 +7305,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     post:
       operationId: createOrderUploadLink
-      summary: >-
+      summary: "Crée un lien de dépôt de fichiers"
+      description: >-
         EMET un lien public de depot pour une commande, et rend le jeton EN
         CLAIR — la seule et unique fois.
 
@@ -7343,7 +7410,8 @@ paths:
 
     get:
       operationId: listOrderUploadLinks
-      summary: >-
+      summary: "Liste les liens de dépôt de fichiers"
+      description: >-
         Liste les liens de depot VIVANTS d une commande, du plus recent au plus
         ancien.
 
@@ -7398,7 +7466,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     delete:
       operationId: revokeOrderUploadLink
-      summary: >-
+      summary: "Révoque un lien de dépôt de fichiers"
+      description: >-
         REVOQUE un lien de depot : il cesse immediatement de servir, sa ligne
         survit.
 
@@ -7463,7 +7532,8 @@ paths:
   /order-upload-links/current:
     get:
       operationId: getOrderUploadLinkContext
-      summary: >-
+      summary: "Récupère le contexte d’un lien de dépôt"
+      description: >-
         Rend au CLIENT ce qu il a besoin de savoir pour deposer : qui lui
         demande, pour quelle commande, quoi, jusqu a quand, et dans quelles
         limites.
@@ -7539,7 +7609,8 @@ paths:
   /order-upload-links/current/file-upload-urls:
     post:
       operationId: issueOrderUploadLinkFileUrl
-      summary: >-
+      summary: "Émet une URL de dépôt via un lien"
+      description: >-
         EMET un billet de depot pour le porteur du lien, et ALLOUE
         l identifiant sous lequel le fichier existera.
 
@@ -7614,7 +7685,8 @@ paths:
   /order-upload-links/current/files:
     post:
       operationId: confirmOrderUploadLinkFile
-      summary: >-
+      summary: "Confirme un dépôt via un lien"
+      description: >-
         CONFIRME un depot fait par le porteur du lien : le serveur constate les
         octets au chemin qu il a impose, en releve la taille et le type, cree la
         ligne du fichier et publie `order.files_submitted`.
@@ -7775,7 +7847,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: listNotificationEvents
-      summary: >-
+      summary: "Liste les événements notifiables"
+      description: >-
         Catalogue des faits metier NOTIFIABLES, avec, pour chacun, les balises
         disponibles et les audiences possibles (CA1, CA4).
 
@@ -7841,7 +7914,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: listNotificationTemplates
-      summary: >-
+      summary: "Liste les modèles de notification"
+      description: >-
         Liste les modeles de notification du tenant courant, actifs et
         desactives confondus sauf filtre `status` (CA2).
 
@@ -7921,7 +7995,8 @@ paths:
 
     post:
       operationId: createNotificationTemplate
-      summary: >-
+      summary: "Crée un modèle de notification"
+      description: >-
         Cree un modele de notification dans le tenant courant (CA2, CA5).
 
 
@@ -8028,7 +8103,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: getNotificationTemplate
-      summary: >-
+      summary: "Récupère un modèle de notification"
+      description: >-
         Fiche d un modele de notification, avec son `ETag`.
 
 
@@ -8072,7 +8148,8 @@ paths:
 
     patch:
       operationId: updateNotificationTemplate
-      summary: >-
+      summary: "Modifie un modèle de notification"
+      description: >-
         Modifie un modele : nom, sujet, corps, destinataires explicites, filtre
         d etape, activation. Modification PARTIELLE : seuls les champs presents
         sont appliques (CA2, CA3).
@@ -8160,7 +8237,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     post:
       operationId: previewNotificationTemplate
-      summary: >-
+      summary: "Prévisualise un modèle de notification"
+      description: >-
         Rend le modele avec un JEU D EXEMPLE, tel qu il partira (CA6).
 
 
@@ -8257,7 +8335,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: listNotificationLogs
-      summary: >-
+      summary: "Liste les journaux de notification"
+      description: >-
         Journal des notifications de l espace : une entree par destinataire et
         par canal, du plus recent au plus ancien (CA9).
 
@@ -8426,7 +8505,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: listCommercialOrderExports
-      summary: >-
+      summary: "Liste les exports de commandes"
+      description: >-
         REGISTRE des exports de commandes de l espace, du plus recent au plus
         ancien : qui a demande quoi, sur quels filtres, quand, et ce qu il en
         est advenu.
@@ -8511,7 +8591,8 @@ paths:
 
     post:
       operationId: requestCommercialOrderExport
-      summary: >-
+      summary: "Demande un export de commandes"
+      description: >-
         DEMANDE un export des commandes de l espace : un format, une
         granularite, et les filtres de la grille. Rend immediatement la demande
         en etat `pending` — elle n est pas encore executee, et RIEN dans cette
@@ -8606,7 +8687,8 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: getCommercialOrderExport
-      summary: >-
+      summary: "Récupère un export de commandes"
+      description: >-
         Etat d une demande d export et, quand le fichier est pret ET que
         l appelant est celui qui l a demande, son URL de telechargement (CA7).
 
@@ -8698,7 +8780,8 @@ webhooks:
   quote.converted:
     post:
       operationId: onQuoteConverted
-      summary: >-
+      summary: "Notifie la conversion d’un devis"
+      description: >-
         Un devis a ete converti en COMMANDE par l atelier (`convertQuote`,
         E10.12). Charge utile : `QuoteConversionPayload` (`event_version: 1`),
         qui porte l identifiant et le numero de la commande creee — la seule
@@ -8728,7 +8811,8 @@ webhooks:
   order.step_changed:
     post:
       operationId: onOrderStepChanged
-      summary: >-
+      summary: "Notifie le changement d’étape d’une commande"
+      description: >-
         Une commande a change d etape de production (`changeOrderProductionStep`,
         E10.14). Charge utile : `OrderStepChangedPayload` (`event_version: 1`).
 
@@ -8784,7 +8868,8 @@ webhooks:
   order.files_submitted:
     post:
       operationId: onOrderFilesSubmitted
-      summary: >-
+      summary: "Notifie le dépôt de fichiers client"
+      description: >-
         Un fichier a ete depose PAR LE CLIENT sur une commande, via un lien
         public de depot (`confirmOrderUploadLinkFile`, E10.20). Charge utile :
         `OrderFilesSubmittedPayload` (`event_version: 1`).
@@ -8831,7 +8916,8 @@ webhooks:
   order_files.purge_scheduled:
     post:
       operationId: onOrderFilesPurgeScheduled
-      summary: >-
+      summary: "Notifie la purge planifiée de fichiers"
+      description: >-
         Des fichiers de commande arrivent au terme de leur conservation et
         seront detruits automatiquement (E10.22). Charge utile :
         `OrderFilesPurgeScheduledPayload` (`event_version: 1`).
@@ -8897,7 +8983,8 @@ webhooks:
   order_files.purged:
     post:
       operationId: onOrderFilesPurged
-      summary: >-
+      summary: "Notifie la purge de fichiers"
+      description: >-
         Des fichiers de commande ont ete detruits automatiquement (E10.22).
         Charge utile : `OrderFilesPurgedPayload` (`event_version: 1`).
 
@@ -8942,7 +9029,7 @@ webhooks:
   customer.created:
     post:
       operationId: onCustomerCreated
-      summary: Un client a ete cree dans le referentiel commercial.
+      summary: "Notifie la création d’un client"
       tags: [gestion-commerciale]
       security: []
       parameters:
@@ -8961,7 +9048,7 @@ webhooks:
   project.created:
     post:
       operationId: onProjectCreated
-      summary: Un projet a ete cree dans le referentiel commercial.
+      summary: "Notifie la création d’un projet"
       tags: [gestion-commerciale]
       security: []
       parameters:
@@ -8980,7 +9067,8 @@ webhooks:
   quote.created:
     post:
       operationId: onQuoteCreated
-      summary: >-
+      summary: "Notifie la création d’un devis"
+      description: >-
         Un devis a ete cree depuis un projet (E10.3). Distinct de
         `quote.converted` (E10.12), qui signale la conversion en commande.
       tags: [gestion-commerciale]
@@ -9001,7 +9089,8 @@ webhooks:
   quote.sent:
     post:
       operationId: onQuoteSent
-      summary: >-
+      summary: "Notifie l’envoi d’un devis"
+      description: >-
         Un devis a ete envoye au client (E10.10a) : il vient de passer de
         `draft` a `sent` et n est plus modifiable.
 
@@ -9024,7 +9113,7 @@ webhooks:
         Distinct de `quote.created` (E10.3 / duplication) et de
         `quote.converted` (E10.12) : ceux-la portent l apparition et la
         transformation du devis, celui-ci sa REMISE AU CLIENT.
-      description: >-
+
         `payload` est fige par `QuoteSentPayload` (`event_version: 1`) :
         identifiants et numero, aucun montant.
       tags: [gestion-commerciale]
@@ -9055,7 +9144,8 @@ webhooks:
   quote.accepted:
     post:
       operationId: onQuoteAccepted
-      summary: >-
+      summary: "Notifie l’acceptation d’un devis"
+      description: >-
         Le CLIENT a accepte un devis depuis sa boutique (E10.10b-2) : il vient
         de passer de `sent` a `accepted`.
 
@@ -9078,7 +9168,7 @@ webhooks:
         Distinct de `quote.converted` (E10.12) : accepter n est pas commander.
         Un devis accepte reste un devis tant que l atelier n a pas cree la
         commande.
-      description: >-
+
         `payload` est fige par `QuoteDecisionPayload` (`event_version: 1`).
         `aggregate_type` vaut `quote`, `aggregate_id` le devis decide.
       tags: [gestion-commerciale]
@@ -9108,7 +9198,8 @@ webhooks:
   quote.rejected:
     post:
       operationId: onQuoteRejected
-      summary: >-
+      summary: "Notifie le refus d’un devis"
+      description: >-
         Le CLIENT a refuse un devis depuis sa boutique (E10.10b-2) : il vient
         de passer de `sent` a `rejected`.
 
@@ -9122,7 +9213,7 @@ webhooks:
         E10.10b-2 (voir docs/api/CONVENTIONS.md §8.13quinquies, point ouvert).
         Le jour ou il le sera, il s ajoutera a `QuoteDecisionPayload` sans
         changement de forme.
-      description: >-
+
         `payload` est fige par `QuoteDecisionPayload` (`event_version: 1`).
         `aggregate_type` vaut `quote`, `aggregate_id` le devis decide.
       tags: [gestion-commerciale]
@@ -9148,7 +9239,8 @@ webhooks:
   quote_line.changed:
     post:
       operationId: onQuoteLineChanged
-      summary: >-
+      summary: "Notifie la modification d’une ligne de devis"
+      description: >-
         Une ligne de devis a ete ajoutee, modifiee, retiree ou deplacee
         (E10.9). Un evenement par ligne reellement changee : un
         reordonnancement de trois lignes en emet trois, aucun pour les lignes
@@ -9159,7 +9251,7 @@ webhooks:
         ceux-la portent le cycle de vie du DEVIS, celui-ci le contenu de ses
         lignes. Un consommateur qui cache un total de devis doit ecouter les
         trois.
-      description: >-
+
         `payload` est fige par `QuoteLineChangedPayload` (`event_version: 1`).
         Il ne porte que les identifiants et l action : les montants
         commerciaux (prix de vente, remise, ecart de marge) ne transitent PAS
@@ -9192,12 +9284,13 @@ webhooks:
   price_rule.changed:
     post:
       operationId: onPriceRuleChanged
-      summary: >-
+      summary: "Notifie la modification d’une règle de prix"
+      description: >-
         Une regle de prix commerciale a ete creee, modifiee, activee ou
         desactivee (E10.7). Emis a CHACUNE de ces quatre actions, y compris
         une simple bascule d etat : un consommateur qui cache des prix doit
         pouvoir invalider son cache sans distinguer les cas.
-      description: >-
+
         `payload` est fige par `PriceRuleChangedPayload` (`event_version: 1`).
         Il ne porte que l identifiant de la regle et l action : un consommateur
         relit la regle par `getPriceRule` s il lui faut son contenu, plutot que
@@ -13570,65 +13663,16 @@ components:
     # vieilli » n a pas de sens, et une alerte figee cesse d etre une alerte.
     CommercialOrderStatus:
       title: CommercialOrderStatus
-      description: >-
-        Etat d une commande. UNE SEULE valeur aujourd hui, et c est un choix
-        plutot qu un oubli.
-
-
-        E10.12 cree la commande et s arrete la : le cycle de vie (mise en
-        production, expedition, annulation, facturation) est le sujet des
-        stories de suivi, qui le concoivent pour la gestion commerciale.
-        Declarer d avance les
-        etapes de l enumeration `tenant_order_status` de la boutique
-        (`validated`, `in_production`, `shipped`, `delivered`, `invoiced`,
-        `cancelled`, migration `20260509000100`) aurait publie un cycle de vie
-        que personne n a concu pour ce module — cette enumeration-la porte la
-        mention « Vision V2+ » sur cinq de ses sept valeurs et aucune n a
-        jamais ete atteinte.
-
-
-        `validated` est en revanche repris TEL QUEL de ce vocabulaire existant :
-        c est deja le nom de « commande engagee commercialement » dans ce
-        produit, et le bouton du back-office s appelle « Valider ». Inventer un
-        synonyme aurait cree deux noms pour la meme notion.
-
-
-        E10.13 N Y A RIEN AJOUTE, et il faut le lire comme une decision. Les
-        etapes de production qu elle apporte ne sont PAS des statuts : elles
-        sont configurees par chaque tenant et vivent sur un autre axe
-        (`CommercialOrder.current_production_step_id`, `ProductionStep`). Les
-        verser ici aurait oblige chaque tenant a publier son organisation
-        d atelier dans une enumeration commune. L annulation et la facturation
-        restent, elles, de futurs statuts.
-
-
-        Liste ADDITIVE : une story ulterieure peut y ajouter un etat, un
-        consommateur ignore une valeur qu il ne connait pas.
+      description: Statut commercial de la commande. `validated` signifie que
+        la commande est engagée commercialement.
       type: string
       enum: [validated]
 
     ConvertedFromStatus:
       title: ConvertedFromStatus
-      description: >-
-        Statut du DEVIS au moment ou il a ete converti. Sous-ensemble strict de
-        `QuoteStatus`, reduit aux deux seuls statuts convertibles. Ces DEUX
-        valeurs sont arbitrees (Arnaud, 2026-09-08, reserve (a) de
-        docs/api/CONVENTIONS.md §8.14) ; en retirer une serait cassant.
-
-
-        Enumeration separee plutot que reutilisation de `QuoteStatus`, meme
-        raison que `StorefrontQuoteStatus` : publier ici les cinq valeurs
-        laisserait croire qu une commande peut naitre d un brouillon ou d un
-        devis refuse.
-
-
-        CE QUE CE CHAMP SERT A LIRE, et c est sa seule raison d exister :
-        `accepted` signifie que le client s est FORMELLEMENT prononce depuis son
-        portail (E10.10b-2, engagement horodate et journalise a son nom) ;
-        `sent` signifie que l atelier a valide sur une reponse recue hors
-        systeme — telephone, courriel, bon de commande papier. Les deux
-        produisent la meme commande ; elles ne se valent pas comme PREUVE, et un
-        litige se tranche sur cette difference.
+      description: Statut du devis au moment de sa conversion en commande.
+        `accepted` indique une décision client ; `sent` indique une validation
+        par l’atelier sans décision client enregistrée.
       type: string
       enum: [sent, accepted]
 

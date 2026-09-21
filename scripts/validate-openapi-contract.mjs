@@ -22,7 +22,7 @@ try {
 const errors = [];
 const warnings = [];
 const operations = [];
-const strictSummaries = process.env.OPENAPI_STRICT_SUMMARIES === '1';
+const strictSummaries = process.env.OPENAPI_STRICT_SUMMARIES !== '0';
 
 if (document?.openapi !== '3.1.0') {
   errors.push('la version OpenAPI doit être 3.1.0');
@@ -46,6 +46,9 @@ for (const [path, pathItem] of Object.entries(document?.paths ?? {})) {
     const label = `${method.toUpperCase()} ${path}`;
     if (!operation.operationId) errors.push(`${label}: operationId manquant`);
     if (!operation.summary) errors.push(`${label}: summary manquant`);
+    if (operation.summary?.includes('\n')) {
+      errors.push(`${label}: summary doit tenir sur une seule ligne`);
+    }
     if (operation.summary?.length > 120) {
       const message = `${label}: summary trop long (${operation.summary.length} caractères, maximum 120)`;
       if (strictSummaries) errors.push(message);
