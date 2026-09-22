@@ -493,6 +493,7 @@ select
   pg_temp.ux_uuid(context.tenant_id::text || ':ux-order:' || series.number) as order_id,
   shop.id as shop_id,
   pg_temp.ux_uuid(context.tenant_id::text || ':ux-account:' || (1 + (series.number - 1) % context.customer_count)) as account_id,
+  'draft'::public.tenant_order_status as status,
   case series.number % 7
     when 0 then 'draft'::public.tenant_order_status
     when 1 then 'validated'::public.tenant_order_status
@@ -501,7 +502,7 @@ select
     when 4 then 'delivered'::public.tenant_order_status
     when 5 then 'invoiced'::public.tenant_order_status
     else 'cancelled'::public.tenant_order_status
-  end as status,
+  end as target_status,
   now()
     - ((series.number * 37) % 400 || ' days')::interval
     - ((series.number * 17) % 24 || ' hours')::interval as created_at
@@ -510,6 +511,9 @@ cross join lateral generate_series(1, context.order_count) as series(number)
 join ux_seed_shops shop
   on shop.tenant_id = context.tenant_id
  and shop.position = 1 + ((1 + (series.number - 1) % context.customer_count) - 1) % shop.shop_count;
+
+-- Le rejeu peut devoir repasser temporairement une commande finale en brouillon.
+select set_config('magrit.order_status_transition', 'true', true);
 
 insert into public.tenant_orders (
   id, tenant_id, shop_id, created_by, shop_customer_account_id,
@@ -526,12 +530,12 @@ select
   totals.total_ht,
   'EUR',
   '[UX] Commande volumique ' || lpad(orders.number::text, 4, '0'),
-  case when orders.status = 'invoiced'
+  case when orders.target_status = 'invoiced'
     then 'UX-FACT-' || lpad(orders.number::text, 5, '0')
   end,
   orders.created_at,
   orders.created_at + interval '2 hours',
-  case when orders.status = 'cancelled' then orders.created_at + interval '1 day' end
+  case when orders.target_status = 'cancelled' then orders.created_at + interval '1 day' end
 from ux_seed_orders orders
 join ux_seed_context context on context.tenant_id = orders.tenant_id
 cross join lateral (
@@ -551,7 +555,7 @@ on conflict (id) do update set
 
 insert into public.tenant_order_items (
   id, order_id, product_label, clariprint_options,
-  quantity, unit_price_ht, line_total_ht, created_at
+  quantity, unit_price_ht, line_total_ht, price_origin, created_at
 )
 select
   pg_temp.ux_uuid(orders.order_id::text || ':item:' || item.number),
@@ -565,6 +569,7 @@ select
   item.number * 100,
   (10 + ((orders.number + item.number) % 20) * 2.5)::numeric(12,2),
   ((10 + ((orders.number + item.number) % 20) * 2.5) * (item.number * 100))::numeric(12,2),
+  'catalog',
   orders.created_at
 from ux_seed_orders orders
 cross join lateral generate_series(1, 1 + orders.number % 3) as item(number)
@@ -574,7 +579,24 @@ on conflict (id) do update set
   quantity = excluded.quantity,
   unit_price_ht = excluded.unit_price_ht,
   line_total_ht = excluded.line_total_ht,
+  price_origin = excluded.price_origin,
   created_at = excluded.created_at;
+
+-- Les lignes sont immuables des que la commande quitte `draft`. Les fixtures
+-- sont donc completees en deux temps : lignes d abord, statut cible ensuite.
+-- Le marqueur est necessaire au rejeu, quand une commande existe deja dans un
+-- statut final et doit revenir temporairement a `draft` pour etre resynchronisee.
+update public.tenant_orders orders
+   set status = fixture.target_status,
+       cancelled_at = case
+         when fixture.target_status = 'cancelled' then orders.created_at + interval '1 day'
+       end,
+       updated_at = orders.created_at + interval '2 hours'
+  from ux_seed_orders fixture
+ where orders.id = fixture.order_id
+   and orders.status is distinct from fixture.target_status;
+
+select set_config('magrit.order_status_transition', '', true);
 
 insert into public.tenant_order_status_events (
   id, order_id, actor_id, from_status, to_status, reason, metadata,
