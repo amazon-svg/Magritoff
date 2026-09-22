@@ -50,7 +50,7 @@ export function configuratorWorkspaceReducer(
     case 'select-project':
       return {
         ...state,
-        mode: 'split',
+        mode: 'home',
         projectId: action.projectId,
         customerName: action.customerName,
         projectName: action.projectName,

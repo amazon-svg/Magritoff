@@ -68,7 +68,7 @@ describe('page de test d intégration HopeStudio', () => {
 
   it('sépare l accueil Magrit du panneau HopeStudio et conserve ses actions', () => {
     expect(homeSource).toContain('Le papier pense.');
-    expect(homeSource).not.toContain('magrit-configurator-prompt');
+    expect(homeSource).toContain('magrit-configurator-prompt');
     expect(homeSource).toContain('onProjectSelect');
     expect(configuratorSource).toContain('createInitialConfiguratorRequest');
     expect(dualWorkspaceSource).toContain('Clariprint Studio');

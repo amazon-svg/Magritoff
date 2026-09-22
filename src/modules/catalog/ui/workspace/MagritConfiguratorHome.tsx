@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { FolderKanban, Plus, Search, Users } from 'lucide-react';
+import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowUp, FolderKanban, Plus, Search, Users } from 'lucide-react';
 import { MagritLogo } from '@/shared/presentation/MagritLogo';
 import { useWorkspaceApi } from '@/platform/runtime/workspace-ui-runtime';
 import { CustomersApiClient, type CreateCustomerCommand, type CustomerDto } from '@/modules/customers';
@@ -9,11 +9,25 @@ import { customerDisplayName, ProjectCreateModal } from '@/modules/projects/ui/w
 
 const inputCls = 'w-full rounded-lg border border-line-2 bg-paper px-3 py-2 text-sm text-ink focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/40';
 const btnPrimary = 'inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-brand-ink hover:opacity-90';
+const PROMPT_EXAMPLES = [
+  { label: 'Cartes de visite', description: '500 cartes avec pelliculage mat' },
+  { label: 'Flyers', description: '1000 flyers A5 recto verso' },
+  { label: 'Brochure', description: '24 pages format A4' },
+  { label: 'Affiches', description: '250 affiches A2 brillant' },
+] as const;
 
 export function MagritConfiguratorHome({
+  selectedCustomerName = null,
+  selectedProjectName = null,
   onProjectSelect,
+  onChangeProject,
+  onSubmit,
 }: Readonly<{
+  selectedCustomerName?: string | null;
+  selectedProjectName?: string | null;
   onProjectSelect: (selection: { projectId: string; customerName: string; projectName: string }) => void;
+  onChangeProject: () => void;
+  onSubmit: (query: string) => void;
 }>) {
   const customersApi = useWorkspaceApi(CustomersApiClient);
   const projectsApi = useWorkspaceApi(ProjectsApiClient);
@@ -25,6 +39,8 @@ export function MagritConfiguratorHome({
   const [contextError, setContextError] = useState<string | null>(null);
   const [showCreateProject, setShowCreateProject] = useState(false);
   const [showCreateCustomer, setShowCreateCustomer] = useState(false);
+  const [query, setQuery] = useState('');
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const selectedCustomer = customers.find((customer) => customer.id === selectedCustomerId) ?? null;
   const visibleCustomers = useMemo(() => {
     const normalized = customerQuery.trim().toLocaleLowerCase('fr-FR');
@@ -83,6 +99,24 @@ export function MagritConfiguratorHome({
     return created;
   };
 
+  const submitPrompt = (event?: FormEvent) => {
+    event?.preventDefault();
+    const value = query.trim();
+    if (value) onSubmit(value);
+  };
+
+  const handlePromptKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      submitPrompt();
+    }
+  };
+
+  const selectPromptExample = (value: string) => {
+    setQuery(value);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  };
+
   return (
     <main
       className="flex min-h-[calc(100dvh-3.5rem)] items-center justify-center bg-[#fbfbfb] px-6 py-12"
@@ -97,6 +131,59 @@ export function MagritConfiguratorHome({
           Choisissez un client, reprenez un projet récent, ou démarrez un nouveau chiffrage avec HopeStudio.
         </p>
 
+        {selectedProjectName ? (
+          <section className="mt-8 w-full rounded-2xl border border-line bg-white p-4 text-left shadow-[0_16px_45px_rgba(15,23,42,0.08)]">
+            <div className="flex items-center justify-between gap-3 border-b border-line pb-3 text-sm">
+              <div className="min-w-0 truncate text-ink">
+                <span className="font-medium">{selectedCustomerName ?? 'Client'}</span>
+                <span className="mx-2 text-ink-muted">·</span>
+                <span className="text-ink-muted">{selectedProjectName}</span>
+              </div>
+              <button type="button" onClick={onChangeProject} className="shrink-0 rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink hover:bg-bg">
+                Changer
+              </button>
+            </div>
+            <form className="pt-4" onSubmit={submitPrompt}>
+              <label className="sr-only" htmlFor="magrit-configurator-prompt">
+                Décrivez votre projet d’impression
+              </label>
+              <textarea
+                ref={inputRef}
+                id="magrit-configurator-prompt"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                onKeyDown={handlePromptKeyDown}
+                rows={4}
+                autoFocus
+                placeholder="Décrivez votre projet d’impression…"
+                className="w-full resize-none border-0 bg-transparent px-1 text-base text-ink outline-none placeholder:text-ink-mute-2"
+              />
+              <div className="mt-2 flex justify-end">
+                <button
+                  type="submit"
+                  disabled={!query.trim()}
+                  className="inline-flex min-h-10 items-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-35"
+                >
+                  Envoyer
+                  <ArrowUp className="size-4" />
+                </button>
+              </div>
+            </form>
+            <div className="mt-4 grid grid-cols-1 gap-2 border-t border-line pt-4 sm:grid-cols-2" aria-label="Exemples de demandes">
+              {PROMPT_EXAMPLES.map((example) => (
+                <button
+                  key={example.label}
+                  type="button"
+                  onClick={() => selectPromptExample(`${example.label} — ${example.description}`)}
+                  className="rounded-xl border border-line bg-white/80 px-4 py-3 text-left transition hover:-translate-y-px hover:border-ink-mute-2 hover:shadow-sm"
+                >
+                  <strong className="block text-sm font-medium text-ink">{example.label}</strong>
+                  <span className="mt-1 block text-xs text-ink-muted">{example.description}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : (
         <div className="mt-8 grid w-full gap-4 text-left lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
           <section className="overflow-hidden rounded-2xl border border-line bg-white shadow-[0_12px_30px_rgba(15,23,42,0.06)]" aria-labelledby="home-customers-title">
             <div className="border-b border-line px-4 py-3">
@@ -189,6 +276,7 @@ export function MagritConfiguratorHome({
             </div>
           </section>
         </div>
+        )}
 
         {contextError && <p className="mt-3 w-full text-left text-sm text-err-fg">{contextError}</p>}
 

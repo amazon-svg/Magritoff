@@ -22,7 +22,14 @@ export function ConfiguratorWorkspace({
   if (state.mode === 'home' || !state.initialRequest) {
     return (
       <MagritConfiguratorHome
+        selectedCustomerName={state.customerName}
+        selectedProjectName={state.projectName}
         onProjectSelect={(selection) => dispatch({ type: 'select-project', ...selection })}
+        onChangeProject={() => dispatch({ type: 'change-project' })}
+        onSubmit={(query) => dispatch({
+          type: 'submit',
+          request: createInitialConfiguratorRequest(query),
+        })}
       />
     );
   }
