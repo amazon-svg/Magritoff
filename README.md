@@ -191,6 +191,20 @@
 
   ## Documentation
 
+   ### Documentation OpenAPI locale
+
+   La documentation graphique du contrat est servie directement par Vite en
+   développement. Lancez l'application avec :
+
+   ```bash
+   pnpm openapi:docs
+   ```
+
+   Puis ouvrez [http://localhost:5176/docs/openapi](http://localhost:5176/docs/openapi).
+   La page lit directement `openapi/magrit-core.v1.yaml` ; elle reste donc
+   synchronisée avec le contrat source. Le rendu Redoc charge sa bibliothèque
+   depuis le CDN Redocly.
+
   - [Contexte projet](docs/project-context.md)
   - [Contrôle d’accès des boutiques](docs/SHOP_ACCESS_CONTROL.md)
   - [Règles d’architecture](docs/REGLES_ARCHITECTURE.md)
