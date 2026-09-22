@@ -2458,6 +2458,1827 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Crée une commande boutique
+         * @description Façade historique. Le corps contient sa propre clé d idempotence ; l authentification est résolue par une session boutique correspondant à `shopId` ou par un jeton utilisateur Magrit.
+         */
+        post: operations["createLegacyOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{orderId}/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de commande boutique de la façade historique. */
+                orderId: components["parameters"]["LegacyOrderId"];
+            };
+            cookie?: never;
+        };
+        /** Récupère le brouillon d’une commande */
+        get: operations["getLegacyOrderDraft"];
+        /**
+         * Modifie le brouillon d’une commande
+         * @description L en-tête `If-Match` est accepté s il est fourni, mais reste facultatif sur cette route historique. La concurrence est aussi vérifiée lors de la transition de commande.
+         */
+        put: operations["updateLegacyOrderDraft"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{orderId}/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de commande boutique de la façade historique. */
+                orderId: components["parameters"]["LegacyOrderId"];
+            };
+            cookie?: never;
+        };
+        /** Récupère les rôles d’une commande */
+        get: operations["getLegacyOrderRoles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        /** Liste les commandes d’un tenant */
+        get: operations["listLegacyTenantOrders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/shops/{shopId}/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+            };
+            cookie?: never;
+        };
+        /** Liste les commandes du portail boutique */
+        get: operations["listLegacyPortalOrders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{orderId}/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de commande boutique de la façade historique. */
+                orderId: components["parameters"]["LegacyOrderId"];
+            };
+            cookie?: never;
+        };
+        /** Récupère l’audit d’une commande */
+        get: operations["getLegacyOrderAudit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{orderId}/transitions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de commande boutique de la façade historique. */
+                orderId: components["parameters"]["LegacyOrderId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Fait évoluer le statut d’une commande */
+        post: operations["transitionLegacyOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenant-slugs/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Ancien slug du tenant à résoudre. */
+                slug: components["parameters"]["TenantSlug"];
+            };
+            cookie?: never;
+        };
+        /** Résout un ancien slug de tenant */
+        get: operations["resolveTenantSlug"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Crée un tenant racine */
+        post: operations["createRootTenant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Récupère la session Magrit */
+        get: operations["getSession"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/session/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Modifie les préférences de session */
+        patch: operations["updateSessionPreferences"];
+        trace?: never;
+    };
+    "/session/current-tenant": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Sélectionne le tenant courant */
+        put: operations["updateCurrentTenant"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Modifie les paramètres d’un tenant */
+        patch: operations["updateTenantSettings"];
+        trace?: never;
+    };
+    "/tenants/{tenantId}/subtenants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        /** Liste les sous-tenants */
+        get: operations["listSubTenants"];
+        put?: never;
+        /** Crée un sous-tenant */
+        post: operations["createSubTenant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/subtenants/{subTenantId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant du sous-tenant transmis par la façade historique. */
+                subTenantId: components["parameters"]["SubTenantId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Supprime un sous-tenant */
+        delete: operations["deleteSubTenant"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/session/invitations/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accepte une invitation de tenant */
+        post: operations["acceptTenantInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/invitations/{token}/activation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Jeton opaque d’activation d’invitation. */
+                token: components["parameters"]["InvitationToken"];
+            };
+            cookie?: never;
+        };
+        /** Récupère le contexte d’activation d’une invitation */
+        get: operations["getInvitationActivation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/invitation-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        /** Liste les options d’invitation */
+        get: operations["getInvitationOptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        /** Liste les invitations en attente */
+        get: operations["listPendingInvitations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Crée une invitation */
+        post: operations["createInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/invitations/{invitationId}/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invitationId: components["parameters"]["InvitationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Renvoie une invitation */
+        post: operations["resendInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/invitations/{invitationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invitationId: components["parameters"]["InvitationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Révoque une invitation */
+        delete: operations["revokeInvitation"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        /** Liste les membres d’un tenant */
+        get: operations["listTenantMembers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/members/{userId}/role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                userId: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Modifie le rôle d’un membre */
+        patch: operations["changeMemberRole"];
+        trace?: never;
+    };
+    "/tenants/{tenantId}/members/{userId}/access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                userId: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Modifie l’accès d’un membre */
+        patch: operations["updateMemberAccess"];
+        trace?: never;
+    };
+    "/tenants/{tenantId}/members/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                userId: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Retire un membre du tenant */
+        delete: operations["removeTenantMember"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/capabilities/{capability}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                capability: components["parameters"]["Capability"];
+            };
+            cookie?: never;
+        };
+        /** Vérifie une capability */
+        get: operations["getUserCapability"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/access-profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        /** Récupère le profil d’accès */
+        get: operations["getUserAccessProfile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/roles-overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        /** Récupère la vue synthétique des rôles */
+        get: operations["getRolesOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/roles-catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        /** Récupère le catalogue des rôles */
+        get: operations["getRolesCatalog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Crée une définition de rôle */
+        post: operations["createRoleDefinition"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/roles-order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Réordonne les rôles */
+        put: operations["reorderRoleDefinitions"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/roles/{roleId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                roleId: components["parameters"]["RoleId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Modifie une définition de rôle */
+        put: operations["updateRoleDefinition"];
+        post?: never;
+        /** Archive une définition de rôle */
+        delete: operations["archiveRoleDefinition"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/members/{userId}/roles-detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                userId: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        /** Récupère les rôles d’un membre */
+        get: operations["getUserRolesDetail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/members/{userId}/roles/{roleId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                userId: components["parameters"]["UserId"];
+                roleId: components["parameters"]["RoleId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Active ou désactive une assignation de rôle */
+        put: operations["setRoleAssignment"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/public/shops/{slug}/probe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Slug public de la boutique. */
+                slug: components["parameters"]["ShopSlug"];
+            };
+            cookie?: never;
+        };
+        /** Vérifie l’existence et le mode d’accès d’une boutique */
+        get: operations["getPublicShopProbe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/public/shops/{slug}/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Slug public de la boutique. */
+                slug: components["parameters"]["ShopSlug"];
+            };
+            cookie?: never;
+        };
+        /** Récupère le catalogue public d’une boutique */
+        get: operations["getPublicShopCatalog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/shops/{shopId}/products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+            };
+            cookie?: never;
+        };
+        /** Liste les produits d’une boutique */
+        get: operations["listShopProducts"];
+        put?: never;
+        /** Crée un produit de boutique */
+        post: operations["createShopProduct"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/shops/{shopId}/products/{productId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+                /** @description Identifiant du produit publié dans la boutique. */
+                productId: components["parameters"]["ShopProductId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Supprime un produit de boutique */
+        delete: operations["deleteShopProduct"];
+        options?: never;
+        head?: never;
+        /** Modifie un produit de boutique */
+        patch: operations["updateShopProduct"];
+        trace?: never;
+    };
+    "/tenants/{tenantId}/shops": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        /** Liste les boutiques du tenant */
+        get: operations["listTenantShops"];
+        put?: never;
+        /** Crée une boutique dans le tenant */
+        post: operations["createTenantShop"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/shops/{shopId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Supprime une boutique */
+        delete: operations["deleteTenantShop"];
+        options?: never;
+        head?: never;
+        /** Modifie une boutique */
+        patch: operations["updateTenantShop"];
+        trace?: never;
+    };
+    "/tenants/{tenantId}/shops/{shopId}/pricing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+            };
+            cookie?: never;
+        };
+        /** Liste les prix spécifiques de la boutique */
+        get: operations["listShopPricingOverrides"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/shops/{shopId}/pricing/{libraryProductId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+                /** @description Identifiant du produit du catalogue dont le prix est surchargé. */
+                libraryProductId: components["parameters"]["ShopLibraryProductId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Définit ou retire le prix spécifique d’un produit */
+        put: operations["setShopPricingOverride"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/shops/{shopId}/brand-assets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Téléverse un visuel de marque */
+        post: operations["uploadShopBrandAsset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/shops/{shopId}/custom-mockups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+            };
+            cookie?: never;
+        };
+        /** Liste les maquettes personnalisées de la boutique */
+        get: operations["listShopCustomMockups"];
+        put?: never;
+        /** Téléverse une maquette personnalisée */
+        post: operations["uploadShopCustomMockup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/shops/{shopId}/custom-mockups/{templateType}/{view}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+                templateType: components["parameters"]["MockupTemplateType"];
+                view: components["parameters"]["MockupView"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Restaure la maquette par défaut */
+        delete: operations["restoreShopCustomMockup"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/shops/{shopId}/ai-products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Persiste un produit généré par l’IA */
+        post: operations["persistAiShopProduct"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/catalog/gamme-subscriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        /** Récupère les gammes PIM souscrites */
+        get: operations["getGammeSubscriptions"];
+        /** Modifie les gammes PIM souscrites */
+        put: operations["setGammeSubscriptions"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/catalog/pim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Récupère le catalogue PIM */
+        get: operations["getPimCatalog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/catalog/pim/gammes/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: components["parameters"]["PimGammeSlug"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Crée ou modifie une gamme PIM */
+        put: operations["upsertPimGamme"];
+        post?: never;
+        /** Supprime une gamme PIM */
+        delete: operations["deletePimGamme"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/catalog/pim/definitions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Crée ou modifie une définition PIM */
+        put: operations["upsertPimDefinition"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/catalog/pim/definitions/{definitionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                definitionId: components["parameters"]["DefinitionId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Supprime une définition PIM */
+        delete: operations["deletePimDefinition"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/catalog/pim/ingestion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Compte les candidats PIM en attente */
+        get: operations["getPimPendingCandidates"];
+        put?: never;
+        /** Simule ou exécute l’ingestion PIM */
+        post: operations["runPimIngestion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/catalog/pim/generation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Génère ou valide une définition PIM */
+        post: operations["generatePimDefinition"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/library-products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        /** Liste les produits de bibliothèque */
+        get: operations["listLibraryProducts"];
+        put?: never;
+        /** Crée un produit de bibliothèque */
+        post: operations["createLibraryProduct"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/library-products/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Crée plusieurs produits de bibliothèque */
+        post: operations["createLibraryProducts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/library-products/pim-generated": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Remplace les produits générés par le PIM */
+        put: operations["replacePimGeneratedProducts"];
+        post?: never;
+        /** Supprime les produits générés par le PIM */
+        delete: operations["clearPimGeneratedProducts"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/library-products/{productId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                productId: components["parameters"]["LibraryProductId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Modifie un produit de bibliothèque */
+        put: operations["updateLibraryProduct"];
+        post?: never;
+        /** Supprime un produit de bibliothèque */
+        delete: operations["deleteLibraryProduct"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/libraries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        /** Liste les bibliothèques */
+        get: operations["listLibraries"];
+        put?: never;
+        /** Crée une bibliothèque */
+        post: operations["createLibrary"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/libraries/{libraryId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                libraryId: components["parameters"]["LibraryId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Modifie une bibliothèque */
+        put: operations["updateLibrary"];
+        post?: never;
+        /** Supprime une bibliothèque */
+        delete: operations["deleteLibrary"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/quote-templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        /** Liste les gabarits de devis */
+        get: operations["listQuoteTemplates"];
+        put?: never;
+        /** Crée un gabarit de devis */
+        post: operations["createQuoteTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/quote-templates/default": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Définit le gabarit de devis par défaut */
+        put: operations["setDefaultQuoteTemplate"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/quote-templates/{templateId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                templateId: components["parameters"]["QuoteTemplateId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Modifie un gabarit de devis */
+        put: operations["updateQuoteTemplate"];
+        post?: never;
+        /** Supprime un gabarit de devis */
+        delete: operations["deleteQuoteTemplate"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/diagnostics/ai": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Teste le fournisseur IA */
+        get: operations["getAiProviderDiagnostic"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/diagnostics/clariprint": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Teste la connexion Clariprint */
+        get: operations["getClariprintDiagnostic"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clariprint/quote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Demande un chiffrage Clariprint */
+        post: operations["createClariprintQuote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        /** Liste les conversations */
+        get: operations["listConversations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/conversations/{conversationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                conversationId: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Enregistre une conversation */
+        put: operations["saveConversation"];
+        post?: never;
+        /** Supprime une conversation */
+        delete: operations["deleteConversation"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/shop-customer-migration-report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Récupère le rapport de migration des comptes boutique
+         * @description Façade historique réservée à un utilisateur Magrit. Le tenant est transmis par la façade et doit être autorisé par le jeton utilisateur. Le rapport est un instantané non paginé des comptes legacy rencontrés.
+         */
+        get: operations["getShopCustomerMigrationReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/shops/{shopId}/customers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Liste les comptes clients d’une boutique
+         * @description Façade historique de gestion des comptes clients boutique.
+         */
+        get: operations["listShopCustomers"];
+        put?: never;
+        /**
+         * Crée un compte client boutique
+         * @description Crée un compte pour l’adresse email donnée. L’email est normalisé côté serveur ; `fullName` est facultatif et est déduit de l’email s’il est absent. `initialStatus` vaut `invited` par défaut.
+         */
+        post: operations["createShopCustomer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/shops/{shopId}/customers/self": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Garantit le compte boutique correspondant à l’utilisateur
+         * @description Crée ou retrouve le compte miroir de l’utilisateur Magrit dans cette boutique. Le corps est absent ; `created` indique si le compte vient d’être créé.
+         */
+        post: operations["ensureSelfShopCustomer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/shops/{shopId}/customers/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Invite un client boutique
+         * @description Crée si nécessaire un compte `invited`, émet un lien d’activation et tente son envoi par email. `link` est rendu dans la réponse pour la compatibilité de la façade historique ; il ne constitue pas une authentification tant que le jeton n’est pas présenté à l’activation.
+         */
+        post: operations["inviteShopCustomer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/storefront/{shopSlug}/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ouvre une session client boutique
+         * @description Authentifie un compte actif dans la boutique identifiée par son slug. En cas de succès, le serveur pose un cookie opaque de session HttpOnly : `__Host-magrit-storefront` en HTTPS de production, ou `magrit-storefront` en développement local. Dans les deux cas : `Path=/`, `SameSite=Lax`, `Max-Age` inférieur ou égal à 86400 secondes et `Secure` lorsque le nom `__Host-` est utilisé. Le navigateur seul renvoie ensuite ce cookie ; il ne doit jamais être copié dans une URL.
+         */
+        post: operations["createStorefrontSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/storefront/{shopSlug}/registration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Inscrit un client dans une boutique
+         * @description Crée un compte client actif selon les règles d’accès de la boutique et ouvre immédiatement sa session. Le cookie de session est HttpOnly, `SameSite=Lax`, `Path=/`, avec le nom de production `__Host-magrit-storefront` (ou `magrit-storefront` en local), et n’est jamais renvoyé dans le JSON.
+         */
+        post: operations["registerStorefrontCustomer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/storefront/session/current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Récupère la session boutique courante
+         * @description Résout le compte depuis le cookie HttpOnly de session. Le cookie `__Host-magrit-storefront` est celui de production ; `magrit-storefront` est utilisé en local. Aucun tenant, slug ou compte n’est accepté dans la requête : l’identité vient exclusivement du cookie.
+         */
+        get: operations["getCurrentStorefrontSession"];
+        put?: never;
+        post?: never;
+        /**
+         * Ferme la session boutique courante
+         * @description Révoque la session portée par le cookie s’il existe et renvoie un cookie expiré avec les mêmes attributs (`Path=/`, `HttpOnly`, `SameSite=Lax`, `Max-Age=0`, et `Secure` en production). L’opération reste idempotente si le cookie est absent ou déjà révoqué.
+         */
+        delete: operations["endCurrentStorefrontSession"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/shops/{shopId}/customers/{customerId}/activation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Émet un lien d’activation client boutique
+         * @description Route d’administration protégée par le JWT utilisateur Magrit. Elle émet un lien à durée limitée et tente son envoi par email ; elle ne pose pas de cookie de session dans le navigateur de l’administrateur.
+         */
+        post: operations["issueStorefrontCustomerActivation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/storefront/activation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Active un compte client boutique
+         * @description Consomme un jeton d’activation opaque et définit le mot de passe du compte. Le jeton n’est accepté que dans le corps JSON, jamais en paramètre d’URL. En cas de succès, pose une session HttpOnly avec `__Host-magrit-storefront` en production ou `magrit-storefront` en local, `Path=/`, `SameSite=Lax` et `Secure` en production.
+         */
+        post: operations["activateStorefrontCustomer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/storefront/{shopSlug}/password-recovery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Demande la récupération du mot de passe boutique
+         * @description Réponse volontairement uniforme, y compris lorsque l’email ou la boutique n’existe pas, afin de ne pas révéler l’existence d’un compte. Aucun cookie de session n’est posé ; le lien de récupération est envoyé par email lorsqu’un compte correspondant est trouvé.
+         */
+        post: operations["requestStorefrontPasswordRecovery"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/storefront/password-reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Réinitialise le mot de passe boutique
+         * @description Consomme un jeton opaque de récupération à usage unique et définit le nouveau mot de passe. Le jeton reste dans le corps JSON pour éviter sa exposition dans les journaux d’URL. Aucun cookie n’est posé après le reset ; le client doit se reconnecter.
+         */
+        post: operations["resetStorefrontPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/shops/{shopId}/customers/self-delegation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ouvre une session boutique déléguée
+         * @description Un utilisateur Magrit ouvre une session boutique au nom de son propre compte client pour une durée fixe de 1800 secondes. Le serveur pose le cookie HttpOnly de session boutique (`__Host-magrit-storefront` en production, `magrit-storefront` en local, `Path=/`, `SameSite=Lax`, `Secure` en production) et renvoie aussi la délégation créée. Cette session est lisible comme une session client mais ne doit pas être utilisée pour engager le client sur les opérations d’écriture.
+         */
+        post: operations["startSelfShopCustomerDelegation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/assistant/category-editorial": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Génère un éditorial de catégorie */
+        post: operations["createTenantCategoryEditorial"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/public/shops/{shopSlug}/assistant/category-editorial": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Slug public de la boutique utilisé par les routes storefront. */
+                shopSlug: components["parameters"]["StorefrontShopSlug"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Génère un éditorial de catégorie public */
+        post: operations["createPublicCategoryEditorial"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/commercial": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        /** Récupère la configuration commerciale */
+        get: operations["getCommercialOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/commercial/groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Crée un groupe de clients */
+        post: operations["createCommercialGroup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/commercial/groups/{groupId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant du groupe commercial. */
+                groupId: components["parameters"]["CommercialGroupId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Supprime un groupe de clients */
+        delete: operations["deleteCommercialGroup"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/commercial/groups/{groupId}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant du groupe commercial. */
+                groupId: components["parameters"]["CommercialGroupId"];
+            };
+            cookie?: never;
+        };
+        /** Liste les membres d’un groupe */
+        get: operations["listCommercialGroupMembers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/commercial/groups/{groupId}/members/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant du groupe commercial. */
+                groupId: components["parameters"]["CommercialGroupId"];
+                userId: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Ajoute un membre à un groupe */
+        put: operations["addCommercialGroupMember"];
+        post?: never;
+        /** Retire un membre d’un groupe */
+        delete: operations["removeCommercialGroupMember"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/commercial/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Crée une règle de prix commerciale */
+        post: operations["createCommercialRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/commercial/rules/{ruleId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la règle de prix commerciale. */
+                ruleId: components["parameters"]["CommercialRuleId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Supprime une règle de prix */
+        delete: operations["deleteCommercialRule"];
+        options?: never;
+        head?: never;
+        /** Active ou désactive une règle de prix */
+        patch: operations["updateCommercialRuleStatus"];
+        trace?: never;
+    };
 }
 export interface webhooks {
     "quote.converted": {
@@ -2770,6 +4591,975 @@ export interface webhooks {
 }
 export interface components {
     schemas: {
+        /** @enum {string|null} */
+        LegacyPriceOrigin: "catalog" | "quoted" | "client_unverified" | "legacy" | null;
+        LegacyOrderItem: {
+            name: string;
+            quantity: number;
+            unitPrice: number;
+            priceOrigin: components["schemas"]["LegacyPriceOrigin"];
+        };
+        LegacyOrderSummary: {
+            id: string;
+            shopId: string;
+            /** @enum {string} */
+            source: "legacy" | "v1_1";
+            createdAt: string;
+            customerName: string;
+            customerEmail: string;
+            items: components["schemas"]["LegacyOrderItem"][];
+            totalHt: number;
+            totalTtc: number;
+            status: string;
+            hasUnverifiedPrices: boolean;
+        };
+        LegacyOrdersList: {
+            orders: components["schemas"]["LegacyOrderSummary"][];
+        };
+        LegacyPortalOrdersCounters: {
+            mine: number;
+            to_validate: number;
+            to_approve: number;
+            to_produce: number;
+        };
+        LegacyPortalOrdersResponse: {
+            counters: components["schemas"]["LegacyPortalOrdersCounters"];
+            datasets: {
+                mine: components["schemas"]["LegacyOrderSummary"][];
+                to_validate: components["schemas"]["LegacyOrderSummary"][];
+                to_approve: components["schemas"]["LegacyOrderSummary"][];
+                to_produce: components["schemas"]["LegacyOrderSummary"][];
+            };
+        };
+        LegacyCreateOrderItem: {
+            /** Format: uuid */
+            productId: string | null;
+            productLabel: string;
+            clariprintOptions: {
+                [key: string]: unknown;
+            } | null;
+            quantity: number;
+            expectedUnitPriceHt: string;
+        };
+        LegacyCreateOrderCommand: {
+            /** Format: uuid */
+            shopId: string;
+            currency: string;
+            notes: string;
+            items: components["schemas"]["LegacyCreateOrderItem"][];
+            idempotencyKey: string;
+        };
+        LegacyCreateOrderResult: {
+            /** Format: uuid */
+            orderId: string;
+            /** Format: uuid */
+            tenantId: string;
+            /** Format: uuid */
+            shopId: string;
+            totalHt: string;
+            currency: string;
+            replayed: boolean;
+        };
+        LegacyDraftOrderItem: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            productId: string | null;
+            productLabel: string;
+            clariprintOptions: {
+                [key: string]: unknown;
+            } | null;
+            quantity: number;
+            unitPriceHt: string;
+            lineTotalHt: string;
+            /** @enum {string} */
+            priceOrigin: "catalog" | "quoted" | "client_unverified" | "legacy";
+        };
+        LegacyDraftOrder: {
+            /** Format: uuid */
+            orderId: string;
+            status: string;
+            /** Format: date-time */
+            createdAt: string;
+            totalHt: string;
+            hasUnverifiedPrices: boolean;
+            items: components["schemas"]["LegacyDraftOrderItem"][];
+        };
+        LegacyUpdateDraftOrderItem: {
+            /** Format: uuid */
+            id: string;
+            productLabel: string;
+            quantity: number;
+            expectedUnitPriceHt: string;
+        };
+        LegacyUpdateDraftOrderCommand: {
+            items: components["schemas"]["LegacyUpdateDraftOrderItem"][];
+            idempotencyKey: string;
+        };
+        LegacyUpdateDraftOrderResult: {
+            /** Format: uuid */
+            orderId: string;
+            totalHt: string;
+            replayed: boolean;
+        };
+        LegacyOrderRolesResponse: {
+            roles: {
+                /** Format: uuid */
+                assignmentId: string;
+                /** Format: uuid */
+                roleDefinitionId: string;
+                name: string;
+                capabilities: {
+                    [key: string]: boolean;
+                };
+                /** @enum {string} */
+                notifyPolicy: "chain_next" | "all_roles" | "none";
+                orderingIndex: number;
+            }[];
+            capabilities: {
+                [key: string]: boolean;
+            };
+            isCreator: boolean;
+        };
+        LegacyAuditEvent: {
+            eventId: string;
+            orderId: string;
+            /** @enum {string} */
+            kind: "status" | "role";
+            eventType: string;
+            actorId: string | null;
+            actorEmail: string | null;
+            shopCustomerAccountId: string | null;
+            actedByMagritUserId: string | null;
+            roleName: string | null;
+            payload: {
+                [key: string]: unknown;
+            };
+            occurredAt: string;
+        };
+        LegacyOrderAuditTrail: {
+            events: components["schemas"]["LegacyAuditEvent"][];
+        };
+        LegacyTransitionOrderCommand: {
+            /** @enum {string} */
+            toStatus: "validated" | "in_production" | "shipped" | "delivered" | "invoiced" | "cancelled";
+            reason?: string | null;
+            idempotencyKey: string;
+            /** @default false */
+            acknowledgeUnverifiedPrices: boolean;
+        };
+        LegacyTransitionOrderResult: {
+            orderId: string;
+            fromStatus: string;
+            toStatus: string;
+            replayed: boolean;
+        };
+        TenantSlugResolution: {
+            slug: string | null;
+        };
+        /** @enum {string} */
+        TenantPlan: "freemium" | "pro" | "enterprise";
+        /** @enum {string} */
+        TenantRole: "admin" | "member";
+        /** @enum {string} */
+        AccessScope: "magrit_full" | "shop_only";
+        MemberPermissions: {
+            can_quote: boolean;
+            can_order: boolean;
+            can_invite: boolean;
+        };
+        SessionTenant: {
+            id: string;
+            slug: string;
+            name: string;
+            parent_tenant_id: string | null;
+            plan: components["schemas"]["TenantPlan"];
+            is_system_tenant: boolean;
+            settings: {
+                [key: string]: unknown;
+            };
+            created_at: string;
+            siren?: string | null;
+            siren_data?: {
+                [key: string]: unknown;
+            } | null;
+            verified?: boolean;
+            verified_at?: string | null;
+            tax_regime?: string | null;
+            myRole: components["schemas"]["TenantRole"];
+            accessScope: components["schemas"]["AccessScope"];
+            allowedShopIds: string[];
+            permissions: components["schemas"]["MemberPermissions"];
+            inheritedFromParent: boolean;
+        };
+        UserPreferences: {
+            /** @enum {string} */
+            theme: "light" | "dark";
+            /** @enum {string} */
+            language: "fr" | "en";
+            default_delivery_zone: string;
+            notifications_email: boolean;
+            plan: components["schemas"]["TenantPlan"];
+            is_admin: boolean;
+            last_tenant_id: string | null;
+        };
+        SessionBootstrap: {
+            user: {
+                id: string;
+            };
+            tenants: components["schemas"]["SessionTenant"][];
+            isSuperAdmin: boolean;
+            preferences: components["schemas"]["UserPreferences"];
+        };
+        UpdatePreferencesCommand: {
+            /** @enum {string} */
+            theme?: "light" | "dark";
+            /** @enum {string} */
+            language?: "fr" | "en";
+            default_delivery_zone?: string;
+            notifications_email?: boolean;
+        };
+        UpdateCurrentTenantCommand: {
+            tenantId: string;
+        };
+        UpdateTenantSettingsCommand: {
+            name?: string;
+            slug?: string;
+            plan?: components["schemas"]["TenantPlan"];
+        };
+        CreateSubTenantCommand: {
+            name: string;
+            slug: string;
+        };
+        CreateRootTenantCommand: {
+            name: string;
+            slug: string;
+            siren?: string;
+            sirenData?: {
+                [key: string]: unknown;
+            };
+            gammeSlugs?: string[];
+        };
+        CreateTenantResult: {
+            tenantId: string;
+        };
+        TenantMutationResult: {
+            /** @constant */
+            updated: true;
+        };
+        SubTenant: {
+            id: string;
+            slug: string;
+            name: string;
+            createdAt: string;
+        };
+        SubTenantKpi: {
+            tenantId: string;
+            tenantName: string;
+            tenantSlug: string;
+            createdAt: string;
+            memberCount: number;
+            monthOrderCount: number;
+            monthCaHt: number;
+        };
+        SubTenantsDashboard: {
+            subTenants: components["schemas"]["SubTenant"][];
+            kpis: components["schemas"]["SubTenantKpi"][];
+        };
+        RemoveSubTenantResult: {
+            /** @constant */
+            removed: true;
+        };
+        AcceptTenantInvitationCommand: {
+            token: string;
+        };
+        InvitationActivation: {
+            /** Format: email */
+            email: string;
+            tenantName: string;
+            accountExists: boolean;
+            expiresAt: string;
+        };
+        InvitationOptions: {
+            roles: {
+                /** Format: uuid */
+                id: string;
+                name: string;
+                description: string;
+                systemKey: string | null;
+            }[];
+            shops: {
+                /** Format: uuid */
+                id: string;
+                name: string;
+            }[];
+        };
+        CreateInvitationCommand: {
+            /** Format: email */
+            email: string;
+            /** Format: uuid */
+            tenantId: string;
+            /** Format: uri */
+            baseUrl: string;
+            role: components["schemas"]["TenantRole"];
+            roleDefinitionIds: string[];
+        };
+        CreateInvitationResult: {
+            /** Format: uuid */
+            invitationId: string;
+            sent: boolean;
+            /** Format: uri */
+            link: string;
+            reason?: string;
+        };
+        PendingInvitation: {
+            /** Format: uuid */
+            id: string;
+            /** Format: email */
+            email: string;
+            role: components["schemas"]["TenantRole"];
+            expiresAt: string;
+            createdAt: string;
+            accessScope: components["schemas"]["AccessScope"];
+            allowedShopIds: string[];
+            permissions: {
+                canQuote: boolean;
+                canOrder: boolean;
+                canInvite: boolean;
+            };
+        };
+        PendingInvitations: components["schemas"]["PendingInvitation"][];
+        ResendInvitationCommand: {
+            /** Format: uri */
+            baseUrl: string;
+        };
+        ResendInvitationResult: {
+            sent: boolean;
+            /** Format: uri */
+            link: string;
+            reason?: string;
+        };
+        RevokeInvitationResult: {
+            /** @constant */
+            revoked: true;
+        };
+        TenantMember: {
+            /** Format: uuid */
+            userId: string;
+            /** Format: email */
+            email: string | null;
+            role: components["schemas"]["TenantRole"];
+            joinedAt: string;
+            accessScope: components["schemas"]["AccessScope"];
+            allowedShopIds: string[];
+            permissions: {
+                canQuote: boolean;
+                canOrder: boolean;
+                canInvite: boolean;
+            };
+        };
+        TenantMembers: components["schemas"]["TenantMember"][];
+        ChangeMemberRoleCommand: {
+            role: components["schemas"]["TenantRole"];
+        };
+        UpdateMemberAccessCommand: {
+            /** @constant */
+            accessScope: "magrit_full";
+            allowedShopIds: string[];
+            permissions: {
+                canQuote: boolean;
+                canOrder: boolean;
+                canInvite: boolean;
+            };
+        };
+        RemoveMemberResult: {
+            /** @constant */
+            removed: true;
+        };
+        RoleDefinition: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            description: string;
+            capabilities: {
+                [key: string]: boolean;
+            };
+            orderingIndex: number;
+            systemKey: string | null;
+        };
+        RoleAssignment: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            roleId: string;
+            /** Format: uuid */
+            userId: string;
+        };
+        RoleMember: {
+            /** Format: uuid */
+            userId: string;
+            /** Format: email */
+            email: string;
+            legacyRole: string;
+        };
+        RolesOverview: {
+            roles: components["schemas"]["RoleDefinition"][];
+            members: components["schemas"]["RoleMember"][];
+            assignments: components["schemas"]["RoleAssignment"][];
+        };
+        RoleCatalogDefinition: components["schemas"]["RoleDefinition"] & {
+            /** Format: uuid */
+            tenantId: string;
+            /** @enum {string} */
+            notifyPolicy: "chain_next" | "all_roles" | "none";
+            /** @enum {string} */
+            scope: "tenant" | "shop";
+            /** Format: uuid */
+            scopeShopId: string | null;
+            /** Format: date-time */
+            archivedAt: string | null;
+        };
+        RolesCatalog: {
+            roles: components["schemas"]["RoleCatalogDefinition"][];
+            members: components["schemas"]["RoleMember"][];
+            assignments: components["schemas"]["RoleAssignment"][];
+        };
+        SaveRoleDefinitionCommand: {
+            name: string;
+            /** @default  */
+            description: string;
+            capabilities: {
+                [key: string]: boolean;
+            };
+            /** @enum {string} */
+            notifyPolicy: "chain_next" | "all_roles" | "none";
+            /** @enum {string} */
+            scope: "tenant" | "shop";
+            /** Format: uuid */
+            scopeShopId: string | null;
+            orderingIndex: number;
+        };
+        ReorderRolesCommand: {
+            /** Format: uuid */
+            firstRoleId: string;
+            /** Format: uuid */
+            secondRoleId: string;
+        };
+        ReorderRolesResult: {
+            /** @constant */
+            reordered: true;
+        };
+        ArchiveRoleResult: {
+            /** @constant */
+            archived: true;
+        };
+        UserCapability: {
+            capability: string;
+            granted: boolean;
+        };
+        UserAccessProfile: {
+            /** Format: uuid */
+            tenantId: string;
+            /** Format: uuid */
+            userId: string;
+            membership: components["schemas"]["TenantRole"];
+            isAdmin: boolean;
+            surfaces: ("workspace" | "backoffice")[];
+            capabilities: string[];
+        };
+        UserRolesDetail: {
+            roles: components["schemas"]["RoleDefinition"][];
+            assignments: components["schemas"]["RoleAssignment"][];
+            shops: {
+                /** Format: uuid */
+                id: string;
+                name: string;
+            }[];
+            accessScope: components["schemas"]["AccessScope"];
+            allowedShopIds: string[];
+        };
+        SetRoleAssignmentCommand: {
+            active: boolean;
+        };
+        SetRoleAssignmentResult: {
+            active: boolean;
+            /** Format: uuid */
+            assignmentId: string | null;
+        };
+        CatalogRecord: {
+            [key: string]: unknown;
+        };
+        GammeSubscription: {
+            gammeSlug: string;
+            active: boolean;
+            displayOrder: number;
+        };
+        GammeSubscriptions: components["schemas"]["GammeSubscription"][];
+        SetGammeSubscriptionsCommand: {
+            subscriptions: {
+                gammeSlug: string;
+                active: boolean;
+            }[];
+        };
+        PimGamme: {
+            /** Format: uuid */
+            id: string;
+            slug: string;
+            name: string;
+            parentSlug: string | null;
+            matchingRules: {
+                [key: string]: unknown;
+            };
+            displayOrder: number;
+            imageUrl: string | null;
+        };
+        PimDefinition: {
+            /** Format: uuid */
+            id: string;
+            gammeSlug: string;
+            variationFilter: {
+                [key: string]: unknown;
+            };
+            locale: string;
+            usageExamples: {
+                [key: string]: unknown;
+            }[];
+            faq: {
+                [key: string]: unknown;
+            }[];
+            version: number;
+        } & {
+            [key: string]: unknown;
+        };
+        PimCatalog: {
+            gammes: components["schemas"]["PimGamme"][];
+            definitions: components["schemas"]["PimDefinition"][];
+        };
+        UpsertPimGammeCommand: {
+            slug: string;
+            name: string;
+            parentSlug?: string | null;
+            matchingRules?: {
+                [key: string]: unknown;
+            };
+            displayOrder?: number;
+            imageUrl?: string | null;
+        };
+        UpsertPimDefinitionCommand: {
+            gammeSlug: string;
+            variationFilter: {
+                [key: string]: unknown;
+            };
+            locale: string;
+        } & {
+            [key: string]: unknown;
+        };
+        CatalogRemovalResult: {
+            /** @constant */
+            removed: true;
+        };
+        PimPendingCandidates: {
+            pendingCount: number;
+        };
+        RunPimIngestCommand: {
+            dryRun: boolean;
+        };
+        PimIngestReport: {
+            dryRun: boolean;
+            totalCandidates: number;
+            matched: {
+                [key: string]: unknown;
+            }[];
+            rejected: {
+                [key: string]: unknown;
+            }[];
+            enriched: {
+                [key: string]: unknown;
+            }[];
+            errors: {
+                [key: string]: unknown;
+            }[];
+        };
+        GeneratePimDefinitionCommand: {
+            gammeSlug: string;
+            gammeName?: string;
+            gammeMatchingRules?: {
+                [key: string]: unknown;
+            };
+            locale: string;
+            /** @default {} */
+            variationFilter: {
+                [key: string]: unknown;
+            };
+            /**
+             * @default generate
+             * @enum {string}
+             */
+            mode: "generate" | "validate";
+            existing?: {
+                [key: string]: unknown;
+            };
+        };
+        GeneratedPimDefinition: {
+            generated: {
+                [key: string]: unknown;
+            };
+        };
+        ShopProduct: {
+            id: string;
+            /** Format: uuid */
+            shopId: string;
+            /** Format: uuid */
+            productId: string | null;
+            name: string;
+            category: string;
+            description: string;
+            priceHt: number;
+            imageUrl: string;
+            config: {
+                [key: string]: unknown;
+            };
+            displayOrder: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: uuid */
+            tenantId: string | null;
+            gammeSlug: string | null;
+        };
+        ShopTheme: {
+            primaryColor: string;
+            accentColor: string;
+            /** @enum {string} */
+            mode: "light" | "dark";
+            secondaryColor?: string;
+            textColor?: string;
+            bgColor?: string;
+            fontPairing?: string;
+        };
+        Shop: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            tenantId: string;
+            /** Format: uuid */
+            ownerUserId: string;
+            slug: string;
+            name: string;
+            description: string;
+            theme: components["schemas"]["ShopTheme"];
+            logoUrl: string;
+            address: string;
+            contactEmail: string;
+            active: boolean;
+            libraryIds: string[];
+            excludedProductIds: string[];
+            heroImageUrl: string | null;
+            tagline: string | null;
+            pimCatalogMode: boolean;
+            pimGammeSlugs: string[];
+            /** @enum {string} */
+            accessMode: "invite_only" | "self_signup";
+            /** Format: date-time */
+            createdAt: string;
+        };
+        TenantShops: components["schemas"]["Shop"][];
+        CreateShopCommand: {
+            name: string;
+            /** @default  */
+            description: string;
+            /** @default  */
+            logoUrl: string;
+            /** @default  */
+            address: string;
+            /** @default  */
+            contactEmail: string;
+            theme?: components["schemas"]["ShopThemeInput"];
+            /** @default null */
+            heroImageUrl: string | null;
+            /** @default null */
+            tagline: string | null;
+        };
+        ShopThemeInput: {
+            primaryColor?: string;
+            accentColor?: string;
+            /** @enum {string} */
+            mode?: "light" | "dark";
+            secondaryColor?: string;
+            textColor?: string;
+            bgColor?: string;
+            fontPairing?: string;
+        };
+        UpdateShopCommand: {
+            name?: string;
+            description?: string;
+            logoUrl?: string;
+            address?: string;
+            contactEmail?: string;
+            theme?: components["schemas"]["ShopTheme"];
+            active?: boolean;
+            libraryIds?: string[];
+            excludedProductIds?: string[];
+            heroImageUrl?: string | null;
+            tagline?: string | null;
+            pimCatalogMode?: boolean;
+            pimGammeSlugs?: string[];
+            /** @enum {string} */
+            accessMode?: "invite_only" | "self_signup";
+        };
+        ShopMutationResult: {
+            /** @constant */
+            updated: true;
+        };
+        ShopRemovalResult: {
+            /** @constant */
+            removed: true;
+        };
+        ShopPricingOverride: {
+            /** Format: uuid */
+            libraryProductId: string;
+            priceHtOverride: number;
+        };
+        ShopPricingOverrides: components["schemas"]["ShopPricingOverride"][];
+        SetShopPricingCommand: {
+            priceHtOverride: number | null;
+        };
+        ShopPricingMutationResult: {
+            /** @constant */
+            updated: true;
+        };
+        /** @enum {string} */
+        ShopBrandAssetKind: "logo" | "hero";
+        ShopBrandAssetUpload: {
+            kind: components["schemas"]["ShopBrandAssetKind"];
+            /** Format: binary */
+            asset: string;
+        };
+        ShopBrandAssetResult: {
+            /** Format: uri */
+            assetUrl: string;
+        };
+        /** @enum {string} */
+        MockupTemplateType: "carteVisite" | "flyer" | "brochure" | "etiquette" | "kakemono" | "packaging" | "depliant";
+        /** @enum {string} */
+        MockupView: "front" | "back";
+        ShopCustomMockup: {
+            /** Format: uuid */
+            shopId: string;
+            templateType: components["schemas"]["MockupTemplateType"];
+            view: components["schemas"]["MockupView"];
+            /** Format: uri */
+            mockupImageUrl: string;
+        };
+        ShopCustomMockups: components["schemas"]["ShopCustomMockup"][];
+        ShopCustomMockupUpload: {
+            templateType: components["schemas"]["MockupTemplateType"];
+            view: components["schemas"]["MockupView"];
+            /** Format: binary */
+            asset: string;
+        };
+        ShopCustomMockupMutationResult: {
+            /** @constant */
+            updated: true;
+        };
+        PersistAiShopProductCommand: {
+            configHash: string;
+            name: string;
+            category: string;
+            description: string;
+            priceHt: number;
+            imageUrl: string;
+            config: {
+                [key: string]: unknown;
+            };
+            gammeSlug: string | null;
+        };
+        PersistAiShopProductResult: {
+            /** @constant */
+            persisted: true;
+        };
+        CategoryEditorialCommand: {
+            familyName: string;
+            subcategories: string[];
+            sampleProducts: string[];
+        };
+        CategoryEditorial: {
+            title?: string;
+            intro?: string;
+            seo?: string;
+        };
+        CategoryEditorialResult: {
+            editorial: components["schemas"]["CategoryEditorial"];
+            generated: boolean;
+        };
+        CommercialMember: {
+            user_id: string;
+            email: string;
+        };
+        CommercialGamme: {
+            slug: string;
+            name: string;
+        };
+        ClientGroup: {
+            id: string;
+            tenant_id: string;
+            name: string;
+            created_at: string;
+            member_count?: number;
+        };
+        ClientPriceRule: {
+            id: string;
+            tenant_id: string;
+            name: string;
+            /** @enum {string} */
+            scope_type: "tenant" | "group" | "user";
+            group_id: string | null;
+            user_id: string | null;
+            /** @enum {string} */
+            target_type: "all" | "gamme" | "product";
+            gamme_slug: string | null;
+            product_definition_id: string | null;
+            /** @enum {string} */
+            adjust_mode: "margin_pct" | "discount_pct" | "fixed_price";
+            value: number;
+            priority: number;
+            active: boolean;
+            valid_from: string | null;
+            valid_until: string | null;
+            created_at: string;
+        };
+        CommercialOverview: {
+            available: boolean;
+            rules: components["schemas"]["ClientPriceRule"][];
+            groups: components["schemas"]["ClientGroup"][];
+            members: components["schemas"]["CommercialMember"][];
+            gammes: components["schemas"]["CommercialGamme"][];
+        };
+        CreateClientGroupCommand: {
+            name: string;
+        };
+        GroupMembers: string[];
+        CreateClientPriceRuleCommand: {
+            name: string;
+            /** @enum {string} */
+            scope_type: "tenant" | "group" | "user";
+            group_id: string | null;
+            user_id: string | null;
+            /** @enum {string} */
+            target_type: "all" | "gamme" | "product";
+            gamme_slug: string | null;
+            product_definition_id: string | null;
+            /** @enum {string} */
+            adjust_mode: "margin_pct" | "discount_pct" | "fixed_price";
+            value: number;
+        };
+        SetRuleActiveCommand: {
+            active: boolean;
+        };
+        CommercialRemoved: {
+            /** @constant */
+            removed: true;
+        };
+        CommercialUpdated: {
+            /** @constant */
+            updated: true;
+        };
+        PublicShopProbe: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            tenantId: string;
+            /** @enum {string} */
+            accessMode: "invite_only" | "self_signup";
+        };
+        ShopProducts: components["schemas"]["ShopProduct"][];
+        CreateShopProductCommand: {
+            name: string;
+            category: string;
+            description: string;
+            priceHt: number;
+            imageUrl: string;
+            config: {
+                [key: string]: unknown;
+            };
+            displayOrder: number;
+            gammeSlug: string | null;
+        };
+        UpdateShopProductCommand: {
+            name?: string;
+            category?: string;
+            description?: string;
+            priceHt?: number;
+            imageUrl?: string;
+            config?: {
+                [key: string]: unknown;
+            };
+            displayOrder?: number;
+            gammeSlug?: string | null;
+        };
+        PublicShopCatalog: {
+            shop: {
+                [key: string]: unknown;
+            };
+            /** @enum {string} */
+            taxRegime: "metropole_fr" | "dom_tom" | "franchise_tva" | "export_eu" | "export_world";
+            products: components["schemas"]["ShopProduct"][];
+            gammes: {
+                [key: string]: unknown;
+            }[];
+            definitions: {
+                [key: string]: unknown;
+            }[];
+            subscribedSlugs: string[];
+            customMockups: {
+                [key: string]: unknown;
+            }[];
+        };
+        LibraryProductInput: {
+            library_id: string | null;
+            name: string;
+            category: string;
+            description: string;
+            price_ht: number;
+            image_url: string;
+            config: {
+                [key: string]: unknown;
+            };
+            active: boolean;
+            gamme_slug?: string | null;
+        };
+        LibraryProduct: components["schemas"]["LibraryProductInput"] & {
+            id: string;
+            tenant_id?: string;
+            user_id?: string;
+            created_at?: string;
+        };
+        LibraryProducts: components["schemas"]["LibraryProduct"][];
+        CreateLibraryProductsCommand: {
+            products: components["schemas"]["LibraryProductInput"][];
+        };
+        UpdateLibraryProductCommand: {
+            library_id?: string | null;
+            name?: string;
+            category?: string;
+            description?: string;
+            price_ht?: number;
+            image_url?: string;
+            config?: {
+                [key: string]: unknown;
+            };
+            active?: boolean;
+            gamme_slug?: string | null;
+        };
+        LibraryProductRemovalResult: {
+            /** @constant */
+            removed: true;
+        };
+        PimGeneratedProductsResult: {
+            created: number;
+        };
+        ClearPimGeneratedProductsResult: {
+            removed: number;
+        };
         /**
          * Money
          * @description Montant monetaire. Stocke en `numeric(12,2)`, serialise en CHAINE decimale a deux decimales. Jamais un flottant JSON : un flottant perd des centimes sur les arrondis de TVA et de remise.
@@ -2978,6 +5768,211 @@ export interface components {
              * @example FR
              */
             country: string;
+        };
+        /**
+         * ShopCustomerEmail
+         * Format: email
+         * @description Adresse email normalisée côté serveur pour l’identité boutique.
+         */
+        ShopCustomerEmail: string;
+        /**
+         * ShopCustomerAccountStatus
+         * @enum {string}
+         */
+        ShopCustomerAccountStatus: "delegated_only" | "invited" | "active" | "suspended";
+        /** ShopCustomerAccount */
+        ShopCustomerAccount: {
+            id: components["schemas"]["Uuid"];
+            shopId: components["schemas"]["Uuid"];
+            email: components["schemas"]["ShopCustomerEmail"];
+            /** @description Email trimé, Unicode normalisé et en minuscules. */
+            normalizedEmail: components["schemas"]["ShopCustomerEmail"];
+            fullName: string;
+            /** Format: uuid */
+            authSubjectId: string | null;
+            status: components["schemas"]["ShopCustomerAccountStatus"];
+            /** Format: uuid */
+            createdByMagritUserId: string | null;
+            /** Format: uuid */
+            customerContactId?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            activatedAt: string | null;
+            /** Format: date-time */
+            suspendedAt: string | null;
+        };
+        /** CreateShopCustomerCommand */
+        CreateShopCustomerCommand: {
+            email: components["schemas"]["ShopCustomerEmail"];
+            fullName?: string;
+            /**
+             * @default invited
+             * @enum {string}
+             */
+            initialStatus: "delegated_only" | "invited";
+            /** Format: uuid */
+            customerContactId?: string | null;
+        };
+        /** InviteShopCustomerCommand */
+        InviteShopCustomerCommand: {
+            email: components["schemas"]["ShopCustomerEmail"];
+        };
+        /** LegacyShopCustomerMigrationReportRow */
+        LegacyShopCustomerMigrationReportRow: {
+            legacyUserId: components["schemas"]["Uuid"];
+            /** Format: uuid */
+            shopId: string | null;
+            /** Format: email */
+            normalizedEmail: string | null;
+            /** @enum {string} */
+            proposedAction: "create_delegated" | "matched_existing" | "skipped_no_shop" | "skipped_invalid_shop" | "skipped_missing_email" | "skipped_invalid_email";
+            /** Format: uuid */
+            targetAccountId: string | null;
+            /** @enum {string|null} */
+            migrationOutcome: "created" | "matched_existing" | "skipped_no_shop" | "skipped_invalid_shop" | "skipped_missing_email" | "skipped_invalid_email" | null;
+            ordersLinkedCount: number;
+            /** Format: date-time */
+            lastAttemptAt: string | null;
+        };
+        /** EnsureSelfShopCustomerResult */
+        EnsureSelfShopCustomerResult: {
+            customer: components["schemas"]["ShopCustomerAccount"];
+            created: boolean;
+        };
+        /** IssueStorefrontActivationResult */
+        IssueStorefrontActivationResult: {
+            sent: boolean;
+            /** Format: uri */
+            link: string;
+            expiresInSeconds: number;
+            reason?: string;
+        };
+        /** InviteShopCustomerResult */
+        InviteShopCustomerResult: {
+            customer: components["schemas"]["ShopCustomerAccount"];
+            created: boolean;
+            activation: components["schemas"]["IssueStorefrontActivationResult"];
+        };
+        /** StorefrontIdentity */
+        StorefrontIdentity: components["schemas"]["DirectShopCustomerIdentity"] | components["schemas"]["DelegatedShopCustomerIdentity"];
+        /** DirectShopCustomerIdentity */
+        DirectShopCustomerIdentity: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "DirectShopCustomerIdentity";
+            shopId: components["schemas"]["Uuid"];
+            shopCustomerAccountId: components["schemas"]["Uuid"];
+        };
+        /** DelegatedShopCustomerIdentity */
+        DelegatedShopCustomerIdentity: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "DelegatedShopCustomerIdentity";
+            shopId: components["schemas"]["Uuid"];
+            shopCustomerAccountId: components["schemas"]["Uuid"];
+            delegationId: components["schemas"]["Uuid"];
+            actorMagritUserId: components["schemas"]["Uuid"];
+        };
+        /** StorefrontCustomerProfile */
+        StorefrontCustomerProfile: {
+            id: components["schemas"]["Uuid"];
+            shopId: components["schemas"]["Uuid"];
+            email: components["schemas"]["ShopCustomerEmail"];
+            fullName: string;
+            /** @enum {string} */
+            status: "active" | "delegated_only" | "invited";
+        };
+        /** StorefrontSession */
+        StorefrontSession: {
+            identity: components["schemas"]["StorefrontIdentity"];
+            customer: components["schemas"]["StorefrontCustomerProfile"];
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        /** CreateStorefrontSessionCommand */
+        CreateStorefrontSessionCommand: {
+            email: components["schemas"]["ShopCustomerEmail"];
+            password: string;
+        };
+        /** CreateStorefrontSessionResult */
+        CreateStorefrontSessionResult: {
+            session: components["schemas"]["StorefrontSession"];
+        };
+        /** CreateStorefrontRegistrationCommand */
+        CreateStorefrontRegistrationCommand: {
+            email: components["schemas"]["ShopCustomerEmail"];
+            fullName: string;
+            password: string;
+        };
+        CreateStorefrontRegistrationResult: components["schemas"]["CreateStorefrontSessionResult"];
+        /** EndStorefrontSessionResult */
+        EndStorefrontSessionResult: {
+            /** @constant */
+            ended: true;
+        };
+        /** RequestStorefrontPasswordRecoveryCommand */
+        RequestStorefrontPasswordRecoveryCommand: {
+            email: components["schemas"]["ShopCustomerEmail"];
+        };
+        /** RequestStorefrontPasswordRecoveryResult */
+        RequestStorefrontPasswordRecoveryResult: {
+            /** @constant */
+            accepted: true;
+        };
+        /** ResetStorefrontPasswordCommand */
+        ResetStorefrontPasswordCommand: {
+            token: string;
+            password: string;
+        };
+        /** ResetStorefrontPasswordResult */
+        ResetStorefrontPasswordResult: {
+            /** @constant */
+            reset: true;
+        };
+        /** IssueStorefrontActivationCommand */
+        IssueStorefrontActivationCommand: {
+            /** @default 86400 */
+            expiresInSeconds: number;
+        };
+        /** ActivateStorefrontCredentialCommand */
+        ActivateStorefrontCredentialCommand: {
+            token: string;
+            password: string;
+        };
+        /** ActivateStorefrontCredentialResult */
+        ActivateStorefrontCredentialResult: {
+            /** @constant */
+            activated: true;
+            session: components["schemas"]["StorefrontSession"];
+        };
+        /** ShopCustomerDelegation */
+        ShopCustomerDelegation: {
+            id: components["schemas"]["Uuid"];
+            shopId: components["schemas"]["Uuid"];
+            shopCustomerAccountId: components["schemas"]["Uuid"];
+            actorMagritUserId: components["schemas"]["Uuid"];
+            /** Format: date-time */
+            issuedAt: string;
+            /** Format: date-time */
+            expiresAt: string;
+            /** Format: date-time */
+            revokedAt: string | null;
+            reason: string | null;
+        };
+        /** CreateShopCustomerDelegationCommand */
+        CreateShopCustomerDelegationCommand: {
+            reason?: string;
+        };
+        /** SelfShopCustomerDelegationResult */
+        SelfShopCustomerDelegationResult: {
+            customer: components["schemas"]["ShopCustomerAccount"];
+            delegation: components["schemas"]["ShopCustomerDelegation"];
+            storefrontPath: string;
         };
         /**
          * Customer
@@ -6413,10 +9408,205 @@ export interface components {
             /** @description Detail lisible du dernier echec. Ne porte JAMAIS de donnee de commande ni de client : un message d erreur est lu par des gens qui n ont pas forcement le droit `can_export_orders`. */
             error_detail: string | null;
         };
+        Library: {
+            id: string;
+            tenant_id?: string;
+            user_id?: string;
+            name: string;
+            description: string;
+            /** Format: date-time */
+            created_at?: string;
+        };
+        Libraries: components["schemas"]["Library"][];
+        CreateLibraryCommand: {
+            name: string;
+            /** @default  */
+            description: string;
+        };
+        UpdateLibraryCommand: {
+            name?: string;
+            description?: string;
+        };
+        LibraryRemovalResult: {
+            /** @constant */
+            removed: true;
+        };
+        QuoteTemplate: {
+            id: string;
+            /** @constant */
+            builtin: false;
+            name: string;
+            /** @enum {string} */
+            style?: "classique" | "atelier" | "corporate" | "custom";
+            company_name?: string | null;
+            address?: string | null;
+            postal_code?: string | null;
+            city?: string | null;
+            country?: string | null;
+            phone?: string | null;
+            email?: string | null;
+            website?: string | null;
+            siret?: string | null;
+            tva_number?: string | null;
+            logo_url?: string | null;
+            brand_color?: string | null;
+            accent_color?: string | null;
+            font_family?: string | null;
+            validity_days?: number | null;
+            footer_text?: string | null;
+        };
+        QuoteTemplatesOverview: {
+            templates: components["schemas"]["QuoteTemplate"][];
+            defaultTemplateId: string | null;
+        };
+        CreateQuoteTemplateCommand: components["schemas"]["QuoteTemplateFields"];
+        UpdateQuoteTemplateCommand: components["schemas"]["QuoteTemplateFieldsOptional"];
+        SetDefaultQuoteTemplateCommand: {
+            id: string | null;
+        };
+        QuoteTemplateUpdated: {
+            /** @constant */
+            updated: true;
+        };
+        QuoteTemplateRemoved: {
+            /** @constant */
+            removed: true;
+        };
+        QuoteTemplateFields: {
+            name: string;
+            /** @enum {string} */
+            style?: "classique" | "atelier" | "corporate" | "custom";
+            company_name?: string | null;
+            address?: string | null;
+            postal_code?: string | null;
+            city?: string | null;
+            country?: string | null;
+            phone?: string | null;
+            email?: string | null;
+            website?: string | null;
+            siret?: string | null;
+            tva_number?: string | null;
+            logo_url?: string | null;
+            brand_color?: string | null;
+            accent_color?: string | null;
+            font_family?: string | null;
+            validity_days?: number | null;
+            footer_text?: string | null;
+        };
+        QuoteTemplateFieldsOptional: {
+            name?: string;
+            /** @enum {string} */
+            style?: "classique" | "atelier" | "corporate" | "custom";
+            company_name?: string | null;
+            address?: string | null;
+            postal_code?: string | null;
+            city?: string | null;
+            country?: string | null;
+            phone?: string | null;
+            email?: string | null;
+            website?: string | null;
+            siret?: string | null;
+            tva_number?: string | null;
+            logo_url?: string | null;
+            brand_color?: string | null;
+            accent_color?: string | null;
+            font_family?: string | null;
+            validity_days?: number | null;
+            footer_text?: string | null;
+        };
+        DiagnosticCheck: {
+            name: string;
+            /** @enum {string} */
+            status: "ok" | "error" | "skipped";
+            details?: string;
+        };
+        AiProviderDiagnostic: {
+            provider: string;
+            configured: boolean;
+            reachable: boolean | null;
+            summary: string;
+            responsePreview?: string;
+            checks: components["schemas"]["DiagnosticCheck"][];
+            /** Format: date-time */
+            testedAt: string;
+        };
+        ClariprintDiagnostic: {
+            /** @constant */
+            service: "Clariprint";
+            configured: boolean;
+            reachable: boolean | null;
+            authenticated: boolean | null;
+            summary: string;
+            httpStatus?: number;
+            checks: components["schemas"]["DiagnosticCheck"][];
+            /** Format: date-time */
+            testedAt: string;
+        };
+        ClariprintQuoteCommand: {
+            clariprint: {
+                [key: string]: unknown;
+            };
+        };
+        ClariprintCosts: {
+            paper?: number;
+            print?: number;
+            makeready?: number;
+            packaging?: number;
+            delivery?: number;
+            total?: number;
+        };
+        ClariprintQuoteResult: {
+            success: boolean;
+            credentialsMissing?: boolean;
+            message?: string;
+            error?: string;
+            priceHT?: number;
+            costs?: components["schemas"]["ClariprintCosts"];
+            delais?: number;
+            weight?: number;
+            fournisseur?: string;
+            processDuration?: number;
+            details?: string;
+        };
+        ConversationMessage: {
+            role: string;
+            content: string;
+        };
+        Conversation: {
+            id: string;
+            timestamp: number;
+            title: string;
+            messages: components["schemas"]["ConversationMessage"][];
+            products: unknown[];
+        };
+        Conversations: components["schemas"]["Conversation"][];
+        SaveConversationCommand: {
+            timestamp: number;
+            title: string;
+            messages: components["schemas"]["ConversationMessage"][];
+            products: unknown[];
+        };
+        ConversationSaved: {
+            /** @constant */
+            saved: true;
+        };
+        ConversationRemoved: {
+            /** @constant */
+            removed: true;
+        };
     };
     responses: {
         /** @description Requete malformee. */
         BadRequest: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description Service amont indisponible. */
+        BadGateway: {
             headers: {
                 [name: string]: unknown;
             };
@@ -6516,6 +9706,15 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
+        /** @description Service temporairement indisponible. */
+        ServiceUnavailable: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
         /** @description Erreur interne non attribuable a l appelant. */
         InternalError: {
             headers: {
@@ -6527,6 +9726,42 @@ export interface components {
         };
     };
     parameters: {
+        /** @description Identifiant de commande boutique de la façade historique. */
+        LegacyOrderId: string;
+        /** @description Identifiant du tenant transmis par la façade historique. */
+        LegacyTenantId: string;
+        /** @description Ancien slug du tenant à résoudre. */
+        TenantSlug: string;
+        /** @description Identifiant du sous-tenant transmis par la façade historique. */
+        SubTenantId: string;
+        /** @description Jeton opaque d’activation d’invitation. */
+        InvitationToken: string;
+        InvitationId: string;
+        UserId: string;
+        RoleId: string;
+        Capability: string;
+        LibraryId: string;
+        QuoteTemplateId: string;
+        ConversationId: string;
+        PimGammeSlug: string;
+        DefinitionId: string;
+        LibraryProductId: string;
+        /** @description Identifiant du produit du catalogue dont le prix est surchargé. */
+        ShopLibraryProductId: string;
+        /** @description Slug public de la boutique. */
+        ShopSlug: string;
+        /** @description Slug public de la boutique utilisé par les routes storefront. */
+        StorefrontShopSlug: string;
+        /** @description Identifiant de la boutique dans le tenant. */
+        ShopId: string;
+        /** @description Identifiant du produit publié dans la boutique. */
+        ShopProductId: string;
+        /** @description Identifiant du groupe commercial. */
+        CommercialGroupId: string;
+        /** @description Identifiant de la règle de prix commerciale. */
+        CommercialRuleId: string;
+        MockupTemplateType: components["schemas"]["MockupTemplateType"];
+        MockupView: components["schemas"]["MockupView"];
         /** @description Nombre d elements par page. Defaut 50, maximum 200. */
         PageSize: number;
         /** @description Curseur opaque renvoye par `meta.next_cursor` de la page precedente. Absent sur la premiere page. Ne jamais construire un curseur cote client : sa structure interne n est pas contractuelle. */
@@ -6606,6 +9841,10 @@ export interface components {
     };
     requestBodies: never;
     headers: {
+        /** @description Cookie de session opaque posé par les routes storefront. En production, le nom est `__Host-magrit-storefront` et impose `Secure`, `Path=/`, `HttpOnly` et `SameSite=Lax`. En développement local, le nom est `magrit-storefront` et `Secure` est omis ; le reste des attributs est identique. Le serveur choisit le nom selon sa politique de cookie, l’appelant ne le fournit jamais. */
+        StorefrontSessionCookie: string;
+        /** @description Même cookie storefront que `StorefrontSessionCookie`, renvoyé avec `Max-Age=0` pour l’expirer : `Path=/`, `HttpOnly`, `SameSite=Lax` et `Secure` lorsque le nom est `__Host-magrit-storefront`. */
+        ClearedStorefrontSessionCookie: string;
         /** @description Empreinte de la representation renvoyee. A repasser dans `If-Match` lors d un PATCH ulterieur. */
         ETag: string;
         /** @description Identifiant de correlation de la requete. Il vaut TOUJOURS `meta.request_id` du corps, y compris sur une reponse rejouee depuis le cache d idempotence. */
@@ -6617,6 +9856,140 @@ export interface components {
     };
     pathItems: never;
 }
+export type LegacyPriceOrigin = components['schemas']['LegacyPriceOrigin'];
+export type LegacyOrderItem = components['schemas']['LegacyOrderItem'];
+export type LegacyOrderSummary = components['schemas']['LegacyOrderSummary'];
+export type LegacyOrdersList = components['schemas']['LegacyOrdersList'];
+export type LegacyPortalOrdersCounters = components['schemas']['LegacyPortalOrdersCounters'];
+export type LegacyPortalOrdersResponse = components['schemas']['LegacyPortalOrdersResponse'];
+export type LegacyCreateOrderItem = components['schemas']['LegacyCreateOrderItem'];
+export type LegacyCreateOrderCommand = components['schemas']['LegacyCreateOrderCommand'];
+export type LegacyCreateOrderResult = components['schemas']['LegacyCreateOrderResult'];
+export type LegacyDraftOrderItem = components['schemas']['LegacyDraftOrderItem'];
+export type LegacyDraftOrder = components['schemas']['LegacyDraftOrder'];
+export type LegacyUpdateDraftOrderItem = components['schemas']['LegacyUpdateDraftOrderItem'];
+export type LegacyUpdateDraftOrderCommand = components['schemas']['LegacyUpdateDraftOrderCommand'];
+export type LegacyUpdateDraftOrderResult = components['schemas']['LegacyUpdateDraftOrderResult'];
+export type LegacyOrderRolesResponse = components['schemas']['LegacyOrderRolesResponse'];
+export type LegacyAuditEvent = components['schemas']['LegacyAuditEvent'];
+export type LegacyOrderAuditTrail = components['schemas']['LegacyOrderAuditTrail'];
+export type LegacyTransitionOrderCommand = components['schemas']['LegacyTransitionOrderCommand'];
+export type LegacyTransitionOrderResult = components['schemas']['LegacyTransitionOrderResult'];
+export type TenantSlugResolution = components['schemas']['TenantSlugResolution'];
+export type TenantPlan = components['schemas']['TenantPlan'];
+export type TenantRole = components['schemas']['TenantRole'];
+export type AccessScope = components['schemas']['AccessScope'];
+export type MemberPermissions = components['schemas']['MemberPermissions'];
+export type SessionTenant = components['schemas']['SessionTenant'];
+export type UserPreferences = components['schemas']['UserPreferences'];
+export type SessionBootstrap = components['schemas']['SessionBootstrap'];
+export type UpdatePreferencesCommand = components['schemas']['UpdatePreferencesCommand'];
+export type UpdateCurrentTenantCommand = components['schemas']['UpdateCurrentTenantCommand'];
+export type UpdateTenantSettingsCommand = components['schemas']['UpdateTenantSettingsCommand'];
+export type CreateSubTenantCommand = components['schemas']['CreateSubTenantCommand'];
+export type CreateRootTenantCommand = components['schemas']['CreateRootTenantCommand'];
+export type CreateTenantResult = components['schemas']['CreateTenantResult'];
+export type TenantMutationResult = components['schemas']['TenantMutationResult'];
+export type SubTenant = components['schemas']['SubTenant'];
+export type SubTenantKpi = components['schemas']['SubTenantKpi'];
+export type SubTenantsDashboard = components['schemas']['SubTenantsDashboard'];
+export type RemoveSubTenantResult = components['schemas']['RemoveSubTenantResult'];
+export type AcceptTenantInvitationCommand = components['schemas']['AcceptTenantInvitationCommand'];
+export type InvitationActivation = components['schemas']['InvitationActivation'];
+export type InvitationOptions = components['schemas']['InvitationOptions'];
+export type CreateInvitationCommand = components['schemas']['CreateInvitationCommand'];
+export type CreateInvitationResult = components['schemas']['CreateInvitationResult'];
+export type PendingInvitation = components['schemas']['PendingInvitation'];
+export type PendingInvitations = components['schemas']['PendingInvitations'];
+export type ResendInvitationCommand = components['schemas']['ResendInvitationCommand'];
+export type ResendInvitationResult = components['schemas']['ResendInvitationResult'];
+export type RevokeInvitationResult = components['schemas']['RevokeInvitationResult'];
+export type TenantMember = components['schemas']['TenantMember'];
+export type TenantMembers = components['schemas']['TenantMembers'];
+export type ChangeMemberRoleCommand = components['schemas']['ChangeMemberRoleCommand'];
+export type UpdateMemberAccessCommand = components['schemas']['UpdateMemberAccessCommand'];
+export type RemoveMemberResult = components['schemas']['RemoveMemberResult'];
+export type RoleDefinition = components['schemas']['RoleDefinition'];
+export type RoleAssignment = components['schemas']['RoleAssignment'];
+export type RoleMember = components['schemas']['RoleMember'];
+export type RolesOverview = components['schemas']['RolesOverview'];
+export type RoleCatalogDefinition = components['schemas']['RoleCatalogDefinition'];
+export type RolesCatalog = components['schemas']['RolesCatalog'];
+export type SaveRoleDefinitionCommand = components['schemas']['SaveRoleDefinitionCommand'];
+export type ReorderRolesCommand = components['schemas']['ReorderRolesCommand'];
+export type ReorderRolesResult = components['schemas']['ReorderRolesResult'];
+export type ArchiveRoleResult = components['schemas']['ArchiveRoleResult'];
+export type UserCapability = components['schemas']['UserCapability'];
+export type UserAccessProfile = components['schemas']['UserAccessProfile'];
+export type UserRolesDetail = components['schemas']['UserRolesDetail'];
+export type SetRoleAssignmentCommand = components['schemas']['SetRoleAssignmentCommand'];
+export type SetRoleAssignmentResult = components['schemas']['SetRoleAssignmentResult'];
+export type CatalogRecord = components['schemas']['CatalogRecord'];
+export type GammeSubscription = components['schemas']['GammeSubscription'];
+export type GammeSubscriptions = components['schemas']['GammeSubscriptions'];
+export type SetGammeSubscriptionsCommand = components['schemas']['SetGammeSubscriptionsCommand'];
+export type PimGamme = components['schemas']['PimGamme'];
+export type PimDefinition = components['schemas']['PimDefinition'];
+export type PimCatalog = components['schemas']['PimCatalog'];
+export type UpsertPimGammeCommand = components['schemas']['UpsertPimGammeCommand'];
+export type UpsertPimDefinitionCommand = components['schemas']['UpsertPimDefinitionCommand'];
+export type CatalogRemovalResult = components['schemas']['CatalogRemovalResult'];
+export type PimPendingCandidates = components['schemas']['PimPendingCandidates'];
+export type RunPimIngestCommand = components['schemas']['RunPimIngestCommand'];
+export type PimIngestReport = components['schemas']['PimIngestReport'];
+export type GeneratePimDefinitionCommand = components['schemas']['GeneratePimDefinitionCommand'];
+export type GeneratedPimDefinition = components['schemas']['GeneratedPimDefinition'];
+export type ShopProduct = components['schemas']['ShopProduct'];
+export type ShopTheme = components['schemas']['ShopTheme'];
+export type Shop = components['schemas']['Shop'];
+export type TenantShops = components['schemas']['TenantShops'];
+export type CreateShopCommand = components['schemas']['CreateShopCommand'];
+export type ShopThemeInput = components['schemas']['ShopThemeInput'];
+export type UpdateShopCommand = components['schemas']['UpdateShopCommand'];
+export type ShopMutationResult = components['schemas']['ShopMutationResult'];
+export type ShopRemovalResult = components['schemas']['ShopRemovalResult'];
+export type ShopPricingOverride = components['schemas']['ShopPricingOverride'];
+export type ShopPricingOverrides = components['schemas']['ShopPricingOverrides'];
+export type SetShopPricingCommand = components['schemas']['SetShopPricingCommand'];
+export type ShopPricingMutationResult = components['schemas']['ShopPricingMutationResult'];
+export type ShopBrandAssetKind = components['schemas']['ShopBrandAssetKind'];
+export type ShopBrandAssetUpload = components['schemas']['ShopBrandAssetUpload'];
+export type ShopBrandAssetResult = components['schemas']['ShopBrandAssetResult'];
+export type MockupTemplateType = components['schemas']['MockupTemplateType'];
+export type MockupView = components['schemas']['MockupView'];
+export type ShopCustomMockup = components['schemas']['ShopCustomMockup'];
+export type ShopCustomMockups = components['schemas']['ShopCustomMockups'];
+export type ShopCustomMockupUpload = components['schemas']['ShopCustomMockupUpload'];
+export type ShopCustomMockupMutationResult = components['schemas']['ShopCustomMockupMutationResult'];
+export type PersistAiShopProductCommand = components['schemas']['PersistAiShopProductCommand'];
+export type PersistAiShopProductResult = components['schemas']['PersistAiShopProductResult'];
+export type CategoryEditorialCommand = components['schemas']['CategoryEditorialCommand'];
+export type CategoryEditorial = components['schemas']['CategoryEditorial'];
+export type CategoryEditorialResult = components['schemas']['CategoryEditorialResult'];
+export type CommercialMember = components['schemas']['CommercialMember'];
+export type CommercialGamme = components['schemas']['CommercialGamme'];
+export type ClientGroup = components['schemas']['ClientGroup'];
+export type ClientPriceRule = components['schemas']['ClientPriceRule'];
+export type CommercialOverview = components['schemas']['CommercialOverview'];
+export type CreateClientGroupCommand = components['schemas']['CreateClientGroupCommand'];
+export type GroupMembers = components['schemas']['GroupMembers'];
+export type CreateClientPriceRuleCommand = components['schemas']['CreateClientPriceRuleCommand'];
+export type SetRuleActiveCommand = components['schemas']['SetRuleActiveCommand'];
+export type CommercialRemoved = components['schemas']['CommercialRemoved'];
+export type CommercialUpdated = components['schemas']['CommercialUpdated'];
+export type PublicShopProbe = components['schemas']['PublicShopProbe'];
+export type ShopProducts = components['schemas']['ShopProducts'];
+export type CreateShopProductCommand = components['schemas']['CreateShopProductCommand'];
+export type UpdateShopProductCommand = components['schemas']['UpdateShopProductCommand'];
+export type PublicShopCatalog = components['schemas']['PublicShopCatalog'];
+export type LibraryProductInput = components['schemas']['LibraryProductInput'];
+export type LibraryProduct = components['schemas']['LibraryProduct'];
+export type LibraryProducts = components['schemas']['LibraryProducts'];
+export type CreateLibraryProductsCommand = components['schemas']['CreateLibraryProductsCommand'];
+export type UpdateLibraryProductCommand = components['schemas']['UpdateLibraryProductCommand'];
+export type LibraryProductRemovalResult = components['schemas']['LibraryProductRemovalResult'];
+export type PimGeneratedProductsResult = components['schemas']['PimGeneratedProductsResult'];
+export type ClearPimGeneratedProductsResult = components['schemas']['ClearPimGeneratedProductsResult'];
 export type Money = components['schemas']['Money'];
 export type MoneyNonNegative = components['schemas']['MoneyNonNegative'];
 export type Rate = components['schemas']['Rate'];
@@ -6635,6 +10008,35 @@ export type EventEnvelope = components['schemas']['EventEnvelope'];
 export type CustomerType = components['schemas']['CustomerType'];
 export type Civility = components['schemas']['Civility'];
 export type Address = components['schemas']['Address'];
+export type ShopCustomerEmail = components['schemas']['ShopCustomerEmail'];
+export type ShopCustomerAccountStatus = components['schemas']['ShopCustomerAccountStatus'];
+export type ShopCustomerAccount = components['schemas']['ShopCustomerAccount'];
+export type CreateShopCustomerCommand = components['schemas']['CreateShopCustomerCommand'];
+export type InviteShopCustomerCommand = components['schemas']['InviteShopCustomerCommand'];
+export type LegacyShopCustomerMigrationReportRow = components['schemas']['LegacyShopCustomerMigrationReportRow'];
+export type EnsureSelfShopCustomerResult = components['schemas']['EnsureSelfShopCustomerResult'];
+export type IssueStorefrontActivationResult = components['schemas']['IssueStorefrontActivationResult'];
+export type InviteShopCustomerResult = components['schemas']['InviteShopCustomerResult'];
+export type StorefrontIdentity = components['schemas']['StorefrontIdentity'];
+export type DirectShopCustomerIdentity = components['schemas']['DirectShopCustomerIdentity'];
+export type DelegatedShopCustomerIdentity = components['schemas']['DelegatedShopCustomerIdentity'];
+export type StorefrontCustomerProfile = components['schemas']['StorefrontCustomerProfile'];
+export type StorefrontSession = components['schemas']['StorefrontSession'];
+export type CreateStorefrontSessionCommand = components['schemas']['CreateStorefrontSessionCommand'];
+export type CreateStorefrontSessionResult = components['schemas']['CreateStorefrontSessionResult'];
+export type CreateStorefrontRegistrationCommand = components['schemas']['CreateStorefrontRegistrationCommand'];
+export type CreateStorefrontRegistrationResult = components['schemas']['CreateStorefrontRegistrationResult'];
+export type EndStorefrontSessionResult = components['schemas']['EndStorefrontSessionResult'];
+export type RequestStorefrontPasswordRecoveryCommand = components['schemas']['RequestStorefrontPasswordRecoveryCommand'];
+export type RequestStorefrontPasswordRecoveryResult = components['schemas']['RequestStorefrontPasswordRecoveryResult'];
+export type ResetStorefrontPasswordCommand = components['schemas']['ResetStorefrontPasswordCommand'];
+export type ResetStorefrontPasswordResult = components['schemas']['ResetStorefrontPasswordResult'];
+export type IssueStorefrontActivationCommand = components['schemas']['IssueStorefrontActivationCommand'];
+export type ActivateStorefrontCredentialCommand = components['schemas']['ActivateStorefrontCredentialCommand'];
+export type ActivateStorefrontCredentialResult = components['schemas']['ActivateStorefrontCredentialResult'];
+export type ShopCustomerDelegation = components['schemas']['ShopCustomerDelegation'];
+export type CreateShopCustomerDelegationCommand = components['schemas']['CreateShopCustomerDelegationCommand'];
+export type SelfShopCustomerDelegationResult = components['schemas']['SelfShopCustomerDelegationResult'];
 export type Customer = components['schemas']['Customer'];
 export type CustomerContact = components['schemas']['CustomerContact'];
 export type CustomerContactShopAccess = components['schemas']['CustomerContactShopAccess'];
@@ -6790,7 +10192,34 @@ export type OrderExportStatus = components['schemas']['OrderExportStatus'];
 export type OrderExportFilters = components['schemas']['OrderExportFilters'];
 export type RequestOrderExportCommand = components['schemas']['RequestOrderExportCommand'];
 export type OrderExport = components['schemas']['OrderExport'];
+export type Library = components['schemas']['Library'];
+export type Libraries = components['schemas']['Libraries'];
+export type CreateLibraryCommand = components['schemas']['CreateLibraryCommand'];
+export type UpdateLibraryCommand = components['schemas']['UpdateLibraryCommand'];
+export type LibraryRemovalResult = components['schemas']['LibraryRemovalResult'];
+export type QuoteTemplate = components['schemas']['QuoteTemplate'];
+export type QuoteTemplatesOverview = components['schemas']['QuoteTemplatesOverview'];
+export type CreateQuoteTemplateCommand = components['schemas']['CreateQuoteTemplateCommand'];
+export type UpdateQuoteTemplateCommand = components['schemas']['UpdateQuoteTemplateCommand'];
+export type SetDefaultQuoteTemplateCommand = components['schemas']['SetDefaultQuoteTemplateCommand'];
+export type QuoteTemplateUpdated = components['schemas']['QuoteTemplateUpdated'];
+export type QuoteTemplateRemoved = components['schemas']['QuoteTemplateRemoved'];
+export type QuoteTemplateFields = components['schemas']['QuoteTemplateFields'];
+export type QuoteTemplateFieldsOptional = components['schemas']['QuoteTemplateFieldsOptional'];
+export type DiagnosticCheck = components['schemas']['DiagnosticCheck'];
+export type AiProviderDiagnostic = components['schemas']['AiProviderDiagnostic'];
+export type ClariprintDiagnostic = components['schemas']['ClariprintDiagnostic'];
+export type ClariprintQuoteCommand = components['schemas']['ClariprintQuoteCommand'];
+export type ClariprintCosts = components['schemas']['ClariprintCosts'];
+export type ClariprintQuoteResult = components['schemas']['ClariprintQuoteResult'];
+export type ConversationMessage = components['schemas']['ConversationMessage'];
+export type Conversation = components['schemas']['Conversation'];
+export type Conversations = components['schemas']['Conversations'];
+export type SaveConversationCommand = components['schemas']['SaveConversationCommand'];
+export type ConversationSaved = components['schemas']['ConversationSaved'];
+export type ConversationRemoved = components['schemas']['ConversationRemoved'];
 export type ResponseBadRequest = components['responses']['BadRequest'];
+export type ResponseBadGateway = components['responses']['BadGateway'];
 export type ResponseUnauthorized = components['responses']['Unauthorized'];
 export type ResponseForbidden = components['responses']['Forbidden'];
 export type ResponseForbiddenCapability = components['responses']['ForbiddenCapability'];
@@ -6800,7 +10229,32 @@ export type ResponsePreconditionFailed = components['responses']['PreconditionFa
 export type ResponsePreconditionRequired = components['responses']['PreconditionRequired'];
 export type ResponseUnprocessableEntity = components['responses']['UnprocessableEntity'];
 export type ResponseTooManyRequests = components['responses']['TooManyRequests'];
+export type ResponseServiceUnavailable = components['responses']['ServiceUnavailable'];
 export type ResponseInternalError = components['responses']['InternalError'];
+export type ParameterLegacyOrderId = components['parameters']['LegacyOrderId'];
+export type ParameterLegacyTenantId = components['parameters']['LegacyTenantId'];
+export type ParameterTenantSlug = components['parameters']['TenantSlug'];
+export type ParameterSubTenantId = components['parameters']['SubTenantId'];
+export type ParameterInvitationToken = components['parameters']['InvitationToken'];
+export type ParameterInvitationId = components['parameters']['InvitationId'];
+export type ParameterUserId = components['parameters']['UserId'];
+export type ParameterRoleId = components['parameters']['RoleId'];
+export type ParameterCapability = components['parameters']['Capability'];
+export type ParameterLibraryId = components['parameters']['LibraryId'];
+export type ParameterQuoteTemplateId = components['parameters']['QuoteTemplateId'];
+export type ParameterConversationId = components['parameters']['ConversationId'];
+export type ParameterPimGammeSlug = components['parameters']['PimGammeSlug'];
+export type ParameterDefinitionId = components['parameters']['DefinitionId'];
+export type ParameterLibraryProductId = components['parameters']['LibraryProductId'];
+export type ParameterShopLibraryProductId = components['parameters']['ShopLibraryProductId'];
+export type ParameterShopSlug = components['parameters']['ShopSlug'];
+export type ParameterStorefrontShopSlug = components['parameters']['StorefrontShopSlug'];
+export type ParameterShopId = components['parameters']['ShopId'];
+export type ParameterShopProductId = components['parameters']['ShopProductId'];
+export type ParameterCommercialGroupId = components['parameters']['CommercialGroupId'];
+export type ParameterCommercialRuleId = components['parameters']['CommercialRuleId'];
+export type ParameterMockupTemplateType = components['parameters']['MockupTemplateType'];
+export type ParameterMockupView = components['parameters']['MockupView'];
 export type ParameterPageSize = components['parameters']['PageSize'];
 export type ParameterPageCursor = components['parameters']['PageCursor'];
 export type ParameterIdempotencyKey = components['parameters']['IdempotencyKey'];
@@ -6822,6 +10276,8 @@ export type ParameterNotificationTemplateId = components['parameters']['Notifica
 export type ParameterQuoteLineId = components['parameters']['QuoteLineId'];
 export type ParameterPriceRuleId = components['parameters']['PriceRuleId'];
 export type ParameterProductRangeId = components['parameters']['ProductRangeId'];
+export type HeaderStorefrontSessionCookie = components['headers']['StorefrontSessionCookie'];
+export type HeaderClearedStorefrontSessionCookie = components['headers']['ClearedStorefrontSessionCookie'];
 export type HeaderETag = components['headers']['ETag'];
 export type HeaderXRequestId = components['headers']['XRequestId'];
 export type HeaderIdempotencyReplayed = components['headers']['IdempotencyReplayed'];
@@ -12231,6 +15687,3215 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+        };
+    };
+    createLegacyOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LegacyCreateOrderCommand"];
+            };
+        };
+        responses: {
+            /** @description Commande créée ou réponse rejouée. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegacyCreateOrderResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getLegacyOrderDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de commande boutique de la façade historique. */
+                orderId: components["parameters"]["LegacyOrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Brouillon de commande, avec son ETag historique. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegacyDraftOrder"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateLegacyOrderDraft: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ETag du brouillon lu précédemment, facultatif sur cette façade. */
+                "If-Match"?: string;
+            };
+            path: {
+                /** @description Identifiant de commande boutique de la façade historique. */
+                orderId: components["parameters"]["LegacyOrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LegacyUpdateDraftOrderCommand"];
+            };
+        };
+        responses: {
+            /** @description Brouillon mis à jour ou réponse rejouée. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegacyUpdateDraftOrderResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getLegacyOrderRoles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de commande boutique de la façade historique. */
+                orderId: components["parameters"]["LegacyOrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rôles, capacités et statut de créateur de la commande. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegacyOrderRolesResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listLegacyTenantOrders: {
+        parameters: {
+            query?: {
+                /** @description Filtre répétable sur les boutiques du tenant. */
+                shopId?: string[];
+            };
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Commandes du tenant, sans enveloppe historique. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegacyOrdersList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listLegacyPortalOrders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Compteurs et commandes réparties par onglet. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegacyPortalOrdersResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getLegacyOrderAudit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de commande boutique de la façade historique. */
+                orderId: components["parameters"]["LegacyOrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Événements d’audit de la commande. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegacyOrderAuditTrail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    transitionLegacyOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de commande boutique de la façade historique. */
+                orderId: components["parameters"]["LegacyOrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LegacyTransitionOrderCommand"];
+            };
+        };
+        responses: {
+            /** @description Transition appliquée ou réponse rejouée. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegacyTransitionOrderResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    resolveTenantSlug: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Ancien slug du tenant à résoudre. */
+                slug: components["parameters"]["TenantSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Slug canonique résolu, ou null si aucun tenant ne correspond. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantSlugResolution"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    createRootTenant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRootTenantCommand"];
+            };
+        };
+        responses: {
+            /** @description Tenant racine créé. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateTenantResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session, tenants accessibles et préférences de l’utilisateur. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionBootstrap"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    updateSessionPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePreferencesCommand"];
+            };
+        };
+        responses: {
+            /** @description Préférences mises à jour. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserPreferences"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    updateCurrentTenant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCurrentTenantCommand"];
+            };
+        };
+        responses: {
+            /** @description Préférences avec le tenant courant mis à jour. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserPreferences"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    updateTenantSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTenantSettingsCommand"];
+            };
+        };
+        responses: {
+            /** @description Paramètres du tenant mis à jour. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantMutationResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    listSubTenants: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sous-tenants et indicateurs associés. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubTenantsDashboard"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createSubTenant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSubTenantCommand"];
+            };
+        };
+        responses: {
+            /** @description Sous-tenant créé. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateTenantResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    deleteSubTenant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant du sous-tenant transmis par la façade historique. */
+                subTenantId: components["parameters"]["SubTenantId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sous-tenant supprimé. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemoveSubTenantResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    acceptTenantInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptTenantInvitationCommand"];
+            };
+        };
+        responses: {
+            /** @description Invitation acceptée. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateTenantResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getInvitationActivation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Jeton opaque d’activation d’invitation. */
+                token: components["parameters"]["InvitationToken"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Informations publiques de l’invitation. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitationActivation"];
+                };
+            };
+            422: components["responses"]["UnprocessableEntity"];
+            502: components["responses"]["BadGateway"];
+        };
+    };
+    getInvitationOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rôles et boutiques disponibles pour une invitation. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitationOptions"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            502: components["responses"]["BadGateway"];
+        };
+    };
+    listPendingInvitations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Invitations encore actives du tenant. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PendingInvitations"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            502: components["responses"]["BadGateway"];
+        };
+    };
+    createInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateInvitationCommand"];
+            };
+        };
+        responses: {
+            /** @description Invitation créée. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateInvitationResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+            502: components["responses"]["BadGateway"];
+        };
+    };
+    resendInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invitationId: components["parameters"]["InvitationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResendInvitationCommand"];
+            };
+        };
+        responses: {
+            /** @description Invitation renvoyée. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResendInvitationResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+            502: components["responses"]["BadGateway"];
+        };
+    };
+    revokeInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invitationId: components["parameters"]["InvitationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Invitation révoquée. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RevokeInvitationResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listTenantMembers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Membres du tenant. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantMembers"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    changeMemberRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                userId: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeMemberRoleCommand"];
+            };
+        };
+        responses: {
+            /** @description Rôle modifié. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantMutationResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    updateMemberAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                userId: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateMemberAccessCommand"];
+            };
+        };
+        responses: {
+            /** @description Accès modifié. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantMutationResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    removeTenantMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                userId: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Membre retiré. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemoveMemberResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getUserCapability: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                capability: components["parameters"]["Capability"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Résultat de l’autorisation. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserCapability"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getUserAccessProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Profil d’accès de l’utilisateur dans le tenant. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserAccessProfile"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getRolesOverview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rôles, membres et assignations. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RolesOverview"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getRolesCatalog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Catalogue des rôles, membres et assignations. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RolesCatalog"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createRoleDefinition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveRoleDefinitionCommand"];
+            };
+        };
+        responses: {
+            /** @description Rôle créé. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleCatalogDefinition"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    reorderRoleDefinitions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReorderRolesCommand"];
+            };
+        };
+        responses: {
+            /** @description Rôles réordonnés. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReorderRolesResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    updateRoleDefinition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                roleId: components["parameters"]["RoleId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveRoleDefinitionCommand"];
+            };
+        };
+        responses: {
+            /** @description Rôle modifié. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleCatalogDefinition"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    archiveRoleDefinition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                roleId: components["parameters"]["RoleId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rôle archivé. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArchiveRoleResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getUserRolesDetail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                userId: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Détail des rôles et accès du membre. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserRolesDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    setRoleAssignment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                userId: components["parameters"]["UserId"];
+                roleId: components["parameters"]["RoleId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetRoleAssignmentCommand"];
+            };
+        };
+        responses: {
+            /** @description Assignation modifiée. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetRoleAssignmentResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getPublicShopProbe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Slug public de la boutique. */
+                slug: components["parameters"]["ShopSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Informations publiques minimales de la boutique. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicShopProbe"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getPublicShopCatalog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Slug public de la boutique. */
+                slug: components["parameters"]["ShopSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Catalogue public de la boutique. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicShopCatalog"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listShopProducts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Produits de la boutique. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShopProducts"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createShopProduct: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateShopProductCommand"];
+            };
+        };
+        responses: {
+            /** @description Produit de boutique créé. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShopProduct"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    deleteShopProduct: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+                /** @description Identifiant du produit publié dans la boutique. */
+                productId: components["parameters"]["ShopProductId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Produit supprimé. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShopRemovalResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateShopProduct: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+                /** @description Identifiant du produit publié dans la boutique. */
+                productId: components["parameters"]["ShopProductId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateShopProductCommand"];
+            };
+        };
+        responses: {
+            /** @description Produit modifié. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShopMutationResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    listTenantShops: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Boutiques accessibles dans le tenant. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantShops"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createTenantShop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateShopCommand"];
+            };
+        };
+        responses: {
+            /** @description Boutique créée. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Shop"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    deleteTenantShop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Boutique supprimée. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShopRemovalResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateTenantShop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateShopCommand"];
+            };
+        };
+        responses: {
+            /** @description Boutique modifiée. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Shop"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    listShopPricingOverrides: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Prix spécifiques de la boutique. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShopPricingOverrides"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    setShopPricingOverride: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+                /** @description Identifiant du produit du catalogue dont le prix est surchargé. */
+                libraryProductId: components["parameters"]["ShopLibraryProductId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetShopPricingCommand"];
+            };
+        };
+        responses: {
+            /** @description Prix spécifique mis à jour. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShopPricingMutationResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    uploadShopBrandAsset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["ShopBrandAssetUpload"];
+            };
+        };
+        responses: {
+            /** @description Visuel téléversé. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShopBrandAssetResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    listShopCustomMockups: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Maquettes personnalisées. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShopCustomMockups"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    uploadShopCustomMockup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["ShopCustomMockupUpload"];
+            };
+        };
+        responses: {
+            /** @description Maquette téléversée. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShopCustomMockupMutationResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    restoreShopCustomMockup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+                templateType: components["parameters"]["MockupTemplateType"];
+                view: components["parameters"]["MockupView"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Maquette restaurée. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShopCustomMockupMutationResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    persistAiShopProduct: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersistAiShopProductCommand"];
+            };
+        };
+        responses: {
+            /** @description Produit IA persisté. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersistAiShopProductResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getGammeSubscriptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Souscriptions de gammes du tenant. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GammeSubscriptions"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    setGammeSubscriptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetGammeSubscriptionsCommand"];
+            };
+        };
+        responses: {
+            /** @description Souscriptions de gammes mises à jour. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GammeSubscriptions"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getPimCatalog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Catalogue PIM. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PimCatalog"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    upsertPimGamme: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: components["parameters"]["PimGammeSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertPimGammeCommand"];
+            };
+        };
+        responses: {
+            /** @description Gamme enregistrée. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PimGamme"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    deletePimGamme: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: components["parameters"]["PimGammeSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Gamme supprimée. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogRemovalResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    upsertPimDefinition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertPimDefinitionCommand"];
+            };
+        };
+        responses: {
+            /** @description Définition enregistrée. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PimDefinition"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    deletePimDefinition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                definitionId: components["parameters"]["DefinitionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Définition supprimée. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogRemovalResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getPimPendingCandidates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Taille de la file PIM. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PimPendingCandidates"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    runPimIngestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RunPimIngestCommand"];
+            };
+        };
+        responses: {
+            /** @description Rapport d’ingestion. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PimIngestReport"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            502: components["responses"]["BadGateway"];
+        };
+    };
+    generatePimDefinition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeneratePimDefinitionCommand"];
+            };
+        };
+        responses: {
+            /** @description Définition générée. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeneratedPimDefinition"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            502: components["responses"]["BadGateway"];
+        };
+    };
+    listLibraryProducts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Produits du tenant. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryProducts"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createLibraryProduct: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LibraryProductInput"];
+            };
+        };
+        responses: {
+            /** @description Produit créé. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryProduct"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    createLibraryProducts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateLibraryProductsCommand"];
+            };
+        };
+        responses: {
+            /** @description Produits créés. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryProducts"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    replacePimGeneratedProducts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateLibraryProductsCommand"];
+            };
+        };
+        responses: {
+            /** @description Nombre de produits créés. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PimGeneratedProductsResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    clearPimGeneratedProducts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Nombre de produits supprimés. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClearPimGeneratedProductsResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    updateLibraryProduct: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                productId: components["parameters"]["LibraryProductId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateLibraryProductCommand"];
+            };
+        };
+        responses: {
+            /** @description Produit modifié. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryProduct"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteLibraryProduct: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                productId: components["parameters"]["LibraryProductId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Produit supprimé. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryProductRemovalResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listLibraries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bibliothèques du tenant. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Libraries"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createLibrary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateLibraryCommand"];
+            };
+        };
+        responses: {
+            /** @description Bibliothèque créée. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Library"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    updateLibrary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                libraryId: components["parameters"]["LibraryId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateLibraryCommand"];
+            };
+        };
+        responses: {
+            /** @description Bibliothèque modifiée. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Library"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    deleteLibrary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                libraryId: components["parameters"]["LibraryId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bibliothèque supprimée. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryRemovalResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listQuoteTemplates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Vue d’ensemble des gabarits. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuoteTemplatesOverview"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createQuoteTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateQuoteTemplateCommand"];
+            };
+        };
+        responses: {
+            /** @description Gabarit créé. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuoteTemplate"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    setDefaultQuoteTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetDefaultQuoteTemplateCommand"];
+            };
+        };
+        responses: {
+            /** @description Gabarit par défaut mis à jour. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuoteTemplateUpdated"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    updateQuoteTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                templateId: components["parameters"]["QuoteTemplateId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateQuoteTemplateCommand"];
+            };
+        };
+        responses: {
+            /** @description Gabarit modifié. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuoteTemplateUpdated"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    deleteQuoteTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                templateId: components["parameters"]["QuoteTemplateId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Gabarit supprimé. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuoteTemplateRemoved"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getAiProviderDiagnostic: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Diagnostic du fournisseur IA. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiProviderDiagnostic"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getClariprintDiagnostic: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Diagnostic Clariprint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClariprintDiagnostic"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createClariprintQuote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClariprintQuoteCommand"];
+            };
+        };
+        responses: {
+            /** @description Résultat du chiffrage. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClariprintQuoteResult"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    listConversations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Conversations du tenant. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Conversations"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    saveConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                conversationId: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveConversationCommand"];
+            };
+        };
+        responses: {
+            /** @description Conversation enregistrée. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationSaved"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                conversationId: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Conversation supprimée. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationRemoved"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getShopCustomerMigrationReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Lignes du rapport de migration. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["LegacyShopCustomerMigrationReportRow"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    listShopCustomers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Comptes clients de la boutique. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["ShopCustomerAccount"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    createShopCustomer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateShopCustomerCommand"];
+            };
+        };
+        responses: {
+            /** @description Compte créé. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["ShopCustomerAccount"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    ensureSelfShopCustomer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Compte miroir trouvé ou créé. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["EnsureSelfShopCustomerResult"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    inviteShopCustomer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InviteShopCustomerCommand"];
+            };
+        };
+        responses: {
+            /** @description Invitation préparée pour un compte existant ou créé. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["InviteShopCustomerResult"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    createStorefrontSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Slug public de la boutique utilisé par les routes storefront. */
+                shopSlug: components["parameters"]["StorefrontShopSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateStorefrontSessionCommand"];
+            };
+        };
+        responses: {
+            /** @description Session ouverte. */
+            200: {
+                headers: {
+                    "Set-Cookie": components["headers"]["StorefrontSessionCookie"];
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["CreateStorefrontSessionResult"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    registerStorefrontCustomer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Slug public de la boutique utilisé par les routes storefront. */
+                shopSlug: components["parameters"]["StorefrontShopSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateStorefrontRegistrationCommand"];
+            };
+        };
+        responses: {
+            /** @description Compte inscrit et session ouverte. */
+            201: {
+                headers: {
+                    "Set-Cookie": components["headers"]["StorefrontSessionCookie"];
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["CreateStorefrontRegistrationResult"];
+                    };
+                };
+            };
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getCurrentStorefrontSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session courante. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["CreateStorefrontSessionResult"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    endCurrentStorefrontSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session fermée. */
+            200: {
+                headers: {
+                    "Set-Cookie": components["headers"]["ClearedStorefrontSessionCookie"];
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["EndStorefrontSessionResult"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    issueStorefrontCustomerActivation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+                customerId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IssueStorefrontActivationCommand"];
+            };
+        };
+        responses: {
+            /** @description Lien d’activation émis. */
+            201: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["IssueStorefrontActivationResult"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    activateStorefrontCustomer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActivateStorefrontCredentialCommand"];
+            };
+        };
+        responses: {
+            /** @description Compte activé et session ouverte. */
+            200: {
+                headers: {
+                    "Set-Cookie": components["headers"]["StorefrontSessionCookie"];
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["ActivateStorefrontCredentialResult"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    requestStorefrontPasswordRecovery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Slug public de la boutique utilisé par les routes storefront. */
+                shopSlug: components["parameters"]["StorefrontShopSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestStorefrontPasswordRecoveryCommand"];
+            };
+        };
+        responses: {
+            /** @description Demande acceptée sans révéler si un compte existe. */
+            202: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["RequestStorefrontPasswordRecoveryResult"];
+                    };
+                };
+            };
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    resetStorefrontPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetStorefrontPasswordCommand"];
+            };
+        };
+        responses: {
+            /** @description Mot de passe réinitialisé. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["ResetStorefrontPasswordResult"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    startSelfShopCustomerDelegation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateShopCustomerDelegationCommand"];
+            };
+        };
+        responses: {
+            /** @description Session déléguée ouverte. */
+            201: {
+                headers: {
+                    "Set-Cookie": components["headers"]["StorefrontSessionCookie"];
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["SelfShopCustomerDelegationResult"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    createTenantCategoryEditorial: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CategoryEditorialCommand"];
+            };
+        };
+        responses: {
+            /** @description Éditorial de catégorie généré ou replié. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoryEditorialResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    createPublicCategoryEditorial: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Slug public de la boutique utilisé par les routes storefront. */
+                shopSlug: components["parameters"]["StorefrontShopSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CategoryEditorialCommand"];
+            };
+        };
+        responses: {
+            /** @description Éditorial de catégorie généré ou replié. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoryEditorialResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getCommercialOverview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Vue d’ensemble des règles, groupes, membres et gammes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommercialOverview"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createCommercialGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateClientGroupCommand"];
+            };
+        };
+        responses: {
+            /** @description Groupe créé. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientGroup"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    deleteCommercialGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant du groupe commercial. */
+                groupId: components["parameters"]["CommercialGroupId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Groupe supprimé. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommercialRemoved"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listCommercialGroupMembers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant du groupe commercial. */
+                groupId: components["parameters"]["CommercialGroupId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Identifiants des membres du groupe. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroupMembers"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    addCommercialGroupMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant du groupe commercial. */
+                groupId: components["parameters"]["CommercialGroupId"];
+                userId: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Membre ajouté. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommercialUpdated"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    removeCommercialGroupMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant du groupe commercial. */
+                groupId: components["parameters"]["CommercialGroupId"];
+                userId: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Membre retiré. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommercialUpdated"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createCommercialRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateClientPriceRuleCommand"];
+            };
+        };
+        responses: {
+            /** @description Règle créée. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientPriceRule"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    deleteCommercialRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la règle de prix commerciale. */
+                ruleId: components["parameters"]["CommercialRuleId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Règle supprimée. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommercialRemoved"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateCommercialRuleStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la règle de prix commerciale. */
+                ruleId: components["parameters"]["CommercialRuleId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetRuleActiveCommand"];
+            };
+        };
+        responses: {
+            /** @description Règle modifiée. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientPriceRule"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
         };
     };
     onQuoteConverted: {
