@@ -22,10 +22,7 @@ export function ConfiguratorWorkspace({
   if (state.mode === 'home' || !state.initialRequest) {
     return (
       <MagritConfiguratorHome
-        onSubmit={(query) => dispatch({
-          type: 'submit',
-          request: createInitialConfiguratorRequest(query),
-        })}
+        onProjectSelect={(selection) => dispatch({ type: 'select-project', ...selection })}
       />
     );
   }
@@ -35,12 +32,16 @@ export function ConfiguratorWorkspace({
       mode={state.mode}
       tenantId={tenantId}
       userId={userId}
+      projectId={state.projectId}
+      customerName={state.customerName}
+      projectName={state.projectName}
       initialRequest={state.initialRequest}
       pimQuery={state.pimQuery}
       onPimQueryChange={(query) => dispatch({ type: 'search-pim', query })}
       onModeChange={(mode) => dispatch({
         type: mode === 'split' ? 'show-split' : mode === 'studio' ? 'focus-studio' : 'focus-pim',
       })}
+      onChangeProject={() => dispatch({ type: 'change-project' })}
     />
   );
 }

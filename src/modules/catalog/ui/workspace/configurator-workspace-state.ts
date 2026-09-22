@@ -9,11 +9,16 @@ export type InitialConfiguratorRequest = Readonly<{
 export type ConfiguratorWorkspaceState = Readonly<{
   mode: ConfiguratorViewMode;
   initialRequest: InitialConfiguratorRequest | null;
+  projectId: string | null;
+  customerName: string | null;
+  projectName: string | null;
   pimQuery: string;
 }>;
 
 export type ConfiguratorWorkspaceAction =
   | Readonly<{ type: 'submit'; request: InitialConfiguratorRequest }>
+  | Readonly<{ type: 'select-project'; projectId: string; customerName: string; projectName: string }>
+  | Readonly<{ type: 'change-project' }>
   | Readonly<{ type: 'focus-studio' }>
   | Readonly<{ type: 'focus-pim' }>
   | Readonly<{ type: 'show-split' }>
@@ -22,6 +27,9 @@ export type ConfiguratorWorkspaceAction =
 export const INITIAL_CONFIGURATOR_WORKSPACE_STATE: ConfiguratorWorkspaceState = {
   mode: 'home',
   initialRequest: null,
+  projectId: null,
+  customerName: null,
+  projectName: null,
   pimQuery: '',
 };
 
@@ -34,8 +42,22 @@ export function configuratorWorkspaceReducer(
       return {
         mode: 'split',
         initialRequest: action.request,
+        projectId: state.projectId,
+        customerName: state.customerName,
+        projectName: state.projectName,
         pimQuery: action.request.query,
       };
+    case 'select-project':
+      return {
+        ...state,
+        mode: 'split',
+        projectId: action.projectId,
+        customerName: action.customerName,
+        projectName: action.projectName,
+        initialRequest: createInitialConfiguratorRequest(''),
+      };
+    case 'change-project':
+      return INITIAL_CONFIGURATOR_WORKSPACE_STATE;
     case 'focus-studio':
       return state.initialRequest ? { ...state, mode: 'studio' } : state;
     case 'focus-pim':

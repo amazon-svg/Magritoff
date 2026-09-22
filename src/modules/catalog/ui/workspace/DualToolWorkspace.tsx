@@ -11,29 +11,37 @@ export function DualToolWorkspace({
   tenantId,
   userId,
   initialRequest,
+  projectId,
+  customerName,
+  projectName,
   pimQuery,
   onPimQueryChange,
   onModeChange,
+  onChangeProject,
 }: Readonly<{
   mode: Exclude<ConfiguratorViewMode, 'home'>;
   tenantId: string;
   userId: string;
   initialRequest: InitialConfiguratorRequest;
+  projectId: string | null;
+  customerName: string | null;
+  projectName: string | null;
   pimQuery: string;
   onPimQueryChange: (query: string) => void;
   onModeChange: (mode: 'split' | 'studio' | 'pim') => void;
+  onChangeProject: () => void;
 }>) {
   const [mobilePanel, setMobilePanel] = useState<'studio' | 'pim'>('studio');
   const projectsApi = useWorkspaceApi(ProjectsApiClient);
   const [projects, setProjects] = useState<readonly ProjectDto[]>([]);
-  const [projectId, setProjectId] = useState<string | null>(null);
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(projectId);
   useEffect(() => {
     let active = true;
     void projectsApi.list({ status: 'active', pageSize: 100 }).then((page) => {
       if (!active) return;
       setProjects(page.items);
       const saved = sessionStorage.getItem(`hopstudio-project:${tenantId}`);
-      setProjectId(saved && page.items.some((project) => project.id === saved) ? saved : null);
+      setActiveProjectId(projectId ?? (saved && page.items.some((project) => project.id === saved) ? saved : null));
     }).catch(() => { if (active) setProjects([]); });
     return () => { active = false; };
   }, [projectsApi, tenantId]);
@@ -46,22 +54,15 @@ export function DualToolWorkspace({
       data-testid="dual-tool-workspace"
       data-mode={mode}
     >
-      <div className="flex items-center gap-2 border-b border-line bg-white px-4 py-2 text-sm">
-        <label htmlFor="hopstudio-active-project" className="font-medium text-ink">Projet en cours</label>
-        <select
-          id="hopstudio-active-project"
-          value={projectId ?? ''}
-          onChange={(event) => {
-            const selected = event.target.value || null;
-            setProjectId(selected);
-            if (selected) sessionStorage.setItem(`hopstudio-project:${tenantId}`, selected);
-            else sessionStorage.removeItem(`hopstudio-project:${tenantId}`);
-          }}
-          className="min-w-0 max-w-80 rounded-md border border-line bg-white px-2 py-1 text-ink"
-        >
-          <option value="">Sélectionner un projet pour le panier</option>
-          {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
-        </select>
+      <div className="flex items-center gap-3 border-b border-line bg-white px-4 py-2 text-sm">
+        <div className="min-w-0 flex-1 truncate text-ink">
+          <span className="font-medium">{customerName ?? 'Client'}</span>
+          <span className="mx-2 text-ink-muted">·</span>
+          <span className="text-ink-muted">{projectName ?? 'Projet'}</span>
+        </div>
+        <button type="button" onClick={onChangeProject} className="shrink-0 rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink hover:bg-bg">
+          Changer
+        </button>
       </div>
       {mode === 'split' && (
         <div className="grid grid-cols-2 border-b border-line bg-white md:hidden" role="tablist" aria-label="Outils du configurateur">
@@ -89,7 +90,7 @@ export function DualToolWorkspace({
             tenantId={tenantId}
             userId={userId}
             initialRequest={initialRequest}
-            projectId={projectId}
+            projectId={activeProjectId}
             compact={mode === 'split'}
           />
         </WorkspacePanel>

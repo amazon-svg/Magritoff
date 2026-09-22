@@ -68,20 +68,20 @@
                                 HChat.downloadAttachment(pdfEncoded,'<%= p.printer %>.pdf', 'pdf');
                                 " 
                                 style='cursor: pointer' ><img src="<%= sugarcrepeHL.getRootImg() %>pdf.png" title="Détails de gamme"></a></td>
-                        <td><input type="radio" name="rank" value="<%= i %>"
-                                onclick="document.getElementById('button-add-to-basket').dataset.rankSelected='<%= i %>'"></td>
+                        <td>
+                            <button class="button-add-to-basket-rank"
+                                type="button"
+                                data-card-key="<%= cardKey %>" 
+                                data-rank-selected="<%= i %>"
+                                onclick="window.hopes_suite.chat.onAddToBasket(this,i)"
+                            ><%= HCSR.tMCtx('Ajouter au panier') %>
+                            </button>
+                        </td>
                     </tr>
             <% }); %>
                 </tbody>
             </table>       
         </div>
-        <div class="footer">
-            <button id="button-add-to-basket"
-                type="button"
-                data-card-key="<%= cardKey %>" 
-                data-rank-selected="1"
-                onclick="window.hopes_suite.chat.onAddToBasket(this)"
-            ><%= HCSR.tMCtx('Ajouter au panier') %></button></div>
       </div>
     </div>
   </div>

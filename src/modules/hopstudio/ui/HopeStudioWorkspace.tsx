@@ -105,6 +105,7 @@ export function HopeStudioWorkspace({
 
   useEffect(() => {
     if (status !== 'ready') return;
+    if (!initialRequest.query.trim()) return;
     const key = `${tenantId}:${userId}:${initialRequest.id}`;
     if (sentInitialRequestIds.has(key)) return;
     const sendMessage = window.hopes_suite?.chat?.sendMessage;
