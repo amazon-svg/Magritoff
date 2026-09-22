@@ -80,6 +80,8 @@ security:
 tags:
   - name: gestion-commerciale
     description: Ressources metier du module Gestion commerciale (Epic E10).
+  - name: identite
+    description: Routes historiques de session, tenants et habilitations.
 
 # ----------------------------------------------------------------------------
 # story E10.4 — Entite Client (personne morale ou physique) et interlocuteurs.
@@ -8776,6 +8778,2376 @@ paths:
 # par abonne. Les entrees ci-dessous decrivent donc un CONTRAT DE CHARGE UTILE
 # ferme, dont le transport tiers reste a ouvrir par une story dediee. Elles ne
 # decrivent pas un flux qu un integrateur peut brancher aujourd hui.
+  /orders:
+    x-legacy-facade: true
+    post:
+      operationId: createLegacyOrder
+      summary: "Crée une commande boutique"
+      tags: [gestion-commerciale]
+      description: >-
+        Façade historique. Le corps contient sa propre clé d idempotence ;
+        l authentification est résolue par une session boutique correspondant
+        à `shopId` ou par un jeton utilisateur Magrit.
+      security:
+        - bearerAuth: []
+        - storefrontSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LegacyCreateOrderCommand' }
+      responses:
+        '201':
+          description: Commande créée ou réponse rejouée.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LegacyCreateOrderResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /orders/{orderId}/draft:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyOrderId'
+    get:
+      operationId: getLegacyOrderDraft
+      summary: "Récupère le brouillon d’une commande"
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+        - storefrontSession: []
+      responses:
+        '200':
+          description: Brouillon de commande, avec son ETag historique.
+          headers:
+            ETag: { $ref: '#/components/headers/ETag' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LegacyDraftOrder' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+    put:
+      operationId: updateLegacyOrderDraft
+      summary: "Modifie le brouillon d’une commande"
+      tags: [gestion-commerciale]
+      description: >-
+        L en-tête `If-Match` est accepté s il est fourni, mais reste facultatif
+        sur cette route historique. La concurrence est aussi vérifiée lors de
+        la transition de commande.
+      parameters:
+        - name: If-Match
+          in: header
+          required: false
+          description: ETag du brouillon lu précédemment, facultatif sur cette façade.
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 255
+            pattern: '^(W/)?"[^"]+"$'
+      security:
+        - bearerAuth: []
+        - storefrontSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LegacyUpdateDraftOrderCommand' }
+      responses:
+        '200':
+          description: Brouillon mis à jour ou réponse rejouée.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LegacyUpdateDraftOrderResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /orders/{orderId}/roles:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyOrderId'
+    get:
+      operationId: getLegacyOrderRoles
+      summary: "Récupère les rôles d’une commande"
+      tags: [gestion-commerciale]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Rôles, capacités et statut de créateur de la commande.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LegacyOrderRolesResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /tenants/{tenantId}/orders:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+    get:
+      operationId: listLegacyTenantOrders
+      summary: "Liste les commandes d’un tenant"
+      tags: [gestion-commerciale]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: shopId
+          in: query
+          required: false
+          description: Filtre répétable sur les boutiques du tenant.
+          schema:
+            type: array
+            items: { type: string, format: uuid }
+          style: form
+          explode: true
+      responses:
+        '200':
+          description: Commandes du tenant, sans enveloppe historique.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LegacyOrdersList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /shops/{shopId}/orders:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/ShopId'
+    get:
+      operationId: listLegacyPortalOrders
+      summary: "Liste les commandes du portail boutique"
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+        - storefrontSession: []
+      responses:
+        '200':
+          description: Compteurs et commandes réparties par onglet.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LegacyPortalOrdersResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /orders/{orderId}/audit:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyOrderId'
+    get:
+      operationId: getLegacyOrderAudit
+      summary: "Récupère l’audit d’une commande"
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+        - storefrontSession: []
+      responses:
+        '200':
+          description: Événements d’audit de la commande.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LegacyOrderAuditTrail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /orders/{orderId}/transitions:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyOrderId'
+    post:
+      operationId: transitionLegacyOrder
+      summary: "Fait évoluer le statut d’une commande"
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+        - storefrontSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LegacyTransitionOrderCommand' }
+      responses:
+        '200':
+          description: Transition appliquée ou réponse rejouée.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LegacyTransitionOrderResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /tenant-slugs/{slug}:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/TenantSlug'
+    get:
+      operationId: resolveTenantSlug
+      summary: "Résout un ancien slug de tenant"
+      tags: [identite]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Slug canonique résolu, ou null si aucun tenant ne correspond.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TenantSlugResolution' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /tenants:
+    x-legacy-facade: true
+    post:
+      operationId: createRootTenant
+      summary: "Crée un tenant racine"
+      tags: [identite]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateRootTenantCommand' }
+      responses:
+        '201':
+          description: Tenant racine créé.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CreateTenantResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /session:
+    x-legacy-facade: true
+    get:
+      operationId: getSession
+      summary: "Récupère la session Magrit"
+      tags: [identite]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Session, tenants accessibles et préférences de l’utilisateur.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SessionBootstrap' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /session/preferences:
+    x-legacy-facade: true
+    patch:
+      operationId: updateSessionPreferences
+      summary: "Modifie les préférences de session"
+      tags: [identite]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdatePreferencesCommand' }
+      responses:
+        '200':
+          description: Préférences mises à jour.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserPreferences' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /session/current-tenant:
+    x-legacy-facade: true
+    put:
+      operationId: updateCurrentTenant
+      summary: "Sélectionne le tenant courant"
+      tags: [identite]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateCurrentTenantCommand' }
+      responses:
+        '200':
+          description: Préférences avec le tenant courant mis à jour.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserPreferences' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /tenants/{tenantId}:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+    patch:
+      operationId: updateTenantSettings
+      summary: "Modifie les paramètres d’un tenant"
+      tags: [identite]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateTenantSettingsCommand' }
+      responses:
+        '200':
+          description: Paramètres du tenant mis à jour.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TenantMutationResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /tenants/{tenantId}/subtenants:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+    get:
+      operationId: listSubTenants
+      summary: "Liste les sous-tenants"
+      tags: [identite]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Sous-tenants et indicateurs associés.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SubTenantsDashboard' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      operationId: createSubTenant
+      summary: "Crée un sous-tenant"
+      tags: [identite]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateSubTenantCommand' }
+      responses:
+        '201':
+          description: Sous-tenant créé.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CreateTenantResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /tenants/{tenantId}/subtenants/{subTenantId}:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+      - $ref: '#/components/parameters/SubTenantId'
+    delete:
+      operationId: deleteSubTenant
+      summary: "Supprime un sous-tenant"
+      tags: [identite]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Sous-tenant supprimé.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RemoveSubTenantResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /session/invitations/accept:
+    x-legacy-facade: true
+    post:
+      operationId: acceptTenantInvitation
+      summary: "Accepte une invitation de tenant"
+      tags: [identite]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AcceptTenantInvitationCommand' }
+      responses:
+        '200':
+          description: Invitation acceptée.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CreateTenantResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /invitations/{token}/activation:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/InvitationToken'
+    get:
+      operationId: getInvitationActivation
+      summary: "Récupère le contexte d’activation d’une invitation"
+      tags: [identite]
+      security: []
+      responses:
+        '200':
+          description: Informations publiques de l’invitation.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InvitationActivation' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+
+  /tenants/{tenantId}/invitation-options:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+    get:
+      operationId: getInvitationOptions
+      summary: "Liste les options d’invitation"
+      tags: [identite]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Rôles et boutiques disponibles pour une invitation.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InvitationOptions' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+
+  /tenants/{tenantId}/invitations:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+    get:
+      operationId: listPendingInvitations
+      summary: "Liste les invitations en attente"
+      tags: [identite]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Invitations encore actives du tenant.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PendingInvitations' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+
+  /invitations:
+    x-legacy-facade: true
+    post:
+      operationId: createInvitation
+      summary: "Crée une invitation"
+      tags: [identite]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateInvitationCommand' }
+      responses:
+        '201':
+          description: Invitation créée.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CreateInvitationResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+
+  /invitations/{invitationId}/resend:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/InvitationId'
+    post:
+      operationId: resendInvitation
+      summary: "Renvoie une invitation"
+      tags: [identite]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ResendInvitationCommand' }
+      responses:
+        '200':
+          description: Invitation renvoyée.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ResendInvitationResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+
+  /invitations/{invitationId}:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/InvitationId'
+    delete:
+      operationId: revokeInvitation
+      summary: "Révoque une invitation"
+      tags: [identite]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Invitation révoquée.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RevokeInvitationResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /tenants/{tenantId}/members:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+    get:
+      operationId: listTenantMembers
+      summary: "Liste les membres d’un tenant"
+      tags: [identite]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Membres du tenant.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TenantMembers' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /tenants/{tenantId}/members/{userId}/role:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+      - $ref: '#/components/parameters/UserId'
+    patch:
+      operationId: changeMemberRole
+      summary: "Modifie le rôle d’un membre"
+      tags: [identite]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChangeMemberRoleCommand' }
+      responses:
+        '200':
+          description: Rôle modifié.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TenantMutationResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /tenants/{tenantId}/members/{userId}/access:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+      - $ref: '#/components/parameters/UserId'
+    patch:
+      operationId: updateMemberAccess
+      summary: "Modifie l’accès d’un membre"
+      tags: [identite]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateMemberAccessCommand' }
+      responses:
+        '200':
+          description: Accès modifié.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TenantMutationResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /tenants/{tenantId}/members/{userId}:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+      - $ref: '#/components/parameters/UserId'
+    delete:
+      operationId: removeTenantMember
+      summary: "Retire un membre du tenant"
+      tags: [identite]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Membre retiré.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RemoveMemberResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /tenants/{tenantId}/capabilities/{capability}:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+      - $ref: '#/components/parameters/Capability'
+    get:
+      operationId: getUserCapability
+      summary: "Vérifie une capability"
+      tags: [identite]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Résultat de l’autorisation.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserCapability' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /tenants/{tenantId}/access-profile:
+    x-legacy-facade: true
+    parameters: [{ $ref: '#/components/parameters/LegacyTenantId' }]
+    get:
+      operationId: getUserAccessProfile
+      summary: "Récupère le profil d’accès"
+      tags: [identite]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Profil d’accès de l’utilisateur dans le tenant.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserAccessProfile' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /tenants/{tenantId}/roles-overview:
+    x-legacy-facade: true
+    parameters: [{ $ref: '#/components/parameters/LegacyTenantId' }]
+    get:
+      operationId: getRolesOverview
+      summary: "Récupère la vue synthétique des rôles"
+      tags: [identite]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Rôles, membres et assignations.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RolesOverview' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /tenants/{tenantId}/roles-catalog:
+    x-legacy-facade: true
+    parameters: [{ $ref: '#/components/parameters/LegacyTenantId' }]
+    get:
+      operationId: getRolesCatalog
+      summary: "Récupère le catalogue des rôles"
+      tags: [identite]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Catalogue des rôles, membres et assignations.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RolesCatalog' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /tenants/{tenantId}/roles:
+    x-legacy-facade: true
+    parameters: [{ $ref: '#/components/parameters/LegacyTenantId' }]
+    post:
+      operationId: createRoleDefinition
+      summary: "Crée une définition de rôle"
+      tags: [identite]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SaveRoleDefinitionCommand' }
+      responses:
+        '201':
+          description: Rôle créé.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RoleCatalogDefinition' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /tenants/{tenantId}/roles-order:
+    x-legacy-facade: true
+    parameters: [{ $ref: '#/components/parameters/LegacyTenantId' }]
+    put:
+      operationId: reorderRoleDefinitions
+      summary: "Réordonne les rôles"
+      tags: [identite]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReorderRolesCommand' }
+      responses:
+        '200':
+          description: Rôles réordonnés.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReorderRolesResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /tenants/{tenantId}/roles/{roleId}:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+      - $ref: '#/components/parameters/RoleId'
+    put:
+      operationId: updateRoleDefinition
+      summary: "Modifie une définition de rôle"
+      tags: [identite]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SaveRoleDefinitionCommand' }
+      responses:
+        '200':
+          description: Rôle modifié.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RoleCatalogDefinition' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+    delete:
+      operationId: archiveRoleDefinition
+      summary: "Archive une définition de rôle"
+      tags: [identite]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Rôle archivé.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ArchiveRoleResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /tenants/{tenantId}/members/{userId}/roles-detail:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+      - $ref: '#/components/parameters/UserId'
+    get:
+      operationId: getUserRolesDetail
+      summary: "Récupère les rôles d’un membre"
+      tags: [identite]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Détail des rôles et accès du membre.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserRolesDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /tenants/{tenantId}/members/{userId}/roles/{roleId}:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+      - $ref: '#/components/parameters/UserId'
+      - $ref: '#/components/parameters/RoleId'
+    put:
+      operationId: setRoleAssignment
+      summary: "Active ou désactive une assignation de rôle"
+      tags: [identite]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SetRoleAssignmentCommand' }
+      responses:
+        '200':
+          description: Assignation modifiée.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SetRoleAssignmentResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /public/shops/{slug}/probe:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/ShopSlug'
+    get:
+      operationId: getPublicShopProbe
+      summary: "Vérifie l’existence et le mode d’accès d’une boutique"
+      tags: [boutiques]
+      security: []
+      responses:
+        '200':
+          description: Informations publiques minimales de la boutique.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicShopProbe'
+        '404': { $ref: '#/components/responses/NotFound' }
+  /public/shops/{slug}/catalog:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/ShopSlug'
+    get:
+      operationId: getPublicShopCatalog
+      summary: "Récupère le catalogue public d’une boutique"
+      tags: [boutiques]
+      security: []
+      responses:
+        '200':
+          description: Catalogue public de la boutique.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicShopCatalog'
+        '404': { $ref: '#/components/responses/NotFound' }
+  /tenants/{tenantId}/shops/{shopId}/products:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+      - $ref: '#/components/parameters/ShopId'
+    get:
+      operationId: listShopProducts
+      summary: "Liste les produits d’une boutique"
+      tags: [boutiques]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Produits de la boutique.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopProducts'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      operationId: createShopProduct
+      summary: "Crée un produit de boutique"
+      tags: [boutiques]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateShopProductCommand'
+      responses:
+        '201':
+          description: Produit de boutique créé.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopProduct'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+  /tenants/{tenantId}/shops/{shopId}/products/{productId}:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+      - $ref: '#/components/parameters/ShopId'
+      - $ref: '#/components/parameters/ShopProductId'
+    delete:
+      operationId: deleteShopProduct
+      summary: "Supprime un produit de boutique"
+      tags: [boutiques]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Produit supprimé.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopRemovalResult'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      operationId: updateShopProduct
+      summary: "Modifie un produit de boutique"
+      tags: [boutiques]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateShopProductCommand'
+      responses:
+        '200':
+          description: Produit modifié.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopMutationResult'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+  /tenants/{tenantId}/shops:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+    get:
+      operationId: listTenantShops
+      summary: "Liste les boutiques du tenant"
+      tags: [boutiques]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Boutiques accessibles dans le tenant.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantShops'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      operationId: createTenantShop
+      summary: "Crée une boutique dans le tenant"
+      tags: [boutiques]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateShopCommand'
+      responses:
+        '201':
+          description: Boutique créée.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Shop'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+  /tenants/{tenantId}/shops/{shopId}:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+      - $ref: '#/components/parameters/ShopId'
+    patch:
+      operationId: updateTenantShop
+      summary: "Modifie une boutique"
+      tags: [boutiques]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateShopCommand'
+      responses:
+        '200':
+          description: Boutique modifiée.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Shop'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+    delete:
+      operationId: deleteTenantShop
+      summary: "Supprime une boutique"
+      tags: [boutiques]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Boutique supprimée.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopRemovalResult'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /tenants/{tenantId}/shops/{shopId}/pricing:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+      - $ref: '#/components/parameters/ShopId'
+    get:
+      operationId: listShopPricingOverrides
+      summary: "Liste les prix spécifiques de la boutique"
+      tags: [boutiques]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Prix spécifiques de la boutique.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopPricingOverrides'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /tenants/{tenantId}/shops/{shopId}/pricing/{libraryProductId}:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+      - $ref: '#/components/parameters/ShopId'
+      - $ref: '#/components/parameters/ShopLibraryProductId'
+    put:
+      operationId: setShopPricingOverride
+      summary: "Définit ou retire le prix spécifique d’un produit"
+      tags: [boutiques]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetShopPricingCommand'
+      responses:
+        '200':
+          description: Prix spécifique mis à jour.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopPricingMutationResult'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+  /tenants/{tenantId}/shops/{shopId}/brand-assets:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+      - $ref: '#/components/parameters/ShopId'
+    post:
+      operationId: uploadShopBrandAsset
+      summary: "Téléverse un visuel de marque"
+      tags: [boutiques]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ShopBrandAssetUpload'
+      responses:
+        '201':
+          description: Visuel téléversé.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopBrandAssetResult'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+  /tenants/{tenantId}/shops/{shopId}/custom-mockups:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+      - $ref: '#/components/parameters/ShopId'
+    get:
+      operationId: listShopCustomMockups
+      summary: "Liste les maquettes personnalisées de la boutique"
+      tags: [boutiques]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Maquettes personnalisées.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopCustomMockups'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      operationId: uploadShopCustomMockup
+      summary: "Téléverse une maquette personnalisée"
+      tags: [boutiques]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ShopCustomMockupUpload'
+      responses:
+        '201':
+          description: Maquette téléversée.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopCustomMockupMutationResult'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+  /tenants/{tenantId}/shops/{shopId}/custom-mockups/{templateType}/{view}:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+      - $ref: '#/components/parameters/ShopId'
+      - $ref: '#/components/parameters/MockupTemplateType'
+      - $ref: '#/components/parameters/MockupView'
+    delete:
+      operationId: restoreShopCustomMockup
+      summary: "Restaure la maquette par défaut"
+      tags: [boutiques]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Maquette restaurée.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopCustomMockupMutationResult'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+  /tenants/{tenantId}/shops/{shopId}/ai-products:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+      - $ref: '#/components/parameters/ShopId'
+    post:
+      operationId: persistAiShopProduct
+      summary: "Persiste un produit généré par l’IA"
+      tags: [boutiques]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersistAiShopProductCommand'
+      responses:
+        '200':
+          description: Produit IA persisté.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersistAiShopProductResult'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+  /tenants/{tenantId}/catalog/gamme-subscriptions:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+    get:
+      operationId: getGammeSubscriptions
+      summary: "Récupère les gammes PIM souscrites"
+      tags: [catalogue]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Souscriptions de gammes du tenant.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GammeSubscriptions'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    put:
+      operationId: setGammeSubscriptions
+      summary: "Modifie les gammes PIM souscrites"
+      tags: [catalogue]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetGammeSubscriptionsCommand'
+      responses:
+        '200':
+          description: Souscriptions de gammes mises à jour.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GammeSubscriptions'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+  /catalog/pim:
+    x-legacy-facade: true
+    get:
+      operationId: getPimCatalog
+      summary: "Récupère le catalogue PIM"
+      tags: [catalogue]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Catalogue PIM., content: { application/json: { schema: { $ref: '#/components/schemas/PimCatalog' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /catalog/pim/gammes/{slug}:
+    x-legacy-facade: true
+    parameters: [{ $ref: '#/components/parameters/PimGammeSlug' }]
+    put:
+      operationId: upsertPimGamme
+      summary: "Crée ou modifie une gamme PIM"
+      tags: [catalogue]
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UpsertPimGammeCommand' } } } }
+      responses:
+        '200': { description: Gamme enregistrée., content: { application/json: { schema: { $ref: '#/components/schemas/PimGamme' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+    delete:
+      operationId: deletePimGamme
+      summary: "Supprime une gamme PIM"
+      tags: [catalogue]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Gamme supprimée., content: { application/json: { schema: { $ref: '#/components/schemas/CatalogRemovalResult' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /catalog/pim/definitions:
+    x-legacy-facade: true
+    put:
+      operationId: upsertPimDefinition
+      summary: "Crée ou modifie une définition PIM"
+      tags: [catalogue]
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UpsertPimDefinitionCommand' } } } }
+      responses:
+        '200': { description: Définition enregistrée., content: { application/json: { schema: { $ref: '#/components/schemas/PimDefinition' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+  /catalog/pim/definitions/{definitionId}:
+    x-legacy-facade: true
+    parameters: [{ $ref: '#/components/parameters/DefinitionId' }]
+    delete:
+      operationId: deletePimDefinition
+      summary: "Supprime une définition PIM"
+      tags: [catalogue]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Définition supprimée., content: { application/json: { schema: { $ref: '#/components/schemas/CatalogRemovalResult' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /catalog/pim/ingestion:
+    x-legacy-facade: true
+    get:
+      operationId: getPimPendingCandidates
+      summary: "Compte les candidats PIM en attente"
+      tags: [catalogue]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Taille de la file PIM., content: { application/json: { schema: { $ref: '#/components/schemas/PimPendingCandidates' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      operationId: runPimIngestion
+      summary: "Simule ou exécute l’ingestion PIM"
+      tags: [catalogue]
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RunPimIngestCommand' } } } }
+      responses:
+        '200': { description: Rapport d’ingestion., content: { application/json: { schema: { $ref: '#/components/schemas/PimIngestReport' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+  /catalog/pim/generation:
+    x-legacy-facade: true
+    post:
+      operationId: generatePimDefinition
+      summary: "Génère ou valide une définition PIM"
+      tags: [catalogue]
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/GeneratePimDefinitionCommand' } } } }
+      responses:
+        '200': { description: Définition générée., content: { application/json: { schema: { $ref: '#/components/schemas/GeneratedPimDefinition' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+  /tenants/{tenantId}/library-products:
+    x-legacy-facade: true
+    parameters: [{ $ref: '#/components/parameters/LegacyTenantId' }]
+    get:
+      operationId: listLibraryProducts
+      summary: "Liste les produits de bibliothèque"
+      tags: [catalogue]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Produits du tenant., content: { application/json: { schema: { $ref: '#/components/schemas/LibraryProducts' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      operationId: createLibraryProduct
+      summary: "Crée un produit de bibliothèque"
+      tags: [catalogue]
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/LibraryProductInput' } } } }
+      responses:
+        '201': { description: Produit créé., content: { application/json: { schema: { $ref: '#/components/schemas/LibraryProduct' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+  /tenants/{tenantId}/library-products/bulk:
+    x-legacy-facade: true
+    parameters: [{ $ref: '#/components/parameters/LegacyTenantId' }]
+    post:
+      operationId: createLibraryProducts
+      summary: "Crée plusieurs produits de bibliothèque"
+      tags: [catalogue]
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateLibraryProductsCommand' } } } }
+      responses:
+        '201': { description: Produits créés., content: { application/json: { schema: { $ref: '#/components/schemas/LibraryProducts' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+  /tenants/{tenantId}/library-products/pim-generated:
+    x-legacy-facade: true
+    parameters: [{ $ref: '#/components/parameters/LegacyTenantId' }]
+    put:
+      operationId: replacePimGeneratedProducts
+      summary: "Remplace les produits générés par le PIM"
+      tags: [catalogue]
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateLibraryProductsCommand' } } } }
+      responses:
+        '200': { description: Nombre de produits créés., content: { application/json: { schema: { $ref: '#/components/schemas/PimGeneratedProductsResult' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    delete:
+      operationId: clearPimGeneratedProducts
+      summary: "Supprime les produits générés par le PIM"
+      tags: [catalogue]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Nombre de produits supprimés., content: { application/json: { schema: { $ref: '#/components/schemas/ClearPimGeneratedProductsResult' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /tenants/{tenantId}/library-products/{productId}:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+      - $ref: '#/components/parameters/LibraryProductId'
+    put:
+      operationId: updateLibraryProduct
+      summary: "Modifie un produit de bibliothèque"
+      tags: [catalogue]
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UpdateLibraryProductCommand' } } } }
+      responses:
+        '200': { description: Produit modifié., content: { application/json: { schema: { $ref: '#/components/schemas/LibraryProduct' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      operationId: deleteLibraryProduct
+      summary: "Supprime un produit de bibliothèque"
+      tags: [catalogue]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Produit supprimé., content: { application/json: { schema: { $ref: '#/components/schemas/LibraryProductRemovalResult' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /tenants/{tenantId}/libraries:
+    x-legacy-facade: true
+    parameters: [{ $ref: '#/components/parameters/LegacyTenantId' }]
+    get:
+      operationId: listLibraries
+      summary: "Liste les bibliothèques"
+      tags: [catalogue]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Bibliothèques du tenant., content: { application/json: { schema: { $ref: '#/components/schemas/Libraries' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      operationId: createLibrary
+      summary: "Crée une bibliothèque"
+      tags: [catalogue]
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateLibraryCommand' } } } }
+      responses:
+        '201': { description: Bibliothèque créée., content: { application/json: { schema: { $ref: '#/components/schemas/Library' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+  /tenants/{tenantId}/libraries/{libraryId}:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+      - $ref: '#/components/parameters/LibraryId'
+    put:
+      operationId: updateLibrary
+      summary: "Modifie une bibliothèque"
+      tags: [catalogue]
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UpdateLibraryCommand' } } } }
+      responses:
+        '200': { description: Bibliothèque modifiée., content: { application/json: { schema: { $ref: '#/components/schemas/Library' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+    delete:
+      operationId: deleteLibrary
+      summary: "Supprime une bibliothèque"
+      tags: [catalogue]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Bibliothèque supprimée., content: { application/json: { schema: { $ref: '#/components/schemas/LibraryRemovalResult' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /tenants/{tenantId}/quote-templates:
+    x-legacy-facade: true
+    parameters: [{ $ref: '#/components/parameters/LegacyTenantId' }]
+    get:
+      operationId: listQuoteTemplates
+      summary: "Liste les gabarits de devis"
+      tags: [devis]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Vue d’ensemble des gabarits., content: { application/json: { schema: { $ref: '#/components/schemas/QuoteTemplatesOverview' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      operationId: createQuoteTemplate
+      summary: "Crée un gabarit de devis"
+      tags: [devis]
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateQuoteTemplateCommand' } } } }
+      responses:
+        '201': { description: Gabarit créé., content: { application/json: { schema: { $ref: '#/components/schemas/QuoteTemplate' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+  /tenants/{tenantId}/quote-templates/default:
+    x-legacy-facade: true
+    parameters: [{ $ref: '#/components/parameters/LegacyTenantId' }]
+    put:
+      operationId: setDefaultQuoteTemplate
+      summary: "Définit le gabarit de devis par défaut"
+      tags: [devis]
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SetDefaultQuoteTemplateCommand' } } } }
+      responses:
+        '200': { description: Gabarit par défaut mis à jour., content: { application/json: { schema: { $ref: '#/components/schemas/QuoteTemplateUpdated' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+  /tenants/{tenantId}/quote-templates/{templateId}:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+      - $ref: '#/components/parameters/QuoteTemplateId'
+    put:
+      operationId: updateQuoteTemplate
+      summary: "Modifie un gabarit de devis"
+      tags: [devis]
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UpdateQuoteTemplateCommand' } } } }
+      responses:
+        '200': { description: Gabarit modifié., content: { application/json: { schema: { $ref: '#/components/schemas/QuoteTemplateUpdated' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+    delete:
+      operationId: deleteQuoteTemplate
+      summary: "Supprime un gabarit de devis"
+      tags: [devis]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Gabarit supprimé., content: { application/json: { schema: { $ref: '#/components/schemas/QuoteTemplateRemoved' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /diagnostics/ai:
+    x-legacy-facade: true
+    get:
+      operationId: getAiProviderDiagnostic
+      summary: "Teste le fournisseur IA"
+      tags: [diagnostics]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Diagnostic du fournisseur IA., content: { application/json: { schema: { $ref: '#/components/schemas/AiProviderDiagnostic' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /diagnostics/clariprint:
+    x-legacy-facade: true
+    get:
+      operationId: getClariprintDiagnostic
+      summary: "Teste la connexion Clariprint"
+      tags: [diagnostics]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Diagnostic Clariprint., content: { application/json: { schema: { $ref: '#/components/schemas/ClariprintDiagnostic' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /clariprint/quote:
+    x-legacy-facade: true
+    post:
+      operationId: createClariprintQuote
+      summary: "Demande un chiffrage Clariprint"
+      tags: [clariprint]
+      security: []
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ClariprintQuoteCommand' } } } }
+      responses:
+        '200': { description: Résultat du chiffrage., content: { application/json: { schema: { $ref: '#/components/schemas/ClariprintQuoteResult' } } } }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /tenants/{tenantId}/conversations:
+    x-legacy-facade: true
+    parameters: [{ $ref: '#/components/parameters/LegacyTenantId' }]
+    get:
+      operationId: listConversations
+      summary: "Liste les conversations"
+      tags: [assistant]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Conversations du tenant., content: { application/json: { schema: { $ref: '#/components/schemas/Conversations' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /tenants/{tenantId}/conversations/{conversationId}:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+      - $ref: '#/components/parameters/ConversationId'
+    put:
+      operationId: saveConversation
+      summary: "Enregistre une conversation"
+      tags: [assistant]
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SaveConversationCommand' } } } }
+      responses:
+        '200': { description: Conversation enregistrée., content: { application/json: { schema: { $ref: '#/components/schemas/ConversationSaved' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      operationId: deleteConversation
+      summary: "Supprime une conversation"
+      tags: [assistant]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Conversation supprimée., content: { application/json: { schema: { $ref: '#/components/schemas/ConversationRemoved' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /tenants/{tenantId}/shop-customer-migration-report:
+    x-legacy-facade: true
+    get:
+      operationId: getShopCustomerMigrationReport
+      summary: "Récupère le rapport de migration des comptes boutique"
+      description: >-
+        Façade historique réservée à un utilisateur Magrit. Le tenant est
+        transmis par la façade et doit être autorisé par le jeton utilisateur.
+        Le rapport est un instantané non paginé des comptes legacy rencontrés.
+      tags: [identite]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/LegacyTenantId'
+      responses:
+        '200':
+          description: Lignes du rapport de migration.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/LegacyShopCustomerMigrationReportRow'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /tenants/{tenantId}/shops/{shopId}/customers:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+      - $ref: '#/components/parameters/ShopId'
+    get:
+      operationId: listShopCustomers
+      summary: "Liste les comptes clients d’une boutique"
+      description: Façade historique de gestion des comptes clients boutique.
+      tags: [identite]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Comptes clients de la boutique.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ShopCustomerAccount'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+    post:
+      operationId: createShopCustomer
+      summary: "Crée un compte client boutique"
+      description: >-
+        Crée un compte pour l’adresse email donnée. L’email est normalisé côté
+        serveur ; `fullName` est facultatif et est déduit de l’email s’il est
+        absent. `initialStatus` vaut `invited` par défaut.
+      tags: [identite]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateShopCustomerCommand'
+      responses:
+        '201':
+          description: Compte créé.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ShopCustomerAccount'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /tenants/{tenantId}/shops/{shopId}/customers/self:
+    x-legacy-facade: true
+    post:
+      operationId: ensureSelfShopCustomer
+      summary: "Garantit le compte boutique correspondant à l’utilisateur"
+      description: >-
+        Crée ou retrouve le compte miroir de l’utilisateur Magrit dans cette
+        boutique. Le corps est absent ; `created` indique si le compte vient
+        d’être créé.
+      tags: [identite]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/LegacyTenantId'
+        - $ref: '#/components/parameters/ShopId'
+      responses:
+        '200':
+          description: Compte miroir trouvé ou créé.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/EnsureSelfShopCustomerResult'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /tenants/{tenantId}/shops/{shopId}/customers/invitations:
+    x-legacy-facade: true
+    post:
+      operationId: inviteShopCustomer
+      summary: "Invite un client boutique"
+      description: >-
+        Crée si nécessaire un compte `invited`, émet un lien d’activation et
+        tente son envoi par email. `link` est rendu dans la réponse pour la
+        compatibilité de la façade historique ; il ne constitue pas une
+        authentification tant que le jeton n’est pas présenté à l’activation.
+      tags: [identite]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/LegacyTenantId'
+        - $ref: '#/components/parameters/ShopId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteShopCustomerCommand'
+      responses:
+        '200':
+          description: Invitation préparée pour un compte existant ou créé.
+          headers:
+            Cache-Control:
+              schema: { type: string, enum: [no-store] }
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/InviteShopCustomerResult'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /storefront/{shopSlug}/session:
+    x-legacy-facade: true
+    post:
+      operationId: createStorefrontSession
+      summary: "Ouvre une session client boutique"
+      description: >-
+        Authentifie un compte actif dans la boutique identifiée par son slug.
+        En cas de succès, le serveur pose un cookie opaque de session
+        HttpOnly : `__Host-magrit-storefront` en HTTPS de production, ou
+        `magrit-storefront` en développement local. Dans les deux cas :
+        `Path=/`, `SameSite=Lax`, `Max-Age` inférieur ou égal à 86400 secondes
+        et `Secure` lorsque le nom `__Host-` est utilisé. Le navigateur seul
+        renvoie ensuite ce cookie ; il ne doit jamais être copié dans une URL.
+      tags: [identite]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/StorefrontShopSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStorefrontSessionCommand'
+      responses:
+        '200':
+          description: Session ouverte.
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/StorefrontSessionCookie'
+            Cache-Control:
+              schema: { type: string, enum: [no-store] }
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CreateStorefrontSessionResult'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /storefront/{shopSlug}/registration:
+    x-legacy-facade: true
+    post:
+      operationId: registerStorefrontCustomer
+      summary: "Inscrit un client dans une boutique"
+      description: >-
+        Crée un compte client actif selon les règles d’accès de la boutique et
+        ouvre immédiatement sa session. Le cookie de session est HttpOnly,
+        `SameSite=Lax`, `Path=/`, avec le nom de production
+        `__Host-magrit-storefront` (ou `magrit-storefront` en local), et n’est
+        jamais renvoyé dans le JSON.
+      tags: [identite]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/StorefrontShopSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStorefrontRegistrationCommand'
+      responses:
+        '201':
+          description: Compte inscrit et session ouverte.
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/StorefrontSessionCookie'
+            Cache-Control:
+              schema: { type: string, enum: [no-store] }
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CreateStorefrontRegistrationResult'
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /storefront/session/current:
+    x-legacy-facade: true
+    get:
+      operationId: getCurrentStorefrontSession
+      summary: "Récupère la session boutique courante"
+      description: >-
+        Résout le compte depuis le cookie HttpOnly de session. Le cookie
+        `__Host-magrit-storefront` est celui de production ;
+        `magrit-storefront` est utilisé en local. Aucun tenant, slug ou compte
+        n’est accepté dans la requête : l’identité vient exclusivement du
+        cookie.
+      tags: [identite]
+      security:
+        - storefrontSession: []
+      responses:
+        '200':
+          description: Session courante.
+          headers:
+            Cache-Control:
+              schema: { type: string, enum: [no-store] }
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CreateStorefrontSessionResult'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    delete:
+      operationId: endCurrentStorefrontSession
+      summary: "Ferme la session boutique courante"
+      description: >-
+        Révoque la session portée par le cookie s’il existe et renvoie un
+        cookie expiré avec les mêmes attributs (`Path=/`, `HttpOnly`,
+        `SameSite=Lax`, `Max-Age=0`, et `Secure` en production). L’opération
+        reste idempotente si le cookie est absent ou déjà révoqué.
+      tags: [identite]
+      security:
+        - storefrontSession: []
+      responses:
+        '200':
+          description: Session fermée.
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/ClearedStorefrontSessionCookie'
+            Cache-Control:
+              schema: { type: string, enum: [no-store] }
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/EndStorefrontSessionResult'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /tenants/{tenantId}/shops/{shopId}/customers/{customerId}/activation:
+    x-legacy-facade: true
+    post:
+      operationId: issueStorefrontCustomerActivation
+      summary: "Émet un lien d’activation client boutique"
+      description: >-
+        Route d’administration protégée par le JWT utilisateur Magrit. Elle
+        émet un lien à durée limitée et tente son envoi par email ; elle ne
+        pose pas de cookie de session dans le navigateur de l’administrateur.
+      tags: [identite]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/LegacyTenantId'
+        - $ref: '#/components/parameters/ShopId'
+        - name: customerId
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/Uuid' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IssueStorefrontActivationCommand'
+      responses:
+        '201':
+          description: Lien d’activation émis.
+          headers:
+            Cache-Control:
+              schema: { type: string, enum: [no-store] }
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/IssueStorefrontActivationResult'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /storefront/activation:
+    x-legacy-facade: true
+    post:
+      operationId: activateStorefrontCustomer
+      summary: "Active un compte client boutique"
+      description: >-
+        Consomme un jeton d’activation opaque et définit le mot de passe du
+        compte. Le jeton n’est accepté que dans le corps JSON, jamais en
+        paramètre d’URL. En cas de succès, pose une session HttpOnly avec
+        `__Host-magrit-storefront` en production ou `magrit-storefront` en
+        local, `Path=/`, `SameSite=Lax` et `Secure` en production.
+      tags: [identite]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivateStorefrontCredentialCommand'
+      responses:
+        '200':
+          description: Compte activé et session ouverte.
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/StorefrontSessionCookie'
+            Cache-Control:
+              schema: { type: string, enum: [no-store] }
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ActivateStorefrontCredentialResult'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /storefront/{shopSlug}/password-recovery:
+    x-legacy-facade: true
+    post:
+      operationId: requestStorefrontPasswordRecovery
+      summary: "Demande la récupération du mot de passe boutique"
+      description: >-
+        Réponse volontairement uniforme, y compris lorsque l’email ou la
+        boutique n’existe pas, afin de ne pas révéler l’existence d’un compte.
+        Aucun cookie de session n’est posé ; le lien de récupération est envoyé
+        par email lorsqu’un compte correspondant est trouvé.
+      tags: [identite]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/StorefrontShopSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestStorefrontPasswordRecoveryCommand'
+      responses:
+        '202':
+          description: Demande acceptée sans révéler si un compte existe.
+          headers:
+            Cache-Control:
+              schema: { type: string, enum: [no-store] }
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/RequestStorefrontPasswordRecoveryResult'
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /storefront/password-reset:
+    x-legacy-facade: true
+    post:
+      operationId: resetStorefrontPassword
+      summary: "Réinitialise le mot de passe boutique"
+      description: >-
+        Consomme un jeton opaque de récupération à usage unique et définit le
+        nouveau mot de passe. Le jeton reste dans le corps JSON pour éviter sa
+        exposition dans les journaux d’URL. Aucun cookie n’est posé après le
+        reset ; le client doit se reconnecter.
+      tags: [identite]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetStorefrontPasswordCommand'
+      responses:
+        '200':
+          description: Mot de passe réinitialisé.
+          headers:
+            Cache-Control:
+              schema: { type: string, enum: [no-store] }
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ResetStorefrontPasswordResult'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /tenants/{tenantId}/shops/{shopId}/customers/self-delegation:
+    x-legacy-facade: true
+    post:
+      operationId: startSelfShopCustomerDelegation
+      summary: "Ouvre une session boutique déléguée"
+      description: >-
+        Un utilisateur Magrit ouvre une session boutique au nom de son propre
+        compte client pour une durée fixe de 1800 secondes. Le serveur pose le
+        cookie HttpOnly de session boutique (`__Host-magrit-storefront` en
+        production, `magrit-storefront` en local, `Path=/`, `SameSite=Lax`,
+        `Secure` en production) et renvoie aussi la délégation créée. Cette
+        session est lisible comme une session client mais ne doit pas être
+        utilisée pour engager le client sur les opérations d’écriture.
+      tags: [identite]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/LegacyTenantId'
+        - $ref: '#/components/parameters/ShopId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateShopCustomerDelegationCommand'
+      responses:
+        '201':
+          description: Session déléguée ouverte.
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/StorefrontSessionCookie'
+            Cache-Control:
+              schema: { type: string, enum: [no-store] }
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SelfShopCustomerDelegationResult'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /tenants/{tenantId}/assistant/category-editorial:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+    post:
+      operationId: createTenantCategoryEditorial
+      summary: "Génère un éditorial de catégorie"
+      tags: [assistant]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CategoryEditorialCommand' }
+      responses:
+        '200':
+          description: Éditorial de catégorie généré ou replié.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CategoryEditorialResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /public/shops/{shopSlug}/assistant/category-editorial:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/StorefrontShopSlug'
+    post:
+      operationId: createPublicCategoryEditorial
+      summary: "Génère un éditorial de catégorie public"
+      tags: [assistant]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CategoryEditorialCommand' }
+      responses:
+        '200':
+          description: Éditorial de catégorie généré ou replié.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CategoryEditorialResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /tenants/{tenantId}/commercial:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+    get:
+      operationId: getCommercialOverview
+      summary: "Récupère la configuration commerciale"
+      tags: [gestion-commerciale]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Vue d’ensemble des règles, groupes, membres et gammes.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CommercialOverview' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /tenants/{tenantId}/commercial/groups:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+    post:
+      operationId: createCommercialGroup
+      summary: "Crée un groupe de clients"
+      tags: [gestion-commerciale]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateClientGroupCommand' }
+      responses:
+        '201':
+          description: Groupe créé.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClientGroup' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /tenants/{tenantId}/commercial/groups/{groupId}:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+      - $ref: '#/components/parameters/CommercialGroupId'
+    delete:
+      operationId: deleteCommercialGroup
+      summary: "Supprime un groupe de clients"
+      tags: [gestion-commerciale]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Groupe supprimé.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CommercialRemoved' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /tenants/{tenantId}/commercial/groups/{groupId}/members:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+      - $ref: '#/components/parameters/CommercialGroupId'
+    get:
+      operationId: listCommercialGroupMembers
+      summary: "Liste les membres d’un groupe"
+      tags: [gestion-commerciale]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Identifiants des membres du groupe.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GroupMembers' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /tenants/{tenantId}/commercial/groups/{groupId}/members/{userId}:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+      - $ref: '#/components/parameters/CommercialGroupId'
+      - $ref: '#/components/parameters/UserId'
+    put:
+      operationId: addCommercialGroupMember
+      summary: "Ajoute un membre à un groupe"
+      tags: [gestion-commerciale]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Membre ajouté.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CommercialUpdated' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      operationId: removeCommercialGroupMember
+      summary: "Retire un membre d’un groupe"
+      tags: [gestion-commerciale]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Membre retiré.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CommercialUpdated' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /tenants/{tenantId}/commercial/rules:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+    post:
+      operationId: createCommercialRule
+      summary: "Crée une règle de prix commerciale"
+      tags: [gestion-commerciale]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateClientPriceRuleCommand' }
+      responses:
+        '201':
+          description: Règle créée.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClientPriceRule' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /tenants/{tenantId}/commercial/rules/{ruleId}:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+      - $ref: '#/components/parameters/CommercialRuleId'
+    patch:
+      operationId: updateCommercialRuleStatus
+      summary: "Active ou désactive une règle de prix"
+      tags: [gestion-commerciale]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SetRuleActiveCommand' }
+      responses:
+        '200':
+          description: Règle modifiée.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClientPriceRule' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+    delete:
+      operationId: deleteCommercialRule
+      summary: "Supprime une règle de prix"
+      tags: [gestion-commerciale]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Règle supprimée.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CommercialRemoved' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
 webhooks:
   quote.converted:
     post:
@@ -9328,6 +11700,9 @@ webhooks:
         '204':
           description: Evenement accepte par le consommateur.
 
+  # --------------------------------------------------------------------------
+  # Facades historiques — comptes clients boutique et identité storefront.
+  # --------------------------------------------------------------------------
 components:
   # --------------------------------------------------------------------------
   # Securite (CA4, CA5)
@@ -9829,6 +12204,144 @@ components:
   # Parametres partages
   # --------------------------------------------------------------------------
   parameters:
+    LegacyOrderId:
+      name: orderId
+      in: path
+      required: true
+      description: Identifiant de commande boutique de la façade historique.
+      schema: { type: string, minLength: 1 }
+    LegacyTenantId:
+      name: tenantId
+      in: path
+      required: true
+      description: Identifiant du tenant transmis par la façade historique.
+      schema: { type: string, format: uuid }
+    TenantSlug:
+      name: slug
+      in: path
+      required: true
+      description: Ancien slug du tenant à résoudre.
+      schema: { type: string, minLength: 1, maxLength: 160, pattern: '^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$' }
+    SubTenantId:
+      name: subTenantId
+      in: path
+      required: true
+      description: Identifiant du sous-tenant transmis par la façade historique.
+      schema: { type: string, format: uuid }
+    InvitationToken:
+      name: token
+      in: path
+      required: true
+      description: Jeton opaque d’activation d’invitation.
+      schema: { type: string, minLength: 32, maxLength: 512, pattern: '^[A-Za-z0-9_-]{32,512}$' }
+    InvitationId:
+      name: invitationId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    RoleId:
+      name: roleId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    Capability:
+      name: capability
+      in: path
+      required: true
+      schema: { type: string, minLength: 1, maxLength: 80, pattern: '^can_[a-z0-9_]+$' }
+    LibraryId:
+      name: libraryId
+      in: path
+      required: true
+      schema: { type: string }
+    QuoteTemplateId:
+      name: templateId
+      in: path
+      required: true
+      schema: { type: string }
+    ConversationId:
+      name: conversationId
+      in: path
+      required: true
+      schema: { type: string, minLength: 1, maxLength: 200 }
+    PimGammeSlug:
+      name: slug
+      in: path
+      required: true
+      schema: { type: string, pattern: '^[a-z0-9_-]{1,160}$' }
+    DefinitionId:
+      name: definitionId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    LibraryProductId:
+      name: productId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    ShopLibraryProductId:
+      name: libraryProductId
+      in: path
+      required: true
+      description: Identifiant du produit du catalogue dont le prix est surchargé.
+      schema: { type: string, format: uuid }
+    ShopSlug:
+      name: slug
+      in: path
+      required: true
+      description: Slug public de la boutique.
+      schema: { type: string, minLength: 1, maxLength: 160 }
+    StorefrontShopSlug:
+      name: shopSlug
+      in: path
+      required: true
+      description: Slug public de la boutique utilisé par les routes storefront.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 100
+        pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+    ShopId:
+      name: shopId
+      in: path
+      required: true
+      description: Identifiant de la boutique dans le tenant.
+      schema: { type: string, format: uuid }
+    ShopProductId:
+      name: productId
+      in: path
+      required: true
+      description: Identifiant du produit publié dans la boutique.
+      schema: { type: string, format: uuid }
+    CommercialGroupId:
+      name: groupId
+      in: path
+      required: true
+      description: Identifiant du groupe commercial.
+      schema: { type: string, format: uuid }
+    CommercialRuleId:
+      name: ruleId
+      in: path
+      required: true
+      description: Identifiant de la règle de prix commerciale.
+      schema: { type: string, format: uuid }
+    MockupTemplateType:
+      name: templateType
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/MockupTemplateType'
+    MockupView:
+      name: view
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/MockupView'
     PageSize:
       name: page[size]
       in: query
@@ -10137,6 +12650,25 @@ components:
   # En-tetes de reponse partages
   # --------------------------------------------------------------------------
   headers:
+    StorefrontSessionCookie:
+      description: >-
+        Cookie de session opaque posé par les routes storefront. En
+        production, le nom est `__Host-magrit-storefront` et impose
+        `Secure`, `Path=/`, `HttpOnly` et `SameSite=Lax`. En développement
+        local, le nom est `magrit-storefront` et `Secure` est omis ; le reste
+        des attributs est identique. Le serveur choisit le nom selon sa
+        politique de cookie, l’appelant ne le fournit jamais.
+      required: true
+      schema:
+        type: string
+    ClearedStorefrontSessionCookie:
+      description: >-
+        Même cookie storefront que `StorefrontSessionCookie`, renvoyé avec
+        `Max-Age=0` pour l’expirer : `Path=/`, `HttpOnly`, `SameSite=Lax` et
+        `Secure` lorsque le nom est `__Host-magrit-storefront`.
+      required: true
+      schema:
+        type: string
     ETag:
       description: >-
         Empreinte de la representation renvoyee. A repasser dans `If-Match`
@@ -10179,6 +12711,12 @@ components:
   responses:
     BadRequest:
       description: Requete malformee.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    BadGateway:
+      description: Service amont indisponible.
       content:
         application/problem+json:
           schema:
@@ -10277,6 +12815,12 @@ components:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/Problem'
+    ServiceUnavailable:
+      description: Service temporairement indisponible.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
     InternalError:
       description: Erreur interne non attribuable a l appelant.
       content:
@@ -10288,6 +12832,1178 @@ components:
   # Schemas partages
   # --------------------------------------------------------------------------
   schemas:
+    LegacyPriceOrigin:
+      type: [string, 'null']
+      enum: [catalog, quoted, client_unverified, legacy, null]
+    LegacyOrderItem:
+      type: object
+      additionalProperties: false
+      required: [name, quantity, unitPrice, priceOrigin]
+      properties:
+        name: { type: string }
+        quantity: { type: number }
+        unitPrice: { type: number }
+        priceOrigin: { $ref: '#/components/schemas/LegacyPriceOrigin' }
+    LegacyOrderSummary:
+      type: object
+      additionalProperties: false
+      required: [id, shopId, source, createdAt, customerName, customerEmail, items, totalHt, totalTtc, status, hasUnverifiedPrices]
+      properties:
+        id: { type: string, minLength: 1 }
+        shopId: { type: string, minLength: 1 }
+        source: { type: string, enum: [legacy, v1_1] }
+        createdAt: { type: string }
+        customerName: { type: string }
+        customerEmail: { type: string }
+        items: { type: array, items: { $ref: '#/components/schemas/LegacyOrderItem' } }
+        totalHt: { type: number }
+        totalTtc: { type: number }
+        status: { type: string }
+        hasUnverifiedPrices: { type: boolean }
+    LegacyOrdersList:
+      type: object
+      additionalProperties: false
+      required: [orders]
+      properties:
+        orders: { type: array, items: { $ref: '#/components/schemas/LegacyOrderSummary' } }
+    LegacyPortalOrdersCounters:
+      type: object
+      additionalProperties: false
+      required: [mine, to_validate, to_approve, to_produce]
+      properties:
+        mine: { type: integer, minimum: 0 }
+        to_validate: { type: integer, minimum: 0 }
+        to_approve: { type: integer, minimum: 0 }
+        to_produce: { type: integer, minimum: 0 }
+    LegacyPortalOrdersResponse:
+      type: object
+      additionalProperties: false
+      required: [counters, datasets]
+      properties:
+        counters: { $ref: '#/components/schemas/LegacyPortalOrdersCounters' }
+        datasets:
+          type: object
+          additionalProperties: false
+          required: [mine, to_validate, to_approve, to_produce]
+          properties:
+            mine: { type: array, items: { $ref: '#/components/schemas/LegacyOrderSummary' } }
+            to_validate: { type: array, items: { $ref: '#/components/schemas/LegacyOrderSummary' } }
+            to_approve: { type: array, items: { $ref: '#/components/schemas/LegacyOrderSummary' } }
+            to_produce: { type: array, items: { $ref: '#/components/schemas/LegacyOrderSummary' } }
+    LegacyCreateOrderItem:
+      type: object
+      additionalProperties: false
+      required: [productId, productLabel, clariprintOptions, quantity, expectedUnitPriceHt]
+      properties:
+        productId: { type: [string, 'null'], format: uuid }
+        productLabel: { type: string, minLength: 1 }
+        clariprintOptions: { type: [object, 'null'], additionalProperties: true }
+        quantity: { type: integer, minimum: 1 }
+        expectedUnitPriceHt: { type: string, pattern: '^[0-9]{1,10}\\.[0-9]{2}$' }
+    LegacyCreateOrderCommand:
+      type: object
+      additionalProperties: false
+      required: [shopId, currency, notes, items, idempotencyKey]
+      properties:
+        shopId: { type: string, format: uuid }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        notes: { type: string, maxLength: 5000 }
+        items: { type: array, minItems: 1, items: { $ref: '#/components/schemas/LegacyCreateOrderItem' } }
+        idempotencyKey: { type: string, minLength: 8, maxLength: 200 }
+    LegacyCreateOrderResult:
+      type: object
+      additionalProperties: false
+      required: [orderId, tenantId, shopId, totalHt, currency, replayed]
+      properties:
+        orderId: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        shopId: { type: string, format: uuid }
+        totalHt: { type: string, pattern: '^[0-9]{1,10}\\.[0-9]{2}$' }
+        currency: { type: string, minLength: 3, maxLength: 3 }
+        replayed: { type: boolean }
+    LegacyDraftOrderItem:
+      type: object
+      additionalProperties: false
+      required: [id, productId, productLabel, clariprintOptions, quantity, unitPriceHt, lineTotalHt, priceOrigin]
+      properties:
+        id: { type: string, format: uuid }
+        productId: { type: [string, 'null'], format: uuid }
+        productLabel: { type: string }
+        clariprintOptions: { type: [object, 'null'], additionalProperties: true }
+        quantity: { type: integer, minimum: 1 }
+        unitPriceHt: { type: string, pattern: '^[0-9]{1,10}\\.[0-9]{2}$' }
+        lineTotalHt: { type: string, pattern: '^[0-9]{1,10}\\.[0-9]{2}$' }
+        priceOrigin: { type: string, enum: [catalog, quoted, client_unverified, legacy] }
+    LegacyDraftOrder:
+      type: object
+      additionalProperties: false
+      required: [orderId, status, createdAt, totalHt, hasUnverifiedPrices, items]
+      properties:
+        orderId: { type: string, format: uuid }
+        status: { type: string }
+        createdAt: { type: string, format: date-time }
+        totalHt: { type: string, pattern: '^[0-9]{1,10}\\.[0-9]{2}$' }
+        hasUnverifiedPrices: { type: boolean }
+        items: { type: array, items: { $ref: '#/components/schemas/LegacyDraftOrderItem' } }
+    LegacyUpdateDraftOrderItem:
+      type: object
+      additionalProperties: false
+      required: [id, productLabel, quantity, expectedUnitPriceHt]
+      properties:
+        id: { type: string, format: uuid }
+        productLabel: { type: string, minLength: 1 }
+        quantity: { type: integer, minimum: 1 }
+        expectedUnitPriceHt: { type: string, pattern: '^[0-9]{1,10}\\.[0-9]{2}$' }
+    LegacyUpdateDraftOrderCommand:
+      type: object
+      additionalProperties: false
+      required: [items, idempotencyKey]
+      properties:
+        items: { type: array, minItems: 1, items: { $ref: '#/components/schemas/LegacyUpdateDraftOrderItem' } }
+        idempotencyKey: { type: string, minLength: 8, maxLength: 200 }
+    LegacyUpdateDraftOrderResult:
+      type: object
+      additionalProperties: false
+      required: [orderId, totalHt, replayed]
+      properties:
+        orderId: { type: string, format: uuid }
+        totalHt: { type: string, pattern: '^[0-9]{1,10}\\.[0-9]{2}$' }
+        replayed: { type: boolean }
+    LegacyOrderRolesResponse:
+      type: object
+      additionalProperties: false
+      required: [roles, capabilities, isCreator]
+      properties:
+        roles:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [assignmentId, roleDefinitionId, name, capabilities, notifyPolicy, orderingIndex]
+            properties:
+              assignmentId: { type: string, format: uuid }
+              roleDefinitionId: { type: string, format: uuid }
+              name: { type: string }
+              capabilities: { type: object, additionalProperties: { type: boolean } }
+              notifyPolicy: { type: string, enum: [chain_next, all_roles, none] }
+              orderingIndex: { type: integer }
+        capabilities: { type: object, additionalProperties: { type: boolean } }
+        isCreator: { type: boolean }
+    LegacyAuditEvent:
+      type: object
+      additionalProperties: false
+      required: [eventId, orderId, kind, eventType, actorId, actorEmail, shopCustomerAccountId, actedByMagritUserId, roleName, payload, occurredAt]
+      properties:
+        eventId: { type: string, minLength: 1 }
+        orderId: { type: string, minLength: 1 }
+        kind: { type: string, enum: [status, role] }
+        eventType: { type: string }
+        actorId: { type: [string, 'null'] }
+        actorEmail: { type: [string, 'null'] }
+        shopCustomerAccountId: { type: [string, 'null'] }
+        actedByMagritUserId: { type: [string, 'null'] }
+        roleName: { type: [string, 'null'] }
+        payload: { type: object, additionalProperties: true }
+        occurredAt: { type: string }
+    LegacyOrderAuditTrail:
+      type: object
+      additionalProperties: false
+      required: [events]
+      properties:
+        events: { type: array, items: { $ref: '#/components/schemas/LegacyAuditEvent' } }
+    LegacyTransitionOrderCommand:
+      type: object
+      additionalProperties: false
+      required: [toStatus, idempotencyKey]
+      properties:
+        toStatus: { type: string, enum: [validated, in_production, shipped, delivered, invoiced, cancelled] }
+        reason: { type: [string, 'null'], minLength: 1 }
+        idempotencyKey: { type: string, minLength: 8, maxLength: 200 }
+        acknowledgeUnverifiedPrices: { type: boolean, default: false }
+    LegacyTransitionOrderResult:
+      type: object
+      additionalProperties: false
+      required: [orderId, fromStatus, toStatus, replayed]
+      properties:
+        orderId: { type: string, minLength: 1 }
+        fromStatus: { type: string }
+        toStatus: { type: string }
+        replayed: { type: boolean }
+    TenantSlugResolution:
+      type: object
+      additionalProperties: false
+      required: [slug]
+      properties:
+        slug: { type: [string, 'null'] }
+    TenantPlan:
+      type: string
+      enum: [freemium, pro, enterprise]
+    TenantRole:
+      type: string
+      enum: [admin, member]
+    AccessScope:
+      type: string
+      enum: [magrit_full, shop_only]
+    MemberPermissions:
+      type: object
+      additionalProperties: false
+      required: [can_quote, can_order, can_invite]
+      properties:
+        can_quote: { type: boolean }
+        can_order: { type: boolean }
+        can_invite: { type: boolean }
+    SessionTenant:
+      type: object
+      additionalProperties: false
+      required: [id, slug, name, parent_tenant_id, plan, is_system_tenant, settings, created_at, myRole, accessScope, allowedShopIds, permissions, inheritedFromParent]
+      properties:
+        id: { type: string, minLength: 1 }
+        slug: { type: string, minLength: 1 }
+        name: { type: string, minLength: 1 }
+        parent_tenant_id: { type: [string, 'null'] }
+        plan: { $ref: '#/components/schemas/TenantPlan' }
+        is_system_tenant: { type: boolean }
+        settings: { type: object, additionalProperties: true }
+        created_at: { type: string }
+        siren: { type: [string, 'null'] }
+        siren_data: { type: [object, 'null'], additionalProperties: true }
+        verified: { type: boolean }
+        verified_at: { type: [string, 'null'] }
+        tax_regime: { type: [string, 'null'] }
+        myRole: { $ref: '#/components/schemas/TenantRole' }
+        accessScope: { $ref: '#/components/schemas/AccessScope' }
+        allowedShopIds: { type: array, items: { type: string } }
+        permissions: { $ref: '#/components/schemas/MemberPermissions' }
+        inheritedFromParent: { type: boolean }
+    UserPreferences:
+      type: object
+      additionalProperties: false
+      required: [theme, language, default_delivery_zone, notifications_email, plan, is_admin, last_tenant_id]
+      properties:
+        theme: { type: string, enum: [light, dark] }
+        language: { type: string, enum: [fr, en] }
+        default_delivery_zone: { type: string }
+        notifications_email: { type: boolean }
+        plan: { $ref: '#/components/schemas/TenantPlan' }
+        is_admin: { type: boolean }
+        last_tenant_id: { type: [string, 'null'] }
+    SessionBootstrap:
+      type: object
+      additionalProperties: false
+      required: [user, tenants, isSuperAdmin, preferences]
+      properties:
+        user:
+          type: object
+          additionalProperties: false
+          required: [id]
+          properties: { id: { type: string, minLength: 1 } }
+        tenants: { type: array, items: { $ref: '#/components/schemas/SessionTenant' } }
+        isSuperAdmin: { type: boolean }
+        preferences: { $ref: '#/components/schemas/UserPreferences' }
+    UpdatePreferencesCommand:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        theme: { type: string, enum: [light, dark] }
+        language: { type: string, enum: [fr, en] }
+        default_delivery_zone: { type: string }
+        notifications_email: { type: boolean }
+    UpdateCurrentTenantCommand:
+      type: object
+      additionalProperties: false
+      required: [tenantId]
+      properties: { tenantId: { type: string, minLength: 1 } }
+    UpdateTenantSettingsCommand:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name: { type: string, minLength: 1, maxLength: 160 }
+        slug: { type: string, minLength: 3, maxLength: 60, pattern: '^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$' }
+        plan: { $ref: '#/components/schemas/TenantPlan' }
+    CreateSubTenantCommand:
+      type: object
+      additionalProperties: false
+      required: [name, slug]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 160 }
+        slug: { type: string, minLength: 3, maxLength: 60, pattern: '^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$' }
+    CreateRootTenantCommand:
+      type: object
+      additionalProperties: false
+      required: [name, slug]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 160 }
+        slug: { type: string, minLength: 3, maxLength: 60, pattern: '^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$' }
+        siren: { type: string, minLength: 1, maxLength: 32 }
+        sirenData: { type: object, additionalProperties: true }
+        gammeSlugs: { type: array, maxItems: 200, items: { type: string, minLength: 1, maxLength: 160 } }
+    CreateTenantResult:
+      type: object
+      additionalProperties: false
+      required: [tenantId]
+      properties: { tenantId: { type: string, minLength: 1 } }
+    TenantMutationResult:
+      type: object
+      additionalProperties: false
+      required: [updated]
+      properties: { updated: { const: true } }
+    SubTenant:
+      type: object
+      additionalProperties: false
+      required: [id, slug, name, createdAt]
+      properties:
+        id: { type: string, minLength: 1 }
+        slug: { type: string }
+        name: { type: string }
+        createdAt: { type: string }
+    SubTenantKpi:
+      type: object
+      additionalProperties: false
+      required: [tenantId, tenantName, tenantSlug, createdAt, memberCount, monthOrderCount, monthCaHt]
+      properties:
+        tenantId: { type: string, minLength: 1 }
+        tenantName: { type: string }
+        tenantSlug: { type: string }
+        createdAt: { type: string }
+        memberCount: { type: integer, minimum: 0 }
+        monthOrderCount: { type: integer, minimum: 0 }
+        monthCaHt: { type: number, minimum: 0 }
+    SubTenantsDashboard:
+      type: object
+      additionalProperties: false
+      required: [subTenants, kpis]
+      properties:
+        subTenants: { type: array, items: { $ref: '#/components/schemas/SubTenant' } }
+        kpis: { type: array, items: { $ref: '#/components/schemas/SubTenantKpi' } }
+    RemoveSubTenantResult:
+      type: object
+      additionalProperties: false
+      required: [removed]
+      properties: { removed: { const: true } }
+    AcceptTenantInvitationCommand:
+      type: object
+      additionalProperties: false
+      required: [token]
+      properties: { token: { type: string, minLength: 1, maxLength: 512 } }
+    InvitationActivation:
+      type: object
+      additionalProperties: false
+      required: [email, tenantName, accountExists, expiresAt]
+      properties:
+        email: { type: string, format: email }
+        tenantName: { type: string, minLength: 1 }
+        accountExists: { type: boolean }
+        expiresAt: { type: string }
+    InvitationOptions:
+      type: object
+      additionalProperties: false
+      required: [roles, shops]
+      properties:
+        roles:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [id, name, description, systemKey]
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string }
+              description: { type: string }
+              systemKey: { type: [string, 'null'] }
+        shops:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [id, name]
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string }
+    CreateInvitationCommand:
+      type: object
+      additionalProperties: false
+      required: [email, tenantId, baseUrl, role, roleDefinitionIds]
+      properties:
+        email: { type: string, format: email }
+        tenantId: { type: string, format: uuid }
+        baseUrl: { type: string, format: uri }
+        role: { $ref: '#/components/schemas/TenantRole' }
+        roleDefinitionIds: { type: array, items: { type: string, format: uuid } }
+    CreateInvitationResult:
+      type: object
+      additionalProperties: false
+      required: [invitationId, sent, link]
+      properties:
+        invitationId: { type: string, format: uuid }
+        sent: { type: boolean }
+        link: { type: string, format: uri }
+        reason: { type: string }
+    PendingInvitation:
+      type: object
+      additionalProperties: false
+      required: [id, email, role, expiresAt, createdAt, accessScope, allowedShopIds, permissions]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        role: { $ref: '#/components/schemas/TenantRole' }
+        expiresAt: { type: string }
+        createdAt: { type: string }
+        accessScope: { $ref: '#/components/schemas/AccessScope' }
+        allowedShopIds: { type: array, items: { type: string, format: uuid } }
+        permissions:
+          type: object
+          additionalProperties: false
+          required: [canQuote, canOrder, canInvite]
+          properties:
+            canQuote: { type: boolean }
+            canOrder: { type: boolean }
+            canInvite: { type: boolean }
+    PendingInvitations:
+      type: array
+      items: { $ref: '#/components/schemas/PendingInvitation' }
+    ResendInvitationCommand:
+      type: object
+      additionalProperties: false
+      required: [baseUrl]
+      properties: { baseUrl: { type: string, format: uri } }
+    ResendInvitationResult:
+      type: object
+      additionalProperties: false
+      required: [sent, link]
+      properties:
+        sent: { type: boolean }
+        link: { type: string, format: uri }
+        reason: { type: string }
+    RevokeInvitationResult:
+      type: object
+      additionalProperties: false
+      required: [revoked]
+      properties: { revoked: { const: true } }
+    TenantMember:
+      type: object
+      additionalProperties: false
+      required: [userId, email, role, joinedAt, accessScope, allowedShopIds, permissions]
+      properties:
+        userId: { type: string, format: uuid }
+        email: { type: [string, 'null'], format: email }
+        role: { $ref: '#/components/schemas/TenantRole' }
+        joinedAt: { type: string }
+        accessScope: { $ref: '#/components/schemas/AccessScope' }
+        allowedShopIds: { type: array, items: { type: string, format: uuid } }
+        permissions:
+          type: object
+          additionalProperties: false
+          required: [canQuote, canOrder, canInvite]
+          properties:
+            canQuote: { type: boolean }
+            canOrder: { type: boolean }
+            canInvite: { type: boolean }
+    TenantMembers:
+      type: array
+      items: { $ref: '#/components/schemas/TenantMember' }
+    ChangeMemberRoleCommand:
+      type: object
+      additionalProperties: false
+      required: [role]
+      properties: { role: { $ref: '#/components/schemas/TenantRole' } }
+    UpdateMemberAccessCommand:
+      type: object
+      additionalProperties: false
+      required: [accessScope, allowedShopIds, permissions]
+      properties:
+        accessScope: { const: magrit_full }
+        allowedShopIds: { type: array, maxItems: 0, items: { type: string, format: uuid } }
+        permissions:
+          type: object
+          additionalProperties: false
+          required: [canQuote, canOrder, canInvite]
+          properties:
+            canQuote: { type: boolean }
+            canOrder: { type: boolean }
+            canInvite: { type: boolean }
+    RemoveMemberResult:
+      type: object
+      additionalProperties: false
+      required: [removed]
+      properties: { removed: { const: true } }
+    RoleDefinition:
+      type: object
+      additionalProperties: false
+      required: [id, name, description, capabilities, orderingIndex, systemKey]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string }
+        capabilities: { type: object, additionalProperties: { type: boolean } }
+        orderingIndex: { type: number }
+        systemKey: { type: [string, 'null'] }
+    RoleAssignment:
+      type: object
+      additionalProperties: false
+      required: [id, roleId, userId]
+      properties:
+        id: { type: string, format: uuid }
+        roleId: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
+    RoleMember:
+      type: object
+      additionalProperties: false
+      required: [userId, email, legacyRole]
+      properties:
+        userId: { type: string, format: uuid }
+        email: { type: string, format: email }
+        legacyRole: { type: string }
+    RolesOverview:
+      type: object
+      additionalProperties: false
+      required: [roles, members, assignments]
+      properties:
+        roles: { type: array, items: { $ref: '#/components/schemas/RoleDefinition' } }
+        members: { type: array, items: { $ref: '#/components/schemas/RoleMember' } }
+        assignments: { type: array, items: { $ref: '#/components/schemas/RoleAssignment' } }
+    RoleCatalogDefinition:
+      allOf:
+        - $ref: '#/components/schemas/RoleDefinition'
+        - type: object
+          additionalProperties: false
+          required: [tenantId, notifyPolicy, scope, scopeShopId, archivedAt]
+          properties:
+            tenantId: { type: string, format: uuid }
+            notifyPolicy: { type: string, enum: [chain_next, all_roles, none] }
+            scope: { type: string, enum: [tenant, shop] }
+            scopeShopId: { type: [string, 'null'], format: uuid }
+            archivedAt: { type: [string, 'null'], format: date-time }
+    RolesCatalog:
+      type: object
+      additionalProperties: false
+      required: [roles, members, assignments]
+      properties:
+        roles: { type: array, items: { $ref: '#/components/schemas/RoleCatalogDefinition' } }
+        members: { type: array, items: { $ref: '#/components/schemas/RoleMember' } }
+        assignments: { type: array, items: { $ref: '#/components/schemas/RoleAssignment' } }
+    SaveRoleDefinitionCommand:
+      type: object
+      additionalProperties: false
+      required: [name, description, capabilities, notifyPolicy, scope, scopeShopId, orderingIndex]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 50 }
+        description: { type: string, maxLength: 500, default: '' }
+        capabilities: { type: object, minProperties: 1, additionalProperties: { type: boolean } }
+        notifyPolicy: { type: string, enum: [chain_next, all_roles, none] }
+        scope: { type: string, enum: [tenant, shop] }
+        scopeShopId: { type: [string, 'null'], format: uuid }
+        orderingIndex: { type: integer }
+    ReorderRolesCommand:
+      type: object
+      additionalProperties: false
+      required: [firstRoleId, secondRoleId]
+      properties:
+        firstRoleId: { type: string, format: uuid }
+        secondRoleId: { type: string, format: uuid }
+    ReorderRolesResult:
+      type: object
+      additionalProperties: false
+      required: [reordered]
+      properties: { reordered: { const: true } }
+    ArchiveRoleResult:
+      type: object
+      additionalProperties: false
+      required: [archived]
+      properties: { archived: { const: true } }
+    UserCapability:
+      type: object
+      additionalProperties: false
+      required: [capability, granted]
+      properties:
+        capability: { type: string, minLength: 1, maxLength: 80, pattern: '^can_[a-z0-9_]+$' }
+        granted: { type: boolean }
+    UserAccessProfile:
+      type: object
+      additionalProperties: false
+      required: [tenantId, userId, membership, isAdmin, surfaces, capabilities]
+      properties:
+        tenantId: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
+        membership: { $ref: '#/components/schemas/TenantRole' }
+        isAdmin: { type: boolean }
+        surfaces: { type: array, items: { type: string, enum: [workspace, backoffice] } }
+        capabilities: { type: array, items: { type: string } }
+    UserRolesDetail:
+      type: object
+      additionalProperties: false
+      required: [roles, assignments, shops, accessScope, allowedShopIds]
+      properties:
+        roles: { type: array, items: { $ref: '#/components/schemas/RoleDefinition' } }
+        assignments: { type: array, items: { $ref: '#/components/schemas/RoleAssignment' } }
+        shops:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [id, name]
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string }
+        accessScope: { $ref: '#/components/schemas/AccessScope' }
+        allowedShopIds: { type: array, items: { type: string, format: uuid } }
+    SetRoleAssignmentCommand:
+      type: object
+      additionalProperties: false
+      required: [active]
+      properties: { active: { type: boolean } }
+    SetRoleAssignmentResult:
+      type: object
+      additionalProperties: false
+      required: [active, assignmentId]
+      properties:
+        active: { type: boolean }
+        assignmentId: { type: [string, 'null'], format: uuid }
+    CatalogRecord:
+      type: object
+      additionalProperties: true
+    GammeSubscription:
+      type: object
+      additionalProperties: false
+      required: [gammeSlug, active, displayOrder]
+      properties:
+        gammeSlug: { type: string, minLength: 1, maxLength: 160 }
+        active: { type: boolean }
+        displayOrder: { type: integer }
+    GammeSubscriptions:
+      type: array
+      items: { $ref: '#/components/schemas/GammeSubscription' }
+    SetGammeSubscriptionsCommand:
+      type: object
+      additionalProperties: false
+      required: [subscriptions]
+      properties:
+        subscriptions:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items:
+            type: object
+            required: [gammeSlug, active]
+            additionalProperties: false
+            properties:
+              gammeSlug: { type: string, minLength: 1, maxLength: 160 }
+              active: { type: boolean }
+    PimGamme:
+      type: object
+      additionalProperties: false
+      required: [id, slug, name, parentSlug, matchingRules, displayOrder, imageUrl]
+      properties:
+        id: { type: string, format: uuid }
+        slug: { type: string }
+        name: { type: string }
+        parentSlug: { type: [string, 'null'] }
+        matchingRules: { type: object, additionalProperties: true }
+        displayOrder: { type: integer }
+        imageUrl: { type: [string, 'null'] }
+    PimDefinition:
+      type: object
+      additionalProperties: true
+      required: [id, gammeSlug, variationFilter, locale, usageExamples, faq, version]
+      properties:
+        id: { type: string, format: uuid }
+        gammeSlug: { type: string }
+        variationFilter: { type: object, additionalProperties: true }
+        locale: { type: string }
+        usageExamples: { type: array, items: { type: object, additionalProperties: true } }
+        faq: { type: array, items: { type: object, additionalProperties: true } }
+        version: { type: integer }
+    PimCatalog:
+      type: object
+      additionalProperties: false
+      required: [gammes, definitions]
+      properties:
+        gammes: { type: array, items: { $ref: '#/components/schemas/PimGamme' } }
+        definitions: { type: array, items: { $ref: '#/components/schemas/PimDefinition' } }
+    UpsertPimGammeCommand:
+      type: object
+      additionalProperties: false
+      required: [slug, name]
+      properties:
+        slug: { type: string, minLength: 1, maxLength: 160, pattern: '^[a-z0-9_-]+$' }
+        name: { type: string, minLength: 1, maxLength: 160 }
+        parentSlug: { type: [string, 'null'] }
+        matchingRules: { type: object, additionalProperties: true }
+        displayOrder: { type: integer }
+        imageUrl: { type: [string, 'null'] }
+    UpsertPimDefinitionCommand:
+      type: object
+      additionalProperties: true
+      required: [gammeSlug, variationFilter, locale]
+      properties:
+        gammeSlug: { type: string, minLength: 1, maxLength: 160 }
+        variationFilter: { type: object, additionalProperties: true }
+        locale: { type: string, minLength: 2, maxLength: 12 }
+    CatalogRemovalResult:
+      type: object
+      additionalProperties: false
+      required: [removed]
+      properties: { removed: { const: true } }
+    PimPendingCandidates:
+      type: object
+      required: [pendingCount]
+      properties: { pendingCount: { type: integer, minimum: 0 } }
+    RunPimIngestCommand:
+      type: object
+      required: [dryRun]
+      properties: { dryRun: { type: boolean } }
+    PimIngestReport:
+      type: object
+      required: [dryRun, totalCandidates, matched, rejected, enriched, errors]
+      properties:
+        dryRun: { type: boolean }
+        totalCandidates: { type: integer, minimum: 0 }
+        matched: { type: array, items: { type: object, additionalProperties: true } }
+        rejected: { type: array, items: { type: object, additionalProperties: true } }
+        enriched: { type: array, items: { type: object, additionalProperties: true } }
+        errors: { type: array, items: { type: object, additionalProperties: true } }
+    GeneratePimDefinitionCommand:
+      type: object
+      required: [gammeSlug, locale]
+      properties:
+        gammeSlug: { type: string, minLength: 1, maxLength: 160 }
+        gammeName: { type: string, minLength: 1, maxLength: 160 }
+        gammeMatchingRules: { type: object, additionalProperties: true }
+        locale: { type: string, minLength: 2, maxLength: 12 }
+        variationFilter: { type: object, additionalProperties: true, default: {} }
+        mode: { type: string, enum: [generate, validate], default: generate }
+        existing: { type: object, additionalProperties: true }
+    GeneratedPimDefinition:
+      type: object
+      required: [generated]
+      properties: { generated: { type: object, additionalProperties: true } }
+    ShopProduct:
+      type: object
+      additionalProperties: false
+      required: [id, shopId, productId, name, category, description, priceHt, imageUrl, config, displayOrder, createdAt, tenantId, gammeSlug]
+      properties:
+        id: { type: string }
+        shopId: { type: string, format: uuid }
+        productId: { type: [string, 'null'], format: uuid }
+        name: { type: string }
+        category: { type: string }
+        description: { type: string }
+        priceHt: { type: number, minimum: 0 }
+        imageUrl: { type: string }
+        config: { type: object, additionalProperties: true }
+        displayOrder: { type: integer }
+        createdAt: { type: string, format: date-time }
+        tenantId: { type: [string, 'null'], format: uuid }
+        gammeSlug: { type: [string, 'null'] }
+    ShopTheme:
+      type: object
+      additionalProperties: false
+      required: [primaryColor, accentColor, mode]
+      properties:
+        primaryColor: { type: string }
+        accentColor: { type: string }
+        mode: { type: string, enum: [light, dark] }
+        secondaryColor: { type: string }
+        textColor: { type: string }
+        bgColor: { type: string }
+        fontPairing: { type: string }
+    Shop:
+      type: object
+      additionalProperties: false
+      required: [id, tenantId, ownerUserId, slug, name, description, theme, logoUrl, address, contactEmail, active, libraryIds, excludedProductIds, heroImageUrl, tagline, pimCatalogMode, pimGammeSlugs, accessMode, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        ownerUserId: { type: string, format: uuid }
+        slug: { type: string }
+        name: { type: string }
+        description: { type: string }
+        theme: { $ref: '#/components/schemas/ShopTheme' }
+        logoUrl: { type: string }
+        address: { type: string }
+        contactEmail: { type: string }
+        active: { type: boolean }
+        libraryIds: { type: array, items: { type: string, format: uuid } }
+        excludedProductIds: { type: array, items: { type: string, format: uuid } }
+        heroImageUrl: { type: [string, 'null'] }
+        tagline: { type: [string, 'null'] }
+        pimCatalogMode: { type: boolean }
+        pimGammeSlugs: { type: array, items: { type: string } }
+        accessMode: { type: string, enum: [invite_only, self_signup] }
+        createdAt: { type: string, format: date-time }
+    TenantShops:
+      type: array
+      items: { $ref: '#/components/schemas/Shop' }
+    CreateShopCommand:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: string, maxLength: 2000, default: '' }
+        logoUrl: { type: string, default: '' }
+        address: { type: string, default: '' }
+        contactEmail: { type: string, default: '' }
+        theme: { $ref: '#/components/schemas/ShopThemeInput' }
+        heroImageUrl: { type: [string, 'null'], default: null }
+        tagline: { type: [string, 'null'], maxLength: 120, default: null }
+    ShopThemeInput:
+      type: object
+      additionalProperties: false
+      properties:
+        primaryColor: { type: string }
+        accentColor: { type: string }
+        mode: { type: string, enum: [light, dark] }
+        secondaryColor: { type: string }
+        textColor: { type: string }
+        bgColor: { type: string }
+        fontPairing: { type: string }
+    UpdateShopCommand:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: string, maxLength: 2000 }
+        logoUrl: { type: string }
+        address: { type: string }
+        contactEmail: { type: string }
+        theme: { $ref: '#/components/schemas/ShopTheme' }
+        active: { type: boolean }
+        libraryIds: { type: array, items: { type: string, format: uuid } }
+        excludedProductIds: { type: array, items: { type: string, format: uuid } }
+        heroImageUrl: { type: [string, 'null'] }
+        tagline: { type: [string, 'null'], maxLength: 120 }
+        pimCatalogMode: { type: boolean }
+        pimGammeSlugs: { type: array, items: { type: string } }
+        accessMode: { type: string, enum: [invite_only, self_signup] }
+    ShopMutationResult:
+      type: object
+      additionalProperties: false
+      required: [updated]
+      properties: { updated: { const: true } }
+    ShopRemovalResult:
+      type: object
+      additionalProperties: false
+      required: [removed]
+      properties: { removed: { const: true } }
+    ShopPricingOverride:
+      type: object
+      additionalProperties: false
+      required: [libraryProductId, priceHtOverride]
+      properties:
+        libraryProductId: { type: string, format: uuid }
+        priceHtOverride: { type: number, exclusiveMinimum: 0 }
+    ShopPricingOverrides:
+      type: array
+      items: { $ref: '#/components/schemas/ShopPricingOverride' }
+    SetShopPricingCommand:
+      type: object
+      additionalProperties: false
+      required: [priceHtOverride]
+      properties:
+        priceHtOverride: { type: [number, 'null'], exclusiveMinimum: 0 }
+    ShopPricingMutationResult:
+      type: object
+      additionalProperties: false
+      required: [updated]
+      properties: { updated: { const: true } }
+    ShopBrandAssetKind:
+      type: string
+      enum: [logo, hero]
+    ShopBrandAssetUpload:
+      type: object
+      additionalProperties: false
+      required: [kind, asset]
+      properties:
+        kind: { $ref: '#/components/schemas/ShopBrandAssetKind' }
+        asset: { type: string, format: binary }
+    ShopBrandAssetResult:
+      type: object
+      additionalProperties: false
+      required: [assetUrl]
+      properties: { assetUrl: { type: string, format: uri } }
+    MockupTemplateType:
+      type: string
+      enum: [carteVisite, flyer, brochure, etiquette, kakemono, packaging, depliant]
+    MockupView:
+      type: string
+      enum: [front, back]
+    ShopCustomMockup:
+      type: object
+      additionalProperties: false
+      required: [shopId, templateType, view, mockupImageUrl]
+      properties:
+        shopId: { type: string, format: uuid }
+        templateType: { $ref: '#/components/schemas/MockupTemplateType' }
+        view: { $ref: '#/components/schemas/MockupView' }
+        mockupImageUrl: { type: string, format: uri }
+    ShopCustomMockups:
+      type: array
+      items: { $ref: '#/components/schemas/ShopCustomMockup' }
+    ShopCustomMockupUpload:
+      type: object
+      additionalProperties: false
+      required: [templateType, view, asset]
+      properties:
+        templateType: { $ref: '#/components/schemas/MockupTemplateType' }
+        view: { $ref: '#/components/schemas/MockupView' }
+        asset: { type: string, format: binary }
+    ShopCustomMockupMutationResult:
+      type: object
+      additionalProperties: false
+      required: [updated]
+      properties: { updated: { const: true } }
+    PersistAiShopProductCommand:
+      type: object
+      additionalProperties: false
+      required: [configHash, name, category, description, priceHt, imageUrl, config, gammeSlug]
+      properties:
+        configHash: { type: string, minLength: 1, maxLength: 500 }
+        name: { type: string, minLength: 1, maxLength: 300 }
+        category: { type: string, maxLength: 200 }
+        description: { type: string, maxLength: 5000 }
+        priceHt: { type: number, minimum: 0 }
+        imageUrl: { type: string, maxLength: 4000 }
+        config: { type: object, additionalProperties: true }
+        gammeSlug: { type: [string, 'null'], maxLength: 200 }
+    PersistAiShopProductResult:
+      type: object
+      additionalProperties: false
+      required: [persisted]
+      properties: { persisted: { const: true } }
+    CategoryEditorialCommand:
+      type: object
+      additionalProperties: false
+      required: [familyName, subcategories, sampleProducts]
+      properties:
+        familyName: { type: string, minLength: 1, maxLength: 160 }
+        subcategories:
+          type: array
+          maxItems: 12
+          items: { type: string, minLength: 1, maxLength: 160 }
+        sampleProducts:
+          type: array
+          maxItems: 8
+          items: { type: string, minLength: 1, maxLength: 200 }
+    CategoryEditorial:
+      type: object
+      additionalProperties: false
+      properties:
+        title: { type: string, maxLength: 60 }
+        intro: { type: string, maxLength: 240 }
+        seo: { type: string, maxLength: 155 }
+    CategoryEditorialResult:
+      type: object
+      additionalProperties: false
+      required: [editorial, generated]
+      properties:
+        editorial: { $ref: '#/components/schemas/CategoryEditorial' }
+        generated: { type: boolean }
+    CommercialMember:
+      type: object
+      additionalProperties: false
+      required: [user_id, email]
+      properties:
+        user_id: { type: string }
+        email: { type: string }
+    CommercialGamme:
+      type: object
+      additionalProperties: false
+      required: [slug, name]
+      properties:
+        slug: { type: string }
+        name: { type: string }
+    ClientGroup:
+      type: object
+      additionalProperties: false
+      required: [id, tenant_id, name, created_at]
+      properties:
+        id: { type: string }
+        tenant_id: { type: string }
+        name: { type: string }
+        created_at: { type: string }
+        member_count: { type: integer, minimum: 0 }
+    ClientPriceRule:
+      type: object
+      additionalProperties: false
+      required: [id, tenant_id, name, scope_type, group_id, user_id, target_type, gamme_slug, product_definition_id, adjust_mode, value, priority, active, valid_from, valid_until, created_at]
+      properties:
+        id: { type: string }
+        tenant_id: { type: string }
+        name: { type: string }
+        scope_type: { type: string, enum: [tenant, group, user] }
+        group_id: { type: [string, 'null'] }
+        user_id: { type: [string, 'null'] }
+        target_type: { type: string, enum: [all, gamme, product] }
+        gamme_slug: { type: [string, 'null'] }
+        product_definition_id: { type: [string, 'null'] }
+        adjust_mode: { type: string, enum: [margin_pct, discount_pct, fixed_price] }
+        value: { type: number }
+        priority: { type: integer }
+        active: { type: boolean }
+        valid_from: { type: [string, 'null'] }
+        valid_until: { type: [string, 'null'] }
+        created_at: { type: string }
+    CommercialOverview:
+      type: object
+      additionalProperties: false
+      required: [available, rules, groups, members, gammes]
+      properties:
+        available: { type: boolean }
+        rules: { type: array, items: { $ref: '#/components/schemas/ClientPriceRule' } }
+        groups: { type: array, items: { $ref: '#/components/schemas/ClientGroup' } }
+        members: { type: array, items: { $ref: '#/components/schemas/CommercialMember' } }
+        gammes: { type: array, items: { $ref: '#/components/schemas/CommercialGamme' } }
+    CreateClientGroupCommand:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+    GroupMembers:
+      type: array
+      items: { type: string }
+    CreateClientPriceRuleCommand:
+      type: object
+      additionalProperties: false
+      required: [name, scope_type, group_id, user_id, target_type, gamme_slug, product_definition_id, adjust_mode, value]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 300 }
+        scope_type: { type: string, enum: [tenant, group, user] }
+        group_id: { type: [string, 'null'] }
+        user_id: { type: [string, 'null'] }
+        target_type: { type: string, enum: [all, gamme, product] }
+        gamme_slug: { type: [string, 'null'] }
+        product_definition_id: { type: [string, 'null'] }
+        adjust_mode: { type: string, enum: [margin_pct, discount_pct, fixed_price] }
+        value: { type: number, minimum: 0 }
+    SetRuleActiveCommand:
+      type: object
+      additionalProperties: false
+      required: [active]
+      properties:
+        active: { type: boolean }
+    CommercialRemoved:
+      type: object
+      additionalProperties: false
+      required: [removed]
+      properties: { removed: { const: true } }
+    CommercialUpdated:
+      type: object
+      additionalProperties: false
+      required: [updated]
+      properties: { updated: { const: true } }
+    PublicShopProbe:
+      type: object
+      additionalProperties: false
+      required: [id, tenantId, accessMode]
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        accessMode: { type: string, enum: [invite_only, self_signup] }
+    ShopProducts:
+      type: array
+      items: { $ref: '#/components/schemas/ShopProduct' }
+    CreateShopProductCommand:
+      type: object
+      required: [name, category, description, priceHt, imageUrl, config, displayOrder, gammeSlug]
+      properties:
+        name: { type: string }
+        category: { type: string }
+        description: { type: string }
+        priceHt: { type: number, minimum: 0 }
+        imageUrl: { type: string }
+        config: { type: object, additionalProperties: true }
+        displayOrder: { type: integer }
+        gammeSlug: { type: [string, 'null'] }
+    UpdateShopProductCommand:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name: { type: string }
+        category: { type: string }
+        description: { type: string }
+        priceHt: { type: number, minimum: 0 }
+        imageUrl: { type: string }
+        config: { type: object, additionalProperties: true }
+        displayOrder: { type: integer }
+        gammeSlug: { type: [string, 'null'] }
+    PublicShopCatalog:
+      type: object
+      required: [shop, taxRegime, products, gammes, definitions, subscribedSlugs, customMockups]
+      properties:
+        shop: { type: object, additionalProperties: true }
+        taxRegime: { type: string, enum: [metropole_fr, dom_tom, franchise_tva, export_eu, export_world] }
+        products: { type: array, items: { $ref: '#/components/schemas/ShopProduct' } }
+        gammes: { type: array, items: { type: object, additionalProperties: true } }
+        definitions: { type: array, items: { type: object, additionalProperties: true } }
+        subscribedSlugs: { type: array, items: { type: string } }
+        customMockups: { type: array, items: { type: object, additionalProperties: true } }
+    LibraryProductInput:
+      type: object
+      additionalProperties: false
+      required: [library_id, name, category, description, price_ht, image_url, config, active]
+      properties:
+        library_id: { type: [string, 'null'] }
+        name: { type: string, minLength: 1, maxLength: 300 }
+        category: { type: string, maxLength: 200 }
+        description: { type: string, maxLength: 5000 }
+        price_ht: { type: number, minimum: 0 }
+        image_url: { type: string, maxLength: 4000 }
+        config: { type: object, additionalProperties: true }
+        active: { type: boolean }
+        gamme_slug: { type: [string, 'null'], maxLength: 200 }
+    LibraryProduct:
+      allOf:
+        - $ref: '#/components/schemas/LibraryProductInput'
+        - type: object
+          required: [id]
+          properties:
+            id: { type: string }
+            tenant_id: { type: string }
+            user_id: { type: string }
+            created_at: { type: string }
+    LibraryProducts:
+      type: array
+      items: { $ref: '#/components/schemas/LibraryProduct' }
+    CreateLibraryProductsCommand:
+      type: object
+      additionalProperties: false
+      required: [products]
+      properties:
+        products:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items: { $ref: '#/components/schemas/LibraryProductInput' }
+    UpdateLibraryProductCommand:
+      type: object
+      additionalProperties: false
+      properties:
+        library_id: { type: [string, 'null'] }
+        name: { type: string, minLength: 1, maxLength: 300 }
+        category: { type: string, maxLength: 200 }
+        description: { type: string, maxLength: 5000 }
+        price_ht: { type: number, minimum: 0 }
+        image_url: { type: string, maxLength: 4000 }
+        config: { type: object, additionalProperties: true }
+        active: { type: boolean }
+        gamme_slug: { type: [string, 'null'], maxLength: 200 }
+    LibraryProductRemovalResult:
+      type: object
+      required: [removed]
+      properties: { removed: { const: true } }
+    PimGeneratedProductsResult:
+      type: object
+      required: [created]
+      properties: { created: { type: integer, minimum: 0 } }
+    ClearPimGeneratedProductsResult:
+      type: object
+      required: [removed]
+      properties: { removed: { type: integer, minimum: 0 } }
     Money:
       title: Money
       description: >-
@@ -10680,6 +14396,259 @@ components:
           type: string
           pattern: '^[A-Z]{2}$'
           examples: [FR]
+
+    ShopCustomerEmail:
+      title: ShopCustomerEmail
+      type: string
+      format: email
+      maxLength: 320
+      description: Adresse email normalisée côté serveur pour l’identité boutique.
+    ShopCustomerAccountStatus:
+      title: ShopCustomerAccountStatus
+      type: string
+      enum: [delegated_only, invited, active, suspended]
+    ShopCustomerAccount:
+      title: ShopCustomerAccount
+      type: object
+      additionalProperties: false
+      required: [id, shopId, email, normalizedEmail, fullName, authSubjectId, status, createdByMagritUserId, createdAt, activatedAt, suspendedAt]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        shopId: { $ref: '#/components/schemas/Uuid' }
+        email: { $ref: '#/components/schemas/ShopCustomerEmail' }
+        normalizedEmail:
+          allOf:
+            - $ref: '#/components/schemas/ShopCustomerEmail'
+          description: Email trimé, Unicode normalisé et en minuscules.
+        fullName: { type: string, minLength: 1, maxLength: 200 }
+        authSubjectId: { type: [string, 'null'], format: uuid }
+        status: { $ref: '#/components/schemas/ShopCustomerAccountStatus' }
+        createdByMagritUserId: { type: [string, 'null'], format: uuid }
+        customerContactId: { type: [string, 'null'], format: uuid }
+        createdAt: { type: string, format: date-time }
+        activatedAt: { type: [string, 'null'], format: date-time }
+        suspendedAt: { type: [string, 'null'], format: date-time }
+    CreateShopCustomerCommand:
+      title: CreateShopCustomerCommand
+      type: object
+      additionalProperties: false
+      required: [email]
+      properties:
+        email: { $ref: '#/components/schemas/ShopCustomerEmail' }
+        fullName: { type: string, minLength: 1, maxLength: 200 }
+        initialStatus: { type: string, enum: [delegated_only, invited], default: invited }
+        customerContactId: { type: [string, 'null'], format: uuid }
+    InviteShopCustomerCommand:
+      title: InviteShopCustomerCommand
+      type: object
+      additionalProperties: false
+      required: [email]
+      properties:
+        email: { $ref: '#/components/schemas/ShopCustomerEmail' }
+    LegacyShopCustomerMigrationReportRow:
+      title: LegacyShopCustomerMigrationReportRow
+      type: object
+      additionalProperties: false
+      required: [legacyUserId, shopId, normalizedEmail, proposedAction, targetAccountId, migrationOutcome, ordersLinkedCount, lastAttemptAt]
+      properties:
+        legacyUserId: { $ref: '#/components/schemas/Uuid' }
+        shopId: { type: [string, 'null'], format: uuid }
+        normalizedEmail: { type: [string, 'null'], format: email, maxLength: 320 }
+        proposedAction:
+          type: string
+          enum: [create_delegated, matched_existing, skipped_no_shop, skipped_invalid_shop, skipped_missing_email, skipped_invalid_email]
+        targetAccountId: { type: [string, 'null'], format: uuid }
+        migrationOutcome:
+          type: [string, 'null']
+          enum: [created, matched_existing, skipped_no_shop, skipped_invalid_shop, skipped_missing_email, skipped_invalid_email, null]
+        ordersLinkedCount: { type: integer, minimum: 0 }
+        lastAttemptAt: { type: [string, 'null'], format: date-time }
+    EnsureSelfShopCustomerResult:
+      title: EnsureSelfShopCustomerResult
+      type: object
+      additionalProperties: false
+      required: [customer, created]
+      properties:
+        customer: { $ref: '#/components/schemas/ShopCustomerAccount' }
+        created: { type: boolean }
+    IssueStorefrontActivationResult:
+      title: IssueStorefrontActivationResult
+      type: object
+      additionalProperties: false
+      required: [sent, link, expiresInSeconds]
+      properties:
+        sent: { type: boolean }
+        link: { type: string, format: uri }
+        expiresInSeconds: { type: integer, minimum: 900, maximum: 604800 }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+    InviteShopCustomerResult:
+      title: InviteShopCustomerResult
+      type: object
+      additionalProperties: false
+      required: [customer, created, activation]
+      properties:
+        customer: { $ref: '#/components/schemas/ShopCustomerAccount' }
+        created: { type: boolean }
+        activation: { $ref: '#/components/schemas/IssueStorefrontActivationResult' }
+    StorefrontIdentity:
+      title: StorefrontIdentity
+      oneOf:
+        - $ref: '#/components/schemas/DirectShopCustomerIdentity'
+        - $ref: '#/components/schemas/DelegatedShopCustomerIdentity'
+      discriminator: { propertyName: kind }
+    DirectShopCustomerIdentity:
+      title: DirectShopCustomerIdentity
+      type: object
+      additionalProperties: false
+      required: [kind, shopId, shopCustomerAccountId]
+      properties:
+        kind: { const: shop_customer }
+        shopId: { $ref: '#/components/schemas/Uuid' }
+        shopCustomerAccountId: { $ref: '#/components/schemas/Uuid' }
+    DelegatedShopCustomerIdentity:
+      title: DelegatedShopCustomerIdentity
+      type: object
+      additionalProperties: false
+      required: [kind, shopId, shopCustomerAccountId, delegationId, actorMagritUserId]
+      properties:
+        kind: { const: delegated_shop_customer }
+        shopId: { $ref: '#/components/schemas/Uuid' }
+        shopCustomerAccountId: { $ref: '#/components/schemas/Uuid' }
+        delegationId: { $ref: '#/components/schemas/Uuid' }
+        actorMagritUserId: { $ref: '#/components/schemas/Uuid' }
+    StorefrontCustomerProfile:
+      title: StorefrontCustomerProfile
+      type: object
+      additionalProperties: false
+      required: [id, shopId, email, fullName, status]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        shopId: { $ref: '#/components/schemas/Uuid' }
+        email: { $ref: '#/components/schemas/ShopCustomerEmail' }
+        fullName: { type: string, minLength: 1, maxLength: 200 }
+        status: { type: string, enum: [active, delegated_only, invited] }
+    StorefrontSession:
+      title: StorefrontSession
+      type: object
+      additionalProperties: false
+      required: [identity, customer, expiresAt]
+      properties:
+        identity: { $ref: '#/components/schemas/StorefrontIdentity' }
+        customer: { $ref: '#/components/schemas/StorefrontCustomerProfile' }
+        expiresAt: { type: string, format: date-time }
+    CreateStorefrontSessionCommand:
+      title: CreateStorefrontSessionCommand
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email: { $ref: '#/components/schemas/ShopCustomerEmail' }
+        password: { type: string, minLength: 8, maxLength: 1024 }
+    CreateStorefrontSessionResult:
+      title: CreateStorefrontSessionResult
+      type: object
+      additionalProperties: false
+      required: [session]
+      properties:
+        session: { $ref: '#/components/schemas/StorefrontSession' }
+    CreateStorefrontRegistrationCommand:
+      title: CreateStorefrontRegistrationCommand
+      type: object
+      additionalProperties: false
+      required: [email, fullName, password]
+      properties:
+        email: { $ref: '#/components/schemas/ShopCustomerEmail' }
+        fullName: { type: string, minLength: 1, maxLength: 200 }
+        password: { type: string, minLength: 8, maxLength: 1024 }
+    CreateStorefrontRegistrationResult:
+      $ref: '#/components/schemas/CreateStorefrontSessionResult'
+    EndStorefrontSessionResult:
+      title: EndStorefrontSessionResult
+      type: object
+      additionalProperties: false
+      required: [ended]
+      properties:
+        ended: { const: true }
+    RequestStorefrontPasswordRecoveryCommand:
+      title: RequestStorefrontPasswordRecoveryCommand
+      type: object
+      additionalProperties: false
+      required: [email]
+      properties:
+        email: { $ref: '#/components/schemas/ShopCustomerEmail' }
+    RequestStorefrontPasswordRecoveryResult:
+      title: RequestStorefrontPasswordRecoveryResult
+      type: object
+      additionalProperties: false
+      required: [accepted]
+      properties:
+        accepted: { const: true }
+    ResetStorefrontPasswordCommand:
+      title: ResetStorefrontPasswordCommand
+      type: object
+      additionalProperties: false
+      required: [token, password]
+      properties:
+        token: { type: string, minLength: 32, maxLength: 512, pattern: '^[A-Za-z0-9_-]+$' }
+        password: { type: string, minLength: 8, maxLength: 1024 }
+    ResetStorefrontPasswordResult:
+      title: ResetStorefrontPasswordResult
+      type: object
+      additionalProperties: false
+      required: [reset]
+      properties:
+        reset: { const: true }
+    IssueStorefrontActivationCommand:
+      title: IssueStorefrontActivationCommand
+      type: object
+      additionalProperties: false
+      properties:
+        expiresInSeconds: { type: integer, minimum: 900, maximum: 604800, default: 86400 }
+    ActivateStorefrontCredentialCommand:
+      title: ActivateStorefrontCredentialCommand
+      type: object
+      additionalProperties: false
+      required: [token, password]
+      properties:
+        token: { type: string, minLength: 32, maxLength: 512, pattern: '^[A-Za-z0-9_-]{32,512}$' }
+        password: { type: string, minLength: 8, maxLength: 1024 }
+    ActivateStorefrontCredentialResult:
+      title: ActivateStorefrontCredentialResult
+      type: object
+      additionalProperties: false
+      required: [activated, session]
+      properties:
+        activated: { const: true }
+        session: { $ref: '#/components/schemas/StorefrontSession' }
+    ShopCustomerDelegation:
+      title: ShopCustomerDelegation
+      type: object
+      additionalProperties: false
+      required: [id, shopId, shopCustomerAccountId, actorMagritUserId, issuedAt, expiresAt, revokedAt, reason]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        shopId: { $ref: '#/components/schemas/Uuid' }
+        shopCustomerAccountId: { $ref: '#/components/schemas/Uuid' }
+        actorMagritUserId: { $ref: '#/components/schemas/Uuid' }
+        issuedAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        revokedAt: { type: [string, 'null'], format: date-time }
+        reason: { type: [string, 'null'], maxLength: 500 }
+    CreateShopCustomerDelegationCommand:
+      title: CreateShopCustomerDelegationCommand
+      type: object
+      additionalProperties: false
+      properties:
+        reason: { type: string, minLength: 1, maxLength: 500 }
+    SelfShopCustomerDelegationResult:
+      title: SelfShopCustomerDelegationResult
+      type: object
+      additionalProperties: false
+      required: [customer, delegation, storefrontPath]
+      properties:
+        customer: { $ref: '#/components/schemas/ShopCustomerAccount' }
+        delegation: { $ref: '#/components/schemas/ShopCustomerDelegation' }
+        storefrontPath: { type: string, minLength: 1, maxLength: 500, pattern: '^/' }
 
     Customer:
       title: Customer
@@ -19847,3 +23816,226 @@ components:
           oneOf:
             - type: string
             - type: 'null'
+
+    Library:
+      type: object
+      required: [id, name, description]
+      properties:
+        id: { type: string }
+        tenant_id: { type: string }
+        user_id: { type: string }
+        name: { type: string }
+        description: { type: string }
+        created_at: { type: string, format: date-time }
+    Libraries:
+      type: array
+      items: { $ref: '#/components/schemas/Library' }
+    CreateLibraryCommand:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string, maxLength: 2000, default: '' }
+    UpdateLibraryCommand:
+      type: object
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string, maxLength: 2000 }
+    LibraryRemovalResult:
+      type: object
+      required: [removed]
+      properties: { removed: { const: true } }
+
+    QuoteTemplate:
+      type: object
+      required: [id, builtin, name]
+      properties:
+        id: { type: string }
+        builtin: { const: false }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        style: { type: string, enum: [classique, atelier, corporate, custom] }
+        company_name: { type: [string, 'null'] }
+        address: { type: [string, 'null'] }
+        postal_code: { type: [string, 'null'] }
+        city: { type: [string, 'null'] }
+        country: { type: [string, 'null'] }
+        phone: { type: [string, 'null'] }
+        email: { type: [string, 'null'] }
+        website: { type: [string, 'null'] }
+        siret: { type: [string, 'null'] }
+        tva_number: { type: [string, 'null'] }
+        logo_url: { type: [string, 'null'] }
+        brand_color: { type: [string, 'null'] }
+        accent_color: { type: [string, 'null'] }
+        font_family: { type: [string, 'null'] }
+        validity_days: { type: [integer, 'null'], minimum: 0 }
+        footer_text: { type: [string, 'null'] }
+    QuoteTemplatesOverview:
+      type: object
+      required: [templates, defaultTemplateId]
+      properties:
+        templates: { type: array, items: { $ref: '#/components/schemas/QuoteTemplate' } }
+        defaultTemplateId: { type: [string, 'null'] }
+    CreateQuoteTemplateCommand:
+      allOf:
+        - $ref: '#/components/schemas/QuoteTemplateFields'
+    UpdateQuoteTemplateCommand:
+      allOf:
+        - $ref: '#/components/schemas/QuoteTemplateFieldsOptional'
+    SetDefaultQuoteTemplateCommand:
+      type: object
+      additionalProperties: false
+      required: [id]
+      properties: { id: { type: [string, 'null'] } }
+    QuoteTemplateUpdated:
+      type: object
+      required: [updated]
+      properties: { updated: { const: true } }
+    QuoteTemplateRemoved:
+      type: object
+      required: [removed]
+      properties: { removed: { const: true } }
+    QuoteTemplateFields:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        style: { type: string, enum: [classique, atelier, corporate, custom] }
+        company_name: { type: [string, 'null'] }
+        address: { type: [string, 'null'] }
+        postal_code: { type: [string, 'null'] }
+        city: { type: [string, 'null'] }
+        country: { type: [string, 'null'] }
+        phone: { type: [string, 'null'] }
+        email: { type: [string, 'null'] }
+        website: { type: [string, 'null'] }
+        siret: { type: [string, 'null'] }
+        tva_number: { type: [string, 'null'] }
+        logo_url: { type: [string, 'null'] }
+        brand_color: { type: [string, 'null'] }
+        accent_color: { type: [string, 'null'] }
+        font_family: { type: [string, 'null'] }
+        validity_days: { type: [integer, 'null'], minimum: 0 }
+        footer_text: { type: [string, 'null'] }
+    QuoteTemplateFieldsOptional:
+      type: object
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        style: { type: string, enum: [classique, atelier, corporate, custom] }
+        company_name: { type: [string, 'null'] }
+        address: { type: [string, 'null'] }
+        postal_code: { type: [string, 'null'] }
+        city: { type: [string, 'null'] }
+        country: { type: [string, 'null'] }
+        phone: { type: [string, 'null'] }
+        email: { type: [string, 'null'] }
+        website: { type: [string, 'null'] }
+        siret: { type: [string, 'null'] }
+        tva_number: { type: [string, 'null'] }
+        logo_url: { type: [string, 'null'] }
+        brand_color: { type: [string, 'null'] }
+        accent_color: { type: [string, 'null'] }
+        font_family: { type: [string, 'null'] }
+        validity_days: { type: [integer, 'null'], minimum: 0 }
+        footer_text: { type: [string, 'null'] }
+
+    DiagnosticCheck:
+      type: object
+      required: [name, status]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        status: { type: string, enum: [ok, error, skipped] }
+        details: { type: string, maxLength: 500 }
+    AiProviderDiagnostic:
+      type: object
+      required: [provider, configured, reachable, summary, checks, testedAt]
+      properties:
+        provider: { type: string, minLength: 1, maxLength: 80 }
+        configured: { type: boolean }
+        reachable: { type: [boolean, 'null'] }
+        summary: { type: string, minLength: 1, maxLength: 500 }
+        responsePreview: { type: string, maxLength: 500 }
+        checks: { type: array, maxItems: 20, items: { $ref: '#/components/schemas/DiagnosticCheck' } }
+        testedAt: { type: string, format: date-time }
+    ClariprintDiagnostic:
+      type: object
+      required: [service, configured, reachable, authenticated, summary, checks, testedAt]
+      properties:
+        service: { const: Clariprint }
+        configured: { type: boolean }
+        reachable: { type: [boolean, 'null'] }
+        authenticated: { type: [boolean, 'null'] }
+        summary: { type: string, minLength: 1, maxLength: 500 }
+        httpStatus: { type: integer, minimum: 100, maximum: 599 }
+        checks: { type: array, maxItems: 20, items: { $ref: '#/components/schemas/DiagnosticCheck' } }
+        testedAt: { type: string, format: date-time }
+
+    ClariprintQuoteCommand:
+      type: object
+      additionalProperties: false
+      required: [clariprint]
+      properties:
+        clariprint: { type: object, additionalProperties: true }
+    ClariprintCosts:
+      type: object
+      properties:
+        paper: { type: number }
+        print: { type: number }
+        makeready: { type: number }
+        packaging: { type: number }
+        delivery: { type: number }
+        total: { type: number }
+    ClariprintQuoteResult:
+      type: object
+      required: [success]
+      properties:
+        success: { type: boolean }
+        credentialsMissing: { type: boolean }
+        message: { type: string }
+        error: { type: string }
+        priceHT: { type: number }
+        costs: { $ref: '#/components/schemas/ClariprintCosts' }
+        delais: { type: number }
+        weight: { type: number }
+        fournisseur: { type: string }
+        processDuration: { type: number }
+        details: { type: string }
+
+    ConversationMessage:
+      type: object
+      required: [role, content]
+      properties:
+        role: { type: string }
+        content: { type: string }
+    Conversation:
+      type: object
+      required: [id, timestamp, title, messages, products]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 200 }
+        timestamp: { type: integer, minimum: 0 }
+        title: { type: string, maxLength: 500 }
+        messages: { type: array, items: { $ref: '#/components/schemas/ConversationMessage' } }
+        products: { type: array, items: {} }
+    Conversations:
+      type: array
+      items: { $ref: '#/components/schemas/Conversation' }
+    SaveConversationCommand:
+      type: object
+      required: [timestamp, title, messages, products]
+      properties:
+        timestamp: { type: integer, minimum: 0 }
+        title: { type: string, maxLength: 500 }
+        messages: { type: array, items: { $ref: '#/components/schemas/ConversationMessage' } }
+        products: { type: array, items: {} }
+    ConversationSaved:
+      type: object
+      required: [saved]
+      properties: { saved: { const: true } }
+    ConversationRemoved:
+      type: object
+      required: [removed]
+      properties: { removed: { const: true } }

@@ -64,7 +64,7 @@ export function lintDocumentShape(document: Doc): string[] {
  * deux fois et les deux copies divergeaient sur le pluriel des sous-ressources.
  */
 export function lintPathNaming(document: Doc): string[] {
-  return Object.keys(pathsOf(document)).flatMap((path) =>
+  return Object.entries(pathsOf(document)).filter(([, item]) => !isLegacyFacadePath(item)).flatMap(([path]) =>
     checkResourcePath(path, API_BASE_PATH)
       .filter((violation) => violation.rule === 'CA3')
       .map((violation) => `CA3 : chemin "${path}" — ${violation.message}.`),
@@ -75,6 +75,7 @@ export function lintPathNaming(document: Doc): string[] {
 export function lintTenantNeverAddressed(document: Doc): string[] {
   const violations: string[] = [];
   for (const [path, item] of Object.entries(pathsOf(document))) {
+    if (isLegacyFacadePath(item)) continue;
     for (const token of TENANT_TOKENS) {
       if (path.toLowerCase().includes(`{${token}}`) || path.toLowerCase().includes(`/${token}s/`)) {
         violations.push(`CA4 : le chemin "${path}" adresse un tenant. Il vient du jeton.`);
@@ -295,6 +296,7 @@ export function lintOperationCoverage(document: Doc): string[] {
   const violations: string[] = [];
 
   for (const [path, item] of Object.entries(pathsOf(document))) {
+    if (isLegacyFacadePath(item)) continue;
     for (const [method, operation] of operationsOf(item)) {
       const label = `${method.toUpperCase()} ${path}`;
       const parameters = parametersOf(operation, item);
@@ -395,6 +397,7 @@ export function lintResponseShapes(document: Doc): string[] {
   }
 
   for (const [path, item] of Object.entries(pathsOf(document))) {
+    if (isLegacyFacadePath(item)) continue;
     for (const [method, operation] of operationsOf(item)) {
       const responses = operation['responses'];
       if (!isRecord(responses)) {
@@ -445,6 +448,7 @@ export function lintPagination(document: Doc): string[] {
 
   // Aucune operation ne pagine par offset.
   for (const [path, item] of Object.entries(pathsOf(document))) {
+    if (isLegacyFacadePath(item)) continue;
     for (const [method, operation] of operationsOf(item)) {
       for (const parameter of parametersOf(operation, item)) {
         const name = typeof parameter['name'] === 'string' ? parameter['name'] : '';
@@ -463,6 +467,7 @@ export function lintPagination(document: Doc): string[] {
 export function lintIdempotency(document: Doc): string[] {
   const violations: string[] = [];
   for (const [path, item] of Object.entries(pathsOf(document))) {
+    if (isLegacyFacadePath(item)) continue;
     for (const [method, operation] of operationsOf(item)) {
       if (method !== 'post') continue;
       const responses = isRecord(operation['responses']) ? operation['responses'] : {};
@@ -496,6 +501,7 @@ export function lintIdempotency(document: Doc): string[] {
 export function lintConcurrency(document: Doc): string[] {
   const violations: string[] = [];
   for (const [path, item] of Object.entries(pathsOf(document))) {
+    if (isLegacyFacadePath(item)) continue;
     for (const [method, operation] of operationsOf(item)) {
       if (method !== 'patch' && method !== 'put') continue;
       const label = method.toUpperCase();
@@ -667,6 +673,10 @@ export function lintContract(document: Doc): string[] {
 function pathsOf(document: Doc): Record<string, unknown> {
   const paths = document['paths'];
   return isRecord(paths) ? paths : {};
+}
+
+function isLegacyFacadePath(item: unknown): boolean {
+  return isRecord(item) && item['x-legacy-facade'] === true;
 }
 
 function operationsOf(item: unknown): Array<[string, Record<string, unknown>]> {

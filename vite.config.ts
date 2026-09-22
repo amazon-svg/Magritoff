@@ -1,4 +1,5 @@
 import { defineConfig, loadEnv } from 'vite'
+import { readFileSync } from 'node:fs'
 import path from 'path'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
@@ -17,6 +18,43 @@ function figmaAssetResolver() {
   }
 }
 
+function openapiDocsPlugin() {
+  const contractPath = path.resolve(__dirname, 'openapi/magrit-core.v1.yaml')
+  const docsHtml = `<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Magrit API</title>
+  </head>
+  <body>
+    <redoc spec-url="/docs/openapi.yaml"></redoc>
+    <script src="https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js"></script>
+  </body>
+</html>`
+
+  return {
+    name: 'openapi-docs',
+    configureServer(server) {
+      server.middlewares.use((request, response, next) => {
+        if (request.url === '/docs/openapi.yaml') {
+          response.setHeader('Content-Type', 'text/yaml; charset=utf-8')
+          response.end(readFileSync(contractPath, 'utf8'))
+          return
+        }
+
+        if (request.url === '/docs/openapi' || request.url === '/docs/openapi/') {
+          response.setHeader('Content-Type', 'text/html; charset=utf-8')
+          response.end(docsHtml)
+          return
+        }
+
+        next()
+      })
+    },
+  }
+}
+
 const enableBundleAnalysis = process.env.ANALYZE === '1'
 
 export default defineConfig(({ mode }) => {
@@ -28,6 +66,7 @@ export default defineConfig(({ mode }) => {
   return {
   plugins: [
     figmaAssetResolver(),
+    openapiDocsPlugin(),
     // The React and Tailwind plugins are both required for Make, even if
     // Tailwind is not being actively used – do not remove them
     react(),

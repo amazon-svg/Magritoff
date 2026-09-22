@@ -10,6 +10,7 @@
     "typecheck:kernel": "tsc --noEmit -p tsconfig.kernel.json",
     "typecheck:modular": "tsc --noEmit -p tsconfig.modular.json",
     "dev": "vite --port 5176 --strictPort",
+    "openapi:docs": "vite --port 5176 --strictPort",
     "dev:local": "pnpm db:local:start && pnpm supabase:use:local && pnpm dev",
     "dev:official": "pnpm supabase:use:official && pnpm dev",
     "dev:b5": "./scripts/dev-b5.sh",
