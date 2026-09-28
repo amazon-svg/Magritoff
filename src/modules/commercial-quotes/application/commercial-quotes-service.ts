@@ -25,6 +25,7 @@
  * ce service.
  */
 import type { TenantId, UserId } from '../../../kernel/ids/index.ts';
+import { buildDescriptionHtml } from '@/shared/validation/safe-description-html';
 import type { OutboxPublisher } from '../../_shared/application/index.ts';
 import type { ProjectsRepository } from '../../projects/application/projects-repository.ts';
 import type { PriceRulesService } from '../../pricing/application/price-rules-service.ts';
@@ -101,6 +102,7 @@ type ResolvedAddLineInput =
       kind: 'project_item';
       projectItemId: string;
       label: string;
+      descriptionHtml: string | null;
       productConfig: Readonly<Record<string, unknown>>;
       productionPrice: string;
       chiffrageQuantity: number;
@@ -109,6 +111,7 @@ type ResolvedAddLineInput =
   | Readonly<{
       kind: 'free';
       label: string;
+      descriptionHtml: string | null;
       quantity: number;
       productionPrice: string;
     }>;
@@ -307,6 +310,7 @@ export class CommercialQuotesService {
           lines: detail.lines.map((line) => ({
             position: line.position,
             label: line.label,
+            descriptionHtml: line.description_html,
             productConfig: line.product_config,
             quantity: line.quantity,
             priceBeforeDiscount: showDiscounts ? line.customer_price : null,
@@ -460,6 +464,7 @@ export class CommercialQuotesService {
         kind: 'project_item',
         projectItemId: item.id,
         label: item.label,
+        descriptionHtml: item.description_html,
         productConfig: payload,
         productionPrice,
         chiffrageQuantity,
@@ -470,6 +475,7 @@ export class CommercialQuotesService {
     return {
       kind: 'free',
       label: command.label,
+      descriptionHtml: command.description_html ?? buildDescriptionHtml(command.label),
       quantity: command.quantity,
       productionPrice: command.production_price,
     };
@@ -509,6 +515,7 @@ export class CommercialQuotesService {
       origin: input.kind,
       projectItemId: input.kind === 'project_item' ? input.projectItemId : null,
       label: input.label,
+      descriptionHtml: input.descriptionHtml,
       productConfig: input.kind === 'project_item' ? input.productConfig : {},
       quantity: input.quantity,
       chiffrageQuantity: input.kind === 'project_item' ? input.chiffrageQuantity : null,
@@ -541,6 +548,10 @@ export class CommercialQuotesService {
     if (!current) throw new QuoteLineNotFoundError();
 
     const update: { -readonly [K in keyof QuoteLineWriteUpdate]: QuoteLineWriteUpdate[K] } = {};
+
+    if (command.description_html !== undefined) {
+      update.descriptionHtml = command.description_html;
+    }
 
     let salePrice = current.sale_price;
     if (command.margin_rate !== undefined) {

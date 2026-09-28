@@ -88,12 +88,35 @@ Les associations de fichiers des lignes sélectionnées, notamment le PDF
 HopeStudio typé `supplier_quote`, sont propagées vers les lignes du devis par
 le mécanisme SQL décrit plus haut.
 
+## Description commerciale des lignes
+
+Chaque ligne possède désormais un champ `description_html`, distinct du
+libellé court, de la configuration technique et du payload HopeStudio :
+
+```text
+project_items.description_html
+  -> commercial_quote_lines.description_html
+  -> commercial_order_lines.description_html
+```
+
+La description est initialisée depuis le chiffrage du projet. Elle peut être
+modifiée sur une ligne de devis uniquement tant que celui-ci est en brouillon,
+puis elle est figée et recopiée lors de la conversion en commande. Une
+duplication de devis conserve également la description de chaque ligne.
+
+Le HTML autorisé est volontairement limité aux balises sans attribut `p`,
+`br`, `strong`, `em`, `ul`, `ol` et `li`, sur 20 000 caractères maximum. La
+validation est effectuée par l'API et par des contraintes PostgreSQL. Cette
+description est utilisée dans l'éditeur de devis, le portail client, la fiche
+commande et la génération documentaire.
+
 Le configurateur n'affiche plus la recherche ni les résultats PIM. Après
 l'envoi du prompt initial, HopeStudio utilise toute la surface disponible.
 
 ## Fichiers principaux
 
 - `supabase/migrations/20260925000100_commercial_line_files.sql` ;
+- `supabase/migrations/20260928000100_commercial_line_description_html.sql` ;
 - `src/modules/hopstudio/ui/HopeStudioWorkspace.tsx` ;
 - `src/modules/catalog/ui/workspace/ActiveProjectItemsDrawer.tsx` ;
 - `src/modules/catalog/ui/workspace/MagritConfiguratorHome.tsx` ;

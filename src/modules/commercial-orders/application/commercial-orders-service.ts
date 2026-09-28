@@ -212,6 +212,7 @@ export class CommercialOrdersService {
       lines: data.lines.map((line) => ({
         position: line.position,
         label: line.label,
+        descriptionHtml: line.descriptionHtml,
         productConfig: line.productConfig,
         quantity: line.quantity,
         priceBeforeDiscount: data.showDiscounts ? line.customerPrice : null,

@@ -282,6 +282,7 @@ export class InMemoryProjectsRepository implements ProjectsRepository {
       id: fakeUuid(),
       project_id: projectId,
       label: command.label,
+      description_html: command.description_html ?? null,
       quote_payload: command.quote_payload,
       clariprint_config: command.clariprint_config ?? null,
       position: siblings.length,

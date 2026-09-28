@@ -151,6 +151,7 @@ const quoteDetail: StorefrontQuoteDetailDto = Object.freeze({
     Object.freeze({
       id: '33333333-3333-4333-8333-333333333333',
       label: 'Flyers A5',
+      description_html: '<p>Flyers A5</p>',
       product_config: { format: 'A5' },
       quantity: 500,
       position: 0,

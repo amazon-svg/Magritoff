@@ -19,6 +19,7 @@
  */
 import { useCallback, useState } from 'react';
 import { TEST_IDS } from '@/shared/presentation/testIds';
+import { SafeDescriptionHtml } from '@/shared/presentation/SafeDescriptionHtml';
 import { useStorefrontQuotesList } from '@/modules/storefront-quotes/ui/hooks/useStorefrontQuotesList';
 import {
   StorefrontQuoteDecisionConfirmDialog,
@@ -166,7 +167,11 @@ export function PortalQuotes({ hasStorefrontSession = false }: Props) {
                         {detail.lines.map((line) => (
                           <tr key={line.id} className="border-b border-line-2 last:border-0">
                             <td className="py-2 text-ink">
-                              {line.label} × {line.quantity}
+                              <div>{line.label} × {line.quantity}</div>
+                              <SafeDescriptionHtml
+                                html={line.description_html}
+                                className="mt-1 text-xs text-ink-muted"
+                              />
                             </td>
                             <td className="py-2 text-right text-ink-muted">
                               {line.price_before_discount !== null && line.price_before_discount !== line.price ? (

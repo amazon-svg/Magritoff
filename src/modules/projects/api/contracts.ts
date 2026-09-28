@@ -18,6 +18,7 @@
  */
 import { z } from 'zod';
 import { timestampSchema, uuidSchema } from '../../_shared/api/index.ts';
+import { safeDescriptionHtmlSchema } from '@/shared/validation/safe-description-html';
 import { projectTagSchema } from '../../project-tags/api/contracts.ts';
 
 export const projectStatusSchema = z.enum(['active', 'archived']);
@@ -43,6 +44,7 @@ export const projectItemSchema = z
     id: uuidSchema,
     project_id: uuidSchema,
     label: z.string().min(1).max(300),
+    description_html: safeDescriptionHtmlSchema.nullable(),
     quote_payload: z.record(z.string(), z.unknown()),
     clariprint_config: z.record(z.string(), z.unknown()).nullable(),
     position: z.number().int().min(0),
@@ -108,6 +110,7 @@ export const replaceProjectTagsCommandSchema = z
 export const createProjectItemCommandSchema = z
   .object({
     label: z.string().trim().min(1).max(300),
+    description_html: safeDescriptionHtmlSchema.nullable().optional(),
     quote_payload: z.record(z.string(), z.unknown()),
     clariprint_config: z.record(z.string(), z.unknown()).nullable().optional(),
   })

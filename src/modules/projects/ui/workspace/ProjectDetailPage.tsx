@@ -19,6 +19,7 @@ import { useTenantPath } from '@/modules/tenants/ui/hooks';
 import { useWorkspaceApi } from '@/platform/runtime/workspace-ui-runtime';
 import { CustomersApiClient, type CustomerDto } from '@/modules/customers';
 import { TEST_IDS } from '@/shared/presentation/testIds';
+import { SafeDescriptionHtml } from '@/shared/presentation/SafeDescriptionHtml';
 import { useProjectDetail, useProjectTagsCatalog } from '@/modules/projects/ui/hooks';
 import type { ProjectItemDto } from '@/modules/projects/api/contracts';
 import { CreateQuoteDrawer } from '@/modules/commercial-quotes/ui';
@@ -276,6 +277,10 @@ export function DashboardProjectDetail() {
                   />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-ink font-medium">{item.label}</p>
+                    <SafeDescriptionHtml
+                      html={item.description_html}
+                      className="mt-1 text-xs text-ink-muted"
+                    />
                     <p className="text-xs text-ink-muted">
                       {[
                         payload.quantity ? `${payload.quantity} ex.` : null,

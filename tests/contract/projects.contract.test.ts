@@ -431,6 +431,8 @@ describe('module Projets (E10.1) contre le contrat', () => {
     const addedBody = (await added.json()) as { data: ProjectItemDto };
     expect(addedBody.data.quote_payload).toEqual(quotePayload);
     expect(addedBody.data.clariprint_config).toEqual(clariprintConfig);
+    expect(addedBody.data.description_html).toContain('<p>Flyer A5</p>');
+    expect(addedBody.data.description_html).toContain('<strong>quantity</strong> : 1000');
     expect(addedBody.data.position).toBe(0);
 
     const detail = await call(`/api/v1/projects/${project.id}`, { headers: asUser });
@@ -538,6 +540,7 @@ describe('module Projets (E10.1) contre le contrat', () => {
     const first = await call(path, init);
     await expectContract(first, { status: 201, dataSchema: 'ProjectItem' });
     const item = (await first.json()) as { data: ProjectItemDto };
+    expect(item.data.description_html).toContain('<strong>quantity</strong> : 500');
     expect(item.data.quote_payload).toMatchObject({
       quantity: 500,
       amounts: { clariprint_price_ht: '90.00' },

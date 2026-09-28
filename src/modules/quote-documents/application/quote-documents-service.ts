@@ -79,6 +79,7 @@ const EMPTY_CUSTOMER: CustomerDocumentData = Object.freeze({
 export type QuoteLineForDocumentGeneration = Readonly<{
   position: number;
   label: string;
+  descriptionHtml?: string | null;
   productConfig: Readonly<Record<string, unknown>>;
   quantity: number;
   /** `customer_price` de la ligne — masque par l appelant quand `show_discounts` est faux (jamais recalcule ici). */

@@ -5569,6 +5569,11 @@ export interface components {
          */
         Money: string;
         /**
+         * SafeDescriptionHtml
+         * @description Description commerciale riche. Seules les balises `p`, `br`, `strong`, `em`, `ul`, `ol` et `li`, sans aucun attribut, sont autorisees. Les scripts, styles, liens, images et gestionnaires d evenement sont refuses.
+         */
+        SafeDescriptionHtml: string;
+        /**
          * MoneyNonNegative
          * @description Montant monetaire POSITIF OU NUL, meme serialisation que `Money`. Plus strict que lui, jamais en contradiction avec lui — meme rapport que `nonNegativeRateSchema` a `Rate` cote Zod (E10.6).
          *
@@ -6175,6 +6180,7 @@ export interface components {
             id: components["schemas"]["Uuid"];
             project_id: components["schemas"]["Uuid"];
             label: string;
+            description_html: components["schemas"]["SafeDescriptionHtml"] | null;
             /** @description Payload de chiffrage tel que calcule, forme libre. */
             quote_payload: {
                 [key: string]: unknown;
@@ -6264,6 +6270,7 @@ export interface components {
          */
         CreateProjectItemCommand: {
             label: string;
+            description_html?: components["schemas"]["SafeDescriptionHtml"] | null;
             quote_payload: {
                 [key: string]: unknown;
             };
@@ -6373,6 +6380,7 @@ export interface components {
              */
             project_item_id: components["schemas"]["Uuid"] | null;
             label: string;
+            description_html: components["schemas"]["SafeDescriptionHtml"] | null;
             /** @description Configuration produit reprise telle quelle du chiffrage source (E10.3 CA3), forme libre — miroir de `ProjectItem.quote_payload`. Objet vide sur une ligne libre : il n y a pas de configuration produit derriere une saisie manuelle. */
             product_config: {
                 [key: string]: unknown;
@@ -7013,6 +7021,7 @@ export interface components {
         StorefrontQuoteLine: {
             id: components["schemas"]["Uuid"];
             label: string;
+            description_html: components["schemas"]["SafeDescriptionHtml"] | null;
             /** @description Configuration produit telle qu elle figure sur le devis (format, papier, faconnage). Reprise sans transformation de `QuoteLine` : c est la description de ce que le client achete, elle lui est destinee par nature. */
             product_config: {
                 [key: string]: unknown;
@@ -7170,6 +7179,7 @@ export interface components {
             /** @description Provenance de la ligne de devis d origine, recopiee. Conservee parce qu elle dit a la production si une configuration produit reelle existe derriere la ligne ou s il s agit d une saisie libre. */
             origin: components["schemas"]["QuoteLineOrigin"];
             label: string;
+            description_html: components["schemas"]["SafeDescriptionHtml"] | null;
             /**
              * @description Configuration produit recopiee telle quelle du devis, lui-meme miroir de `ProjectItem.quote_payload`. Forme LIBRE. Objet vide pour une ligne libre : il n y a pas de configuration produit derriere une saisie manuelle.
              *
@@ -7425,6 +7435,7 @@ export interface components {
          */
         CreateFreeQuoteLineCommand: {
             label: string;
+            description_html?: components["schemas"]["SafeDescriptionHtml"] | null;
             /** Format: int32 */
             quantity: number;
             /** @description Cout de production, TOTAL pour `quantity`, jamais un prix unitaire. */
@@ -7457,6 +7468,7 @@ export interface components {
          *       d un ajout, qui laisse deux traces d audit franches.
          */
         UpdateQuoteLineCommand: {
+            description_html?: components["schemas"]["SafeDescriptionHtml"] | null;
             /** @description Prix de vente propose, TOTAL pour la quantite de la ligne. Le serveur en derive `sale_margin_rate`, `discount_rate` et `margin_variation`. */
             sale_price?: components["schemas"]["MoneyNonNegative"];
             /**
@@ -10012,6 +10024,7 @@ export type LibraryProductRemovalResult = components['schemas']['LibraryProductR
 export type PimGeneratedProductsResult = components['schemas']['PimGeneratedProductsResult'];
 export type ClearPimGeneratedProductsResult = components['schemas']['ClearPimGeneratedProductsResult'];
 export type Money = components['schemas']['Money'];
+export type SafeDescriptionHtml = components['schemas']['SafeDescriptionHtml'];
 export type MoneyNonNegative = components['schemas']['MoneyNonNegative'];
 export type Rate = components['schemas']['Rate'];
 export type Currency = components['schemas']['Currency'];

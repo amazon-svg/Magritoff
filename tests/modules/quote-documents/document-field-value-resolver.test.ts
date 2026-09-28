@@ -152,6 +152,24 @@ describe('resolveDocumentLineFieldValues', () => {
     expect(values['line.price_before_discount']).toBe('130,00 €');
     expect(values['line.discount_rate']).toBe('7,7 %');
   });
+
+  it('utilise la description commerciale HTML comme détail textuel du document', () => {
+    const values = resolveDocumentLineFieldValues({
+      position: 1,
+      label: 'Flyers A5',
+      descriptionHtml: '<p><strong>Impression</strong> recto verso</p><ul><li>500 ex.</li><li>Livraison Paris</li></ul>',
+      productConfig: { internal_reference: 'SECRET-42' },
+      quantity: 500,
+      priceBeforeDiscount: null,
+      discountRate: null,
+      price: '120.00',
+    });
+
+    expect(values['line.product_config_summary']).toBe(
+      'Impression recto verso — 500 ex. — Livraison Paris',
+    );
+    expect(values['line.product_config_summary']).not.toContain('SECRET-42');
+  });
 });
 
 describe('resolveOrderDocumentFieldValues (E10.19b)', () => {

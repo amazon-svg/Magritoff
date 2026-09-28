@@ -26,6 +26,7 @@ import { CustomersApiClient, type CustomerDto } from '@/modules/customers';
 import { customerDisplayName } from '@/modules/projects/ui';
 import { ProjectsApiClient, type ProjectItemDto } from '@/modules/projects';
 import { TEST_IDS } from '@/shared/presentation/testIds';
+import { SafeDescriptionHtml } from '@/shared/presentation/SafeDescriptionHtml';
 import { CommercialOrdersApiClient } from '@/modules/commercial-orders';
 import { CommercialQuotesApiClient } from '../../api/client';
 import type {
@@ -34,14 +35,16 @@ import type {
   QuoteLineAuditEntryDto,
   QuoteLineDto,
   UpdateQuoteCommand,
+  UpdateQuoteLineCommand,
 } from '../../api/contracts';
 import { percentToRate, rateToPercent, statusLabel, vatLegalMention } from '../helpers';
 
 /** Brouillon de saisie d une ligne, avant commit AU BLUR (jamais a la frappe). */
-type LineDraft = Readonly<{ salePrice: string; marginRate: string; quantity: string }>;
+type LineDraft = Readonly<{ descriptionHtml: string; salePrice: string; marginRate: string; quantity: string }>;
 
 function draftOf(line: QuoteLineDto): LineDraft {
   return {
+    descriptionHtml: line.description_html ?? '',
     salePrice: line.sale_price,
     marginRate: line.sale_margin_rate ?? '',
     quantity: String(line.quantity),
@@ -107,6 +110,7 @@ export function QuoteEditorPage() {
   const [addLineMode, setAddLineMode] = useState<'project_item' | 'free'>('free');
   const [addLineProjectItemId, setAddLineProjectItemId] = useState('');
   const [addLineLabel, setAddLineLabel] = useState('');
+  const [addLineDescriptionHtml, setAddLineDescriptionHtml] = useState('');
   const [addLineQuantity, setAddLineQuantity] = useState('1');
   const [addLinePrice, setAddLinePrice] = useState('0.00');
   const [addingLine, setAddingLine] = useState(false);
@@ -245,9 +249,15 @@ export function QuoteEditorPage() {
     await commitLinePatch(line.id, { quantity: nextQuantity });
   }
 
+  async function commitDescription(line: QuoteLineDto): Promise<void> {
+    const draft = drafts[line.id];
+    if (!draft || draft.descriptionHtml === (line.description_html ?? '')) return;
+    await commitLinePatch(line.id, { description_html: draft.descriptionHtml.trim() || null });
+  }
+
   async function commitLinePatch(
     lineId: string,
-    command: { sale_price?: string; margin_rate?: string; quantity?: number },
+    command: UpdateQuoteLineCommand,
   ): Promise<void> {
     if (!detail) return;
     setBusyLineId(lineId);
@@ -312,6 +322,7 @@ export function QuoteEditorPage() {
       } else {
         await quotesApi.addFreeLine(detail.id, {
           label: addLineLabel,
+          description_html: addLineDescriptionHtml.trim() || null,
           quantity: Math.max(Number(addLineQuantity) || 1, 1),
           production_price: addLinePrice,
         });
@@ -319,6 +330,7 @@ export function QuoteEditorPage() {
       setAddLineOpen(false);
       setAddLineProjectItemId('');
       setAddLineLabel('');
+      setAddLineDescriptionHtml('');
       setAddLineQuantity('1');
       setAddLinePrice('0.00');
       await load();
@@ -860,6 +872,25 @@ export function QuoteEditorPage() {
                   >
                     <td className="py-2 pr-3">
                       <p className="text-ink font-medium">{line.label}</p>
+                      {isDraft ? (
+                        <label className="mt-2 block">
+                          <span className="sr-only">Détail HTML de {line.label}</span>
+                          <textarea
+                            value={draft.descriptionHtml}
+                            disabled={busy}
+                            rows={3}
+                            onChange={(event) => updateDraft(line.id, { descriptionHtml: event.target.value })}
+                            onBlur={() => void commitDescription(line)}
+                            placeholder="<p>Détail commercial…</p>"
+                            className="w-full min-w-72 resize-y rounded-lg border border-line-2 bg-paper px-2 py-1.5 font-mono text-xs text-ink"
+                          />
+                        </label>
+                      ) : line.description_html ? (
+                        <SafeDescriptionHtml
+                          html={line.description_html}
+                          className="prose prose-sm mt-1 max-w-none text-ink-muted"
+                        />
+                      ) : null}
                       {line.warnings.map((warning) => (
                         <p key={warning.code} className="text-xs text-err-fg">
                           {warning.message}
@@ -1051,6 +1082,13 @@ export function QuoteEditorPage() {
                 value={addLinePrice}
                 onChange={(event) => setAddLinePrice(event.target.value)}
                 className="px-2 py-1 border border-line-2 rounded-lg bg-paper text-ink text-sm"
+              />
+              <textarea
+                value={addLineDescriptionHtml}
+                onChange={(event) => setAddLineDescriptionHtml(event.target.value)}
+                placeholder="Détail HTML (p, br, strong, em, ul, ol, li)"
+                rows={3}
+                className="col-span-3 resize-y rounded-lg border border-line-2 bg-paper px-2 py-1 font-mono text-xs text-ink"
               />
             </div>
           )}

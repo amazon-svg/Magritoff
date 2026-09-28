@@ -5,7 +5,7 @@ import { useWorkspaceApi } from '@/platform/runtime/workspace-ui-runtime';
 import { CustomersApiClient, type CreateCustomerCommand, type CustomerDto } from '@/modules/customers';
 import { CustomerFormModal } from '@/modules/customers/ui/workspace/CustomerFormModal';
 import { ProjectsApiClient, type CreateProjectCommand, type ProjectDto } from '@/modules/projects';
-import { customerDisplayName, ProjectCreateModal } from '@/modules/projects/ui/workspace/ProjectCreateModal';
+import { customerDisplayName, ProjectCreateModal } from '@/modules/projects/ui';
 import { ActiveProjectItemsDrawer } from './ActiveProjectItemsDrawer';
 
 const inputCls = 'w-full rounded-lg border border-line-2 bg-paper px-3 py-2 text-sm text-ink focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/40';

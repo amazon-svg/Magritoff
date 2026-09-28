@@ -241,6 +241,7 @@ export class SupabaseProjectsRepository implements ProjectsRepository {
       .insert({
         project_id: projectId,
         label: command.label,
+        description_html: command.description_html ?? null,
         quote_payload: command.quote_payload,
         clariprint_config: command.clariprint_config ?? null,
         position: nextPosition,
@@ -400,6 +401,7 @@ function toProjectItemDto(row: Record<string, any>): ProjectItemDto {
     id: row.id,
     project_id: row.project_id,
     label: row.label,
+    description_html: row.description_html ?? null,
     quote_payload: row.quote_payload ?? {},
     clariprint_config: row.clariprint_config ?? null,
     position: Number(row.position),

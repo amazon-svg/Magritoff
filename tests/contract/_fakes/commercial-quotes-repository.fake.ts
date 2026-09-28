@@ -378,6 +378,7 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
         origin: 'project_item',
         project_item_id: item.id,
         label: item.label,
+        description_html: item.description_html,
         product_config: payload,
         quantity,
         position: index,
@@ -889,6 +890,7 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
       origin: line.origin,
       project_item_id: line.projectItemId,
       label: line.label,
+      description_html: line.descriptionHtml,
       product_config: line.productConfig,
       quantity: line.quantity,
       position,
@@ -936,6 +938,8 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
 
     const next: StoredQuoteLine = { ...current };
     const changeSetId = fakeQuoteUuid();
+
+    if (update.descriptionHtml !== undefined) next.description_html = update.descriptionHtml;
 
     if (update.quantity !== undefined && update.quantity !== current.quantity) {
       this.pushAudit({

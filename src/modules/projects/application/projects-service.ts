@@ -8,6 +8,7 @@
  */
 import { uuidSchema } from '../../_shared/api/index.ts';
 import type { TenantId, UserId } from '../../../kernel/ids/index.ts';
+import { buildDescriptionHtml } from '@/shared/validation/safe-description-html';
 import type { OutboxPublisher } from '../../_shared/application/index.ts';
 import type { CustomersRepository } from '../../customers/application/customers-repository.ts';
 import type { ProjectTagsRepository } from '../../project-tags/application/project-tags-repository.ts';
@@ -154,7 +155,10 @@ export class ProjectsService {
   ): Promise<ProjectItemDto> {
     const exists = await this.repository.findById(tenantId, projectId);
     if (!exists) throw new ProjectNotFoundError();
-    return this.repository.addItem(tenantId, projectId, command);
+    return this.repository.addItem(tenantId, projectId, {
+      ...command,
+      description_html: command.description_html ?? buildDescriptionHtml(command.label, command.quote_payload),
+    });
   }
 
   async importHopeStudioBasketItem(
@@ -186,6 +190,7 @@ export class ProjectsService {
     }
     return this.repository.addItem(tenantId, projectId, {
       label,
+      description_html: buildDescriptionHtml(label, card.configuration),
       quote_payload: {
         ...card.configuration,
         name: card.selected || label,

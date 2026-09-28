@@ -50,6 +50,7 @@ import { Link, useParams } from 'react-router';
 import { ArrowLeft } from 'lucide-react';
 import { useTenantPath } from '@/modules/tenants/ui/hooks';
 import { TEST_IDS } from '@/shared/presentation/testIds';
+import { SafeDescriptionHtml } from '@/shared/presentation/SafeDescriptionHtml';
 import type { ProductionStepDto } from '@/modules/production-steps';
 import { OrderFilesBlock } from '@/modules/order-files/ui';
 import { OrderUploadLinksPanel } from '@/modules/order-upload-links/ui';
@@ -213,7 +214,13 @@ export function DashboardOrderDetail() {
             <tbody className="divide-y divide-line/60">
               {order.lines.map((line) => (
                 <tr key={line.id} data-testid={TEST_IDS.commercialOrder.lineRow} data-line-id={line.id}>
-                  <td className="py-2 pr-3 text-ink">{line.label}</td>
+                  <td className="py-2 pr-3 text-ink">
+                    <div>{line.label}</div>
+                    <SafeDescriptionHtml
+                      html={line.description_html}
+                      className="mt-1 text-xs text-ink-muted"
+                    />
+                  </td>
                   <td className="py-2 pr-3 text-ink-muted text-xs max-w-xs truncate" title={JSON.stringify(line.product_config)}>
                     {Object.keys(line.product_config).length > 0
                       ? Object.entries(line.product_config)

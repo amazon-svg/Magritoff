@@ -93,6 +93,7 @@ export type ResolvableTotals = Readonly<{
 export type ResolvableLine = Readonly<{
   position: number;
   label: string;
+  descriptionHtml?: string | null;
   productConfig: Readonly<Record<string, unknown>>;
   quantity: number;
   /**
@@ -266,7 +267,10 @@ export function resolveDocumentLineFieldValues(line: ResolvableLine): DocumentLi
     'line.price': formatMoneyFrench(line.price),
   };
 
-  const summary = summarizeProductConfig(line.productConfig);
+  const description = line.descriptionHtml ? descriptionHtmlToText(line.descriptionHtml) : null;
+  const summary = description && description !== line.label
+    ? description
+    : summarizeProductConfig(line.productConfig);
   if (summary !== null) values['line.product_config_summary'] = summary;
   if (line.priceBeforeDiscount !== null) {
     values['line.price_before_discount'] = formatMoneyFrench(line.priceBeforeDiscount);
@@ -277,4 +281,19 @@ export function resolveDocumentLineFieldValues(line: ResolvableLine): DocumentLi
   // designation de ligne collee depuis un cahier des charges est la source
   // la plus probable d un caractere hors WinAnsi).
   return sanitizeFieldValues(values) as DocumentLineFieldValues;
+}
+
+function descriptionHtmlToText(value: string): string {
+  return value
+    .replace(/<br\s*\/?\s*>/gi, ' — ')
+    .replace(/<\/p>|<\/li>/gi, ' — ')
+    .replace(/<[^>]+>/g, '')
+    .replaceAll('&amp;', '&')
+    .replaceAll('&lt;', '<')
+    .replaceAll('&gt;', '>')
+    .replaceAll('&quot;', '"')
+    .replaceAll('&#39;', "'")
+    .replace(/\s+—\s+—\s+/g, ' — ')
+    .replace(/^\s*—\s*|\s*—\s*$/g, '')
+    .trim();
 }

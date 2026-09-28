@@ -14026,6 +14026,16 @@ components:
         - '0.00'
         - '-89.90'
 
+    SafeDescriptionHtml:
+      title: SafeDescriptionHtml
+      description: >-
+        Description commerciale riche. Seules les balises `p`, `br`,
+        `strong`, `em`, `ul`, `ol` et `li`, sans aucun attribut, sont
+        autorisees. Les scripts, styles, liens, images et gestionnaires
+        d evenement sont refuses.
+      type: string
+      maxLength: 20000
+
     MoneyNonNegative:
       title: MoneyNonNegative
       description: >-
@@ -15273,6 +15283,7 @@ components:
         - id
         - project_id
         - label
+        - description_html
         - quote_payload
         - clariprint_config
         - position
@@ -15286,6 +15297,10 @@ components:
           type: string
           minLength: 1
           maxLength: 300
+        description_html:
+          oneOf:
+            - $ref: '#/components/schemas/SafeDescriptionHtml'
+            - type: 'null'
         quote_payload:
           description: Payload de chiffrage tel que calcule, forme libre.
           type: object
@@ -15486,6 +15501,10 @@ components:
           type: string
           minLength: 1
           maxLength: 300
+        description_html:
+          oneOf:
+            - $ref: '#/components/schemas/SafeDescriptionHtml'
+            - type: 'null'
         quote_payload:
           type: object
           additionalProperties: true
@@ -15672,6 +15691,7 @@ components:
         - origin
         - project_item_id
         - label
+        - description_html
         - product_config
         - quantity
         - position
@@ -15719,6 +15739,10 @@ components:
           type: string
           minLength: 1
           maxLength: 300
+        description_html:
+          oneOf:
+            - $ref: '#/components/schemas/SafeDescriptionHtml'
+            - type: 'null'
         product_config:
           description: >-
             Configuration produit reprise telle quelle du chiffrage source
@@ -17443,6 +17467,7 @@ components:
       required:
         - id
         - label
+        - description_html
         - product_config
         - quantity
         - position
@@ -17456,6 +17481,10 @@ components:
           type: string
           minLength: 1
           maxLength: 300
+        description_html:
+          oneOf:
+            - $ref: '#/components/schemas/SafeDescriptionHtml'
+            - type: 'null'
         product_config:
           description: >-
             Configuration produit telle qu elle figure sur le devis (format,
@@ -17848,6 +17877,7 @@ components:
         - source_quote_line_id
         - origin
         - label
+        - description_html
         - product_config
         - quantity
         - position
@@ -17885,6 +17915,10 @@ components:
           type: string
           minLength: 1
           maxLength: 300
+        description_html:
+          oneOf:
+            - $ref: '#/components/schemas/SafeDescriptionHtml'
+            - type: 'null'
         product_config:
           description: >-
             Configuration produit recopiee telle quelle du devis, lui-meme
@@ -18600,6 +18634,10 @@ components:
           type: string
           minLength: 1
           maxLength: 300
+        description_html:
+          oneOf:
+            - $ref: '#/components/schemas/SafeDescriptionHtml'
+            - type: 'null'
         quantity:
           type: integer
           format: int32
@@ -18655,6 +18693,10 @@ components:
       not:
         required: [sale_price, margin_rate]
       properties:
+        description_html:
+          oneOf:
+            - $ref: '#/components/schemas/SafeDescriptionHtml'
+            - type: 'null'
         sale_price:
           description: >-
             Prix de vente propose, TOTAL pour la quantite de la ligne. Le

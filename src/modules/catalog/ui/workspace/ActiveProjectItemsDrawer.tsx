@@ -3,6 +3,7 @@ import { CheckSquare2, FileText, Loader2, Square, X } from 'lucide-react';
 import { useWorkspaceApi } from '@/platform/runtime/workspace-ui-runtime';
 import { ProjectsApiClient, type ProjectDetailDto } from '@/modules/projects';
 import { CommercialQuotesApiClient } from '@/modules/commercial-quotes';
+import { SafeDescriptionHtml } from '@/shared/presentation/SafeDescriptionHtml';
 
 type QuotePayloadShape = Readonly<{
   quantity?: number | string;
@@ -152,6 +153,10 @@ export function ActiveProjectItemsDrawer({
                         />
                         <span className="min-w-0 flex-1">
                           <strong className="block truncate text-sm font-medium text-ink">{item.label}</strong>
+                          <SafeDescriptionHtml
+                            html={item.description_html}
+                            className="mt-1 text-xs text-ink-muted"
+                          />
                           <span className="mt-0.5 block text-xs text-ink-muted">
                             {details || 'Configuration non détaillée.'}
                           </span>
