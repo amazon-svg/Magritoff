@@ -18,7 +18,7 @@
  */
 import { z } from 'zod';
 import { timestampSchema, uuidSchema } from '../../_shared/api/index.ts';
-import { safeDescriptionHtmlSchema } from '@/shared/validation/safe-description-html';
+import { safeDescriptionHtmlSchema } from '../../../shared/validation/safe-description-html.ts';
 import { projectTagSchema } from '../../project-tags/api/contracts.ts';
 
 export const projectStatusSchema = z.enum(['active', 'archived']);

@@ -45,7 +45,7 @@
  */
 import { z } from 'zod';
 import { moneySchema, rateSchema, timestampSchema, uuidSchema } from '../../_shared/api/index.ts';
-import { safeDescriptionHtmlSchema } from '@/shared/validation/safe-description-html';
+import { safeDescriptionHtmlSchema } from '../../../shared/validation/safe-description-html.ts';
 // `nonNegativeRateSchema` (E10.6) reutilise TEL QUEL pour `vat_rate` : un
 // taux de TVA negatif n a pas plus de sens qu un prix client negatif
 // (qa-review E10.10a round 1, B1). Meme rapport a `rateSchema` que celui deja

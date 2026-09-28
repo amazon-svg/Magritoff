@@ -25,7 +25,7 @@
  * ce service.
  */
 import type { TenantId, UserId } from '../../../kernel/ids/index.ts';
-import { buildDescriptionHtml } from '@/shared/validation/safe-description-html';
+import { buildDescriptionHtml } from '../../../shared/validation/safe-description-html.ts';
 import type { OutboxPublisher } from '../../_shared/application/index.ts';
 import type { ProjectsRepository } from '../../projects/application/projects-repository.ts';
 import type { PriceRulesService } from '../../pricing/application/price-rules-service.ts';

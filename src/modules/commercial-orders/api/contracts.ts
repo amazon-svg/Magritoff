@@ -26,7 +26,7 @@
  */
 import { z } from 'zod';
 import { moneySchema, rateSchema, timestampSchema, uuidSchema } from '../../_shared/api/index.ts';
-import { safeDescriptionHtmlSchema } from '@/shared/validation/safe-description-html';
+import { safeDescriptionHtmlSchema } from '../../../shared/validation/safe-description-html.ts';
 import {
   dateOnlySchema,
   moneyNonNegativeSchema,

@@ -8,7 +8,7 @@
  */
 import { uuidSchema } from '../../_shared/api/index.ts';
 import type { TenantId, UserId } from '../../../kernel/ids/index.ts';
-import { buildDescriptionHtml } from '@/shared/validation/safe-description-html';
+import { buildDescriptionHtml } from '../../../shared/validation/safe-description-html.ts';
 import type { OutboxPublisher } from '../../_shared/application/index.ts';
 import type { CustomersRepository } from '../../customers/application/customers-repository.ts';
 import type { ProjectTagsRepository } from '../../project-tags/application/project-tags-repository.ts';
