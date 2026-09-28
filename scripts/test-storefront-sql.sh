@@ -60,6 +60,7 @@ SQL_CASES=(
   tests/sql/gescom-e10-10b-4b-document-pdf-template-fields.sql
   tests/sql/gescom-e10-10b-4c-quote-documents.sql
   tests/sql/gescom-e10-17a-order-files.sql
+  tests/sql/gescom-commercial-line-files.sql
   tests/sql/gescom-e10-19a-order-document-template.sql
   tests/sql/gescom-e10-19b-order-documents.sql
   tests/sql/gescom-e10-20a-order-upload-links.sql

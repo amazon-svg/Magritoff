@@ -1,11 +1,12 @@
 import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowUp, FolderKanban, Plus, Search, Users } from 'lucide-react';
+import { ArrowUp, FolderKanban, ListChecks, Plus, Search, Sparkles, Users } from 'lucide-react';
 import { MagritLogo } from '@/shared/presentation/MagritLogo';
 import { useWorkspaceApi } from '@/platform/runtime/workspace-ui-runtime';
 import { CustomersApiClient, type CreateCustomerCommand, type CustomerDto } from '@/modules/customers';
 import { CustomerFormModal } from '@/modules/customers/ui/workspace/CustomerFormModal';
 import { ProjectsApiClient, type CreateProjectCommand, type ProjectDto } from '@/modules/projects';
 import { customerDisplayName, ProjectCreateModal } from '@/modules/projects/ui/workspace/ProjectCreateModal';
+import { ActiveProjectItemsDrawer } from './ActiveProjectItemsDrawer';
 
 const inputCls = 'w-full rounded-lg border border-line-2 bg-paper px-3 py-2 text-sm text-ink focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/40';
 const btnPrimary = 'inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-brand-ink hover:opacity-90';
@@ -18,15 +19,19 @@ const PROMPT_EXAMPLES = [
 
 export function MagritConfiguratorHome({
   selectedCustomerName = null,
+  selectedProjectId = null,
   selectedProjectName = null,
   onProjectSelect,
   onChangeProject,
+  onQuoteCreated,
   onSubmit,
 }: Readonly<{
   selectedCustomerName?: string | null;
+  selectedProjectId?: string | null;
   selectedProjectName?: string | null;
-  onProjectSelect: (selection: { projectId: string; customerName: string; projectName: string }) => void;
+  onProjectSelect: (selection: { projectId: string; customerName: string; projectName: string; hopstudioSessionId: string | null }) => void;
   onChangeProject: () => void;
+  onQuoteCreated: (quoteId: string) => void;
   onSubmit: (query: string) => void;
 }>) {
   const customersApi = useWorkspaceApi(CustomersApiClient);
@@ -39,6 +44,7 @@ export function MagritConfiguratorHome({
   const [contextError, setContextError] = useState<string | null>(null);
   const [showCreateProject, setShowCreateProject] = useState(false);
   const [showCreateCustomer, setShowCreateCustomer] = useState(false);
+  const [showProjectItems, setShowProjectItems] = useState(false);
   const [query, setQuery] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const selectedCustomer = customers.find((customer) => customer.id === selectedCustomerId) ?? null;
@@ -139,9 +145,21 @@ export function MagritConfiguratorHome({
                 <span className="mx-2 text-ink-muted">·</span>
                 <span className="text-ink-muted">{selectedProjectName}</span>
               </div>
-              <button type="button" onClick={onChangeProject} className="shrink-0 rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink hover:bg-bg">
-                Changer
-              </button>
+              <div className="flex shrink-0 items-center gap-2">
+                {selectedProjectId && (
+                  <button
+                    type="button"
+                    onClick={() => setShowProjectItems(true)}
+                    className="inline-flex items-center gap-2 rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink hover:bg-bg"
+                  >
+                    <ListChecks className="size-4" />
+                    Éléments du projet
+                  </button>
+                )}
+                <button type="button" onClick={onChangeProject} className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink hover:bg-bg">
+                  Changer
+                </button>
+              </div>
             </div>
             <form className="pt-4" onSubmit={submitPrompt}>
               <label className="sr-only" htmlFor="magrit-configurator-prompt">
@@ -264,10 +282,22 @@ export function MagritConfiguratorHome({
                       return customer ? customerDisplayName(customer) : 'Client';
                     })(),
                     projectName: project.name,
+                    hopstudioSessionId: project.hopstudio_session_id,
                   })}
                   className="flex items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm text-ink transition hover:bg-bg"
                 >
-                  <span className="min-w-0 truncate font-medium">{project.name}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium">{project.name}</span>
+                    <span
+                      className={`mt-0.5 flex min-w-0 items-center gap-1 text-[11px] ${project.hopstudio_session_id ? 'text-brand' : 'text-ink-muted'}`}
+                      title={project.hopstudio_session_id ?? 'Aucune session HopeStudio associée'}
+                    >
+                      <Sparkles className="size-3 shrink-0" aria-hidden="true" />
+                      <span className="truncate font-mono">
+                        Session : {project.hopstudio_session_id ?? 'non initialisée'}
+                      </span>
+                    </span>
+                  </span>
                   <time className="ml-3 shrink-0 text-xs text-ink-muted" dateTime={project.updated_at}>
                     {new Date(project.updated_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
                   </time>
@@ -300,6 +330,17 @@ export function MagritConfiguratorHome({
           onVerifySiret={async (customerId) => {
             const result = await customersApi.verifySiret(customerId);
             return { verified: result.verified, mocked: result.mocked };
+          }}
+        />
+      )}
+      {showProjectItems && selectedProjectId && selectedProjectName && (
+        <ActiveProjectItemsDrawer
+          projectId={selectedProjectId}
+          projectName={selectedProjectName}
+          onClose={() => setShowProjectItems(false)}
+          onCreated={(quoteId) => {
+            setShowProjectItems(false);
+            onQuoteCreated(quoteId);
           }}
         />
       )}

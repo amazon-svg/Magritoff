@@ -35,6 +35,10 @@ describe('page de test d intégration HopeStudio', () => {
     resolve(process.cwd(), 'public/vendor/hopstudio/1.0.0/css/sugarcrepeHLUX.magrit.css'),
     'utf8',
   );
+  const runtimeSource = readFileSync(
+    resolve(process.cwd(), 'public/vendor/hopstudio/1.0.0/sugarcrepeHLUX.mjs'),
+    'utf8',
+  );
   it('charge le bundle versionné et configure toutes les racines statiques', () => {
     expect(assetsSource).toContain("HOPSTUDIO_ASSET_ROOT = '/vendor/hopstudio/1.0.0/'");
     expect(assetsSource).toContain("HOPSTUDIO_EJS_ROOT = '/hopstudio/ejs/'");
@@ -70,15 +74,28 @@ describe('page de test d intégration HopeStudio', () => {
     expect(homeSource).toContain('Le papier pense.');
     expect(homeSource).toContain('magrit-configurator-prompt');
     expect(homeSource).toContain('onProjectSelect');
+    expect(homeSource).toContain("Session : {project.hopstudio_session_id ?? 'non initialisée'}");
     expect(configuratorSource).toContain('createInitialConfiguratorRequest');
     expect(dualWorkspaceSource).toContain('Clariprint Studio');
-    expect(dualWorkspaceSource).toContain('Recherche PIM');
-    expect(dualWorkspaceSource).toContain("compact={mode === 'split'}");
+    expect(dualWorkspaceSource).not.toContain('Recherche PIM');
+    expect(dualWorkspaceSource).not.toContain('PimSearchPanel');
+    expect(dualWorkspaceSource).toContain('compact={false}');
     expect(dualWorkspaceSource).toContain('h-[calc(100dvh-3.5rem)]');
     expect(dualWorkspaceSource).toContain('grid-rows-[minmax(0,1fr)]');
     expect(workspaceSource).toContain('enhanceChatChrome');
     expect(workspaceSource).toContain("send.id = 'hopstudio-send'");
-    expect(workspaceSource).toContain('sentInitialRequestIds');
+    expect(workspaceSource).toContain('window.HChat.initial_prompt = initialPrompt.trim() || null');
+    expect(workspaceSource).not.toContain('window.hopes_suite?.chat?.sendMessage');
+    expect(runtimeSource).toContain('window.HChat?.initial_prompt?.trim()');
+    expect(runtimeSource).toContain('queueMicrotask(() => G(initialPrompt))');
+    expect(workspaceSource).toContain('configureChatIdentity(tenantId, userId, bootstrapSessionId, initialRequest.query)');
+    expect(workspaceSource).toContain('window.HChat.session_id = isValidSessionId(sessionId) ? sessionId : null');
+    expect(workspaceSource).toContain('resetHopeStudioBrowserSession();');
+    expect(workspaceSource).toContain('delete window.hopes_suite.chat.session');
+    expect(workspaceSource).toContain('const bootstrapSessionId = projectBootstrapRef.current.sessionId');
+    expect(workspaceSource).toContain('}, [api, bootstrapSessionId, projectId, tenantId, userId]);');
+    expect(workspaceSource).not.toContain("parameters.set('action', 'newSession')");
+    expect(dualWorkspaceSource).toContain('onSessionId={handleSessionId}');
     expect(workspaceSource).not.toContain('hopstudio-prompt-grid');
     expect(historyTemplate).toContain('Nouvelle conversation');
     expect(historyTemplate).toContain('hs-history-entry');

@@ -167,6 +167,7 @@ export class InMemoryProjectsRepository implements ProjectsRepository {
       customer_id: command.customer_id,
       name: command.name,
       status: 'active',
+      hopstudio_session_id: null,
       tags: [],
       created_by: actor,
       created_at: now,
@@ -183,6 +184,37 @@ export class InMemoryProjectsRepository implements ProjectsRepository {
   ): Promise<ProjectDto> {
     const current = this.projects.get(projectId);
     if (!current || current.tenant_id !== tenantId) throw new ProjectNotFoundError();
+    if (
+      command.hopstudio_session_id !== undefined &&
+      current.hopstudio_session_id !== null &&
+      command.hopstudio_session_id !== current.hopstudio_session_id
+    ) {
+      throw new ProjectCommandRejectedError(
+        'project.hopstudio_session_locked',
+        'La session HopeStudio de ce projet est déjà définie et ne peut plus être modifiée.',
+        [{
+          field: 'hopstudio_session_id',
+          message: 'La session HopeStudio ne peut être renseignée que si elle est actuellement nulle.',
+        }],
+      );
+    }
+    if (command.hopstudio_session_id) {
+      const alreadyAssigned = [...this.projects.values()].some((project) => (
+        project.tenant_id === tenantId &&
+        project.id !== projectId &&
+        project.hopstudio_session_id === command.hopstudio_session_id
+      ));
+      if (alreadyAssigned) {
+        throw new ProjectCommandRejectedError(
+          'project.hopstudio_session_already_assigned',
+          'Cette session HopeStudio est déjà associée à un autre projet.',
+          [{
+            field: 'hopstudio_session_id',
+            message: 'Une session HopeStudio ne peut appartenir qu’à un seul projet.',
+          }],
+        );
+      }
+    }
     const updated: ProjectDto = {
       ...current,
       ...('name' in command && command.name !== undefined ? { name: command.name } : {}),
@@ -190,6 +222,9 @@ export class InMemoryProjectsRepository implements ProjectsRepository {
         ? { customer_id: command.customer_id }
         : {}),
       ...('status' in command && command.status !== undefined ? { status: command.status } : {}),
+      ...('hopstudio_session_id' in command && command.hopstudio_session_id !== undefined
+        ? { hopstudio_session_id: command.hopstudio_session_id }
+        : {}),
       updated_at: new Date().toISOString(),
     };
     this.projects.set(projectId, updated);

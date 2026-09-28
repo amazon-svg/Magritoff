@@ -14,6 +14,8 @@ export {
   updateProjectCommandSchema,
   type CreateProjectCommand,
   type CreateProjectItemCommand,
+  type CommercialFileKind,
+  type ImportedCommercialFile,
   type ImportHopeStudioBasketItemCommand,
   type ProjectDetailDto,
   type ProjectDto,

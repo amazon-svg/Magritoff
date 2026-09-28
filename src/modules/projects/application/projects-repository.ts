@@ -2,6 +2,7 @@ import type { TenantId, UserId } from '../../../kernel/ids/index.ts';
 import type {
   CreateProjectCommand,
   CreateProjectItemCommand,
+  ImportedCommercialFile,
   ProjectDetailDto,
   ProjectDto,
   ProjectItemDto,
@@ -80,7 +81,7 @@ export interface ProjectsRepository {
   addItem(
     tenantId: TenantId,
     projectId: string,
-    command: CreateProjectItemCommand,
+    command: CreateProjectItemCommand & Readonly<{ files?: readonly ImportedCommercialFile[] }>,
   ): Promise<ProjectItemDto>;
 
   /** Retrait du LIEN uniquement ; ne supprime jamais un historique de chiffrage ailleurs. */

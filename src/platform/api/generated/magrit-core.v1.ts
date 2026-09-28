@@ -6158,6 +6158,8 @@ export interface components {
             customer_id: components["schemas"]["Uuid"];
             name: string;
             status: components["schemas"]["ProjectStatus"];
+            /** @description Identifiant de session HopeStudio associé au projet, ou `null` avant le premier chat. */
+            hopstudio_session_id: string | null;
             /** @description Tags libres colores du projet (CA1, CA6, E10.2), 0 a N. Ordre non garanti. */
             tags: components["schemas"]["ProjectTag"][];
             /** @description Acteur createur. `null` pour une creation systeme. */
@@ -6198,6 +6200,8 @@ export interface components {
             customer_id: components["schemas"]["Uuid"];
             name: string;
             status: components["schemas"]["ProjectStatus"];
+            /** @description Identifiant de session HopeStudio associé au projet, ou `null` avant le premier chat. */
+            hopstudio_session_id: string | null;
             tags: components["schemas"]["ProjectTag"][];
             created_by?: components["schemas"]["Uuid"] | null;
             created_at: components["schemas"]["Timestamp"];
@@ -6220,6 +6224,8 @@ export interface components {
             name?: string;
             customer_id?: components["schemas"]["Uuid"];
             status?: components["schemas"]["ProjectStatus"];
+            /** @description Session HopeStudio à associer au projet après initialisation du chat, uniquement si la valeur actuelle est nulle. Une session déjà définie est immuable (`project.hopstudio_session_locked`). Une valeur non nulle ne peut appartenir qu à un seul projet du tenant ; une réutilisation est refusée en 409 `project.hopstudio_session_already_assigned`. */
+            hopstudio_session_id?: string | null;
         };
         /**
          * ProjectTagColor
@@ -6265,6 +6271,20 @@ export interface components {
                 [key: string]: unknown;
             } | null;
         };
+        /**
+         * CommercialFileKind
+         * @description Rôle métier du fichier, indépendant de son type MIME. Le même fichier immuable peut être associé successivement à une ligne de projet, de devis puis de commande sans recopier ses octets.
+         * @enum {string}
+         */
+        CommercialFileKind: "supplier_quote" | "cutting_template" | "folding_template" | "technical_template" | "artwork" | "proof" | "other";
+        /** ImportedCommercialFile */
+        ImportedCommercialFile: {
+            kind: components["schemas"]["CommercialFileKind"];
+            filename: string;
+            content_type: string;
+            /** @description Contenu encodé en base64, transféré ensuite dans le bucket privé. */
+            data_base64: string;
+        };
         /** ImportHopeStudioBasketItemCommand */
         ImportHopeStudioBasketItemCommand: {
             card: {
@@ -6286,6 +6306,7 @@ export interface components {
             } & {
                 [key: string]: unknown;
             };
+            files?: components["schemas"]["ImportedCommercialFile"][];
         };
         /**
          * QuoteStatus
@@ -10059,6 +10080,8 @@ export type ProjectTag = components['schemas']['ProjectTag'];
 export type CreateProjectTagCommand = components['schemas']['CreateProjectTagCommand'];
 export type ReplaceProjectTagsCommand = components['schemas']['ReplaceProjectTagsCommand'];
 export type CreateProjectItemCommand = components['schemas']['CreateProjectItemCommand'];
+export type CommercialFileKind = components['schemas']['CommercialFileKind'];
+export type ImportedCommercialFile = components['schemas']['ImportedCommercialFile'];
 export type ImportHopeStudioBasketItemCommand = components['schemas']['ImportHopeStudioBasketItemCommand'];
 export type QuoteStatus = components['schemas']['QuoteStatus'];
 export type QuoteLine = components['schemas']['QuoteLine'];
@@ -11009,7 +11032,15 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
+            /** @description Conflit de concurrence optimiste, ou session HopeStudio déjà associée à un autre projet du tenant (`project.hopstudio_session_already_assigned`), ou tentative de modifier une session déjà définie (`project.hopstudio_session_locked`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
             /** @description `customer_id` fourni mais inconnu du tenant (`project.customer_required`). */
             422: {
                 headers: {

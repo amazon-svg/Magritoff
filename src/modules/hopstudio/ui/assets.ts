@@ -11,5 +11,6 @@ export const HOPSTUDIO_STYLESHEET_URL = `${HOPSTUDIO_ASSET_ROOT}css/sugarcrepeHL
 
 export type HopeStudioBrowserChat = {
   session?: Readonly<Record<string, unknown>>;
+  initSession?: (sessionId: string) => Promise<unknown> | void;
   sendMessage?: (message: string) => Promise<unknown>;
 };

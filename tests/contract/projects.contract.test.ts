@@ -335,6 +335,70 @@ describe('module Projets (E10.1) contre le contrat', () => {
     expect(body.code).toBe('project.customer_required');
   });
 
+  it('refuse d associer la meme session HopeStudio a deux projets du tenant', async () => {
+    const customer = await createCustomer();
+    const { data: first } = await createProject(customer.id, { name: 'Premier projet HS' });
+    const { data: second } = await createProject(customer.id, { name: 'Second projet HS' });
+    const sessionId = 'hs-session-unique-1';
+
+    const firstEtag = (
+      await call(`/api/v1/projects/${first.id}`, { headers: asUser })
+    ).headers.get('etag')!;
+    const assigned = await call(`/api/v1/projects/${first.id}`, {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': firstEtag },
+      body: JSON.stringify({ hopstudio_session_id: sessionId }),
+    });
+    await expectContract(assigned, { status: 200, dataSchema: 'Project' });
+
+    const secondEtag = (
+      await call(`/api/v1/projects/${second.id}`, { headers: asUser })
+    ).headers.get('etag')!;
+    const duplicate = await call(`/api/v1/projects/${second.id}`, {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': secondEtag },
+      body: JSON.stringify({ hopstudio_session_id: sessionId }),
+    });
+    await expectContract(duplicate, { status: 409 });
+    const body = (await duplicate.json()) as { code: string; errors?: { field: string }[] };
+    expect(body.code).toBe('project.hopstudio_session_already_assigned');
+    expect(body.errors).toContainEqual(expect.objectContaining({ field: 'hopstudio_session_id' }));
+  });
+
+  it('ne permet de renseigner la session HopeStudio que si elle est nulle', async () => {
+    const customer = await createCustomer();
+    const { data: project } = await createProject(customer.id, { name: 'Projet session verrouillee' });
+
+    const initialEtag = (
+      await call(`/api/v1/projects/${project.id}`, { headers: asUser })
+    ).headers.get('etag')!;
+    const assigned = await call(`/api/v1/projects/${project.id}`, {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': initialEtag },
+      body: JSON.stringify({ hopstudio_session_id: 'hs-session-originale' }),
+    });
+    await expectContract(assigned, { status: 200, dataSchema: 'Project' });
+
+    for (const hopstudioSessionId of ['hs-session-remplacement', null]) {
+      const currentEtag = (
+        await call(`/api/v1/projects/${project.id}`, { headers: asUser })
+      ).headers.get('etag')!;
+      const response = await call(`/api/v1/projects/${project.id}`, {
+        method: 'PATCH',
+        headers: { ...jsonHeaders, 'If-Match': currentEtag },
+        body: JSON.stringify({ hopstudio_session_id: hopstudioSessionId }),
+      });
+      await expectContract(response, { status: 409 });
+      const body = (await response.json()) as { code: string; errors?: { field: string }[] };
+      expect(body.code).toBe('project.hopstudio_session_locked');
+      expect(body.errors).toContainEqual(expect.objectContaining({ field: 'hopstudio_session_id' }));
+    }
+
+    const unchanged = await call(`/api/v1/projects/${project.id}`, { headers: asUser });
+    const unchangedBody = (await unchanged.json()) as { data: ProjectDetailDto };
+    expect(unchangedBody.data.hopstudio_session_id).toBe('hs-session-originale');
+  });
+
   it('CA7 — un projet inconnu du tenant rend 404, jamais une autre reponse', async () => {
     const response = await call(`/api/v1/projects/${uuid()}`, { headers: asUser });
     await expectContract(response, { status: 404 });
@@ -452,11 +516,20 @@ describe('module Projets (E10.1) contre le contrat', () => {
     const customer = await createCustomer();
     const { data: project } = await createProject(customer.id);
     const path = `/api/v1/projects/${project.id}/hopstudio-items`;
-    const body = JSON.stringify({ card: {
-      DBK: 'card-123', prompt: 'Dépliants 3 volets', selected: 'Folded flyers',
-      configuration: { quantity: 500, format: 'A4' },
-      clicked_intent: { getPrice: { response: '90.00' } },
-    } });
+    const body = JSON.stringify({
+      card: {
+        DBK: 'card-123', prompt: 'Dépliants 3 volets', selected: 'Folded flyers',
+        configuration: { quantity: 500, format: 'A4' },
+        clicked_intent: { getPrice: { response: '90.00', quote_process_key: 'quote-123' } },
+        supplier_metadata: { process: 'offset' },
+      },
+      files: [{
+        kind: 'supplier_quote',
+        filename: 'devis-fournisseur-card-123.pdf',
+        content_type: 'application/pdf',
+        data_base64: 'JVBERg==',
+      }],
+    });
     const init = {
       method: 'POST',
       headers: { ...jsonHeaders, 'Idempotency-Key': 'hopstudio-card-123' },
@@ -468,7 +541,14 @@ describe('module Projets (E10.1) contre le contrat', () => {
     expect(item.data.quote_payload).toMatchObject({
       quantity: 500,
       amounts: { clariprint_price_ht: '90.00' },
-      hopstudio: { card_key: 'card-123' },
+      hopstudio: {
+        card_key: 'card-123',
+        card: {
+          DBK: 'card-123',
+          clicked_intent: { getPrice: { quote_process_key: 'quote-123' } },
+          supplier_metadata: { process: 'offset' },
+        },
+      },
     });
     const replay = await call(path, init);
     expect(replay.status).toBe(201);

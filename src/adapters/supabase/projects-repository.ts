@@ -10,6 +10,7 @@ import type { TenantId, UserId } from '../../kernel/ids/index.ts';
 import type {
   CreateProjectCommand,
   CreateProjectItemCommand,
+  ImportedCommercialFile,
   ProjectDetailDto,
   ProjectDto,
   ProjectItemDto,
@@ -27,6 +28,8 @@ import { toIsoTimestamp } from '../../modules/_shared/application/index.ts';
 
 const CHECK_VIOLATION = '23514';
 const NOT_NULL_VIOLATION = '23502';
+const UNIQUE_VIOLATION = '23505';
+const HOPSTUDIO_SESSION_UNIQUE_INDEX = 'projects_tenant_hopstudio_session_id_unique';
 
 /**
  * Embed PostgREST des tags d un projet (E10.2, CA6) : un projet porte 0 a N
@@ -197,6 +200,9 @@ export class SupabaseProjectsRepository implements ProjectsRepository {
       patch['customer_id'] = command.customer_id;
     }
     if ('status' in command && command.status !== undefined) patch['status'] = command.status;
+    if ('hopstudio_session_id' in command && command.hopstudio_session_id !== undefined) {
+      patch['hopstudio_session_id'] = command.hopstudio_session_id;
+    }
 
     const { data, error } = await this.client
       .from('projects')
@@ -216,7 +222,7 @@ export class SupabaseProjectsRepository implements ProjectsRepository {
   async addItem(
     tenantId: TenantId,
     projectId: string,
-    command: CreateProjectItemCommand,
+    command: CreateProjectItemCommand & Readonly<{ files?: readonly ImportedCommercialFile[] }>,
   ): Promise<ProjectItemDto> {
     await this.assertProjectInTenant(tenantId, projectId);
 
@@ -242,7 +248,51 @@ export class SupabaseProjectsRepository implements ProjectsRepository {
       .select()
       .single();
     if (error || !data) throw toDomainError(error, 'Ajout de l élément au projet impossible.');
+
+    try {
+      for (const file of command.files ?? []) {
+        await this.attachImportedFile(tenantId, projectId, data.id, file);
+      }
+    } catch (cause) {
+      // Une ligne HopeStudio sans son document fournisseur serait un état
+      // partiel trompeur. La ligne vient d'être créée dans cette opération :
+      // on la retire si l'association du fichier échoue.
+      await this.client.from('project_items').delete().eq('id', data.id).eq('project_id', projectId);
+      throw cause;
+    }
+
     return toProjectItemDto(data);
+  }
+
+  private async attachImportedFile(
+    tenantId: TenantId,
+    projectId: string,
+    projectItemId: string,
+    file: ImportedCommercialFile,
+  ): Promise<void> {
+    const fileId = crypto.randomUUID();
+    const storagePath = `${tenantId}/${fileId}`;
+    const bytes = decodeBase64(file.data_base64);
+    const { error: uploadError } = await this.client.storage
+      .from('commercial_line_files')
+      .upload(storagePath, bytes, { contentType: file.content_type, upsert: false });
+    if (uploadError) throw new Error(`Téléversement du fichier commercial impossible : ${uploadError.message}`);
+
+    const { error } = await this.client.rpc('api_attach_project_item_file', {
+      p_tenant_id: tenantId,
+      p_project_id: projectId,
+      p_project_item_id: projectItemId,
+      p_file_id: fileId,
+      p_kind: file.kind,
+      p_filename: file.filename,
+      p_content_type: file.content_type,
+      p_byte_size: bytes.byteLength,
+      p_storage_path: storagePath,
+    });
+    if (!error) return;
+
+    await this.client.storage.from('commercial_line_files').remove([storagePath]);
+    throw new Error(`Association du fichier commercial impossible : ${error.message}`);
   }
 
   async removeItem(tenantId: TenantId, projectId: string, itemId: string): Promise<void> {
@@ -305,6 +355,7 @@ function toProjectDto(row: Record<string, any>): ProjectDto {
     customer_id: row.customer_id,
     name: row.name,
     status: row.status,
+    hopstudio_session_id: row.hopstudio_session_id ?? null,
     tags: toProjectTagDtos(row.project_tag_links),
     created_by: row.created_by ?? null,
     created_at: toIsoTimestamp(row.created_at),
@@ -356,11 +407,41 @@ function toProjectItemDto(row: Record<string, any>): ProjectItemDto {
   };
 }
 
+function decodeBase64(value: string): Uint8Array {
+  const payload = value.includes(',') ? value.slice(value.indexOf(',') + 1) : value;
+  let binary: string;
+  try {
+    binary = atob(payload);
+  } catch {
+    throw new ProjectCommandRejectedError(
+      'project.file_invalid',
+      'Le contenu du fichier commercial n’est pas un base64 valide.',
+    );
+  }
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return bytes;
+}
+
 /** Traduit les erreurs Postgres en erreurs de domaine du module Projets. */
 export function toDomainError(
   error: { code?: string; message: string; details?: string | null } | null,
   fallback: string,
 ): Error {
+  const databaseDiagnostic = `${error?.message ?? ''} ${error?.details ?? ''}`;
+  if (
+    error?.code === UNIQUE_VIOLATION &&
+    databaseDiagnostic.includes(HOPSTUDIO_SESSION_UNIQUE_INDEX)
+  ) {
+    return new ProjectCommandRejectedError(
+      'project.hopstudio_session_already_assigned',
+      'Cette session HopeStudio est déjà associée à un autre projet.',
+      [{
+        field: 'hopstudio_session_id',
+        message: 'Une session HopeStudio ne peut appartenir qu’à un seul projet.',
+      }],
+    );
+  }
   // Filet de securite : la NOT NULL de `customer_id` porte deja le CA3 en
   // base (voir 20260901000500_gescom_e10_1_projects.sql). Le service verifie
   // l existence du client AVANT d ecrire ; ce cas ne devrait donc survenir

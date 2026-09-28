@@ -8,8 +8,35 @@
  * d E10.4 qu il reprend.
  */
 import { describe, expect, it } from 'vitest';
-import { sanitizeSearchTerm, toProjectTagDtos } from '@/adapters/supabase/projects-repository';
+import { sanitizeSearchTerm, toDomainError, toProjectTagDtos } from '@/adapters/supabase/projects-repository';
 import { computeEntityTag } from '@/modules/_shared/application';
+import { ProjectCommandRejectedError } from '@/modules/projects/application/projects-repository';
+
+describe('toDomainError — unicité des sessions HopeStudio', () => {
+  it('traduit la violation de l index session/projet en conflit métier', () => {
+    const error = toDomainError({
+      code: '23505',
+      message: 'duplicate key value violates unique constraint "projects_tenant_hopstudio_session_id_unique"',
+      details: 'Key (tenant_id, hopstudio_session_id) already exists.',
+    }, 'fallback');
+
+    expect(error).toBeInstanceOf(ProjectCommandRejectedError);
+    expect((error as ProjectCommandRejectedError).code)
+      .toBe('project.hopstudio_session_already_assigned');
+    expect((error as ProjectCommandRejectedError).fieldErrors)
+      .toContainEqual(expect.objectContaining({ field: 'hopstudio_session_id' }));
+  });
+
+  it('ne masque pas une autre violation unique sous une erreur HopeStudio', () => {
+    const error = toDomainError({
+      code: '23505',
+      message: 'duplicate key value violates unique constraint "another_constraint"',
+    }, 'fallback');
+
+    expect(error).not.toBeInstanceOf(ProjectCommandRejectedError);
+  });
+
+});
 
 describe('sanitizeSearchTerm (module Projets) — neutralise la grammaire de filtre PostgREST', () => {
   it('laisse une recherche ordinaire intacte', () => {

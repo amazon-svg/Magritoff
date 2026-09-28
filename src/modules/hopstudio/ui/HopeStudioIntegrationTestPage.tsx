@@ -8,7 +8,7 @@ import {
 } from './assets.ts';
 
 const TEST_API_URL = '/dev/hopstudio-api';
-const HOPSTUDIO_WIDGET_TIMEOUT_MS = 60_000;
+const HOPSTUDIO_WIDGET_TIMEOUT_MS = 120_000;
 
 type HopeStudioInstance = Readonly<{
   locals: Record<string, unknown> & { customApiFetch?: typeof fetch };
@@ -130,7 +130,7 @@ async function waitForElement(selector: string, timeoutMs: number) {
   const startedAt = Date.now();
   while (!document.querySelector(selector)) {
     if (Date.now() - startedAt >= timeoutMs) {
-      throw new Error(`HopeStudio n a pas créé ${selector} dans le délai attendu.`);
+      throw new Error(`HopeStudio n‘a pas créé ${selector} dans le délai attendu.`);
     }
     await new Promise((resolve) => window.setTimeout(resolve, 50));
   }

@@ -50,6 +50,10 @@ pnpm exec openapi-typescript "$CONTRACT" \
   --root-types-no-schema-prefix \
   >> "$TMP"
 
+# `mktemp` cree le fichier en 0600. L Edge Runtime Supabase lit les sources
+# depuis un volume Docker avec un autre utilisateur.
+chmod 0644 "$TMP"
+
 if [[ "$CHECK_ONLY" == "1" ]]; then
   if [[ ! -f "$OUTPUT" ]]; then
     echo "❌ $OUTPUT absent. Lancer : pnpm gen:api"
@@ -65,7 +69,12 @@ if [[ "$CHECK_ONLY" == "1" ]]; then
   exit 0
 fi
 
-mv "$TMP" "$OUTPUT"
+# Supabase monte individuellement ce fichier dans l Edge Runtime. Un `mv`
+# remplace son inode et laisse le bind mount Docker pointe sur l ancien fichier
+# supprime : le worker echoue alors en 503 (InvalidWorkerCreation / Module not
+# found). Copier le contenu conserve l inode deja monte.
+cp "$TMP" "$OUTPUT"
+rm -f "$TMP"
 trap - EXIT
 
 LINES=$(wc -l < "$OUTPUT" | tr -d ' ')

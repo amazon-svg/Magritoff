@@ -282,8 +282,12 @@ async function withDomainErrors<T>(operation: () => Promise<T>): Promise<T> {
       throw problem({ status: 404, title: 'Projet introuvable', code: SHARED_PROBLEM_CODES.notFound });
     }
     if (error instanceof ProjectCommandRejectedError) {
+      const status = error.code === 'project.hopstudio_session_already_assigned' ||
+        error.code === 'project.hopstudio_session_locked'
+        ? 409
+        : 422;
       throw problem({
-        status: 422,
+        status,
         title: 'Commande refusee',
         code: error.code,
         detail: error.message,

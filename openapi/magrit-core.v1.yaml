@@ -968,7 +968,16 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: >-
+            Conflit de concurrence optimiste, ou session HopeStudio déjà
+            associée à un autre projet du tenant
+            (`project.hopstudio_session_already_assigned`), ou tentative de
+            modifier une session déjà définie
+            (`project.hopstudio_session_locked`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
         '422':
           description: >-
             `customer_id` fourni mais inconnu du tenant
@@ -15208,6 +15217,7 @@ components:
         - customer_id
         - name
         - status
+        - hopstudio_session_id
         - tags
         - created_at
         - updated_at
@@ -15227,6 +15237,13 @@ components:
           maxLength: 300
         status:
           $ref: '#/components/schemas/ProjectStatus'
+        hopstudio_session_id:
+          description: Identifiant de session HopeStudio associé au projet, ou `null` avant le premier chat.
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 255
+            - type: 'null'
         tags:
           description: >-
             Tags libres colores du projet (CA1, CA6, E10.2), 0 a N. Ordre non
@@ -15302,6 +15319,7 @@ components:
         - customer_id
         - name
         - status
+        - hopstudio_session_id
         - tags
         - created_at
         - updated_at
@@ -15319,6 +15337,13 @@ components:
           maxLength: 300
         status:
           $ref: '#/components/schemas/ProjectStatus'
+        hopstudio_session_id:
+          description: Identifiant de session HopeStudio associé au projet, ou `null` avant le premier chat.
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 255
+            - type: 'null'
         tags:
           type: array
           items:
@@ -15370,6 +15395,19 @@ components:
           $ref: '#/components/schemas/Uuid'
         status:
           $ref: '#/components/schemas/ProjectStatus'
+        hopstudio_session_id:
+          description: >-
+            Session HopeStudio à associer au projet après initialisation du
+            chat, uniquement si la valeur actuelle est nulle. Une session déjà
+            définie est immuable (`project.hopstudio_session_locked`). Une
+            valeur non nulle ne peut appartenir qu à un seul projet du tenant ;
+            une réutilisation est refusée en 409
+            `project.hopstudio_session_already_assigned`.
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 255
+            - type: 'null'
 
     # --------------------------------------------------------------------------
     # story E10.2 — Tags libres colores sur les projets
@@ -15457,6 +15495,44 @@ components:
               additionalProperties: true
             - type: 'null'
 
+    CommercialFileKind:
+      title: CommercialFileKind
+      description: >-
+        Rôle métier du fichier, indépendant de son type MIME. Le même fichier
+        immuable peut être associé successivement à une ligne de projet, de
+        devis puis de commande sans recopier ses octets.
+      type: string
+      enum:
+        - supplier_quote
+        - cutting_template
+        - folding_template
+        - technical_template
+        - artwork
+        - proof
+        - other
+
+    ImportedCommercialFile:
+      title: ImportedCommercialFile
+      type: object
+      additionalProperties: false
+      required: [kind, filename, content_type, data_base64]
+      properties:
+        kind:
+          $ref: '#/components/schemas/CommercialFileKind'
+        filename:
+          type: string
+          minLength: 1
+          maxLength: 255
+        content_type:
+          type: string
+          minLength: 1
+          maxLength: 255
+        data_base64:
+          description: Contenu encodé en base64, transféré ensuite dans le bucket privé.
+          type: string
+          minLength: 1
+          maxLength: 20000000
+
     ImportHopeStudioBasketItemCommand:
       title: ImportHopeStudioBasketItemCommand
       type: object
@@ -15495,6 +15571,11 @@ components:
                       oneOf:
                         - type: number
                         - type: string
+        files:
+          type: array
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/ImportedCommercialFile'
 
     # --------------------------------------------------------------------------
     # Story E10.3 — Creation d un devis depuis un projet

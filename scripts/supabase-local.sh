@@ -23,12 +23,12 @@ with_local_baseline() {
 ensure_edge_runtime() {
   local container="supabase_edge_runtime_${PROJECT_ID}"
 
-  if ! docker inspect "$container" >/dev/null 2>&1; then
+  if ! docker container inspect "$container" >/dev/null 2>&1; then
     echo "Edge Runtime local introuvable : $container" >&2
     return 1
   fi
 
-  if [[ "$(docker inspect --format '{{.State.Running}}' "$container")" != "true" ]]; then
+  if [[ "$(docker container inspect --format '{{.State.Running}}' "$container")" != "true" ]]; then
     echo "→ Edge Runtime arrêté, redémarrage ciblé…"
     docker start "$container" >/dev/null
   fi
@@ -39,7 +39,12 @@ ensure_edge_runtime() {
 case "${1:-}" in
   start)
     with_local_baseline start
-    ensure_edge_runtime
+    if ! ensure_edge_runtime; then
+      echo "→ Edge Runtime absent, recréation propre de la pile locale…"
+      pnpm exec supabase stop
+      with_local_baseline start
+      ensure_edge_runtime
+    fi
     ;;
   reset)
     with_local_baseline db reset --local
