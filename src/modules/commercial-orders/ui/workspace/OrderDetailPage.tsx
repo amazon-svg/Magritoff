@@ -54,6 +54,7 @@ import { SafeDescriptionHtml } from '@/shared/presentation/SafeDescriptionHtml';
 import type { ProductionStepDto } from '@/modules/production-steps';
 import { OrderFilesBlock } from '@/modules/order-files/ui';
 import { OrderUploadLinksPanel } from '@/modules/order-upload-links/ui';
+import { CommercialLineFilesButton } from '@/modules/commercial-line-files/ui';
 import { OrderDocumentPanel, OrderStatusButton } from '../components';
 import { useOrderDetail } from '../hooks/useOrderDetail';
 import { contactDisplayName, customerDisplayName, formatOrderDate, sourceQuoteStatusLabel } from './order-detail.helpers';
@@ -220,6 +221,13 @@ export function DashboardOrderDetail() {
                       html={line.description_html}
                       className="mt-1 text-xs text-ink-muted"
                     />
+                    <div className="mt-2">
+                      <CommercialLineFilesButton
+                        lineType="order_line"
+                        lineId={line.id}
+                        lineLabel={line.label}
+                      />
+                    </div>
                   </td>
                   <td className="py-2 pr-3 text-ink-muted text-xs max-w-xs truncate" title={JSON.stringify(line.product_config)}>
                     {Object.keys(line.product_config).length > 0

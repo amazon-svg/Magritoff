@@ -1137,6 +1137,129 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /commercial-line-files/{lineType}/{lineId}:
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
+      - name: lineType
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/CommercialLineType'
+      - name: lineId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+    get:
+      operationId: listCommercialLineFiles
+      summary: "Liste les fichiers d’une ligne commerciale"
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Fichiers associés à la ligne, du plus récent au plus ancien.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/CommercialLineFile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      operationId: uploadCommercialLineFile
+      summary: "Ajoute un fichier typé à une ligne commerciale"
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadCommercialLineFileCommand'
+      responses:
+        '201':
+          description: Fichier ajouté à la ligne.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CommercialLineFile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /commercial-line-files/{lineType}/{lineId}/{fileId}:
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
+      - name: lineType
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/CommercialLineType'
+      - name: lineId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: fileId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+    get:
+      operationId: getCommercialLineFile
+      summary: "Obtient les liens temporaires d’un fichier de ligne"
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Métadonnées et liens temporaires de prévisualisation et téléchargement.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CommercialLineFileDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /projects/{projectId}/tags:
     parameters:
       - $ref: '#/components/parameters/MagritTenant'
@@ -15600,6 +15723,89 @@ components:
           maxItems: 10
           items:
             $ref: '#/components/schemas/ImportedCommercialFile'
+
+    CommercialLineType:
+      title: CommercialLineType
+      type: string
+      enum: [project_item, quote_line, order_line]
+
+    CommercialLineFile:
+      title: CommercialLineFile
+      type: object
+      additionalProperties: false
+      required: [id, kind, filename, content_type, byte_size, created_at]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        kind:
+          $ref: '#/components/schemas/CommercialFileKind'
+        filename:
+          type: string
+          minLength: 1
+          maxLength: 255
+        content_type:
+          type: string
+          minLength: 1
+          maxLength: 255
+        byte_size:
+          type: integer
+          minimum: 1
+          maximum: 15000000
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+
+    CommercialLineFileDetail:
+      title: CommercialLineFileDetail
+      type: object
+      additionalProperties: false
+      required: [id, kind, filename, content_type, byte_size, created_at, preview_url, download_url, url_expires_at]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        kind:
+          $ref: '#/components/schemas/CommercialFileKind'
+        filename:
+          type: string
+          minLength: 1
+          maxLength: 255
+        content_type:
+          type: string
+          minLength: 1
+          maxLength: 255
+        byte_size:
+          type: integer
+          minimum: 1
+          maximum: 15000000
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+        preview_url:
+          type: string
+          format: uri
+        download_url:
+          type: string
+          format: uri
+        url_expires_at:
+          $ref: '#/components/schemas/Timestamp'
+
+    UploadCommercialLineFileCommand:
+      title: UploadCommercialLineFileCommand
+      type: object
+      additionalProperties: false
+      required: [kind, filename, content_type, data_base64]
+      properties:
+        kind:
+          $ref: '#/components/schemas/CommercialFileKind'
+        filename:
+          type: string
+          minLength: 1
+          maxLength: 255
+        content_type:
+          type: string
+          enum: [application/pdf, application/zip, application/x-zip-compressed, application/postscript, image/jpeg, image/png, image/tiff]
+        data_base64:
+          type: string
+          minLength: 1
+          maxLength: 20000000
 
     # --------------------------------------------------------------------------
     # Story E10.3 — Creation d un devis depuis un projet

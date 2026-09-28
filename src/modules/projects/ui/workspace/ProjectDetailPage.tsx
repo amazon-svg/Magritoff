@@ -23,6 +23,7 @@ import { SafeDescriptionHtml } from '@/shared/presentation/SafeDescriptionHtml';
 import { useProjectDetail, useProjectTagsCatalog } from '@/modules/projects/ui/hooks';
 import type { ProjectItemDto } from '@/modules/projects/api/contracts';
 import { CreateQuoteDrawer } from '@/modules/commercial-quotes/ui';
+import { CommercialLineFilesButton } from '@/modules/commercial-line-files/ui';
 import { customerDisplayName } from './ProjectCreateModal';
 import { ProjectTagsEditor } from './ProjectTagsEditor';
 
@@ -292,6 +293,11 @@ export function DashboardProjectDetail() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
+                    <CommercialLineFilesButton
+                      lineType="project_item"
+                      lineId={item.id}
+                      lineLabel={item.label}
+                    />
                     <button
                       type="button"
                       onClick={() => resumeInAtelier(item)}

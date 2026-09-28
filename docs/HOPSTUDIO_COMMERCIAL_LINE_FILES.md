@@ -46,6 +46,20 @@ Des triggers PostgreSQL couvrent les deux ordres possibles :
 Le même `commercial_files.id` est donc associé aux lignes projet, devis et
 commande. Les octets et le chemin de stockage restent uniques.
 
+## Gestion dans l'interface
+
+Les lignes projet, devis et commande utilisent le même bouton `Fichiers` et
+la même fenêtre de gestion. Cette fenêtre permet de :
+
+- consulter les fichiers déjà associés à la ligne ;
+- choisir leur type métier avant l'ajout ;
+- ajouter un PDF, une archive ZIP, un fichier PostScript ou une image ;
+- prévisualiser les PDF et images au moyen d'une URL signée temporaire ;
+- télécharger chaque fichier avec son nom d'origine.
+
+Les URL de lecture expirent après cinq minutes. L'accès est vérifié à partir
+du tenant et de la ligne demandée avant toute signature.
+
 ## Intégration HopeStudio
 
 Lors de `window.HChat.callbackAddToBasket(card, rankSelected)` :

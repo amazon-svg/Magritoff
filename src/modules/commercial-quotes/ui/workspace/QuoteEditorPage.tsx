@@ -28,6 +28,7 @@ import { ProjectsApiClient, type ProjectItemDto } from '@/modules/projects';
 import { TEST_IDS } from '@/shared/presentation/testIds';
 import { SafeDescriptionHtml } from '@/shared/presentation/SafeDescriptionHtml';
 import { CommercialOrdersApiClient } from '@/modules/commercial-orders';
+import { CommercialLineFilesButton } from '@/modules/commercial-line-files/ui';
 import { QuoteLineDescriptionDialog } from '../components';
 import { CommercialQuotesApiClient } from '../../api/client';
 import type {
@@ -884,6 +885,13 @@ export function QuoteEditorPage() {
                           Modifier le détail
                         </button>
                       )}
+                      <div className="mt-2">
+                        <CommercialLineFilesButton
+                          lineType="quote_line"
+                          lineId={line.id}
+                          lineLabel={line.label}
+                        />
+                      </div>
                       {line.warnings.map((warning) => (
                         <p key={warning.code} className="text-xs text-err-fg">
                           {warning.message}

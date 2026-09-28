@@ -359,6 +359,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/commercial-line-files/{lineType}/{lineId}": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                lineType: components["schemas"]["CommercialLineType"];
+                lineId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /** Liste les fichiers d’une ligne commerciale */
+        get: operations["listCommercialLineFiles"];
+        put?: never;
+        /** Ajoute un fichier typé à une ligne commerciale */
+        post: operations["uploadCommercialLineFile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/commercial-line-files/{lineType}/{lineId}/{fileId}": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                lineType: components["schemas"]["CommercialLineType"];
+                lineId: components["schemas"]["Uuid"];
+                fileId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /** Obtient les liens temporaires d’un fichier de ligne */
+        get: operations["getCommercialLineFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{projectId}/tags": {
         parameters: {
             query?: never;
@@ -6318,6 +6382,42 @@ export interface components {
             files?: components["schemas"]["ImportedCommercialFile"][];
         };
         /**
+         * CommercialLineType
+         * @enum {string}
+         */
+        CommercialLineType: "project_item" | "quote_line" | "order_line";
+        /** CommercialLineFile */
+        CommercialLineFile: {
+            id: components["schemas"]["Uuid"];
+            kind: components["schemas"]["CommercialFileKind"];
+            filename: string;
+            content_type: string;
+            byte_size: number;
+            created_at: components["schemas"]["Timestamp"];
+        };
+        /** CommercialLineFileDetail */
+        CommercialLineFileDetail: {
+            id: components["schemas"]["Uuid"];
+            kind: components["schemas"]["CommercialFileKind"];
+            filename: string;
+            content_type: string;
+            byte_size: number;
+            created_at: components["schemas"]["Timestamp"];
+            /** Format: uri */
+            preview_url: string;
+            /** Format: uri */
+            download_url: string;
+            url_expires_at: components["schemas"]["Timestamp"];
+        };
+        /** UploadCommercialLineFileCommand */
+        UploadCommercialLineFileCommand: {
+            kind: components["schemas"]["CommercialFileKind"];
+            filename: string;
+            /** @enum {string} */
+            content_type: "application/pdf" | "application/zip" | "application/x-zip-compressed" | "application/postscript" | "image/jpeg" | "image/png" | "image/tiff";
+            data_base64: string;
+        };
+        /**
          * QuoteStatus
          * @description Cycle de vie du devis.
          *
@@ -10098,6 +10198,10 @@ export type CreateProjectItemCommand = components['schemas']['CreateProjectItemC
 export type CommercialFileKind = components['schemas']['CommercialFileKind'];
 export type ImportedCommercialFile = components['schemas']['ImportedCommercialFile'];
 export type ImportHopeStudioBasketItemCommand = components['schemas']['ImportHopeStudioBasketItemCommand'];
+export type CommercialLineType = components['schemas']['CommercialLineType'];
+export type CommercialLineFile = components['schemas']['CommercialLineFile'];
+export type CommercialLineFileDetail = components['schemas']['CommercialLineFileDetail'];
+export type UploadCommercialLineFileCommand = components['schemas']['UploadCommercialLineFileCommand'];
 export type QuoteStatus = components['schemas']['QuoteStatus'];
 export type QuoteLine = components['schemas']['QuoteLine'];
 export type Quote = components['schemas']['Quote'];
@@ -11205,6 +11309,140 @@ export interface operations {
                             /** @enum {boolean} */
                             removed: true;
                         };
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listCommercialLineFiles: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                lineType: components["schemas"]["CommercialLineType"];
+                lineId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Fichiers associés à la ligne, du plus récent au plus ancien. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["CommercialLineFile"][];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    uploadCommercialLineFile: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+                /**
+                 * @description Cle d idempotence fournie par l appelant sur tout POST creant une ressource metier (CA8). Rejouer la meme cle avec la meme requete renvoie la reponse initiale, accompagnee de l en-tete `Idempotency-Replayed: true` ; la rejouer avec une requete differente renvoie 409 `api.idempotency_key_reused`.
+                 *
+                 *     L identite d une requete couvre la methode, le chemin, LA QUERY et le corps : deux POST au meme chemin avec des query differentes ne sont pas la meme requete.
+                 *
+                 *     Sur un rejeu, seul `meta.request_id` est recale sur la requete courante ; `data` est rendu inchange.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                lineType: components["schemas"]["CommercialLineType"];
+                lineId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UploadCommercialLineFileCommand"];
+            };
+        };
+        responses: {
+            /** @description Fichier ajouté à la ligne. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["CommercialLineFile"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getCommercialLineFile: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                lineType: components["schemas"]["CommercialLineType"];
+                lineId: components["schemas"]["Uuid"];
+                fileId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Métadonnées et liens temporaires de prévisualisation et téléchargement. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["CommercialLineFileDetail"];
                     };
                 };
             };
