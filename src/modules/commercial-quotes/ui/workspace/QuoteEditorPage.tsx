@@ -18,7 +18,17 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { ArrowDown, ArrowLeft, ArrowUp, History, Loader2, Pencil, Trash2 } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowUp,
+  ChevronDown,
+  ChevronUp,
+  History,
+  Loader2,
+  Pencil,
+  Trash2,
+} from 'lucide-react';
 import { useTenantPath } from '@/modules/tenants/ui/hooks';
 import { useWorkspaceApi } from '@/platform/runtime/workspace-ui-runtime';
 import { useAccessProfile } from '@/modules/roles/ui/runtime';
@@ -107,6 +117,9 @@ export function QuoteEditorPage() {
   const [drafts, setDrafts] = useState<Record<string, LineDraft>>({});
   const [busyLineId, setBusyLineId] = useState<string | null>(null);
   const [descriptionLineId, setDescriptionLineId] = useState<string | null>(null);
+  const [expandedDescriptionIds, setExpandedDescriptionIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
 
   const [addLineOpen, setAddLineOpen] = useState(false);
   const [addLineMode, setAddLineMode] = useState<'project_item' | 'free'>('free');
@@ -838,7 +851,7 @@ export function QuoteEditorPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs uppercase tracking-wide text-ink-muted">
-                <th className="py-2 pr-3">Libelle</th>
+                <th className="w-[42%] py-2 pr-5">Libelle</th>
                 <th className="py-2 pr-3">Qte</th>
                 <th
                   className="py-2 pr-3"
@@ -862,30 +875,66 @@ export function QuoteEditorPage() {
                     : line.discount_rate.startsWith('-')
                       ? 'negative'
                       : 'positive';
+                const descriptionExpanded = expandedDescriptionIds.has(line.id);
                 return (
                   <tr
                     key={line.id}
                     data-testid={TEST_IDS.commercialQuote.lineRow}
                     data-line-id={line.id}
                   >
-                    <td className="py-2 pr-3">
+                    <td className="align-top py-3 pr-5">
                       <p className="text-ink font-medium">{line.label}</p>
-                      <SafeDescriptionHtml
-                        html={line.description_html}
-                        className="prose prose-sm mt-1 max-w-none text-ink-muted"
-                      />
-                      {isDraft && (
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => setDescriptionLineId(line.id)}
-                          className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-brand hover:underline disabled:opacity-50"
-                        >
-                          <Pencil className="size-3.5" />
-                          Modifier le détail
-                        </button>
+                      {line.description_html && (
+                        <div className="relative mt-1">
+                          <SafeDescriptionHtml
+                            html={line.description_html}
+                            className={`prose prose-sm max-w-none text-ink-muted [&_ol]:my-1 [&_p]:my-0.5 [&_ul]:my-1 ${
+                              descriptionExpanded ? '' : 'max-h-20 overflow-hidden'
+                            }`}
+                          />
+                          {!descriptionExpanded && (
+                            <div
+                              aria-hidden="true"
+                              className="pointer-events-none absolute inset-x-0 bottom-0 h-7 bg-gradient-to-t from-paper to-transparent"
+                            />
+                          )}
+                        </div>
                       )}
-                      <div className="mt-2">
+
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        {line.description_html && (
+                          <button
+                            type="button"
+                            aria-expanded={descriptionExpanded}
+                            onClick={() =>
+                              setExpandedDescriptionIds((current) => {
+                                const next = new Set(current);
+                                if (next.has(line.id)) next.delete(line.id);
+                                else next.add(line.id);
+                                return next;
+                              })
+                            }
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-line-2 px-2 py-1 text-xs font-medium text-ink-2 hover:bg-bg"
+                          >
+                            {descriptionExpanded ? (
+                              <ChevronUp className="size-3.5" />
+                            ) : (
+                              <ChevronDown className="size-3.5" />
+                            )}
+                            {descriptionExpanded ? 'Réduire' : 'Afficher le détail'}
+                          </button>
+                        )}
+                        {isDraft && (
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => setDescriptionLineId(line.id)}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-line-2 px-2 py-1 text-xs font-medium text-ink-2 hover:bg-bg disabled:opacity-50"
+                          >
+                            <Pencil className="size-3.5" />
+                            Modifier
+                          </button>
+                        )}
                         <CommercialLineFilesButton
                           lineType="quote_line"
                           lineId={line.id}
@@ -893,12 +942,12 @@ export function QuoteEditorPage() {
                         />
                       </div>
                       {line.warnings.map((warning) => (
-                        <p key={warning.code} className="text-xs text-err-fg">
+                        <p key={warning.code} className="mt-2 text-xs text-err-fg">
                           {warning.message}
                         </p>
                       ))}
                     </td>
-                    <td className="py-2 pr-3">
+                    <td className="align-top py-3 pr-3">
                       {isDraft ? (
                         <input
                           data-testid={TEST_IDS.commercialQuote.lineQuantityInput}
@@ -915,10 +964,10 @@ export function QuoteEditorPage() {
                         line.quantity
                       )}
                     </td>
-                    <td className="py-2 pr-3 font-mono text-xs text-ink-muted">
+                    <td className="align-top py-3 pr-3 font-mono text-xs text-ink-muted">
                       {line.production_price} / {line.public_price} / {line.customer_price}
                     </td>
-                    <td className="py-2 pr-3">
+                    <td className="align-top py-3 pr-3">
                       {isDraft ? (
                         <input
                           data-testid={TEST_IDS.commercialQuote.lineSalePriceInput}
@@ -935,7 +984,7 @@ export function QuoteEditorPage() {
                         <span className="font-mono">{line.sale_price}</span>
                       )}
                     </td>
-                    <td className="py-2 pr-3">
+                    <td className="align-top py-3 pr-3">
                       {isDraft ? (
                         <input
                           data-testid={TEST_IDS.commercialQuote.lineMarginInput}
@@ -952,7 +1001,7 @@ export function QuoteEditorPage() {
                         <span className="font-mono">{line.sale_margin_rate ?? '—'}</span>
                       )}
                     </td>
-                    <td className="py-2 pr-3">
+                    <td className="align-top py-3 pr-3">
                       <span
                         data-testid={TEST_IDS.commercialQuote.lineDiscountDisplay}
                         data-line-id={line.id}
@@ -967,7 +1016,7 @@ export function QuoteEditorPage() {
                       </span>
                     </td>
                     {isDraft && (
-                      <td className="py-2 pr-3">
+                      <td className="align-top py-3 pr-3">
                         <div className="flex items-center gap-1">
                           <button
                             type="button"
