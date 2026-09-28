@@ -29,6 +29,17 @@ export const INITIAL_CONFIGURATOR_WORKSPACE_STATE: ConfiguratorWorkspaceState = 
   projectName: null,
 };
 
+function createResumeConfiguratorRequest(
+  projectId: string,
+  sessionId: string,
+): InitialConfiguratorRequest {
+  return {
+    id: `resume:${projectId}:${sessionId}`,
+    query: '',
+    submittedAt: '',
+  };
+}
+
 export function createInitialConfiguratorWorkspaceState(
   tenantId: string,
 ): ConfiguratorWorkspaceState {
@@ -40,14 +51,19 @@ export function createInitialConfiguratorWorkspaceState(
     if (typeof selection.projectId !== 'string' || typeof selection.projectName !== 'string') {
       return INITIAL_CONFIGURATOR_WORKSPACE_STATE;
     }
+    const hopstudioSessionId = typeof selection.hopstudioSessionId === 'string'
+      ? selection.hopstudioSessionId
+      : null;
     return {
       ...INITIAL_CONFIGURATOR_WORKSPACE_STATE,
-      mode: 'home',
-      initialRequest: null,
+      mode: hopstudioSessionId ? 'studio' : 'home',
+      initialRequest: hopstudioSessionId
+        ? createResumeConfiguratorRequest(selection.projectId, hopstudioSessionId)
+        : null,
       projectId: selection.projectId,
       customerName: typeof selection.customerName === 'string' ? selection.customerName : null,
       projectName: selection.projectName,
-      hopstudioSessionId: typeof selection.hopstudioSessionId === 'string' ? selection.hopstudioSessionId : null,
+      hopstudioSessionId,
     };
   } catch {
     return INITIAL_CONFIGURATOR_WORKSPACE_STATE;
@@ -71,12 +87,14 @@ export function configuratorWorkspaceReducer(
     case 'select-project':
       return {
         ...state,
-        mode: 'home',
+        mode: action.hopstudioSessionId ? 'studio' : 'home',
         projectId: action.projectId,
         hopstudioSessionId: action.hopstudioSessionId,
         customerName: action.customerName,
         projectName: action.projectName,
-        initialRequest: null,
+        initialRequest: action.hopstudioSessionId
+          ? createResumeConfiguratorRequest(action.projectId, action.hopstudioSessionId)
+          : null,
       };
     case 'change-project':
       return INITIAL_CONFIGURATOR_WORKSPACE_STATE;

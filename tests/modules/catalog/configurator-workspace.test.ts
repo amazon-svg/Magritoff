@@ -69,7 +69,7 @@ describe('workspace configurateur', () => {
     });
   });
 
-  it('reste sur l accueil quand le projet possède déjà une session', () => {
+  it('ouvre directement HopeStudio quand le projet possède déjà une session', () => {
     const selected = configuratorWorkspaceReducer(INITIAL_CONFIGURATOR_WORKSPACE_STATE, {
       type: 'select-project',
       projectId: 'project-2',
@@ -79,8 +79,8 @@ describe('workspace configurateur', () => {
     });
 
     expect(selected).toMatchObject({
-      mode: 'home',
-      initialRequest: null,
+      mode: 'studio',
+      initialRequest: { query: '' },
       projectId: 'project-2',
       hopstudioSessionId: 'session-existante',
     });
