@@ -24,10 +24,14 @@ import {
   ArrowUp,
   ChevronDown,
   ChevronUp,
+  Download,
+  Eye,
+  FileText,
   History,
   Loader2,
   Pencil,
   Trash2,
+  X,
 } from 'lucide-react';
 import { useTenantPath } from '@/modules/tenants/ui/hooks';
 import { useWorkspaceApi } from '@/platform/runtime/workspace-ui-runtime';
@@ -60,6 +64,12 @@ function draftOf(line: QuoteLineDto): LineDraft {
     marginRate: line.sale_margin_rate ?? '',
     quantity: String(line.quantity),
   };
+}
+
+function forcePdfDownload(url: string, filename: string): string {
+  const downloadUrl = new URL(url);
+  downloadUrl.searchParams.set('download', filename);
+  return downloadUrl.toString();
 }
 
 /**
@@ -146,6 +156,13 @@ export function QuoteEditorPage() {
 
   // ── E10.10a — duplication (`duplicateQuote`) ──────────────────────────────
   const [duplicating, setDuplicating] = useState(false);
+
+  const [documentBusy, setDocumentBusy] = useState<'preview' | 'view' | 'download' | null>(null);
+  const [documentError, setDocumentError] = useState<string | null>(null);
+  const [documentModal, setDocumentModal] = useState<Readonly<{
+    url: string;
+    isDraft: boolean;
+  }> | null>(null);
 
   // ── E10.12 — « bouton Valider » (`convertQuote`) ──────────────────────────
   const [convertDialogOpen, setConvertDialogOpen] = useState(false);
@@ -437,6 +454,45 @@ export function QuoteEditorPage() {
     }
   }
 
+  async function openDocumentPreview(): Promise<void> {
+    if (!detail) return;
+    setDocumentBusy('preview');
+    setDocumentError(null);
+    try {
+      const preview = await quotesApi.createDocumentPreview(detail.id);
+      setDocumentModal({ url: preview.download_url, isDraft: true });
+    } catch (cause) {
+      setDocumentError(cause instanceof Error ? cause.message : 'Génération de l’aperçu PDF impossible.');
+    } finally {
+      setDocumentBusy(null);
+    }
+  }
+
+  async function getFinalDocumentUrl(action: 'view' | 'download'): Promise<void> {
+    if (!detail) return;
+    setDocumentBusy(action);
+    setDocumentError(null);
+    try {
+      const document = await quotesApi.getDocument(detail.id);
+      if (!document) throw new Error('Aucun PDF définitif n’est disponible pour ce devis.');
+
+      if (action === 'view') {
+        setDocumentModal({ url: document.download_url, isDraft: false });
+      } else {
+        const link = window.document.createElement('a');
+        link.href = forcePdfDownload(document.download_url, `${detail.number}.pdf`);
+        link.download = `${detail.number}.pdf`;
+        link.target = '_blank';
+        link.rel = 'noreferrer';
+        link.click();
+      }
+    } catch (cause) {
+      setDocumentError(cause instanceof Error ? cause.message : 'Récupération du PDF impossible.');
+    } finally {
+      setDocumentBusy(null);
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // E10.12 — « bouton Valider » (`convertQuote`). Visible pour un devis `sent`
   // ou `accepted` (le SERVEUR tranche : aucun autre controle n empeche l appel
@@ -646,6 +702,49 @@ export function QuoteEditorPage() {
       )}
 
       <div className="flex flex-wrap items-center gap-3">
+        {isDraft ? (
+          <button
+            type="button"
+            data-testid={TEST_IDS.commercialQuote.documentPreviewBtn}
+            onClick={() => void openDocumentPreview()}
+            disabled={documentBusy !== null}
+            className="px-4 py-2 border border-line-2 rounded-lg text-sm text-ink-2 hover:bg-bg disabled:opacity-50 inline-flex items-center gap-2"
+          >
+            {documentBusy === 'preview' ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <FileText className="size-4" />
+            )}
+            Aperçu PDF
+          </button>
+        ) : (
+          <>
+            <button
+              type="button"
+              data-testid={TEST_IDS.commercialQuote.documentViewBtn}
+              onClick={() => void getFinalDocumentUrl('view')}
+              disabled={documentBusy !== null}
+              className="px-4 py-2 border border-line-2 rounded-lg text-sm text-ink-2 hover:bg-bg disabled:opacity-50 inline-flex items-center gap-2"
+            >
+              {documentBusy === 'view' ? <Loader2 className="size-4 animate-spin" /> : <Eye className="size-4" />}
+              Voir le PDF
+            </button>
+            <button
+              type="button"
+              data-testid={TEST_IDS.commercialQuote.documentDownloadBtn}
+              onClick={() => void getFinalDocumentUrl('download')}
+              disabled={documentBusy !== null}
+              className="px-4 py-2 border border-line-2 rounded-lg text-sm text-ink-2 hover:bg-bg disabled:opacity-50 inline-flex items-center gap-2"
+            >
+              {documentBusy === 'download' ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Download className="size-4" />
+              )}
+              Télécharger
+            </button>
+          </>
+        )}
         {canSendOrResend && (
           <button
             type="button"
@@ -677,6 +776,12 @@ export function QuoteEditorPage() {
           </button>
         )}
       </div>
+
+      {documentError && (
+        <p data-testid={TEST_IDS.commercialQuote.documentError} className="text-sm text-err-fg">
+          {documentError}
+        </p>
+      )}
 
       {convertDialogOpen && (
         <div
@@ -1424,6 +1529,53 @@ export function QuoteEditorPage() {
           </div>
         )}
       </section>
+
+      {documentModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={documentModal.isDraft ? 'Aperçu PDF du devis' : 'PDF du devis'}
+          data-testid={TEST_IDS.commercialQuote.documentModal}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4"
+        >
+          <div className="flex h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-paper shadow-2xl">
+            <div className="flex items-center justify-between gap-4 border-b border-line px-4 py-3">
+              <div>
+                <h2 className="font-semibold text-ink">
+                  {documentModal.isDraft ? 'Aperçu du devis' : `Devis ${detail.number}`}
+                </h2>
+                {documentModal.isDraft && (
+                  <p className="text-xs text-ink-muted">Brouillon filigrané — ce document ne peut pas être envoyé au client.</p>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={forcePdfDownload(
+                    documentModal.url,
+                    `${detail.number}${documentModal.isDraft ? '-DRAFT' : ''}.pdf`,
+                  )}
+                  download={`${detail.number}${documentModal.isDraft ? '-DRAFT' : ''}.pdf`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 rounded-lg border border-line-2 px-3 py-1.5 text-sm text-ink-2 hover:bg-bg"
+                >
+                  <Download className="size-4" />
+                  Télécharger
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setDocumentModal(null)}
+                  className="rounded-lg p-2 text-ink-muted hover:bg-bg hover:text-ink"
+                  aria-label="Fermer l’aperçu PDF"
+                >
+                  <X className="size-5" />
+                </button>
+              </div>
+            </div>
+            <iframe title="Document PDF du devis" src={documentModal.url} className="min-h-0 flex-1 bg-bg" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

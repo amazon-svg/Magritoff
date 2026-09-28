@@ -11,7 +11,7 @@
  * ecriture effective sans exception, rendu correct des accents/`€`).
  */
 import { describe, expect, it } from 'vitest';
-import { PDFDocument } from 'pdf-lib';
+import { decodePDFRawStream, PDFArray, PDFDocument, PDFRawStream } from 'pdf-lib';
 import {
   renderQuoteDocument,
   QuoteDocumentRenderError,
@@ -45,6 +45,37 @@ function placement(overrides: Partial<DocumentFieldPlacementDto> & Pick<Document
 }
 
 describe('renderQuoteDocument (pdf-lib reel, aucun mock)', () => {
+  it('ajoute le filigrane DRAFT sur chaque page uniquement quand l apercu le demande', async () => {
+    const backgroundBytes = await buildBackground([
+      [595.28, 841.89],
+      [595.28, 841.89],
+    ]);
+    const rendered = await renderQuoteDocument({
+      backgroundBytes,
+      pages: pagesOf([
+        [595.28, 841.89],
+        [595.28, 841.89],
+      ]),
+      placements: [],
+      linesBlock: null,
+      fieldValues: {},
+      lineValues: [],
+      draftWatermark: true,
+    });
+
+    const reloaded = await PDFDocument.load(rendered.bytes);
+    for (const page of reloaded.getPages()) {
+      const contents = page.node.Contents();
+      const streams = contents instanceof PDFArray ? contents.asArray() : contents ? [contents] : [];
+      const decoded = streams
+        .map((entry) => reloaded.context.lookup(entry))
+        .filter((entry): entry is PDFRawStream => entry instanceof PDFRawStream)
+        .map((stream) => new TextDecoder().decode(decodePDFRawStream(stream).decode()))
+        .join('\n');
+      expect(decoded).toContain('4452414654'); // DRAFT encode en hexadecimal par pdf-lib.
+    }
+  });
+
   it('produit un PDF VALIDE (rechargeable par pdf-lib) avec le nombre de pages attendu', async () => {
     const backgroundBytes = await buildBackground([
       [595.28, 841.89],

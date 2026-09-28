@@ -35,7 +35,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { TenantId, UserId } from '../../kernel/ids/index.ts';
 import { toIsoTimestamp } from '../../modules/_shared/application/index.ts';
-import type { QuoteDocumentDto } from '../../modules/quote-documents/api/contracts.ts';
+import type {
+  QuoteDocumentDto,
+  QuoteDocumentPreviewDto,
+} from '../../modules/quote-documents/api/contracts.ts';
 import type {
   QuoteDocumentsRepository,
   StoreQuoteDocumentParams,
@@ -136,6 +139,36 @@ export class SupabaseQuoteDocumentsRepository implements QuoteDocumentsRepositor
     return this.toDto(data);
   }
 
+  async storePreview(
+    tenantId: TenantId,
+    params: StoreQuoteDocumentParams,
+  ): Promise<QuoteDocumentPreviewDto> {
+    const storagePath = previewStoragePathFor(tenantId, params.quoteId);
+    const { error: uploadError } = await this.privilegedClient.storage
+      .from(BUCKET)
+      .upload(storagePath, params.bytes, { contentType: 'application/pdf', upsert: true });
+    if (uploadError) throw new Error(`Depot de l apercu impossible : ${uploadError.message}`);
+
+    const { data: signed, error } = await this.privilegedClient.storage
+      .from(BUCKET)
+      .createSignedUrl(storagePath, DOWNLOAD_URL_TTL_SECONDS);
+    if (error || !signed) {
+      throw new Error(`URL de l apercu impossible a emettre : ${error?.message ?? 'objet absent'}`);
+    }
+
+    return {
+      quote_id: params.quoteId,
+      template_id: params.templateId,
+      generated_at: params.generatedAt,
+      byte_size: params.bytes.length,
+      content_type: 'application/pdf',
+      page_count: params.pageCount,
+      watermark: 'DRAFT',
+      download_url: signed.signedUrl,
+      download_url_expires_at: new Date(Date.now() + DOWNLOAD_URL_TTL_SECONDS * 1000).toISOString(),
+    };
+  }
+
   private async toDto(row: Record<string, unknown>): Promise<QuoteDocumentDto> {
     const storagePath = String(row.storage_path);
     const { data: signed, error } = await this.privilegedClient.storage
@@ -161,6 +194,10 @@ export class SupabaseQuoteDocumentsRepository implements QuoteDocumentsRepositor
 
 function storagePathFor(tenantId: TenantId, quoteId: string): string {
   return `${tenantId}/${quoteId}.pdf`;
+}
+
+function previewStoragePathFor(tenantId: TenantId, quoteId: string): string {
+  return `${tenantId}/previews/${quoteId}.pdf`;
 }
 
 async function sha256Hex(bytes: Uint8Array): Promise<string> {

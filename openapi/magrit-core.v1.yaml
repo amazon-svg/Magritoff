@@ -6992,10 +6992,63 @@ paths:
   # ==========================================================================
   # E10.10b-4c — LE DOCUMENT GENERE
   #
-  # Genere UNE FOIS a l envoi, stocke, jamais regenere (§8.13septies point 3,
-  # maintenu par la revision §8.18). Ces deux operations ne PRODUISENT rien :
-  # elles rendent une piece qui existe deja, ou 404.
+  # Le document definitif est genere UNE FOIS a l envoi, stocke, jamais
+  # regenere. Le POST d apercu est distinct : temporaire, reserve au brouillon
+  # et filigrane DRAFT. Les deux GET ne produisent rien.
   # ==========================================================================
+  /quotes/{quoteId}/document-previews:
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
+    post:
+      operationId: createQuoteDocumentPreview
+      summary: "Génère l’aperçu PDF d’un devis brouillon"
+      description: >-
+        Produit un apercu temporaire du devis dans son etat courant. Chaque
+        page porte le filigrane diagonal DRAFT. L apercu remplace le precedent
+        et ne cree jamais de `quote_documents` : il ne peut donc pas etre
+        confondu avec le PDF definitif genere au premier envoi.
+
+
+        Operation reservee aux utilisateurs de l atelier. Un devis envoye se
+        consulte via `getQuoteDocument` ; il n est jamais regenere.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/QuoteId'
+      responses:
+        '201':
+          description: Apercu PDF filigrane, accessible par une URL signee de courte duree.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/QuoteDocumentPreview'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Devis introuvable dans le tenant (`quote.not_found`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: >-
+            Le devis n est plus un brouillon
+            (`quote.document_preview_requires_draft`), ne contient aucune ligne
+            (`quote.document_preview_requires_lines`) ou aucun gabarit PDF de
+            devis actif n est configure (`quote.document_template_missing`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
   /quotes/{quoteId}/documents:
     parameters:
       - $ref: '#/components/parameters/MagritTenant'
@@ -21038,6 +21091,51 @@ components:
             session. Une URL expiree se remplace en rappelant l operation ; la
             conserver plus longtemps ne rendrait service qu a qui l aurait
             recopiee ailleurs.
+          $ref: '#/components/schemas/Timestamp'
+
+    QuoteDocumentPreview:
+      title: QuoteDocumentPreview
+      description: >-
+        Apercu temporaire d un devis brouillon. Il est rendu depuis les
+        donnees courantes et porte le filigrane DRAFT sur chaque page. Il ne
+        constitue jamais la piece definitive remise au client.
+      type: object
+      additionalProperties: false
+      required:
+        - quote_id
+        - template_id
+        - generated_at
+        - byte_size
+        - content_type
+        - page_count
+        - watermark
+        - download_url
+        - download_url_expires_at
+      properties:
+        quote_id:
+          $ref: '#/components/schemas/Uuid'
+        template_id:
+          $ref: '#/components/schemas/Uuid'
+        generated_at:
+          $ref: '#/components/schemas/Timestamp'
+        byte_size:
+          type: integer
+          format: int64
+          minimum: 1
+        content_type:
+          type: string
+          enum: [application/pdf]
+        page_count:
+          type: integer
+          format: int32
+          minimum: 1
+        watermark:
+          type: string
+          enum: [DRAFT]
+        download_url:
+          type: string
+          format: uri
+        download_url_expires_at:
           $ref: '#/components/schemas/Timestamp'
 
     # ---- story E10.17 — fichiers d une commande ----------------------------

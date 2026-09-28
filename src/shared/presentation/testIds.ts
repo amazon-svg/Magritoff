@@ -615,6 +615,11 @@ export const TEST_IDS = {
     sendConfirmBtn: 'quote-send-confirm-btn',
     sendCancelBtn: 'quote-send-cancel-btn',
     sendSuccessBanner: 'quote-send-success-banner',
+    documentPreviewBtn: 'quote-document-preview-btn',
+    documentViewBtn: 'quote-document-view-btn',
+    documentDownloadBtn: 'quote-document-download-btn',
+    documentModal: 'quote-document-modal',
+    documentError: 'quote-document-error',
     // Duplication (`duplicateQuote`).
     duplicateBtn: 'quote-duplicate-btn',
     // E10.12 — « bouton Valider » (`convertQuote`), visible pour un devis

@@ -16,6 +16,7 @@ import { QuoteDocumentsService } from '@/modules/quote-documents/application/quo
 import {
   QuoteDocumentGenerationFailedError,
   QuoteDocumentNotFoundError,
+  QuoteDocumentTemplateMissingError,
 } from '@/modules/quote-documents/application/quote-documents-repository';
 import type { TenantId, UserId } from '@/kernel';
 import { PDFDocument } from 'pdf-lib';
@@ -309,6 +310,67 @@ describe('QuoteDocumentsService.persistRendered', () => {
 
     const rendered = { templateId: 'template-1', bytes: new Uint8Array([1, 2, 3]), pageCount: 1, generatedAt: '2026-09-09T10:00:00.000Z' };
     await expect(service.persistRendered(TENANT, ACTOR, 'quote-1', rendered)).rejects.toThrow('bucket indisponible');
+  });
+});
+
+describe('QuoteDocumentsService.createDraftPreview', () => {
+  it('rend avec le filigrane puis remplace l apercu temporaire via le repository', async () => {
+    const backgroundBytes = await buildBackground();
+    const preview = {
+      quote_id: 'quote-1',
+      template_id: 'template-1',
+      generated_at: '2026-09-09T10:00:00.000Z',
+      byte_size: 100,
+      content_type: 'application/pdf' as const,
+      page_count: 1,
+      watermark: 'DRAFT' as const,
+      download_url: 'https://example.com/preview',
+      download_url_expires_at: '2026-09-09T10:05:00.000Z',
+    };
+    const repository = {
+      findByQuoteId: vi.fn(),
+      findForStorefrontSession: vi.fn(),
+      store: vi.fn(),
+      storePreview: vi.fn(async () => preview),
+    };
+    const service = new QuoteDocumentsService({
+      templates: {
+        findEligibleTemplateForGeneration: vi.fn(async () => ({
+          templateId: 'template-1',
+          backgroundBytes,
+          pages: [{ index: 0, width_pt: 595.28, height_pt: 841.89 }],
+          placements: [],
+          linesBlock: null,
+        })),
+      },
+      customers: { findCustomerForDocument: vi.fn(async () => null) },
+      repository,
+    });
+
+    await expect(
+      service.createDraftPreview(TENANT, baseQuote(), '2026-09-09T10:00:00.000Z'),
+    ).resolves.toEqual(preview);
+    expect(repository.storePreview).toHaveBeenCalledWith(
+      TENANT,
+      expect.objectContaining({ quoteId: 'quote-1', templateId: 'template-1', pageCount: 1 }),
+    );
+  });
+
+  it('signale clairement l absence de gabarit pour un apercu', async () => {
+    const service = new QuoteDocumentsService({
+      templates: { findEligibleTemplateForGeneration: vi.fn(async () => null) },
+      customers: { findCustomerForDocument: vi.fn(async () => null) },
+      repository: {
+        findByQuoteId: vi.fn(),
+        findForStorefrontSession: vi.fn(),
+        store: vi.fn(),
+        storePreview: vi.fn(),
+      },
+    });
+
+    await expect(
+      service.createDraftPreview(TENANT, baseQuote(), '2026-09-09T10:00:00.000Z'),
+    ).rejects.toBeInstanceOf(QuoteDocumentTemplateMissingError);
   });
 });
 

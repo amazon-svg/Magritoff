@@ -1,5 +1,5 @@
 import type { TenantId, UserId } from '../../../kernel/ids/index.ts';
-import type { QuoteDocumentDto } from '../api/contracts.ts';
+import type { QuoteDocumentDto, QuoteDocumentPreviewDto } from '../api/contracts.ts';
 
 /**
  * Le devis n a pas de document (404 `quote.document_not_generated`, cote
@@ -24,6 +24,13 @@ export class QuoteDocumentGenerationFailedError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'QuoteDocumentGenerationFailedError';
+  }
+}
+
+export class QuoteDocumentTemplateMissingError extends Error {
+  constructor(message = "Aucun gabarit PDF de devis actif n est configure.") {
+    super(message);
+    this.name = 'QuoteDocumentTemplateMissingError';
   }
 }
 
@@ -61,4 +68,11 @@ export interface QuoteDocumentsRepository {
    * meme devis). Rend l URL de telechargement signee (300 s).
    */
   store(tenantId: TenantId, actor: UserId, params: StoreQuoteDocumentParams): Promise<QuoteDocumentDto>;
+
+  /**
+   * Remplace l apercu temporaire du brouillon et rend une URL signee. Aucun
+   * enregistrement n est cree dans `quote_documents` : ce PDF filigrane ne
+   * peut jamais etre confondu avec la piece definitive remise au client.
+   */
+  storePreview(tenantId: TenantId, params: StoreQuoteDocumentParams): Promise<QuoteDocumentPreviewDto>;
 }

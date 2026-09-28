@@ -31,7 +31,7 @@
  * lier un role a une police libre sans que le contrat ni les cartes deja
  * enregistrees ne changent).
  */
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type RGB } from 'pdf-lib';
+import { degrees, PDFDocument, StandardFonts, rgb, type PDFFont, type RGB } from 'pdf-lib';
 import type { DocumentFont, DocumentPdfTemplatePageDto } from '../../document-templates/api/contracts.ts';
 import type { DocumentFieldValues, DocumentLineFieldValues } from './document-field-value-resolver.ts';
 import {
@@ -58,6 +58,8 @@ export type RenderQuoteDocumentInput = Readonly<{
   linesBlock: DocumentLinesBlockDto | null;
   fieldValues: DocumentFieldValues;
   lineValues: readonly DocumentLineFieldValues[];
+  /** Filigrane reserve aux apercus de brouillon. Jamais active sur le PDF definitif. */
+  draftWatermark?: boolean;
 }>;
 
 export type RenderedQuoteDocument = Readonly<{ bytes: Uint8Array; pageCount: number }>;
@@ -172,6 +174,35 @@ export async function renderQuoteDocument(input: RenderQuoteDocumentInput): Prom
         color,
       });
     });
+  }
+
+  if (input.draftWatermark) {
+    let watermarkFont: PDFFont;
+    try {
+      watermarkFont = await outDoc.embedFont(StandardFonts.HelveticaBold);
+    } catch (cause) {
+      throw new QuoteDocumentRenderError(`Embarquement de la police du filigrane impossible : ${messageOf(cause)}`);
+    }
+
+    for (const page of outDoc.getPages()) {
+      const { width, height } = page.getSize();
+      const fontSize = Math.min(width / 4.4, height / 6);
+      const textWidth = watermarkFont.widthOfTextAtSize('DRAFT', fontSize);
+      const angleDegrees = 35;
+      const angleRadians = (angleDegrees * Math.PI) / 180;
+      const rotatedWidth = textWidth * Math.cos(angleRadians);
+      const rotatedHeight = textWidth * Math.sin(angleRadians) + fontSize * Math.cos(angleRadians);
+
+      page.drawText('DRAFT', {
+        x: (width - rotatedWidth) / 2,
+        y: (height - rotatedHeight) / 2,
+        size: fontSize,
+        font: watermarkFont,
+        color: rgb(0.72, 0.12, 0.12),
+        opacity: 0.18,
+        rotate: degrees(angleDegrees),
+      });
+    }
   }
 
   let bytes: Uint8Array;

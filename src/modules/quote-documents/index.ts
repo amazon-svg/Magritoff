@@ -1,4 +1,9 @@
-export { quoteDocumentSchema, type QuoteDocumentDto } from './api/contracts';
+export {
+  quoteDocumentPreviewSchema,
+  quoteDocumentSchema,
+  type QuoteDocumentDto,
+  type QuoteDocumentPreviewDto,
+} from './api/contracts';
 export {
   QuoteDocumentsService,
   type CustomerDocumentData,
@@ -13,6 +18,7 @@ export {
 export {
   QuoteDocumentGenerationFailedError,
   QuoteDocumentNotFoundError,
+  QuoteDocumentTemplateMissingError,
   type QuoteDocumentsRepository,
   type StoreQuoteDocumentParams,
 } from './application/quote-documents-repository';

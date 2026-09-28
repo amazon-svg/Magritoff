@@ -1943,6 +1943,39 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/quotes/{quoteId}/document-previews": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Génère l’aperçu PDF d’un devis brouillon
+         * @description Produit un apercu temporaire du devis dans son etat courant. Chaque page porte le filigrane diagonal DRAFT. L apercu remplace le precedent et ne cree jamais de `quote_documents` : il ne peut donc pas etre confondu avec le PDF definitif genere au premier envoi.
+         *
+         *     Operation reservee aux utilisateurs de l atelier. Un devis envoye se consulte via `getQuoteDocument` ; il n est jamais regenere.
+         */
+        post: operations["createQuoteDocumentPreview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/quotes/{quoteId}/documents": {
         parameters: {
             query?: never;
@@ -8437,6 +8470,26 @@ export interface components {
             download_url_expires_at: components["schemas"]["Timestamp"];
         };
         /**
+         * QuoteDocumentPreview
+         * @description Apercu temporaire d un devis brouillon. Il est rendu depuis les donnees courantes et porte le filigrane DRAFT sur chaque page. Il ne constitue jamais la piece definitive remise au client.
+         */
+        QuoteDocumentPreview: {
+            quote_id: components["schemas"]["Uuid"];
+            template_id: components["schemas"]["Uuid"];
+            generated_at: components["schemas"]["Timestamp"];
+            /** Format: int64 */
+            byte_size: number;
+            /** @enum {string} */
+            content_type: "application/pdf";
+            /** Format: int32 */
+            page_count: number;
+            /** @enum {string} */
+            watermark: "DRAFT";
+            /** Format: uri */
+            download_url: string;
+            download_url_expires_at: components["schemas"]["Timestamp"];
+        };
+        /**
          * OrderFileVisibility
          * @description A qui ce fichier est destine. DEUX VALEURS, ET LE MOT « PUBLIC » N EN EST PAS UNE — c est une decision de vocabulaire, pas de style.
          *
@@ -10295,6 +10348,7 @@ export type CreateDocumentPdfTemplateCommand = components['schemas']['CreateDocu
 export type UpdateDocumentPdfTemplateCommand = components['schemas']['UpdateDocumentPdfTemplateCommand'];
 export type ConfirmDocumentPdfTemplateUploadCommand = components['schemas']['ConfirmDocumentPdfTemplateUploadCommand'];
 export type QuoteDocument = components['schemas']['QuoteDocument'];
+export type QuoteDocumentPreview = components['schemas']['QuoteDocumentPreview'];
 export type OrderFileVisibility = components['schemas']['OrderFileVisibility'];
 export type OrderFileDepositChannel = components['schemas']['OrderFileDepositChannel'];
 export type OrderFile = components['schemas']['OrderFile'];
@@ -14791,6 +14845,62 @@ export interface operations {
                 };
             };
             428: components["responses"]["PreconditionRequired"];
+        };
+    };
+    createQuoteDocumentPreview: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                /** @description Identifiant technique du devis, dans le tenant du jeton. */
+                quoteId: components["parameters"]["QuoteId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Apercu PDF filigrane, accessible par une URL signee de courte duree. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["QuoteDocumentPreview"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Devis introuvable dans le tenant (`quote.not_found`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Le devis n est plus un brouillon (`quote.document_preview_requires_draft`), ne contient aucune ligne (`quote.document_preview_requires_lines`) ou aucun gabarit PDF de devis actif n est configure (`quote.document_template_missing`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
         };
     };
     getQuoteDocument: {

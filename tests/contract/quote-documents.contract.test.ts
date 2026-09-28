@@ -6,10 +6,9 @@
  * Supabase ni a `pdf-lib`). Chaque reponse est confrontee au contrat via
  * `checkResponseAgainstContract`.
  *
- * AUCUNE GENERATION n est exercee ici (contrat §8.18 §5, "aucune operation
- * publique de generation") : ces deux operations ne RENDENT qu une piece
- * deja produite, jamais un nouveau rendu. Le MOTEUR de generation a ses
- * propres tests unitaires (`tests/modules/quote-documents/`) ; le
+ * Le POST d apercu est exerce avec un faux de service : le MOTEUR de
+ * generation reel a ses propres tests unitaires
+ * (`tests/modules/quote-documents/`) ; le
  * BRANCHEMENT dans `sendQuote` est verifie par
  * `tests/modules/commercial-quotes/`, et la RLS reelle par
  * `tests/sql/gescom-e10-10b-4c-quote-documents.sql`.
@@ -24,7 +23,7 @@ import {
 import { QuoteNotFoundError } from '@/modules/commercial-quotes/application/commercial-quotes-repository';
 import type { CommercialQuotesService } from '@/modules/commercial-quotes/application/commercial-quotes-service';
 import { QuoteDocumentsService } from '@/modules/quote-documents/application/quote-documents-service';
-import type { QuoteDocumentDto } from '@/modules/quote-documents/api/contracts';
+import type { QuoteDocumentDto, QuoteDocumentPreviewDto } from '@/modules/quote-documents/api/contracts';
 import type { QuoteDocumentsRepository } from '@/modules/quote-documents/application/quote-documents-repository';
 import { createQuoteDocumentsRoutes } from '@/server/api/quote-documents-routes';
 import { createGescomApiHandler } from '@/server/api';
@@ -74,6 +73,10 @@ function fakeCommercialQuotesService(existingQuoteIds: readonly string[]): Comme
       if (!existingQuoteIds.includes(quoteId)) throw new QuoteNotFoundError();
       return {} as never;
     },
+    async createDocumentPreview(_tenantId: TenantId, quoteId: string) {
+      if (!existingQuoteIds.includes(quoteId)) throw new QuoteNotFoundError();
+      return { ...SAMPLE_PREVIEW, quote_id: quoteId };
+    },
   } as unknown as CommercialQuotesService;
 }
 
@@ -87,6 +90,18 @@ const SAMPLE_DOCUMENT: QuoteDocumentDto = Object.freeze({
   page_count: 1,
   download_url: 'https://storage.test/signed-url',
   download_url_expires_at: '2026-09-09T10:05:00.000Z',
+});
+
+const SAMPLE_PREVIEW: QuoteDocumentPreviewDto = Object.freeze({
+  quote_id: QUOTE_WITHOUT_DOC,
+  template_id: TEMPLATE_ID,
+  generated_at: '2026-09-09T09:00:00.000Z',
+  byte_size: 12345,
+  content_type: 'application/pdf',
+  page_count: 1,
+  watermark: 'DRAFT',
+  download_url: 'https://storage.test/signed-preview-url',
+  download_url_expires_at: '2026-09-09T09:05:00.000Z',
 });
 
 class InMemoryQuoteDocumentsRepository implements QuoteDocumentsRepository {
@@ -114,6 +129,11 @@ class InMemoryQuoteDocumentsRepository implements QuoteDocumentsRepository {
 
   async store(): Promise<QuoteDocumentDto> {
     throw new Error('store() non exerce par ce test de contrat (aucune generation exercee, voir en-tete de fichier).');
+  }
+
+
+  async storePreview(): Promise<QuoteDocumentPreviewDto> {
+    throw new Error('storePreview() non exerce par ce test de contrat.');
   }
 }
 
@@ -153,6 +173,27 @@ async function expectContract(
   const check = await checkResponseAgainstContract(response, expectation);
   expect(check.errors, check.errors.join(' | ')).toEqual([]);
 }
+
+describe('POST /quotes/{quoteId}/document-previews (atelier)', () => {
+  it('201 : génère un aperçu temporaire portant le filigrane DRAFT', async () => {
+    const response = await call(`/api/v1/quotes/${QUOTE_WITHOUT_DOC}/document-previews`, {
+      method: 'POST',
+      headers: asUser,
+    });
+    await expectContract(response, { status: 201, dataSchema: 'QuoteDocumentPreview' });
+
+    const body = (await response.json()) as { data: QuoteDocumentPreviewDto };
+    expect(body.data.watermark).toBe('DRAFT');
+  });
+
+  it('404 quote.not_found : refuse un identifiant inconnu', async () => {
+    const response = await call(`/api/v1/quotes/${QUOTE_UNKNOWN}/document-previews`, {
+      method: 'POST',
+      headers: asUser,
+    });
+    await expectContract(response, { status: 404 });
+  });
+});
 
 describe('GET /quotes/{quoteId}/documents (atelier)', () => {
   it('200 : rend le document deja produit', async () => {

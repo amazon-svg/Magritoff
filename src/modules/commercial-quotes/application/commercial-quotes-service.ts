@@ -31,6 +31,9 @@ import type { ProjectsRepository } from '../../projects/application/projects-rep
 import type { PriceRulesService } from '../../pricing/application/price-rules-service.ts';
 import type { PricingEngine } from '../../pricing/application/pricing-engine.ts';
 import type {
+  QuoteDocumentPreviewDto,
+} from '../../quote-documents/api/contracts.ts';
+import type {
   QuoteDocumentsService,
   QuoteForDocumentGeneration,
   RenderedDocumentForSend,
@@ -85,6 +88,20 @@ export class QuoteAuditAccessDeniedError extends Error {
   constructor(message = "Le droit can_manage_pricing est requis pour consulter le journal d audit.") {
     super(message);
     this.name = 'QuoteAuditAccessDeniedError';
+  }
+}
+
+export class QuoteDocumentPreviewRequiresDraftError extends Error {
+  constructor(message = "L apercu PDF est reserve a un devis en brouillon.") {
+    super(message);
+    this.name = 'QuoteDocumentPreviewRequiresDraftError';
+  }
+}
+
+export class QuoteDocumentPreviewRequiresLinesError extends Error {
+  constructor(message = "Ajoutez au moins une ligne avant de generer l apercu PDF.") {
+    super(message);
+    this.name = 'QuoteDocumentPreviewRequiresLinesError';
   }
 }
 
@@ -217,6 +234,40 @@ export class CommercialQuotesService {
   // ---------------------------------------------------------------------------
   // E10.10a — envoi/renvoi, duplication, journal d audit d entete.
   // ---------------------------------------------------------------------------
+
+  async createDocumentPreview(tenantId: TenantId, quoteId: string): Promise<QuoteDocumentPreviewDto> {
+    const detail = await this.getDetail(tenantId, quoteId);
+    if (detail.status !== 'draft') throw new QuoteDocumentPreviewRequiresDraftError();
+    if (detail.lines.length === 0) throw new QuoteDocumentPreviewRequiresLinesError();
+
+    const validUntil = await this.repository.resolveValidUntilForSend(tenantId, quoteId);
+    const previewInput: QuoteForDocumentGeneration = {
+      id: detail.id,
+      customerId: detail.customer_id,
+      number: detail.number,
+      validUntil,
+      totals: {
+        linesSubtotal: detail.show_discounts ? detail.totals.lines_subtotal : null,
+        globalDiscount: detail.show_discounts ? detail.totals.global_discount : null,
+        netTotal: detail.totals.net_total,
+        vatRate: detail.totals.vat_rate,
+        vatAmount: detail.totals.vat_amount,
+        totalInclTax: detail.totals.total_incl_tax,
+      },
+      lines: detail.lines.map((line) => ({
+        position: line.position,
+        label: line.label,
+        descriptionHtml: line.description_html,
+        productConfig: line.product_config,
+        quantity: line.quantity,
+        priceBeforeDiscount: detail.show_discounts ? line.customer_price : null,
+        discountRate: detail.show_discounts ? line.discount_rate : null,
+        price: line.sale_price,
+      })),
+    };
+
+    return this.documents.createDraftPreview(tenantId, previewInput, this.now().toISOString());
+  }
 
   /**
    * ENVOIE (`draft` -> `sent`) ou RENVOIE (`sent` -> `sent`) un devis. La
