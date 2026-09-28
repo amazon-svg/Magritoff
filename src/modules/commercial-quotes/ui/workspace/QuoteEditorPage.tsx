@@ -18,7 +18,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { ArrowDown, ArrowLeft, ArrowUp, History, Loader2, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, History, Loader2, Pencil, Trash2 } from 'lucide-react';
 import { useTenantPath } from '@/modules/tenants/ui/hooks';
 import { useWorkspaceApi } from '@/platform/runtime/workspace-ui-runtime';
 import { useAccessProfile } from '@/modules/roles/ui/runtime';
@@ -28,6 +28,7 @@ import { ProjectsApiClient, type ProjectItemDto } from '@/modules/projects';
 import { TEST_IDS } from '@/shared/presentation/testIds';
 import { SafeDescriptionHtml } from '@/shared/presentation/SafeDescriptionHtml';
 import { CommercialOrdersApiClient } from '@/modules/commercial-orders';
+import { QuoteLineDescriptionDialog } from '../components';
 import { CommercialQuotesApiClient } from '../../api/client';
 import type {
   QuoteAuditEntryDto,
@@ -40,11 +41,10 @@ import type {
 import { percentToRate, rateToPercent, statusLabel, vatLegalMention } from '../helpers';
 
 /** Brouillon de saisie d une ligne, avant commit AU BLUR (jamais a la frappe). */
-type LineDraft = Readonly<{ descriptionHtml: string; salePrice: string; marginRate: string; quantity: string }>;
+type LineDraft = Readonly<{ salePrice: string; marginRate: string; quantity: string }>;
 
 function draftOf(line: QuoteLineDto): LineDraft {
   return {
-    descriptionHtml: line.description_html ?? '',
     salePrice: line.sale_price,
     marginRate: line.sale_margin_rate ?? '',
     quantity: String(line.quantity),
@@ -105,6 +105,7 @@ export function QuoteEditorPage() {
 
   const [drafts, setDrafts] = useState<Record<string, LineDraft>>({});
   const [busyLineId, setBusyLineId] = useState<string | null>(null);
+  const [descriptionLineId, setDescriptionLineId] = useState<string | null>(null);
 
   const [addLineOpen, setAddLineOpen] = useState(false);
   const [addLineMode, setAddLineMode] = useState<'project_item' | 'free'>('free');
@@ -249,17 +250,11 @@ export function QuoteEditorPage() {
     await commitLinePatch(line.id, { quantity: nextQuantity });
   }
 
-  async function commitDescription(line: QuoteLineDto): Promise<void> {
-    const draft = drafts[line.id];
-    if (!draft || draft.descriptionHtml === (line.description_html ?? '')) return;
-    await commitLinePatch(line.id, { description_html: draft.descriptionHtml.trim() || null });
-  }
-
   async function commitLinePatch(
     lineId: string,
     command: UpdateQuoteLineCommand,
-  ): Promise<void> {
-    if (!detail) return;
+  ): Promise<boolean> {
+    if (!detail) return false;
     setBusyLineId(lineId);
     setError(null);
     try {
@@ -267,8 +262,10 @@ export function QuoteEditorPage() {
       if (!lineEtag) throw new Error('ETag de la ligne manquant.');
       await quotesApi.updateLine(detail.id, lineId, command, lineEtag);
       await load();
+      return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Modification de la ligne impossible.');
+      return false;
     } finally {
       setBusyLineId(null);
     }
@@ -872,25 +869,21 @@ export function QuoteEditorPage() {
                   >
                     <td className="py-2 pr-3">
                       <p className="text-ink font-medium">{line.label}</p>
-                      {isDraft ? (
-                        <label className="mt-2 block">
-                          <span className="sr-only">Détail HTML de {line.label}</span>
-                          <textarea
-                            value={draft.descriptionHtml}
-                            disabled={busy}
-                            rows={3}
-                            onChange={(event) => updateDraft(line.id, { descriptionHtml: event.target.value })}
-                            onBlur={() => void commitDescription(line)}
-                            placeholder="<p>Détail commercial…</p>"
-                            className="w-full min-w-72 resize-y rounded-lg border border-line-2 bg-paper px-2 py-1.5 font-mono text-xs text-ink"
-                          />
-                        </label>
-                      ) : line.description_html ? (
-                        <SafeDescriptionHtml
-                          html={line.description_html}
-                          className="prose prose-sm mt-1 max-w-none text-ink-muted"
-                        />
-                      ) : null}
+                      <SafeDescriptionHtml
+                        html={line.description_html}
+                        className="prose prose-sm mt-1 max-w-none text-ink-muted"
+                      />
+                      {isDraft && (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => setDescriptionLineId(line.id)}
+                          className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-brand hover:underline disabled:opacity-50"
+                        >
+                          <Pencil className="size-3.5" />
+                          Modifier le détail
+                        </button>
+                      )}
                       {line.warnings.map((warning) => (
                         <p key={warning.code} className="text-xs text-err-fg">
                           {warning.message}
@@ -1011,6 +1004,21 @@ export function QuoteEditorPage() {
           </table>
         </div>
       </section>
+
+      {detail && descriptionLineId && (() => {
+        const line = detail.lines.find((candidate) => candidate.id === descriptionLineId);
+        if (!line) return null;
+        return (
+          <QuoteLineDescriptionDialog
+            open
+            label={line.label}
+            initialHtml={line.description_html}
+            saving={busyLineId === line.id}
+            onOpenChange={(open) => { if (!open) setDescriptionLineId(null); }}
+            onSave={(descriptionHtml) => commitLinePatch(line.id, { description_html: descriptionHtml })}
+          />
+        );
+      })()}
 
       {isDraft && addLineOpen && (
         <form
