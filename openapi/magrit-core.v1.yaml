@@ -15590,6 +15590,11 @@ components:
                       oneOf:
                         - type: number
                         - type: string
+        description_html:
+          allOf:
+            - $ref: '#/components/schemas/SafeDescriptionHtml'
+          nullable: true
+          description: Résumé lisible de la card produit par HopeStudio.
         files:
           type: array
           maxItems: 10

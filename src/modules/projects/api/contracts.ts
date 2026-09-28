@@ -144,6 +144,7 @@ export const importHopeStudioBasketItemCommandSchema = z.object({
       getPrice: z.object({ response: z.union([z.number(), z.string()]) }).passthrough(),
     }).passthrough(),
   }).passthrough(),
+  description_html: safeDescriptionHtmlSchema.nullable().optional(),
   files: z.array(importedCommercialFileSchema).max(10).optional(),
 }).strict();
 

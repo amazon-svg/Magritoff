@@ -6313,6 +6313,8 @@ export interface components {
             } & {
                 [key: string]: unknown;
             };
+            /** @description Résumé lisible de la card produit par HopeStudio. */
+            description_html?: components["schemas"]["SafeDescriptionHtml"] | null;
             files?: components["schemas"]["ImportedCommercialFile"][];
         };
         /**

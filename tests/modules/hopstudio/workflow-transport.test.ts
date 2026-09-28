@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   createWorkflowTransport,
+  getHopeStudioCardDescription,
   getHopeStudioSupplierQuote,
   selectedHopeStudioCard,
 } from '@/modules/hopstudio/ui/HopeStudioWorkspace';
@@ -70,5 +71,30 @@ describe('ajout d’un chiffrage HopeStudio au projet', () => {
       content_type: 'application/pdf',
       data_base64: 'JVBERg==',
     });
+  });
+
+  it('utilise le résumé clair HopeStudio comme détail sécurisé de la ligne', () => {
+    const card = selectedHopeStudioCard({
+      DBK: 'card-1',
+      prompt: '500 cartes de visite',
+      configuration: { quantity: 500 },
+      message: 'Carte <script>alert(1)</script>',
+      clicked_intent: { getPrice: { response: 75 } },
+    }, 0);
+    const getCardClearResume = vi.fn(() => 'Carte premium &amp; pelliculage\n500 exemplaires');
+    const ownerDocument = {
+      createElement: () => {
+        let value = '';
+        return {
+          get value() { return value; },
+          set innerHTML(input: string) { value = input.replaceAll('&amp;', '&'); },
+        };
+      },
+    } as unknown as Document;
+
+    const description = getHopeStudioCardDescription(card, { getCardClearResume }, ownerDocument);
+
+    expect(getCardClearResume).toHaveBeenCalledWith(card);
+    expect(description).toBe('<p>Carte premium &amp; pelliculage<br>500 exemplaires</p>');
   });
 });

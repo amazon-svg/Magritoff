@@ -13,4 +13,5 @@ export type HopeStudioBrowserChat = {
   session?: Readonly<Record<string, unknown>>;
   initSession?: (sessionId: string) => Promise<unknown> | void;
   sendMessage?: (message: string) => Promise<unknown>;
+  getCardClearResume?: (card: unknown) => unknown;
 };

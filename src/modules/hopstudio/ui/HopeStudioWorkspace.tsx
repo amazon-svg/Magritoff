@@ -14,6 +14,10 @@ import {
   HOPSTUDIO_STYLESHEET_URL,
   type HopeStudioBrowserChat,
 } from './assets.ts';
+import {
+  DESCRIPTION_HTML_MAX_LENGTH,
+  escapeDescriptionHtml,
+} from '@/shared/validation/safe-description-html';
 
 
 type HopeStudioInstance = Readonly<{
@@ -101,8 +105,10 @@ export function HopeStudioWorkspace({
         try {
           const selectedCard = selectedHopeStudioCard(card, rankSelected);
           const supplierQuote = await getHopeStudioSupplierQuote(selectedCard);
+          const descriptionHtml = getHopeStudioCardDescription(selectedCard);
           const command = {
             card: selectedCard,
+            ...(descriptionHtml ? { description_html: descriptionHtml } : {}),
             ...(supplierQuote ? { files: [supplierQuote] } : {}),
           };
           const key = await basketIdempotencyKey(projectId, command.card);
@@ -222,6 +228,7 @@ export function HopeStudioWorkspace({
         try {
           const commands = lines.map((line) => {
             const { card } = importHopeStudioBasketItemCommandSchema.parse({ card: line });
+            const descriptionHtml = getHopeStudioCardDescription(card);
             return {
               card: {
                 DBK: card.DBK,
@@ -230,6 +237,7 @@ export function HopeStudioWorkspace({
                 configuration: card.configuration,
                 clicked_intent: { getPrice: { response: card.clicked_intent.getPrice.response } },
               },
+              ...(descriptionHtml ? { description_html: descriptionHtml } : {}),
             };
           });
           for (const command of commands) {
@@ -476,6 +484,51 @@ export async function getHopeStudioSupplierQuote(
     content_type: 'application/pdf',
     data_base64: payload['datas'],
   };
+}
+
+/**
+ * Demande à HopeStudio le résumé lisible de la card reçue par son callback,
+ * puis le transforme en HTML volontairement minimal pour la ligne métier.
+ */
+export function getHopeStudioCardDescription(
+  card: ReturnType<typeof importHopeStudioBasketItemCommandSchema.parse>['card'],
+  chat: HopeStudioBrowserChat | undefined = window.hopes_suite?.chat,
+  ownerDocument: Document = document,
+): string | null {
+  const getCardClearResume = chat?.getCardClearResume;
+  if (typeof getCardClearResume !== 'function') return null;
+
+  try {
+    const rawResume = Reflect.apply(getCardClearResume, chat, [card]);
+    if (typeof rawResume !== 'string' || !rawResume.trim()) return null;
+
+    // HopeStudio peut retourner des entités HTML. On les décode d'abord comme
+    // du texte, puis on ré-échappe tout afin qu'aucune balise de la card ne
+    // puisse entrer dans la description commerciale.
+    const decoder = ownerDocument.createElement('textarea');
+    decoder.innerHTML = rawResume;
+    const clearText = decoder.value.replaceAll('\r\n', '\n').trim();
+    if (!clearText) return null;
+
+    const characters = [...clearText];
+    const render = (length: number) => `<p>${escapeDescriptionHtml(characters.slice(0, length).join('')).replaceAll('\n', '<br>')}</p>`;
+    if (render(characters.length).length <= DESCRIPTION_HTML_MAX_LENGTH) {
+      return render(characters.length);
+    }
+
+    let low = 0;
+    let high = characters.length;
+    while (low < high) {
+      const middle = Math.ceil((low + high) / 2);
+      if (render(middle).length <= DESCRIPTION_HTML_MAX_LENGTH) low = middle;
+      else high = middle - 1;
+    }
+    return low > 0 ? render(low) : null;
+  } catch {
+    // Un résumé indisponible ne doit pas empêcher l'ajout du chiffrage : le
+    // backend reconstruira alors le détail depuis la configuration.
+    return null;
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

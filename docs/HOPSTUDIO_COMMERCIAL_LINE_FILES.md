@@ -51,12 +51,15 @@ commande. Les octets et le chemin de stockage restent uniques.
 Lors de `window.HChat.callbackAddToBasket(card, rankSelected)` :
 
 1. le prix du processus choisi est placé dans `getPrice.response` ;
-2. si `quote_process_key` existe, le callback appelle la fonction HopeStudio
+2. la card reçue par le callback est passée à
+   `window.hopes_suite.chat.getCardClearResume(card)` ; le résumé obtenu est
+   sécurisé puis enregistré dans `project_items.description_html` ;
+3. si `quote_process_key` existe, le callback appelle la fonction HopeStudio
    `HChat.getAttachment` ;
-3. le PDF retourné est envoyé avec la commande d'import de la ligne ;
-4. le backend crée la ligne, stocke le PDF dans le bucket privé et crée
+4. le PDF retourné est envoyé avec la commande d'import de la ligne ;
+5. le backend crée la ligne, stocke le PDF dans le bucket privé et crée
    l'association `project_item_files` ;
-5. en cas d'échec du fichier, la ligne nouvellement créée est retirée afin de
+6. en cas d'échec du fichier, la ligne nouvellement créée est retirée afin de
    ne pas laisser un chiffrage incomplet.
 
 Cet échange n'appelle jamais `CallAI` directement. `getAttachment` reste une
@@ -76,8 +79,9 @@ configuration et le payload suivent le mécanisme existant de copie du
 
 ## Sélection depuis l'accueil
 
-Après la sélection d'un projet, l'accueil reste affiché, y compris lorsque le
-projet possède déjà une session HopeStudio. Le bouton `Éléments du projet` :
+Après la sélection d'un projet sans session HopeStudio, l'accueil reste affiché.
+Un projet possédant déjà une session ouvre directement HopeStudio. Depuis
+l'accueil, le bouton `Éléments du projet` :
 
 1. charge les lignes du projet courant ;
 2. permet de sélectionner une ou plusieurs lignes ;

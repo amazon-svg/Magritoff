@@ -190,7 +190,7 @@ export class ProjectsService {
     }
     return this.repository.addItem(tenantId, projectId, {
       label,
-      description_html: buildDescriptionHtml(label, card.configuration),
+      description_html: command.description_html ?? buildDescriptionHtml(label, card.configuration),
       quote_payload: {
         ...card.configuration,
         name: card.selected || label,

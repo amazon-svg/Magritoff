@@ -525,6 +525,7 @@ describe('module Projets (E10.1) contre le contrat', () => {
         clicked_intent: { getPrice: { response: '90.00', quote_process_key: 'quote-123' } },
         supplier_metadata: { process: 'offset' },
       },
+      description_html: '<p>Dépliants 3 volets<br>500 exemplaires</p>',
       files: [{
         kind: 'supplier_quote',
         filename: 'devis-fournisseur-card-123.pdf',
@@ -540,7 +541,7 @@ describe('module Projets (E10.1) contre le contrat', () => {
     const first = await call(path, init);
     await expectContract(first, { status: 201, dataSchema: 'ProjectItem' });
     const item = (await first.json()) as { data: ProjectItemDto };
-    expect(item.data.description_html).toContain('<strong>quantity</strong> : 500');
+    expect(item.data.description_html).toBe('<p>Dépliants 3 volets<br>500 exemplaires</p>');
     expect(item.data.quote_payload).toMatchObject({
       quantity: 500,
       amounts: { clariprint_price_ht: '90.00' },
