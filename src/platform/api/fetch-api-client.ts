@@ -140,6 +140,7 @@ export class FetchApiClient {
     return this.fetchImplementation(`${this.baseUrl}${request.path}`, {
       method: request.method ?? 'GET',
       headers,
+      credentials: 'same-origin',
       ...(request.body === undefined ? {} : { body: JSON.stringify(request.body) }),
       ...(request.signal === undefined ? {} : { signal: request.signal }),
     });
@@ -155,6 +156,7 @@ export class FetchApiClient {
     const response = await this.fetchImplementation(`${this.baseUrl}${request.path}`, {
       method: request.method,
       headers,
+      credentials: 'same-origin',
       body: request.form,
       ...(request.signal === undefined ? {} : { signal: request.signal }),
     });

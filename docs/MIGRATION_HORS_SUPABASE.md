@@ -267,6 +267,15 @@ session en cookie n'est pas active afin qu'une revocation prenne effet sans
 attendre l'expiration d'un cache. L'inscription publique est desactivee ; les
 comptes de production devront provenir du flux d'invitation Magrit.
 
+Le navigateur peut utiliser ce nouvel adaptateur avec
+`VITE_AUTH_PROVIDER=local`. Cette activation reste volontaire pendant la
+transition : les domaines encore relayes vers l'API Supabase exigent toujours
+leur ancien bearer. L'adaptateur local n'expose aucun token au JavaScript ; les
+requêtes same-origin transportent uniquement le cookie `HttpOnly`.
+En developpement, `VITE_API_PROXY_TARGET=http://127.0.0.1:8787` dirige alors
+la SPA vers le serveur Node. Le fournisseur Supabase reste la valeur par defaut
+jusqu'a la migration de `/session` et des domaines indispensables au workspace.
+
 Le seed local est idempotent. Il cree par defaut
 `developer@magrit.local`, le tenant `magrit-development` et une identite OIDC
 de developpement. Les valeurs peuvent etre surchargees avec les variables

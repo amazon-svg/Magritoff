@@ -4,7 +4,8 @@ export type AuthenticationUser = {
   user_metadata: Record<string, unknown>;
 };
 export type AuthenticationSession = {
-  access_token: string;
+  /** Absent pour une session opaque HttpOnly, illisible par le navigateur. */
+  access_token?: string;
   user: AuthenticationUser;
 };
 
