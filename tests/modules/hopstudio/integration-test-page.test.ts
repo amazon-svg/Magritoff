@@ -86,14 +86,13 @@ describe('page de test d intégration HopeStudio', () => {
     expect(workspaceSource).toContain("send.id = 'hopstudio-send'");
     expect(workspaceSource).toContain('window.HChat.initial_prompt = initialPrompt.trim() || null');
     expect(workspaceSource).not.toContain('window.hopes_suite?.chat?.sendMessage');
-    expect(runtimeSource).toContain('window.HChat?.initial_prompt?.trim()');
-    expect(runtimeSource).toContain('queueMicrotask(() => G(initialPrompt))');
-    expect(workspaceSource).toContain('configureChatIdentity(tenantId, userId, bootstrapSessionId, initialRequest.query)');
-    expect(workspaceSource).toContain('window.HChat.session_id = isValidSessionId(sessionId) ? sessionId : null');
+    expect(runtimeSource).toMatch(/initial_prompt[^;]{0,160}G\([^)]*initial_prompt/);
+    expect(workspaceSource).toContain('const disposeChatIdentity = configureChatIdentity(');
+    expect(workspaceSource).toContain("window.HChat.initial_session_id = isValidSessionId(sessionId) ? sessionId : 'new'");
     expect(workspaceSource).toContain('resetHopeStudioBrowserSession();');
     expect(workspaceSource).toContain('delete window.hopes_suite.chat.session');
     expect(workspaceSource).toContain('const bootstrapSessionId = projectBootstrapRef.current.sessionId');
-    expect(workspaceSource).toContain('}, [api, bootstrapSessionId, projectId, tenantId, userId]);');
+    expect(workspaceSource).toContain('bootstrapSessionId, onProjectItemsAdded, projectId, projectsApi, tenantId, userId');
     expect(workspaceSource).not.toContain("parameters.set('action', 'newSession')");
     expect(dualWorkspaceSource).toContain('onSessionId={handleSessionId}');
     expect(workspaceSource).not.toContain('hopstudio-prompt-grid');

@@ -178,7 +178,7 @@ describe('POST /quotes/{quoteId}/document-previews (atelier)', () => {
   it('201 : génère un aperçu temporaire portant le filigrane DRAFT', async () => {
     const response = await call(`/api/v1/quotes/${QUOTE_WITHOUT_DOC}/document-previews`, {
       method: 'POST',
-      headers: asUser,
+      headers: { ...asUser, 'Idempotency-Key': crypto.randomUUID() },
     });
     await expectContract(response, { status: 201, dataSchema: 'QuoteDocumentPreview' });
 
@@ -189,7 +189,7 @@ describe('POST /quotes/{quoteId}/document-previews (atelier)', () => {
   it('404 quote.not_found : refuse un identifiant inconnu', async () => {
     const response = await call(`/api/v1/quotes/${QUOTE_UNKNOWN}/document-previews`, {
       method: 'POST',
-      headers: asUser,
+      headers: { ...asUser, 'Idempotency-Key': crypto.randomUUID() },
     });
     await expectContract(response, { status: 404 });
   });

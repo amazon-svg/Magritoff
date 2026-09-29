@@ -135,6 +135,7 @@ export class CommercialQuotesApiClient {
     const envelope = await this.client.request({
       method: 'POST',
       path: `${BASE_PATH}/${quoteId}/document-previews`,
+      headers: { 'Idempotency-Key': newIdempotencyKey() },
       responseSchema: successEnvelopeSchema(quoteDocumentPreviewSchema),
     });
     return envelope.data;
