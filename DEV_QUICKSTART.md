@@ -13,6 +13,32 @@ pnpm dev:b5:stop     # stoppe le serveur
 
 Une fois lancé : **http://localhost:5177**
 
+## Infrastructure portable hors Supabase
+
+Le socle de remplacement peut être lancé indépendamment de la pile Supabase
+pendant la migration :
+
+```bash
+pnpm infra:dev:up
+pnpm infra:dev:env
+```
+
+Il démarre PostgreSQL 17, un serveur S3-compatible SeaweedFS et Mailpit. Les
+ports par défaut sont respectivement `55432`, `58333`, `58025` pour l'interface
+Mailpit et `51025` pour SMTP. Les huit buckets attendus par Magrit sont créés
+automatiquement.
+
+```bash
+pnpm infra:dev:status
+pnpm infra:dev:logs
+pnpm infra:dev:down
+pnpm infra:dev:reset # confirmation interactive, détruit les données locales
+```
+
+Ce socle ne remplace pas encore l'exécution Supabase de l'application : il est
+destiné à accueillir progressivement les adaptateurs PostgreSQL et S3 ainsi
+que l'authentification portable.
+
 ## Supabase local avec Docker
 
 Prérequis : Docker Desktop, OrbStack, Colima ou un autre runtime compatible Docker doit être démarré.

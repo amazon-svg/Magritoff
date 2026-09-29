@@ -13,6 +13,13 @@
     "openapi:docs": "vite --port 5176 --strictPort",
     "dev:local": "pnpm db:local:start && pnpm supabase:use:local && pnpm dev",
     "dev:official": "pnpm supabase:use:official && pnpm dev",
+    "infra:dev:up": "./scripts/infra-dev.sh up",
+    "infra:dev:down": "./scripts/infra-dev.sh down",
+    "infra:dev:status": "./scripts/infra-dev.sh status",
+    "infra:dev:logs": "./scripts/infra-dev.sh logs",
+    "infra:dev:config": "./scripts/infra-dev.sh config",
+    "infra:dev:env": "./scripts/infra-dev.sh env",
+    "infra:dev:reset": "./scripts/infra-dev.sh reset",
     "dev:b5": "./scripts/dev-b5.sh",
     "dev:b5:bg": "./scripts/dev-b5.sh --bg",
     "dev:b5:stop": "./scripts/dev-b5.sh --stop",
@@ -52,6 +59,7 @@
     "a11y:scan": "node ./scripts/a11y-scan.mjs"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1141.0",
     "@emotion/react": "11.14.0",
     "@emotion/styled": "11.14.1",
     "@mui/icons-material": "7.3.5",
