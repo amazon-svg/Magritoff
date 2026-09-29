@@ -23,6 +23,7 @@
     "infra:dev:env": "./scripts/infra-dev.sh env",
     "infra:dev:reset": "./scripts/infra-dev.sh reset",
     "db:migrate": "node scripts/db/migrate.mjs",
+    "db:seed": "node scripts/db/seed-development.mjs",
     "dev:b5": "./scripts/dev-b5.sh",
     "dev:b5:bg": "./scripts/dev-b5.sh --bg",
     "dev:b5:stop": "./scripts/dev-b5.sh --stop",

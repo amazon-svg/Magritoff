@@ -11,6 +11,7 @@ case "${1:-}" in
   up)
     "${MAGRIT_COMPOSE[@]}" up -d --wait --wait-timeout 60 postgres s3 mail
     node scripts/db/migrate.mjs
+    node scripts/db/seed-development.mjs
     node scripts/infra/ensure-s3-buckets.mjs
     "${MAGRIT_COMPOSE[@]}" ps
     ;;
@@ -36,6 +37,10 @@ case "${1:-}" in
     echo 'S3_FORCE_PATH_STYLE=true'
     echo 'MAIL_HOST=127.0.0.1'
     echo 'MAIL_PORT=51025'
+    echo 'MAGRIT_DEV_USER_EMAIL=developer@magrit.local'
+    echo 'MAGRIT_DEV_TENANT_SLUG=magrit-development'
+    echo 'MAGRIT_DEV_OIDC_ISSUER=http://127.0.0.1:5556/dex'
+    echo 'MAGRIT_DEV_OIDC_SUBJECT=10000000-0000-4000-8000-000000000001'
     ;;
   reset)
     if [[ "${2:-}" != "--yes" ]]; then

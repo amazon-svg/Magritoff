@@ -231,7 +231,7 @@ pnpm infra:dev:status   # etat et healthchecks
 pnpm infra:dev:logs     # logs des services locaux
 pnpm infra:dev:reset    # destruction explicite des seules donnees locales
 pnpm db:migrate         # applique les migrations PostgreSQL Magrit
-pnpm db:seed            # jeu de donnees de developpement
+pnpm db:seed            # identite, tenant et appartenance de developpement
 pnpm dev                # API, worker et Vite, ou orchestrateur equivalent
 ```
 
@@ -258,6 +258,12 @@ MAIL_PORT=
 ```
 
 Les secrets de fournisseurs OIDC ne sont jamais exposes a Vite.
+
+Le seed local est idempotent. Il cree par defaut
+`developer@magrit.local`, le tenant `magrit-development` et une identite OIDC
+de developpement. Les valeurs peuvent etre surchargees avec les variables
+`MAGRIT_DEV_USER_*`, `MAGRIT_DEV_TENANT_*` et `MAGRIT_DEV_OIDC_*`. Ce seed ne
+demarre pas un fournisseur OIDC et ne doit jamais etre execute en production.
 
 Le runtime Node active le module Conversations hors Supabase uniquement si les
 trois variables suivantes sont presentes. Une configuration partielle fait
