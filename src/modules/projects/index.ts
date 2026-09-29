@@ -12,6 +12,7 @@ export {
   removeProjectItemResultSchema,
   replaceProjectTagsCommandSchema,
   updateProjectCommandSchema,
+  updateProjectItemCommandSchema,
   type CreateProjectCommand,
   type CreateProjectItemCommand,
   type CommercialFileKind,
@@ -25,6 +26,7 @@ export {
   type RemoveProjectItemResultDto,
   type ReplaceProjectTagsCommand,
   type UpdateProjectCommand,
+  type UpdateProjectItemCommand,
 } from './api/contracts';
 export { ProjectsService } from './application/projects-service';
 export {

@@ -460,6 +460,55 @@ describe('module Projets (E10.1) contre le contrat', () => {
     expect(secondBody.data.position).toBe(1);
   });
 
+  it('renomme un élément du projet sans modifier son payload de chiffrage', async () => {
+    const customer = await createCustomer();
+    const { data: project } = await createProject(customer.id);
+    const added = await call(`/api/v1/projects/${project.id}/items`, {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'Idempotency-Key': `item-${uuid()}` },
+      body: JSON.stringify({ label: 'Ancien libellé', quote_payload: { source: 'hopstudio', price: 42 } }),
+    });
+    const { data: item } = (await added.json()) as { data: ProjectItemDto };
+
+    const editable = await call(`/api/v1/projects/${project.id}/items/${item.id}`, { headers: asUser });
+    await expectContract(editable, { status: 200, dataSchema: 'ProjectItem' });
+    const itemEtag = editable.headers.get('ETag');
+    expect(itemEtag).toBeTruthy();
+
+    const renamed = await call(`/api/v1/projects/${project.id}/items/${item.id}`, {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': itemEtag! },
+      body: JSON.stringify({ label: 'Nouveau libellé' }),
+    });
+    await expectContract(renamed, { status: 200, dataSchema: 'ProjectItem' });
+    const renamedBody = (await renamed.json()) as { data: ProjectItemDto };
+    expect(renamedBody.data.label).toBe('Nouveau libellé');
+    expect(renamedBody.data.quote_payload).toEqual({ source: 'hopstudio', price: 42 });
+
+    const detail = await call(`/api/v1/projects/${project.id}`, { headers: asUser });
+    const detailBody = (await detail.json()) as { data: ProjectDetailDto };
+    expect(detailBody.data.items[0]?.label).toBe('Nouveau libellé');
+  });
+
+  it('refuse de renommer un élément avec un libellé vide', async () => {
+    const customer = await createCustomer();
+    const { data: project } = await createProject(customer.id);
+    const added = await call(`/api/v1/projects/${project.id}/items`, {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'Idempotency-Key': `item-${uuid()}` },
+      body: JSON.stringify({ label: 'Conservé', quote_payload: {} }),
+    });
+    const { data: item } = (await added.json()) as { data: ProjectItemDto };
+
+    const editable = await call(`/api/v1/projects/${project.id}/items/${item.id}`, { headers: asUser });
+    const response = await call(`/api/v1/projects/${project.id}/items/${item.id}`, {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': editable.headers.get('ETag')! },
+      body: JSON.stringify({ label: '   ' }),
+    });
+    await expectContract(response, { status: 422 });
+  });
+
   it('CA5 — retire un element du projet (retrait du lien, pas suppression d historique)', async () => {
     const customer = await createCustomer();
     const { data: project } = await createProject(customer.id);

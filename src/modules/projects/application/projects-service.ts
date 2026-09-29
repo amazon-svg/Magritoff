@@ -21,6 +21,7 @@ import type {
   ProjectItemDto,
   ReplaceProjectTagsCommand,
   UpdateProjectCommand,
+  UpdateProjectItemCommand,
 } from '../api/contracts.ts';
 import {
   ProjectCommandRejectedError,
@@ -82,6 +83,12 @@ export class ProjectsService {
     const project = await this.repository.findById(tenantId, projectId);
     if (!project) throw new ProjectNotFoundError();
     return project;
+  }
+
+  async getItem(tenantId: TenantId, projectId: string, itemId: string): Promise<ProjectItemDto> {
+    const item = await this.repository.findItemById(tenantId, projectId, itemId);
+    if (!item) throw new ProjectNotFoundError('Élément de projet introuvable dans ce tenant.');
+    return item;
   }
 
   /**
@@ -216,6 +223,17 @@ export class ProjectsService {
     const exists = await this.repository.findById(tenantId, projectId);
     if (!exists) throw new ProjectNotFoundError();
     return this.repository.removeItem(tenantId, projectId, itemId);
+  }
+
+  async updateItem(
+    tenantId: TenantId,
+    projectId: string,
+    itemId: string,
+    command: UpdateProjectItemCommand,
+  ): Promise<ProjectItemDto> {
+    const exists = await this.repository.findById(tenantId, projectId);
+    if (!exists) throw new ProjectNotFoundError();
+    return this.repository.updateItem(tenantId, projectId, itemId, command);
   }
 
   /**

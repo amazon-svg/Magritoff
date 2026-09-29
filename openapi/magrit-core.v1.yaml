@@ -1093,6 +1093,98 @@ paths:
   /projects/{projectId}/items/{itemId}:
     parameters:
       - $ref: '#/components/parameters/MagritTenant'
+    get:
+      operationId: getProjectItem
+      summary: "Récupère un élément de projet modifiable"
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+        - serviceKey: []
+      x-required-scopes: [projects:read]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+      responses:
+        '200':
+          description: Élément courant avec son ETag de modification.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ProjectItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      operationId: updateProjectItem
+      summary: "Renomme un élément d’un projet"
+      description: >-
+        Modifie le libelle de la ligne projet pour les futurs usages. Les
+        lignes de devis ou de commande deja creees restent figees et ne sont
+        jamais renommees retroactivement.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProjectItemCommand'
+      responses:
+        '200':
+          description: Élément renommé.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ProjectItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+
     delete:
       operationId: removeProjectItem
       summary: "Retire un élément d’un projet"
@@ -15689,6 +15781,18 @@ components:
             - type: object
               additionalProperties: true
             - type: 'null'
+
+    UpdateProjectItemCommand:
+      title: UpdateProjectItemCommand
+      description: Renommage d un element de projet.
+      type: object
+      additionalProperties: false
+      required: [label]
+      properties:
+        label:
+          type: string
+          minLength: 1
+          maxLength: 300
 
     CommercialFileKind:
       title: CommercialFileKind

@@ -15,6 +15,7 @@ import type {
   ProjectDto,
   ProjectItemDto,
   UpdateProjectCommand,
+  UpdateProjectItemCommand,
 } from '../../modules/projects/api/contracts.ts';
 import {
   ProjectCommandRejectedError,
@@ -108,6 +109,22 @@ export class SupabaseProjectsRepository implements ProjectsRepository {
     const { data, error } = await query;
     if (error) throw new Error(error.message);
     return { rows: (data ?? []).map(toProjectDto) };
+  }
+
+  async findItemById(
+    tenantId: TenantId,
+    projectId: string,
+    itemId: string,
+  ): Promise<ProjectItemDto | null> {
+    await this.assertProjectInTenant(tenantId, projectId);
+    const { data, error } = await this.client
+      .from('project_items')
+      .select()
+      .eq('project_id', projectId)
+      .eq('id', itemId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    return data ? toProjectItemDto(data) : null;
   }
 
   async findById(tenantId: TenantId, projectId: string): Promise<ProjectDto | null> {
@@ -307,6 +324,25 @@ export class SupabaseProjectsRepository implements ProjectsRepository {
       .eq('project_id', projectId)
       .eq('id', itemId);
     if (error) throw new Error(error.message);
+  }
+
+  async updateItem(
+    tenantId: TenantId,
+    projectId: string,
+    itemId: string,
+    command: UpdateProjectItemCommand,
+  ): Promise<ProjectItemDto> {
+    await this.assertProjectInTenant(tenantId, projectId);
+    const { data, error } = await this.client
+      .from('project_items')
+      .update({ label: command.label })
+      .eq('project_id', projectId)
+      .eq('id', itemId)
+      .select()
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) throw new ProjectNotFoundError('Élément de projet introuvable dans ce tenant.');
+    return toProjectItemDto(data);
   }
 
   /**

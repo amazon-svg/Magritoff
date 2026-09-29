@@ -18,6 +18,7 @@ export type ConfiguratorWorkspaceState = Readonly<{
 export type ConfiguratorWorkspaceAction =
   | Readonly<{ type: 'submit'; request: InitialConfiguratorRequest }>
   | Readonly<{ type: 'select-project'; projectId: string; customerName: string; projectName: string; hopstudioSessionId: string | null }>
+  | Readonly<{ type: 'rename-project'; projectName: string }>
   | Readonly<{ type: 'change-project' }>;
 
 export const INITIAL_CONFIGURATOR_WORKSPACE_STATE: ConfiguratorWorkspaceState = {
@@ -98,6 +99,8 @@ export function configuratorWorkspaceReducer(
       };
     case 'change-project':
       return INITIAL_CONFIGURATOR_WORKSPACE_STATE;
+    case 'rename-project':
+      return { ...state, projectName: action.projectName };
   }
 }
 

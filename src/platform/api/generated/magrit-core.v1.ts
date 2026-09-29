@@ -346,7 +346,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Récupère un élément de projet modifiable */
+        get: operations["getProjectItem"];
         put?: never;
         post?: never;
         /**
@@ -356,7 +357,11 @@ export interface paths {
         delete: operations["removeProjectItem"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Renomme un élément d’un projet
+         * @description Modifie le libelle de la ligne projet pour les futurs usages. Les lignes de devis ou de commande deja creees restent figees et ne sont jamais renommees retroactivement.
+         */
+        patch: operations["updateProjectItem"];
         trace?: never;
     };
     "/commercial-line-files/{lineType}/{lineId}": {
@@ -6376,6 +6381,13 @@ export interface components {
             } | null;
         };
         /**
+         * UpdateProjectItemCommand
+         * @description Renommage d un element de projet.
+         */
+        UpdateProjectItemCommand: {
+            label: string;
+        };
+        /**
          * CommercialFileKind
          * @description Rôle métier du fichier, indépendant de son type MIME. Le même fichier immuable peut être associé successivement à une ligne de projet, de devis puis de commande sans recopier ses octets.
          * @enum {string}
@@ -10260,6 +10272,7 @@ export type ProjectTag = components['schemas']['ProjectTag'];
 export type CreateProjectTagCommand = components['schemas']['CreateProjectTagCommand'];
 export type ReplaceProjectTagsCommand = components['schemas']['ReplaceProjectTagsCommand'];
 export type CreateProjectItemCommand = components['schemas']['CreateProjectItemCommand'];
+export type UpdateProjectItemCommand = components['schemas']['UpdateProjectItemCommand'];
 export type CommercialFileKind = components['schemas']['CommercialFileKind'];
 export type CommercialFileVisibility = components['schemas']['CommercialFileVisibility'];
 export type ImportedCommercialFile = components['schemas']['ImportedCommercialFile'];
@@ -11341,6 +11354,48 @@ export interface operations {
             422: components["responses"]["UnprocessableEntity"];
         };
     };
+    getProjectItem: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                /** @description Identifiant technique du projet, dans le tenant du jeton. */
+                projectId: components["parameters"]["ProjectId"];
+                itemId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Élément courant avec son ETag de modification. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["ProjectItem"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     removeProjectItem: {
         parameters: {
             query?: never;
@@ -11383,6 +11438,61 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    updateProjectItem: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+                /**
+                 * @description Valeur d `ETag` de la representation lue, exigee sur tout PATCH (CA9). Absente -> 428 `api.if_match_required`. Differente de l etat courant -> 409 avec l etat courant dans `current_state`.
+                 *
+                 *     `If-Match: *` est REFUSE en 400 `api.if_match_invalid`, contrairement a la semantique RFC 7232 ou il signifie « pourvu que la ressource existe ». Ici il reviendrait a desactiver le controle de concurrence : deux modifications concurrentes s ecraseraient en silence, ce que le CA9 interdit. Le `pattern` ci-dessous n admet qu un ETag, faible ou fort.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description Identifiant technique du projet, dans le tenant du jeton. */
+                projectId: components["parameters"]["ProjectId"];
+                itemId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProjectItemCommand"];
+            };
+        };
+        responses: {
+            /** @description Élément renommé. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["ProjectItem"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+            428: components["responses"]["PreconditionRequired"];
         };
     };
     listCommercialLineFiles: {

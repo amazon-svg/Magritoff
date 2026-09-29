@@ -19,6 +19,7 @@ import {
   removeProjectItemResultSchema,
   replaceProjectTagsCommandSchema,
   updateProjectCommandSchema,
+  updateProjectItemCommandSchema,
   type CreateProjectCommand,
   type CreateProjectItemCommand,
   type ImportHopeStudioBasketItemCommand,
@@ -28,6 +29,7 @@ import {
   type ProjectStatus,
   type ReplaceProjectTagsCommand,
   type UpdateProjectCommand,
+  type UpdateProjectItemCommand,
 } from './contracts.ts';
 
 const BASE_PATH = `${API_V1_BASE_PATH}/projects`;
@@ -158,6 +160,33 @@ export class ProjectsApiClient {
       path: `${BASE_PATH}/${projectId}/items/${itemId}`,
       responseSchema: successEnvelopeSchema(removeProjectItemResultSchema),
     });
+  }
+
+  async updateItem(
+    projectId: string,
+    itemId: string,
+    command: UpdateProjectItemCommand,
+    ifMatch: string,
+  ): Promise<ApiResponseWithEtag<ProjectItemDto>> {
+    const result = await this.client.requestWithEtag({
+      method: 'PATCH',
+      path: `${BASE_PATH}/${projectId}/items/${itemId}`,
+      body: updateProjectItemCommandSchema.parse(command),
+      headers: { 'If-Match': ifMatch },
+      responseSchema: successEnvelopeSchema(projectItemSchema),
+    });
+    return unwrapEnvelopeWithEtag(result);
+  }
+
+  async getItemForEdit(
+    projectId: string,
+    itemId: string,
+  ): Promise<ApiResponseWithEtag<ProjectItemDto>> {
+    const result = await this.client.requestWithEtag({
+      path: `${BASE_PATH}/${projectId}/items/${itemId}`,
+      responseSchema: successEnvelopeSchema(projectItemSchema),
+    });
+    return unwrapEnvelopeWithEtag(result);
   }
 }
 

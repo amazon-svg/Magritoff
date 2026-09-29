@@ -45,6 +45,7 @@ export function ConfiguratorWorkspace({
         selectedProjectId={state.projectId}
         selectedProjectName={state.projectName}
         onProjectSelect={(selection) => dispatch({ type: 'select-project', ...selection })}
+        onProjectRenamed={(projectName) => dispatch({ type: 'rename-project', projectName })}
         onChangeProject={() => dispatch({ type: 'change-project' })}
         onQuoteCreated={(quoteId) => navigate(tenantPath(`/dashboard/commercial-quotes/${quoteId}`))}
         onSubmit={(query) => dispatch({
@@ -65,6 +66,7 @@ export function ConfiguratorWorkspace({
       projectName={state.projectName}
       initialRequest={state.initialRequest}
       onQuoteCreated={(quoteId) => navigate(tenantPath(`/dashboard/commercial-quotes/${quoteId}`))}
+      onProjectRenamed={(projectName) => dispatch({ type: 'rename-project', projectName })}
       onChangeProject={() => dispatch({ type: 'change-project' })}
     />
   );

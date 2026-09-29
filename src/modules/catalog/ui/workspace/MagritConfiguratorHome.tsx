@@ -22,6 +22,7 @@ export function MagritConfiguratorHome({
   selectedProjectId = null,
   selectedProjectName = null,
   onProjectSelect,
+  onProjectRenamed,
   onChangeProject,
   onQuoteCreated,
   onSubmit,
@@ -30,6 +31,7 @@ export function MagritConfiguratorHome({
   selectedProjectId?: string | null;
   selectedProjectName?: string | null;
   onProjectSelect: (selection: { projectId: string; customerName: string; projectName: string; hopstudioSessionId: string | null }) => void;
+  onProjectRenamed: (projectName: string) => void;
   onChangeProject: () => void;
   onQuoteCreated: (quoteId: string) => void;
   onSubmit: (query: string) => void;
@@ -358,6 +360,11 @@ export function MagritConfiguratorHome({
           projectId={selectedProjectId}
           projectName={selectedProjectName}
           onClose={() => setShowProjectItems(false)}
+          onProjectRenamed={(name) => {
+            setProjects((current) => current.map((project) => project.id === selectedProjectId ? { ...project, name } : project));
+            onProjectRenamed(name);
+          }}
+          onItemCountChanged={setSelectedProjectItemCount}
           onCreated={(quoteId) => {
             setShowProjectItems(false);
             onQuoteCreated(quoteId);

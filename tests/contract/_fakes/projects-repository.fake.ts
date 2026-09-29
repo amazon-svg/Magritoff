@@ -20,6 +20,7 @@ import type {
   ProjectDto,
   ProjectItemDto,
   UpdateProjectCommand,
+  UpdateProjectItemCommand,
 } from '@/modules/projects/api/contracts';
 import type { InMemoryProjectTagsRepository } from './project-tags-repository.fake';
 // qa-review E10.2 : reutilise la MEME normalisation que l adaptateur reel
@@ -152,6 +153,17 @@ export class InMemoryProjectsRepository implements ProjectsRepository {
       .filter((item) => item.project_id === projectId)
       .sort((a, b) => a.position - b.position);
     return { ...project, items };
+  }
+
+  async findItemById(
+    tenantId: TenantId,
+    projectId: string,
+    itemId: string,
+  ): Promise<ProjectItemDto | null> {
+    const project = await this.findById(tenantId, projectId);
+    if (!project) return null;
+    const item = this.items.get(itemId);
+    return item?.project_id === projectId ? item : null;
   }
 
   async create(
@@ -297,6 +309,23 @@ export class InMemoryProjectsRepository implements ProjectsRepository {
     if (!project) throw new ProjectNotFoundError();
     const item = this.items.get(itemId);
     if (item && item.project_id === projectId) this.items.delete(itemId);
+  }
+
+  async updateItem(
+    tenantId: TenantId,
+    projectId: string,
+    itemId: string,
+    command: UpdateProjectItemCommand,
+  ): Promise<ProjectItemDto> {
+    const project = await this.findById(tenantId, projectId);
+    if (!project) throw new ProjectNotFoundError();
+    const item = this.items.get(itemId);
+    if (!item || item.project_id !== projectId) {
+      throw new ProjectNotFoundError('Élément de projet introuvable dans ce tenant.');
+    }
+    const updated = { ...item, label: command.label };
+    this.items.set(itemId, updated);
+    return updated;
   }
 }
 

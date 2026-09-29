@@ -15,6 +15,7 @@ export function DualToolWorkspace({
   customerName,
   projectName,
   onQuoteCreated,
+  onProjectRenamed,
   onChangeProject,
 }: Readonly<{
   tenantId: string;
@@ -25,6 +26,7 @@ export function DualToolWorkspace({
   customerName: string | null;
   projectName: string | null;
   onQuoteCreated: (quoteId: string) => void;
+  onProjectRenamed: (projectName: string) => void;
   onChangeProject: () => void;
 }>) {
   const projectsApi = useWorkspaceApi(ProjectsApiClient);
@@ -130,6 +132,8 @@ export function DualToolWorkspace({
           projectId={activeProjectId}
           projectName={projectName}
           onClose={() => setShowProjectItems(false)}
+          onProjectRenamed={onProjectRenamed}
+          onItemCountChanged={setProjectItemCount}
           onCreated={(quoteId) => {
             setShowProjectItems(false);
             onQuoteCreated(quoteId);

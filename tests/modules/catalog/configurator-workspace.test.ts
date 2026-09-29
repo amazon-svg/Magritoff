@@ -35,9 +35,14 @@ describe('workspace configurateur', () => {
     expect(studioSource).toContain('Éléments du projet');
     expect(studioSource).toContain('<ActiveProjectItemsDrawer');
     expect(workspaceSource).toContain('selectedProjectId={state.projectId}');
-    expect(drawerSource).toContain('projectsApi.getDetail(projectId)');
+    expect(drawerSource).toContain('projectsApi.getForEdit(projectId)');
     expect(drawerSource).toContain('quotesApi.createFromProject');
     expect(drawerSource).toContain('item_ids: selectedItems.map');
+    expect(drawerSource).toContain('projectsApi.updateItem');
+    expect(drawerSource).toContain('projectsApi.getItemForEdit');
+    expect(drawerSource).toContain('projectsApi.removeItem');
+    expect(drawerSource).toContain('projectsApi.update(projectId, { name }');
+    expect(drawerSource).toContain('Supprimer cet élément du projet ?');
     expect(drawerSource).not.toContain("action: 'CallAI'");
   });
 
@@ -84,5 +89,20 @@ describe('workspace configurateur', () => {
       projectId: 'project-2',
       hopstudioSessionId: 'session-existante',
     });
+  });
+
+  it('conserve le nouveau nom du projet dans le contexte actif', () => {
+    const selected = configuratorWorkspaceReducer(INITIAL_CONFIGURATOR_WORKSPACE_STATE, {
+      type: 'select-project',
+      projectId: 'project-3',
+      customerName: 'Client',
+      projectName: 'Ancien nom',
+      hopstudioSessionId: null,
+    });
+
+    expect(configuratorWorkspaceReducer(selected, {
+      type: 'rename-project',
+      projectName: 'Nouveau nom',
+    })).toMatchObject({ projectId: 'project-3', projectName: 'Nouveau nom' });
   });
 });

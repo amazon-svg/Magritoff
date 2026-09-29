@@ -116,6 +116,12 @@ export const createProjectItemCommandSchema = z
   })
   .strict();
 
+export const updateProjectItemCommandSchema = z
+  .object({
+    label: z.string().trim().min(1).max(300),
+  })
+  .strict();
+
 export const commercialFileKindSchema = z.enum([
   'supplier_quote',
   'cutting_template',
@@ -165,6 +171,7 @@ export type CreateProjectCommand = z.infer<typeof createProjectCommandSchema>;
 export type UpdateProjectCommand = z.infer<typeof updateProjectCommandSchema>;
 export type ReplaceProjectTagsCommand = z.infer<typeof replaceProjectTagsCommandSchema>;
 export type CreateProjectItemCommand = z.infer<typeof createProjectItemCommandSchema>;
+export type UpdateProjectItemCommand = z.infer<typeof updateProjectItemCommandSchema>;
 export type CommercialFileKind = z.infer<typeof commercialFileKindSchema>;
 export type CommercialFileVisibility = z.infer<typeof commercialFileVisibilitySchema>;
 export type ImportedCommercialFile = z.infer<typeof importedCommercialFileSchema>;
