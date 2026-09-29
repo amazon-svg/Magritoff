@@ -50,6 +50,7 @@ export const TEST_IDS = {
     sidebarConfigLink: 'nav-sidebar-config-link',
     sidebarProfileLink: 'nav-sidebar-profile-link',
     tenantSwitcher: 'nav-tenant-switcher',
+    currentSpaceLink: 'nav-current-space-link',
     // E10.4 (Sprint 5, TF-165, parcours P13) — module Clients.
     sidebarCustomersLink: 'nav-sidebar-customers-link',
     // E10.1 (Sprint 5, parcours P13) — module Projets.
