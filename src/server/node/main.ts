@@ -1,13 +1,16 @@
 import { createApiV1Application } from '../api/composition.ts';
 import { createConversationsRoutes } from '../api/conversations-routes.ts';
 import { createReadinessRoute } from '../api/readiness-route.ts';
+import { createSessionBootstrapRoute } from '../api/session-routes.ts';
 import { OidcJwtVerifier } from '../../adapters/oidc/jwt-verifier.ts';
 import { PostgresConversationsRepository } from '../../adapters/postgres/conversations-repository.ts';
 import { PostgresOidcIdentityDirectory } from '../../adapters/postgres/oidc-identity-directory.ts';
 import { createPostgresPool } from '../../adapters/postgres/pool.ts';
 import { PostgresReadinessProbe } from '../../adapters/postgres/readiness-probe.ts';
+import { PostgresSessionBootstrapRepository } from '../../adapters/postgres/session-bootstrap-repository.ts';
 import { PostgresTransactionRunner } from '../../adapters/postgres/transaction-runner.ts';
 import { ConversationsService } from '../../modules/conversations/application/conversations-service.ts';
+import { SessionBootstrapService } from '../../modules/session/application/session-service.ts';
 import { createLocalAuthentication, readLocalAuthenticationConfiguration } from '../auth/local-authentication.ts';
 import { CredentialActorResolver, LocalSessionActorResolver } from '../auth/local-session-actor-resolver.ts';
 import { OidcActorResolver } from '../auth/oidc-actor-resolver.ts';
@@ -42,8 +45,18 @@ const conversationsRoutes = conversationsEnabled
       new PostgresTransactionRunner(postgresPool, 'magrit_api'),
     )))
   : [];
+const sessionEnabled = actorResolver !== undefined;
+const sessionRoutes = sessionEnabled
+  ? [createSessionBootstrapRoute(new SessionBootstrapService(
+      new PostgresSessionBootstrapRepository(new PostgresTransactionRunner(postgresPool, 'magrit_api')),
+    ))]
+  : [];
 const apiHandler = createApiV1Application({
-  routes: [createReadinessRoute(new PostgresReadinessProbe(postgresPool)), ...conversationsRoutes],
+  routes: [
+    createReadinessRoute(new PostgresReadinessProbe(postgresPool)),
+    ...conversationsRoutes,
+    ...sessionRoutes,
+  ],
   ...(actorResolver === undefined ? {} : { actorResolver }),
   onUnexpectedError(error, requestId) {
     console.error(JSON.stringify({ level: 'error', event: 'api.unexpected_error', requestId, error: errorMessage(error) }));
@@ -58,9 +71,10 @@ const legacyApiUrl = process.env['MAGRIT_LEGACY_API_URL'];
 const handler = createTransitionalApiHandler({
   localHandler,
   localPaths: new Set(['/api/v1/health', '/api/v1/readiness']),
-  isLocalRequest: (_request, url) => (
+  isLocalRequest: (request, url) => (
     (conversationsEnabled && isConversationsPath(url.pathname))
     || (localAuthentication !== null && isLocalAuthenticationPath(url.pathname))
+    || (sessionEnabled && request.method === 'GET' && url.pathname === '/api/v1/session')
   ),
   ...(legacyApiUrl === undefined ? {} : { legacyApiUrl }),
 });
@@ -79,6 +93,7 @@ server.listen(port, host, () => {
     modules: [
       ...(conversationsEnabled ? ['conversations'] : []),
       ...(localAuthentication === null ? [] : ['local-authentication']),
+      ...(sessionEnabled ? ['session-bootstrap'] : []),
     ],
   }));
 });

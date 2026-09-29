@@ -30,12 +30,15 @@ export class SessionInvitationAcceptanceError extends Error {
   constructor(public readonly code: 'email_mismatch' | 'invalid', message: string) { super(message); this.name = 'SessionInvitationAcceptanceError'; }
 }
 
-export interface SessionRepository {
-  resolveTenantSlug(userId: UserId, slug: string): Promise<string | null>;
+export interface SessionBootstrapRepository {
   autoAcceptPendingInvitations(): Promise<void>;
   listDirectMemberships(userId: UserId): Promise<readonly DirectMembership[]>;
   listChildren(parentTenantIds: readonly string[]): Promise<readonly ChildTenant[]>;
   getPreferences(userId: UserId): Promise<Partial<SessionUserPreferences> | null>;
+}
+
+export interface SessionRepository extends SessionBootstrapRepository {
+  resolveTenantSlug(userId: UserId, slug: string): Promise<string | null>;
   updatePreferences(
     userId: UserId,
     patch: UpdatePreferences,

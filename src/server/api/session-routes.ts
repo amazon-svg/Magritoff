@@ -18,6 +18,7 @@ import {
 } from '../../modules/session/api/contracts.ts';
 import {
   SessionTenantAccessDeniedError,
+  type SessionBootstrapService,
   type SessionService,
 } from '../../modules/session/application/session-service.ts';
 import { SessionInvitationAcceptanceError, SessionTenantMutationError } from '../../modules/session/application/session-repository.ts';
@@ -60,16 +61,7 @@ export function createSessionRoutes(service: SessionService): readonly ApiRoute[
         }
       },
     }),
-    defineJsonRoute({
-      method: 'GET',
-      path: `${API_V1_BASE_PATH}/session`,
-      authentication: 'required',
-      inputSchema: null,
-      outputSchema: sessionBootstrapSchema,
-      async handle(context) {
-        return { status: 200, body: await service.load(requireUserId(context)) };
-      },
-    }),
+    createSessionBootstrapRoute(service),
     defineJsonRoute({
       method: 'PATCH',
       path: `${API_V1_BASE_PATH}/session/preferences`,
@@ -165,6 +157,21 @@ export function createSessionRoutes(service: SessionService): readonly ApiRoute[
       },
     }),
   ];
+}
+
+export function createSessionBootstrapRoute(
+  service: Pick<SessionBootstrapService, 'load'>,
+): ApiRoute {
+  return defineJsonRoute({
+    method: 'GET',
+    path: `${API_V1_BASE_PATH}/session`,
+    authentication: 'required',
+    inputSchema: null,
+    outputSchema: sessionBootstrapSchema,
+    async handle(context) {
+      return { status: 200, body: await service.load(requireUserId(context)) };
+    },
+  });
 }
 
 function throwTenantMutation(error: unknown): never {

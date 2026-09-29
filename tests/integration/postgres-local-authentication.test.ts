@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
 import {
   developmentSeedConfiguration,
@@ -6,6 +7,11 @@ import {
 } from '../../scripts/db/seed-development.mjs';
 import { PostgresOidcIdentityDirectory } from '../../src/adapters/postgres/oidc-identity-directory.ts';
 import { createPostgresPool } from '../../src/adapters/postgres/pool.ts';
+import { PostgresSessionBootstrapRepository } from '../../src/adapters/postgres/session-bootstrap-repository.ts';
+import { PostgresTransactionRunner } from '../../src/adapters/postgres/transaction-runner.ts';
+import { SessionBootstrapService } from '../../src/modules/session/application/session-service.ts';
+import { createApiV1Application } from '../../src/server/api/composition.ts';
+import { createSessionBootstrapRoute } from '../../src/server/api/session-routes.ts';
 import { createLocalAuthentication } from '../../src/server/auth/local-authentication.ts';
 import { LocalSessionActorResolver } from '../../src/server/auth/local-session-actor-resolver.ts';
 
@@ -63,6 +69,28 @@ describeIntegration('Better Auth local — PostgreSQL reel', () => {
       userId: seed.userId,
       tenantId: seed.tenantId,
     });
+
+    const application = createApiV1Application({
+      actorResolver: resolver,
+      routes: [createSessionBootstrapRoute(new SessionBootstrapService(
+        new PostgresSessionBootstrapRepository(new PostgresTransactionRunner(pool, 'magrit_api')),
+      ))],
+      requestIdFactory: () => 'integration-request',
+    });
+    const bootstrap = await application(new Request('http://api.local/api/v1/session', {
+      headers: { cookie: cookie! },
+    }));
+    expect(bootstrap.status).toBe(200);
+    await expect(bootstrap.json()).resolves.toMatchObject({
+      user: { id: seed.userId },
+      tenants: [{
+        id: seed.tenantId,
+        slug: seed.tenantSlug,
+        myRole: 'admin',
+        permissions: { can_invite: true },
+      }],
+      preferences: { theme: 'light', language: 'fr' },
+    });
   });
 
   it('maintient l inscription publique fermee', async () => {
@@ -87,5 +115,29 @@ describeIntegration('Better Auth local — PostgreSQL reel', () => {
     await expect(response.json()).resolves.toMatchObject({
       code: 'EMAIL_PASSWORD_SIGN_UP_DISABLED',
     });
+  });
+
+  it('ne choisit aucun tenant arbitraire pour un utilisateur multi-tenant', async () => {
+    const secondTenantId = randomUUID();
+    await pool.query(`
+      insert into public.tenants (id, slug, name) values ($1, $2, 'Second tenant')
+    `, [secondTenantId, `second-${secondTenantId}`]);
+    await pool.query(`
+      insert into public.tenant_members (tenant_id, user_id, role)
+      values ($1, $2, 'member')
+    `, [secondTenantId, seed.userId]);
+    try {
+      const directory = new PostgresOidcIdentityDirectory(pool);
+      await expect(directory.resolve({
+        issuer: 'urn:magrit:local',
+        subject: seed.userId,
+      })).resolves.toEqual({ userId: seed.userId });
+      await expect(directory.resolve({
+        issuer: 'urn:magrit:local',
+        subject: seed.userId,
+      }, secondTenantId)).resolves.toEqual({ userId: seed.userId, tenantId: secondTenantId });
+    } finally {
+      await pool.query('delete from public.tenants where id = $1', [secondTenantId]);
+    }
   });
 });

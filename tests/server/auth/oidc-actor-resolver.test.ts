@@ -49,6 +49,18 @@ describe('OidcActorResolver', () => {
     }), context({ tenantId }))).resolves.toBeNull();
     expect(resolve).not.toHaveBeenCalled();
   });
+
+  it('accepte un acteur sans tenant pour une route globale comme session', async () => {
+    const resolver = new OidcActorResolver({
+      verify: vi.fn().mockResolvedValue({ issuer: 'https://id.example', subject: 'alice' }),
+    }, {
+      resolve: vi.fn().mockResolvedValue({ userId }),
+    });
+
+    await expect(resolver.resolve(new Request('https://api.example', {
+      headers: { authorization: 'Bearer token' },
+    }), context({}))).resolves.toEqual({ kind: 'user', userId });
+  });
 });
 
 function context(params: Readonly<Record<string, string>>) {

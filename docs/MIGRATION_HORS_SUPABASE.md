@@ -12,7 +12,7 @@ Decision formelle : `docs/architecture/decisions/0001-sortie-de-supabase.md`.
 | J0 | ADR et garde-fou contre les nouvelles dependances Supabase livres |
 | J1 | Compose, healthchecks, migrations et buckets livres ; seed et CI restent a faire |
 | J2 | runtime Node, health/readiness et facade de transition livres |
-| J3 | contexte transactionnel, roles et repository Conversations PostgreSQL livres |
+| J3 | contexte transactionnel, roles, Conversations et lecture `/session` PostgreSQL livres |
 | J4 | adaptateur S3 des exports et buckets locaux livres ; bascule non activee |
 | J5 | OIDC, annuaire d'identites et socle Better Auth PostgreSQL livres ; invitations, recovery et bascule UI restent a faire |
 | J6 et suivants | non demarres |
@@ -273,8 +273,9 @@ transition : les domaines encore relayes vers l'API Supabase exigent toujours
 leur ancien bearer. L'adaptateur local n'expose aucun token au JavaScript ; les
 requêtes same-origin transportent uniquement le cookie `HttpOnly`.
 En developpement, `VITE_API_PROXY_TARGET=http://127.0.0.1:8787` dirige alors
-la SPA vers le serveur Node. Le fournisseur Supabase reste la valeur par defaut
-jusqu'a la migration de `/session` et des domaines indispensables au workspace.
+la SPA vers le serveur Node. `GET /session` est deja traite par PostgreSQL ; le
+fournisseur Supabase reste la valeur par defaut jusqu'a la migration des
+mutations de session et des autres domaines indispensables au workspace.
 
 Le seed local est idempotent. Il cree par defaut
 `developer@magrit.local`, le tenant `magrit-development` et une identite OIDC

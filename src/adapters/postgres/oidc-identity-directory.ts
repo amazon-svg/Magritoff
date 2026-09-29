@@ -3,7 +3,7 @@ import { parseId, type TenantId, type UserId } from '../../kernel/ids/index.ts';
 
 export type ResolvedOidcActor = Readonly<{
   userId: UserId;
-  tenantId: TenantId;
+  tenantId?: TenantId;
 }>;
 
 export interface OidcIdentityDirectory {
@@ -54,15 +54,16 @@ export class PostgresOidcIdentityDirectory implements OidcIdentityDirectory {
       client.release();
     }
 
-    // Sans tenant explicite, une appartenance unique est requise. Cela evite
-    // qu'un choix arbitraire change silencieusement quand une seconde boutique
-    // est rattachee a l'utilisateur.
-    if (rows.length !== 1) return null;
+    if (rows.length === 0) return null;
     const row = rows[0];
     if (row === undefined) return null;
     return Object.freeze({
       userId: parseRequiredId(row.user_id) as UserId,
-      tenantId: parseRequiredId(row.tenant_id) as TenantId,
+      // Sans tenant demande, ne jamais choisir arbitrairement parmi plusieurs
+      // appartenances. Les routes comme GET /session n'ont besoin que du user.
+      ...(requestedTenantId !== undefined || rows.length === 1
+        ? { tenantId: parseRequiredId(row.tenant_id) as TenantId }
+        : {}),
     });
   }
 }
