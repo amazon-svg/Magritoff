@@ -1,5 +1,9 @@
 # Gouvernance produit, backlog et spécifications de Magrit
 
+> **Statut : proposition non opposable.** Ce document décrit une organisation cible. Il ne modifie aucune règle en vigueur et n'autorise la création d'aucune arborescence tant que les conditions ci-dessous ne sont pas remplies.
+>
+> Aucune nouvelle arborescence canonique ne sera créée avant validation de l'audit de correspondance avec les artefacts existants (`quality/specs`, `docs/spec`, `_bmad-output`, PRD historiques, `REGLES_ARCHITECTURE.md`, `SPRINT_HANDOFF.md`). Cet audit permettra de décider si `project/` est réellement la bonne destination ou si la structure existante doit simplement être normalisée.
+
 ## Objet du document
 
 Ce document définit une organisation cible pour gérer dans Git la vision produit, les spécifications, le backlog, les user stories, les décisions, les sprints et les preuves de test de Magrit.
@@ -626,6 +630,10 @@ L'import d'une page Notion conserve une information historique. Il ne valide pas
 ## Migration du dépôt actuel
 
 La restructuration ne doit pas commencer par le déplacement massif des centaines de documents existants. Elle doit être progressive.
+
+### Étape 0 — Auditer la correspondance avec l'existant
+
+Avant toute autre étape, un audit de correspondance doit être produit et validé. Il couvre au minimum `quality/specs`, `docs/spec` (dont `STORY_DOCUMENT_STANDARD.md`), `_bmad-output` (planning, implementation et refacto artifacts), les PRD historiques, `docs/REGLES_ARCHITECTURE.md` et `SPRINT_HANDOFF.md`. Il produit un inventaire automatisé, une synthèse, une matrice de correspondance et un scénario de migration pilote. Les étapes suivantes ne démarrent qu'une fois cet audit validé.
 
 ### Étape 1 — Définir les règles
 
