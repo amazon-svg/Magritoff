@@ -34,6 +34,16 @@ Le type métier `kind` est indépendant de `content_type`. Par exemple, le PDF
 de prix HopeStudio porte `kind = supplier_quote` et
 `content_type = application/pdf`.
 
+Chaque fichier porte aussi une visibilité explicite, selon le vocabulaire déjà
+utilisé par les fichiers de commande :
+
+- `customer` : fichier communicable au client ;
+- `internal` : fichier réservé aux équipes internes et à la production.
+
+Le bucket privé accepte notamment `image/svg+xml`. La visibilité ne rend
+jamais l'objet public anonymement : l'accès reste accordé par l'application au
+moyen d'une URL signée après contrôle du contexte.
+
 ## Propagation
 
 Des triggers PostgreSQL couvrent les deux ordres possibles :
@@ -70,11 +80,23 @@ Lors de `window.HChat.callbackAddToBasket(card, rankSelected)` :
    sécurisé puis enregistré dans `project_items.description_html` ;
 3. si `quote_process_key` existe, le callback appelle la fonction HopeStudio
    `HChat.getAttachment` ;
-4. le PDF retourné est envoyé avec la commande d'import de la ligne ;
-5. le backend crée la ligne, stocke le PDF dans le bucket privé et crée
-   l'association `project_item_files` ;
-6. en cas d'échec du fichier, la ligne nouvellement créée est retirée afin de
-   ne pas laisser un chiffrage incomplet.
+4. le callback appelle également
+   `window.hopes_suite.chat.getCardSvgs(card, callback)` ; pour chaque entrée de
+   `data.response` (`sources` est un tableau), le SVG brut est exclusivement
+   confié aux deux filtres HopeStudio. L'ancien format `data.reponses` avec
+   `sources` textuel reste accepté pour les runtimes en cache ;
+5. `getDesignerSVG(svg)` produit le fichier `*-pao.svg`, marqué `customer`,
+   tandis que `getPrinterSVG(svg)` produit `*-production.svg`, marqué
+   `internal` ; les deux fichiers ont le type métier `technical_template` et
+   le MIME `image/svg+xml` ;
+6. le PDF et tous les gabarits SVG filtrés sont envoyés avec la commande
+   d'import de la ligne ;
+7. le backend crée la ligne, stocke les fichiers dans le bucket privé et crée
+   les associations `project_item_files` ;
+8. une réponse de gabarits absente, invalide ou trop tardive affiche un
+   avertissement mais ne bloque pas la création de la ligne ;
+9. si le stockage d'un fichier effectivement transmis échoue, la ligne
+   nouvellement créée est retirée afin de ne pas laisser un chiffrage incomplet.
 
 Cet échange n'appelle jamais `CallAI` directement. `getAttachment` reste une
 fonction fournie et pilotée par HopeStudio.

@@ -15,6 +15,7 @@ export {
   type CreateProjectCommand,
   type CreateProjectItemCommand,
   type CommercialFileKind,
+  type CommercialFileVisibility,
   type ImportedCommercialFile,
   type ImportHopeStudioBasketItemCommand,
   type ProjectDetailDto,

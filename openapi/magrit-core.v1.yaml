@@ -15662,7 +15662,7 @@ components:
       properties:
         tag_ids:
           type: array
-          maxItems: 50
+          maxItems: 101
           items:
             $ref: '#/components/schemas/Uuid'
 
@@ -15706,6 +15706,14 @@ components:
         - proof
         - other
 
+    CommercialFileVisibility:
+      title: CommercialFileVisibility
+      description: >-
+        `customer` désigne un fichier communicable au client ; `internal`
+        réserve le fichier à la production et aux utilisateurs internes.
+      type: string
+      enum: [internal, customer]
+
     ImportedCommercialFile:
       title: ImportedCommercialFile
       type: object
@@ -15714,6 +15722,10 @@ components:
       properties:
         kind:
           $ref: '#/components/schemas/CommercialFileKind'
+        visibility:
+          allOf:
+            - $ref: '#/components/schemas/CommercialFileVisibility'
+          default: internal
         filename:
           type: string
           minLength: 1
@@ -15773,7 +15785,7 @@ components:
           description: Résumé lisible de la card produit par HopeStudio.
         files:
           type: array
-          maxItems: 10
+          maxItems: 50
           items:
             $ref: '#/components/schemas/ImportedCommercialFile'
 
@@ -15786,12 +15798,14 @@ components:
       title: CommercialLineFile
       type: object
       additionalProperties: false
-      required: [id, kind, filename, content_type, byte_size, created_at]
+      required: [id, kind, visibility, filename, content_type, byte_size, created_at]
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
         kind:
           $ref: '#/components/schemas/CommercialFileKind'
+        visibility:
+          $ref: '#/components/schemas/CommercialFileVisibility'
         filename:
           type: string
           minLength: 1
@@ -15811,12 +15825,14 @@ components:
       title: CommercialLineFileDetail
       type: object
       additionalProperties: false
-      required: [id, kind, filename, content_type, byte_size, created_at, preview_url, download_url, url_expires_at]
+      required: [id, kind, visibility, filename, content_type, byte_size, created_at, preview_url, download_url, url_expires_at]
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
         kind:
           $ref: '#/components/schemas/CommercialFileKind'
+        visibility:
+          $ref: '#/components/schemas/CommercialFileVisibility'
         filename:
           type: string
           minLength: 1
@@ -15848,13 +15864,17 @@ components:
       properties:
         kind:
           $ref: '#/components/schemas/CommercialFileKind'
+        visibility:
+          allOf:
+            - $ref: '#/components/schemas/CommercialFileVisibility'
+          default: internal
         filename:
           type: string
           minLength: 1
           maxLength: 255
         content_type:
           type: string
-          enum: [application/pdf, application/zip, application/x-zip-compressed, application/postscript, image/jpeg, image/png, image/tiff]
+          enum: [application/pdf, application/zip, application/x-zip-compressed, application/postscript, image/jpeg, image/png, image/tiff, image/svg+xml]
         data_base64:
           type: string
           minLength: 1

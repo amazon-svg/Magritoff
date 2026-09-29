@@ -36,7 +36,7 @@ export class SupabaseCommercialLineFilesRepository implements CommercialLineFile
     const link = LINKS[lineType];
     const { data, error } = await this.client
       .from(link.table)
-      .select('commercial_files!inner(id, tenant_id, kind, filename, content_type, byte_size, created_at)')
+      .select('commercial_files!inner(id, tenant_id, kind, visibility, filename, content_type, byte_size, created_at)')
       .eq(link.key, lineId)
       .eq('commercial_files.tenant_id', tenantId);
     if (error) throw new Error(error.message);
@@ -95,6 +95,7 @@ export class SupabaseCommercialLineFilesRepository implements CommercialLineFile
       p_line_id: lineId,
       p_file_id: fileId,
       p_kind: command.kind,
+      p_visibility: command.visibility,
       p_filename: command.filename,
       p_content_type: command.content_type,
       p_byte_size: bytes.byteLength,
@@ -109,6 +110,7 @@ export class SupabaseCommercialLineFilesRepository implements CommercialLineFile
     return {
       id: fileId,
       kind: command.kind,
+      visibility: command.visibility,
       filename: command.filename,
       content_type: command.content_type,
       byte_size: bytes.byteLength,
@@ -121,6 +123,7 @@ function toDto(row: Record<string, unknown>): CommercialLineFileDto {
   return {
     id: String(row['id']),
     kind: row['kind'] as CommercialLineFileDto['kind'],
+    visibility: row['visibility'] as CommercialLineFileDto['visibility'],
     filename: String(row['filename']),
     content_type: String(row['content_type']),
     byte_size: Number(row['byte_size']),

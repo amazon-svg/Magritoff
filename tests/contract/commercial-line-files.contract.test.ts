@@ -34,6 +34,7 @@ class MemoryRepository implements CommercialLineFilesRepository {
     const file: CommercialLineFileDto = {
       id: '20000000-0000-4000-8000-000000000001',
       kind: command.kind,
+      visibility: command.visibility,
       filename: command.filename,
       content_type: command.content_type,
       byte_size: 8,

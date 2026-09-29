@@ -126,8 +126,11 @@ export const commercialFileKindSchema = z.enum([
   'other',
 ]);
 
+export const commercialFileVisibilitySchema = z.enum(['internal', 'customer']);
+
 export const importedCommercialFileSchema = z.object({
   kind: commercialFileKindSchema,
+  visibility: commercialFileVisibilitySchema.optional().default('internal'),
   filename: z.string().trim().min(1).max(255),
   content_type: z.string().trim().min(1).max(255),
   data_base64: z.string().min(1).max(20_000_000),
@@ -145,7 +148,9 @@ export const importHopeStudioBasketItemCommandSchema = z.object({
     }).passthrough(),
   }).passthrough(),
   description_html: safeDescriptionHtmlSchema.nullable().optional(),
-  files: z.array(importedCommercialFileSchema).max(10).optional(),
+  // Une card peut produire jusqu'à 50 gabarits, chacun décliné en PAO et
+  // production, auxquels s'ajoute éventuellement le PDF fournisseur.
+  files: z.array(importedCommercialFileSchema).max(101).optional(),
 }).strict();
 
 export const removeProjectItemResultSchema = z.object({ removed: z.literal(true) }).strict();
@@ -161,6 +166,7 @@ export type UpdateProjectCommand = z.infer<typeof updateProjectCommandSchema>;
 export type ReplaceProjectTagsCommand = z.infer<typeof replaceProjectTagsCommandSchema>;
 export type CreateProjectItemCommand = z.infer<typeof createProjectItemCommandSchema>;
 export type CommercialFileKind = z.infer<typeof commercialFileKindSchema>;
+export type CommercialFileVisibility = z.infer<typeof commercialFileVisibilitySchema>;
 export type ImportedCommercialFile = z.infer<typeof importedCommercialFileSchema>;
 export type ImportHopeStudioBasketItemCommand = z.infer<typeof importHopeStudioBasketItemCommandSchema>;
 export type RemoveProjectItemResultDto = z.infer<typeof removeProjectItemResultSchema>;

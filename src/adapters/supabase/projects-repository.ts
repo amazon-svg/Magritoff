@@ -285,6 +285,7 @@ export class SupabaseProjectsRepository implements ProjectsRepository {
       p_project_item_id: projectItemId,
       p_file_id: fileId,
       p_kind: file.kind,
+      p_visibility: file.visibility,
       p_filename: file.filename,
       p_content_type: file.content_type,
       p_byte_size: bytes.byteLength,

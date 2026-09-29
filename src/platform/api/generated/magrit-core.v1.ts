@@ -6381,9 +6381,17 @@ export interface components {
          * @enum {string}
          */
         CommercialFileKind: "supplier_quote" | "cutting_template" | "folding_template" | "technical_template" | "artwork" | "proof" | "other";
+        /**
+         * CommercialFileVisibility
+         * @description `customer` désigne un fichier communicable au client ; `internal` réserve le fichier à la production et aux utilisateurs internes.
+         * @enum {string}
+         */
+        CommercialFileVisibility: "internal" | "customer";
         /** ImportedCommercialFile */
         ImportedCommercialFile: {
             kind: components["schemas"]["CommercialFileKind"];
+            /** @default internal */
+            visibility: components["schemas"]["CommercialFileVisibility"];
             filename: string;
             content_type: string;
             /** @description Contenu encodé en base64, transféré ensuite dans le bucket privé. */
@@ -6423,6 +6431,7 @@ export interface components {
         CommercialLineFile: {
             id: components["schemas"]["Uuid"];
             kind: components["schemas"]["CommercialFileKind"];
+            visibility: components["schemas"]["CommercialFileVisibility"];
             filename: string;
             content_type: string;
             byte_size: number;
@@ -6432,6 +6441,7 @@ export interface components {
         CommercialLineFileDetail: {
             id: components["schemas"]["Uuid"];
             kind: components["schemas"]["CommercialFileKind"];
+            visibility: components["schemas"]["CommercialFileVisibility"];
             filename: string;
             content_type: string;
             byte_size: number;
@@ -6445,9 +6455,11 @@ export interface components {
         /** UploadCommercialLineFileCommand */
         UploadCommercialLineFileCommand: {
             kind: components["schemas"]["CommercialFileKind"];
+            /** @default internal */
+            visibility: components["schemas"]["CommercialFileVisibility"];
             filename: string;
             /** @enum {string} */
-            content_type: "application/pdf" | "application/zip" | "application/x-zip-compressed" | "application/postscript" | "image/jpeg" | "image/png" | "image/tiff";
+            content_type: "application/pdf" | "application/zip" | "application/x-zip-compressed" | "application/postscript" | "image/jpeg" | "image/png" | "image/tiff" | "image/svg+xml";
             data_base64: string;
         };
         /**
@@ -10249,6 +10261,7 @@ export type CreateProjectTagCommand = components['schemas']['CreateProjectTagCom
 export type ReplaceProjectTagsCommand = components['schemas']['ReplaceProjectTagsCommand'];
 export type CreateProjectItemCommand = components['schemas']['CreateProjectItemCommand'];
 export type CommercialFileKind = components['schemas']['CommercialFileKind'];
+export type CommercialFileVisibility = components['schemas']['CommercialFileVisibility'];
 export type ImportedCommercialFile = components['schemas']['ImportedCommercialFile'];
 export type ImportHopeStudioBasketItemCommand = components['schemas']['ImportHopeStudioBasketItemCommand'];
 export type CommercialLineType = components['schemas']['CommercialLineType'];

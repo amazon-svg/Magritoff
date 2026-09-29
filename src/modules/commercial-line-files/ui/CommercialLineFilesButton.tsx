@@ -14,7 +14,7 @@ import {
   type CommercialLineFileDto,
   type CommercialLineType,
 } from '../index';
-import type { CommercialFileKind } from '@/modules/projects';
+import type { CommercialFileKind, CommercialFileVisibility } from '@/modules/projects';
 
 const KIND_LABELS: Readonly<Record<CommercialFileKind, string>> = {
   supplier_quote: 'Devis fournisseur',
@@ -40,6 +40,7 @@ export function CommercialLineFilesButton({
   const [open, setOpen] = useState(false);
   const [files, setFiles] = useState<readonly CommercialLineFileDto[]>([]);
   const [kind, setKind] = useState<CommercialFileKind>('other');
+  const [visibility, setVisibility] = useState<CommercialFileVisibility>('internal');
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [busyFileId, setBusyFileId] = useState<string | null>(null);
@@ -81,7 +82,7 @@ export function CommercialLineFilesButton({
     }
     const contentType = resolveContentType(file);
     if (!contentType) {
-      setError('Format accepté : PDF, ZIP, EPS/PS, JPG, PNG ou TIFF.');
+      setError('Format accepté : PDF, ZIP, EPS/PS, JPG, PNG, TIFF ou SVG.');
       return;
     }
     setUploading(true);
@@ -89,6 +90,7 @@ export function CommercialLineFilesButton({
     try {
       await api.upload(lineType, lineId, {
         kind,
+        visibility,
         filename: file.name,
         content_type: contentType,
         data_base64: await fileToBase64(file),
@@ -131,11 +133,21 @@ export function CommercialLineFilesButton({
           >
             {Object.entries(KIND_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
+          <select
+            value={visibility}
+            onChange={(event) => setVisibility(event.target.value as CommercialFileVisibility)}
+            disabled={uploading}
+            className="rounded-lg border border-line-2 bg-paper px-3 py-2 text-sm text-ink"
+            aria-label="Visibilité du fichier"
+          >
+            <option value="internal">Interne uniquement</option>
+            <option value="customer">Accessible au client</option>
+          </select>
           <input
             ref={inputRef}
             type="file"
             className="hidden"
-            accept=".pdf,.zip,.eps,.ps,.jpg,.jpeg,.png,.tif,.tiff"
+            accept=".pdf,.zip,.eps,.ps,.jpg,.jpeg,.png,.tif,.tiff,.svg"
             onChange={(event) => {
               const file = event.target.files?.[0];
               if (file) void uploadFile(file);
@@ -166,7 +178,9 @@ export function CommercialLineFilesButton({
                   <FileKindIcon contentType={file.content_type} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-ink" title={file.filename}>{file.filename}</p>
-                    <p className="text-xs text-ink-muted">{KIND_LABELS[file.kind]} · {formatSize(file.byte_size)}</p>
+                    <p className="text-xs text-ink-muted">
+                      {KIND_LABELS[file.kind]} · {file.visibility === 'customer' ? 'Client' : 'Interne'} · {formatSize(file.byte_size)}
+                    </p>
                   </div>
                   {canPreview(file.content_type) && (
                     <button type="button" disabled={busyFileId === file.id} onClick={() => void openFile(file, false)} className="rounded-md p-2 text-ink-2 hover:bg-bg" aria-label={`Visualiser ${file.filename}`} title="Visualiser">
@@ -192,19 +206,22 @@ function FileKindIcon({ contentType }: Readonly<{ contentType: string }>) {
   return <FileText className="size-5 shrink-0 text-brand" />;
 }
 
-function resolveContentType(file: File): 'application/pdf' | 'application/zip' | 'application/x-zip-compressed' | 'application/postscript' | 'image/jpeg' | 'image/png' | 'image/tiff' | null {
-  const supported = ['application/pdf', 'application/zip', 'application/x-zip-compressed', 'application/postscript', 'image/jpeg', 'image/png', 'image/tiff'] as const;
+function resolveContentType(file: File): 'application/pdf' | 'application/zip' | 'application/x-zip-compressed' | 'application/postscript' | 'image/jpeg' | 'image/png' | 'image/tiff' | 'image/svg+xml' | null {
+  const supported = ['application/pdf', 'application/zip', 'application/x-zip-compressed', 'application/postscript', 'image/jpeg', 'image/png', 'image/tiff', 'image/svg+xml'] as const;
   if ((supported as readonly string[]).includes(file.type)) return file.type as typeof supported[number];
   const extension = file.name.split('.').pop()?.toLowerCase();
   const byExtension: Readonly<Record<string, typeof supported[number]>> = {
     pdf: 'application/pdf', zip: 'application/zip', eps: 'application/postscript', ps: 'application/postscript',
-    jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', tif: 'image/tiff', tiff: 'image/tiff',
+    jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', tif: 'image/tiff', tiff: 'image/tiff', svg: 'image/svg+xml',
   };
   return extension ? byExtension[extension] ?? null : null;
 }
 
 function canPreview(contentType: string): boolean {
-  return contentType === 'application/pdf' || contentType.startsWith('image/');
+  // Un SVG peut contenir du contenu actif : il reste téléchargeable, mais
+  // n'est jamais ouvert en aperçu inline par Magrit.
+  return contentType === 'application/pdf'
+    || (contentType.startsWith('image/') && contentType !== 'image/svg+xml');
 }
 
 function fileToBase64(file: File): Promise<string> {

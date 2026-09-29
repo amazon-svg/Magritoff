@@ -14,4 +14,7 @@ export type HopeStudioBrowserChat = {
   initSession?: (sessionId: string) => Promise<unknown> | void;
   sendMessage?: (message: string) => Promise<unknown>;
   getCardClearResume?: (card: unknown) => unknown;
+  getCardSvgs?: (card: unknown, callback: (data: unknown) => void) => unknown;
+  getDesignerSVG?: (svg: string) => unknown;
+  getPrinterSVG?: (svg: string) => unknown;
 };

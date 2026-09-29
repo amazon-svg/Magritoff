@@ -55,6 +55,7 @@ export function HopeStudioWorkspace({
   projectId = null,
   sessionId = null,
   onSessionId,
+  onProjectItemsAdded,
 }: Readonly<{
   tenantId: string;
   userId: string;
@@ -63,6 +64,7 @@ export function HopeStudioWorkspace({
   projectId?: string | null;
   sessionId?: string | null;
   onSessionId?: (sessionId: string) => Promise<void> | void;
+  onProjectItemsAdded?: (count: number) => void;
 }>) {
   const api = useWorkspaceApi(HopeStudioApiClient);
   const projectsApi = useWorkspaceApi(ProjectsApiClient);
@@ -104,16 +106,32 @@ export function HopeStudioWorkspace({
       void (async () => {
         try {
           const selectedCard = selectedHopeStudioCard(card, rankSelected);
-          const supplierQuote = await getHopeStudioSupplierQuote(selectedCard);
+          const [supplierQuote, templatesResult] = await Promise.all([
+            getHopeStudioSupplierQuote(selectedCard),
+            getHopeStudioCardSvgsForImport(selectedCard),
+          ]);
           const descriptionHtml = getHopeStudioCardDescription(selectedCard);
+          const files = [
+            ...(supplierQuote ? [supplierQuote] : []),
+            ...templatesResult.files,
+          ];
           const command = {
             card: selectedCard,
             ...(descriptionHtml ? { description_html: descriptionHtml } : {}),
-            ...(supplierQuote ? { files: [supplierQuote] } : {}),
+            ...(files.length > 0 ? { files } : {}),
           };
           const key = await basketIdempotencyKey(projectId, command.card);
           await projectsApi.importHopeStudioBasketItem(projectId, command, key);
-          if (active) setTransferMessage('Chiffrage ajouté au projet.');
+          if (active) {
+            onProjectItemsAdded?.(1);
+            const fileSummary = files.length > 0
+              ? ` avec ${files.length} fichier${files.length > 1 ? 's' : ''}`
+              : '';
+            const templateWarning = templatesResult.warning
+              ? ` Gabarits non joints : ${templatesResult.warning}`
+              : '';
+            setTransferMessage(`Chiffrage ajouté au projet${fileSummary}.${templateWarning}`);
+          }
         } catch (cause) {
           if (active) {
             setTransferMessage(cause instanceof Error
@@ -178,7 +196,7 @@ export function HopeStudioWorkspace({
       }
       document.querySelector('#chat-widget')?.remove();
     };
-  }, [api, bootstrapSessionId, projectId, projectsApi, tenantId, userId]);
+  }, [api, bootstrapSessionId, onProjectItemsAdded, projectId, projectsApi, tenantId, userId]);
 
   useEffect(() => {
     if (!onSessionId) return;
@@ -244,6 +262,7 @@ export function HopeStudioWorkspace({
             const key = await basketIdempotencyKey(projectId, command.card);
             await projectsApi.importHopeStudioBasketItem(projectId, command, key);
             imported += 1;
+            onProjectItemsAdded?.(1);
           }
           setTransferMessage(`${imported} chiffrage${imported > 1 ? 's' : ''} ajouté${imported > 1 ? 's' : ''} au projet.`);
         } catch (cause) {
@@ -255,11 +274,11 @@ export function HopeStudioWorkspace({
     };
     window.addEventListener('HOPES-PUSH-BASKET', importBasket);
     return () => window.removeEventListener('HOPES-PUSH-BASKET', importBasket);
-  }, [projectId, projectsApi]);
+  }, [onProjectItemsAdded, projectId, projectsApi]);
 
   return (
     <section
-      className="hopstudio-workspace h-full min-h-0 overflow-hidden bg-white"
+      className="hopstudio-workspace relative h-full min-h-0 overflow-hidden bg-white"
       data-testid="hopstudio-workspace"
       data-chat-started="true"
       data-embedded="true"
@@ -480,10 +499,160 @@ export async function getHopeStudioSupplierQuote(
   const safeCardKey = card.DBK.replace(/[^a-zA-Z0-9_-]+/g, '-').slice(0, 120);
   return {
     kind: 'supplier_quote',
+    visibility: 'internal',
     filename: `devis-fournisseur-${safeCardKey || 'hopstudio'}.pdf`,
     content_type: 'application/pdf',
     data_base64: payload['datas'],
   };
+}
+
+const HOPSTUDIO_SVG_TIMEOUT_MS = 30_000;
+
+/**
+ * Les gabarits enrichissent la ligne mais ne conditionnent jamais sa création.
+ * L'erreur reste disponible pour informer l'utilisateur après l'import.
+ */
+export async function getHopeStudioCardSvgsForImport(
+  card: ReturnType<typeof importHopeStudioBasketItemCommandSchema.parse>['card'],
+  chat: HopeStudioBrowserChat | undefined = window.hopes_suite?.chat,
+): Promise<Readonly<{ files: ImportedCommercialFile[]; warning: string | null }>> {
+  try {
+    return { files: await getHopeStudioCardSvgs(card, chat), warning: null };
+  } catch (cause) {
+    return {
+      files: [],
+      warning: cause instanceof Error
+        ? cause.message
+        : 'Les gabarits HopeStudio n’ont pas pu être récupérés.',
+    };
+  }
+}
+
+/**
+ * Récupère les gabarits produits par HopeStudio pour la card sélectionnée.
+ * L'API vendor est asynchrone par callback : on attend donc sa réponse avant
+ * de créer la ligne afin que celle-ci et ses fichiers restent cohérents.
+ */
+export async function getHopeStudioCardSvgs(
+  card: ReturnType<typeof importHopeStudioBasketItemCommandSchema.parse>['card'],
+  chat: HopeStudioBrowserChat | undefined = window.hopes_suite?.chat,
+): Promise<ImportedCommercialFile[]> {
+  const getCardSvgs = chat?.getCardSvgs;
+  if (typeof getCardSvgs !== 'function') return [];
+  const getDesignerSVG = chat?.getDesignerSVG;
+  const getPrinterSVG = chat?.getPrinterSVG;
+  if (typeof getDesignerSVG !== 'function' || typeof getPrinterSVG !== 'function') {
+    throw new Error('HopeStudio ne permet pas de préparer les gabarits PAO et production.');
+  }
+
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (callback: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      callback();
+    };
+    const timeout = setTimeout(() => {
+      finish(() => reject(new Error('HopeStudio n’a pas retourné les gabarits dans le délai attendu.')));
+    }, HOPSTUDIO_SVG_TIMEOUT_MS);
+
+    const handleResponse = (data: unknown) => {
+      finish(() => {
+        try {
+          if (!isRecord(data)) {
+            throw new Error('HopeStudio a retourné une réponse de gabarits invalide.');
+          }
+          // Depuis la mise à jour HopeStudio, la collection s'appelle
+          // `response` et `sources` est un tableau. On conserve la lecture de
+          // l'ancien `reponses`/`sources: string` pour les runtimes en cache.
+          const responses = Array.isArray(data['response'])
+            ? data['response']
+            : data['reponses'];
+          if (!Array.isArray(responses)) {
+            throw new Error('HopeStudio a retourné une réponse de gabarits invalide.');
+          }
+
+          const files = responses.flatMap((response, index): ImportedCommercialFile[] => {
+            const source = isRecord(response)
+              ? hopeStudioSvgSource(response['sources'])
+              : null;
+            if (!isRecord(response)
+              || !source
+              || typeof response['svg'] !== 'string'
+              || !response['svg'].trim()) {
+              throw new Error(`Le gabarit HopeStudio n°${index + 1} est invalide.`);
+            }
+
+            const sourceFilename = safeHopeStudioFilename(source, index);
+            const designerSvg = Reflect.apply(getDesignerSVG, chat, [response['svg']]);
+            const printerSvg = Reflect.apply(getPrinterSVG, chat, [response['svg']]);
+            if (typeof designerSvg !== 'string' || !designerSvg.trim()) {
+              throw new Error(`Le gabarit PAO HopeStudio n°${index + 1} est invalide.`);
+            }
+            if (typeof printerSvg !== 'string' || !printerSvg.trim()) {
+              throw new Error(`Le gabarit de production HopeStudio n°${index + 1} est invalide.`);
+            }
+
+            return [
+              {
+                kind: 'technical_template',
+                visibility: 'customer',
+                filename: hopeStudioVariantFilename(sourceFilename, 'pao'),
+                content_type: 'image/svg+xml',
+                data_base64: utf8ToBase64(designerSvg),
+              },
+              {
+                kind: 'technical_template',
+                visibility: 'internal',
+                filename: hopeStudioVariantFilename(sourceFilename, 'production'),
+                content_type: 'image/svg+xml',
+                data_base64: utf8ToBase64(printerSvg),
+              },
+            ];
+          });
+          resolve(files);
+        } catch (cause) {
+          reject(cause);
+        }
+      });
+    };
+
+    try {
+      Reflect.apply(getCardSvgs, chat, [card, handleResponse]);
+    } catch (cause) {
+      finish(() => reject(cause));
+    }
+  });
+}
+
+function hopeStudioSvgSource(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim()) return value;
+  if (!Array.isArray(value)) return null;
+  return value.find((source): source is string => typeof source === 'string' && Boolean(source.trim())) ?? null;
+}
+
+function hopeStudioVariantFilename(filename: string, variant: 'pao' | 'production'): string {
+  const basename = filename.toLocaleLowerCase().endsWith('.svg')
+    ? filename.slice(0, -4)
+    : filename;
+  return `${basename.slice(0, 255 - variant.length - 5)}-${variant}.svg`;
+}
+
+function safeHopeStudioFilename(source: string, index: number): string {
+  const filename = source
+    .split(/[\\/]/)
+    .at(-1)
+    ?.replace(/[\u0000-\u001f\u007f]/g, '')
+    .trim();
+  return (filename || `gabarit-${index + 1}.svg`).slice(0, 255);
+}
+
+function utf8ToBase64(value: string): string {
+  const bytes = new TextEncoder().encode(value);
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
 }
 
 /**

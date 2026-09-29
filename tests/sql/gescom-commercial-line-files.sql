@@ -35,6 +35,10 @@ begin
   insert into public.project_item_files (project_item_id, file_id)
   values (v_project_item_id, v_file_id);
 
+  if (select visibility from public.commercial_files where id = v_file_id) <> 'internal' then
+    raise exception 'un fichier sans visibilité explicite doit rester interne';
+  end if;
+
   select count(*) into v_count from public.commercial_quote_line_files
   where quote_line_id = v_quote_line_id and file_id = v_file_id;
   if v_count <> 1 then
@@ -68,4 +72,3 @@ end;
 $$;
 
 rollback;
-
