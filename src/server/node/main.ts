@@ -1,12 +1,18 @@
 import { createApiV1Application } from '../api/composition.ts';
 import { createNodeHttpServer } from './http-server.ts';
+import { createTransitionalApiHandler } from './transitional-api-handler.ts';
 
 const host = process.env['MAGRIT_API_HOST'] ?? '127.0.0.1';
 const port = parsePort(process.env['MAGRIT_API_PORT'] ?? '8787');
-const handler = createApiV1Application({
+const localHandler = createApiV1Application({
   onUnexpectedError(error, requestId) {
     console.error(JSON.stringify({ level: 'error', event: 'api.unexpected_error', requestId, error: errorMessage(error) }));
   },
+});
+const legacyApiUrl = process.env['MAGRIT_LEGACY_API_URL'];
+const handler = createTransitionalApiHandler({
+  localHandler,
+  ...(legacyApiUrl === undefined ? {} : { legacyApiUrl }),
 });
 const server = createNodeHttpServer(handler, {
   onUnhandledError(error) {
@@ -19,7 +25,7 @@ server.listen(port, host, () => {
     level: 'info',
     event: 'api.started',
     address: `http://${host}:${port}`,
-    mode: 'health-only',
+    mode: legacyApiUrl === undefined ? 'health-only' : 'transitional-proxy',
   }));
 });
 

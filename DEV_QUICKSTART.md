@@ -47,6 +47,14 @@ pnpm api:dev
 curl http://127.0.0.1:8787/api/v1/health
 ```
 
+Pour faire du serveur Node le point d'entrée pendant la migration, définir
+temporairement l'URL interne complète de l'ancienne fonction. Le navigateur ne
+connait alors plus cette URL :
+
+```bash
+MAGRIT_LEGACY_API_URL=https://example.supabase.co/functions/v1/magrit-api pnpm api:dev
+```
+
 ## Supabase local avec Docker
 
 Prérequis : Docker Desktop, OrbStack, Colima ou un autre runtime compatible Docker doit être démarré.
