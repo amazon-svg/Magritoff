@@ -45,6 +45,7 @@ export function MagritConfiguratorHome({
   const [showCreateProject, setShowCreateProject] = useState(false);
   const [showCreateCustomer, setShowCreateCustomer] = useState(false);
   const [showProjectItems, setShowProjectItems] = useState(false);
+  const [selectedProjectItemCount, setSelectedProjectItemCount] = useState<number | null>(null);
   const [query, setQuery] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const selectedCustomer = customers.find((customer) => customer.id === selectedCustomerId) ?? null;
@@ -91,6 +92,20 @@ export function MagritConfiguratorHome({
     });
     return () => { active = false; };
   }, [customersApi, projectsApi]);
+
+  useEffect(() => {
+    let active = true;
+    setSelectedProjectItemCount(null);
+    if (!selectedProjectId) return () => { active = false; };
+    void projectsApi.getDetail(selectedProjectId)
+      .then((project) => {
+        if (active) setSelectedProjectItemCount(project.items.length);
+      })
+      .catch(() => {
+        if (active) setSelectedProjectItemCount(null);
+      });
+    return () => { active = false; };
+  }, [projectsApi, selectedProjectId]);
 
   const selectCustomer = (customerId: string) => {
     setSelectedCustomerId(customerId);
@@ -154,6 +169,11 @@ export function MagritConfiguratorHome({
                   >
                     <ListChecks className="size-4" />
                     Éléments du projet
+                    {selectedProjectItemCount !== null && (
+                      <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-ink px-1.5 py-0.5 text-xs leading-none text-white" aria-label={`${selectedProjectItemCount} éléments`}>
+                        {selectedProjectItemCount}
+                      </span>
+                    )}
                   </button>
                 )}
                 <button type="button" onClick={onChangeProject} className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink hover:bg-bg">

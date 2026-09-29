@@ -31,12 +31,33 @@ export function DualToolWorkspace({
   const [showProjectItems, setShowProjectItems] = useState(false);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(projectId);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(hopstudioSessionId);
+  const [projectItemCount, setProjectItemCount] = useState<number | null>(null);
+  const [projectItemsRevision, setProjectItemsRevision] = useState(0);
   useEffect(() => {
     setActiveProjectId(projectId);
   }, [projectId]);
   useEffect(() => {
     setActiveSessionId(hopstudioSessionId);
   }, [hopstudioSessionId]);
+  useEffect(() => {
+    setProjectItemCount(null);
+  }, [activeProjectId]);
+  useEffect(() => {
+    let active = true;
+    if (!activeProjectId) return () => { active = false; };
+    void projectsApi.getDetail(activeProjectId)
+      .then((project) => {
+        if (active) setProjectItemCount(project.items.length);
+      })
+      .catch(() => {
+        if (active) setProjectItemCount(null);
+      });
+    return () => { active = false; };
+  }, [activeProjectId, projectItemsRevision, projectsApi]);
+  const handleProjectItemsAdded = useCallback((count: number) => {
+    setProjectItemCount((current) => current === null ? count : current + count);
+    setProjectItemsRevision((current) => current + 1);
+  }, []);
   const handleSessionId = useCallback(async (sessionId: string) => {
     // Une fois associee, la session du projet est immuable. Un changement
     // observe dans le runtime global HopeStudio ne doit donc jamais remplacer
@@ -75,6 +96,11 @@ export function DualToolWorkspace({
             >
               <ListChecks className="size-4" />
               Éléments du projet
+              {projectItemCount !== null && (
+                <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-ink px-1.5 py-0.5 text-xs leading-none text-white" aria-label={`${projectItemCount} éléments`}>
+                  {projectItemCount}
+                </span>
+              )}
             </button>
           )}
           <button type="button" onClick={onChangeProject} className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink hover:bg-bg">
@@ -94,6 +120,7 @@ export function DualToolWorkspace({
             projectId={activeProjectId}
             sessionId={activeSessionId}
             onSessionId={handleSessionId}
+            onProjectItemsAdded={handleProjectItemsAdded}
             compact={false}
           />
         </WorkspacePanel>
