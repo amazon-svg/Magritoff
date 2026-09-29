@@ -444,6 +444,7 @@ export class SupabaseCommercialQuotesRepository implements CommercialQuotesRepos
           origin: line.origin,
           project_item_id: line.projectItemId,
           label: line.label,
+          description_html: line.descriptionHtml,
           product_config: line.productConfig,
           quantity: line.quantity,
           chiffrage_quantity: line.chiffrageQuantity,
@@ -481,6 +482,7 @@ export class SupabaseCommercialQuotesRepository implements CommercialQuotesRepos
   ): Promise<QuoteLineDto> {
     void tenantId;
     const patch: Record<string, unknown> = {};
+    if (update.descriptionHtml !== undefined) patch['description_html'] = update.descriptionHtml;
     if (update.quantity !== undefined) patch['quantity'] = update.quantity;
     if (update.salePrice !== undefined) patch['sale_price'] = update.salePrice;
     if (update.saleMarginRate !== undefined) patch['sale_margin_rate'] = update.saleMarginRate;
@@ -658,6 +660,7 @@ function toQuoteLineDto(row: Record<string, any>): QuoteLineDto {
     origin: row.origin,
     project_item_id: row.project_item_id ?? null,
     label: row.label,
+    description_html: row.description_html ?? null,
     product_config: row.product_config ?? {},
     quantity,
     position: Number(row.position),

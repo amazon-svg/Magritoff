@@ -50,6 +50,7 @@ export const TEST_IDS = {
     sidebarConfigLink: 'nav-sidebar-config-link',
     sidebarProfileLink: 'nav-sidebar-profile-link',
     tenantSwitcher: 'nav-tenant-switcher',
+    currentSpaceLink: 'nav-current-space-link',
     // E10.4 (Sprint 5, TF-165, parcours P13) — module Clients.
     sidebarCustomersLink: 'nav-sidebar-customers-link',
     // E10.1 (Sprint 5, parcours P13) — module Projets.
@@ -615,6 +616,11 @@ export const TEST_IDS = {
     sendConfirmBtn: 'quote-send-confirm-btn',
     sendCancelBtn: 'quote-send-cancel-btn',
     sendSuccessBanner: 'quote-send-success-banner',
+    documentPreviewBtn: 'quote-document-preview-btn',
+    documentViewBtn: 'quote-document-view-btn',
+    documentDownloadBtn: 'quote-document-download-btn',
+    documentModal: 'quote-document-modal',
+    documentError: 'quote-document-error',
     // Duplication (`duplicateQuote`).
     duplicateBtn: 'quote-duplicate-btn',
     // E10.12 — « bouton Valider » (`convertQuote`), visible pour un devis

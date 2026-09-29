@@ -12,8 +12,12 @@ export {
   removeProjectItemResultSchema,
   replaceProjectTagsCommandSchema,
   updateProjectCommandSchema,
+  updateProjectItemCommandSchema,
   type CreateProjectCommand,
   type CreateProjectItemCommand,
+  type CommercialFileKind,
+  type CommercialFileVisibility,
+  type ImportedCommercialFile,
   type ImportHopeStudioBasketItemCommand,
   type ProjectDetailDto,
   type ProjectDto,
@@ -22,6 +26,7 @@ export {
   type RemoveProjectItemResultDto,
   type ReplaceProjectTagsCommand,
   type UpdateProjectCommand,
+  type UpdateProjectItemCommand,
 } from './api/contracts';
 export { ProjectsService } from './application/projects-service';
 export {

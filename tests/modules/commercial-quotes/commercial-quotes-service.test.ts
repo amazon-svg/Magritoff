@@ -119,7 +119,8 @@ function buildService(overrides: {
   const persistRendered = vi.fn(
     overrides.persistRenderedImpl ?? (async () => ({ quote_id: QUOTE_ID, template_id: 'template-1' })),
   );
-  const documents = { renderForFirstSend, persistRendered } as any;
+  const createDraftPreview = vi.fn(async () => ({ quote_id: QUOTE_ID, watermark: 'DRAFT' as const }));
+  const documents = { renderForFirstSend, persistRendered, createDraftPreview } as any;
 
   const service = new CommercialQuotesService({
     repository,
@@ -131,8 +132,49 @@ function buildService(overrides: {
     now: () => new Date('2026-09-09T10:00:00.000Z'),
   });
 
-  return { service, findById, findDetailById, resolveValidUntilForSend, sendQuote, outbox, renderForFirstSend, persistRendered };
+  return {
+    service,
+    findById,
+    findDetailById,
+    resolveValidUntilForSend,
+    sendQuote,
+    outbox,
+    renderForFirstSend,
+    persistRendered,
+    createDraftPreview,
+  };
 }
+
+describe('CommercialQuotesService.createDocumentPreview', () => {
+  it('rend le brouillon courant avec la validite resolue et les remises configurees', async () => {
+    const { service, createDraftPreview, resolveValidUntilForSend } = buildService({
+      status: 'draft',
+      resolvedValidUntil: '2026-10-09',
+    });
+
+    await service.createDocumentPreview(TENANT, QUOTE_ID);
+
+    expect(resolveValidUntilForSend).toHaveBeenCalledWith(TENANT, QUOTE_ID);
+    expect(createDraftPreview).toHaveBeenCalledWith(
+      TENANT,
+      expect.objectContaining({
+        id: QUOTE_ID,
+        number: 'DEV-2026-00042',
+        validUntil: '2026-10-09',
+      }),
+      '2026-09-09T10:00:00.000Z',
+    );
+  });
+
+  it('refuse de regenerer un devis qui n est plus un brouillon', async () => {
+    const { service, createDraftPreview } = buildService({ status: 'sent' });
+
+    await expect(service.createDocumentPreview(TENANT, QUOTE_ID)).rejects.toThrow(
+      'reserve a un devis en brouillon',
+    );
+    expect(createDraftPreview).not.toHaveBeenCalled();
+  });
+});
 
 describe('CommercialQuotesService.send — qa-review B2 (generation strictement au premier envoi)', () => {
   it("appelle la generation quand le devis est 'draft' (premier envoi)", async () => {

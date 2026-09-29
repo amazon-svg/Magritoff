@@ -293,7 +293,7 @@ export class SupabaseCommercialOrdersRepository implements CommercialOrdersRepos
 
     const { data: lineRows, error: linesError } = await this.client
       .from('commercial_order_lines')
-      .select('position, label, product_config, quantity, customer_price, discount_rate, sale_price')
+      .select('position, label, description_html, product_config, quantity, customer_price, discount_rate, sale_price')
       .eq('order_id', orderId)
       .order('position', { ascending: true });
     if (linesError) throw new Error(linesError.message);
@@ -311,6 +311,7 @@ export class SupabaseCommercialOrdersRepository implements CommercialOrdersRepos
       lines: (lineRows ?? []).map((row: Record<string, any>) => ({
         position: Number(row.position),
         label: row.label,
+        descriptionHtml: row.description_html ?? null,
         productConfig: row.product_config ?? {},
         quantity: Number(row.quantity),
         customerPrice: toMoneyString(row.customer_price),
@@ -383,6 +384,7 @@ function toCommercialOrderLineDto(row: Record<string, any>): CommercialOrderLine
     source_quote_line_id: row.source_quote_line_id,
     origin: row.origin,
     label: row.label,
+    description_html: row.description_html ?? null,
     product_config: row.product_config ?? {},
     quantity: Number(row.quantity),
     position: Number(row.position),

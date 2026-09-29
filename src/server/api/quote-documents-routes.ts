@@ -2,18 +2,28 @@
  * Routes HTTP du module Document PDF de devis (story E10.10b-4c), sur la
  * facade Gestion commerciale (`defineGescomRoute`, E10.0).
  *
- * AUCUNE GENERATION ICI (contrat §8.18 §5, "Aucune operation publique de
- * generation") : ces deux operations ne RENDENT qu une piece deja produite
- * par `sendQuote` (module `commercial-quotes`), ou 404.
+ * Le POST d apercu est la seule generation publique : reservee a un
+ * brouillon, temporaire et filigranee. Les deux GET ne RENDENT qu une piece
+ * definitive deja produite par `sendQuote`, ou 404.
  *
  * Enregistrement obligatoire dans `gescom-routes.ts` (CA1) — sans quoi
  * `tests/architecture/gescom-api-socle-boundaries.test.ts` echoue.
  */
-import { quoteDocumentSchema } from '../../modules/quote-documents/api/contracts.ts';
+import {
+  quoteDocumentPreviewSchema,
+  quoteDocumentSchema,
+} from '../../modules/quote-documents/api/contracts.ts';
 import type { QuoteDocumentsService } from '../../modules/quote-documents/application/quote-documents-service.ts';
-import { QuoteDocumentNotFoundError } from '../../modules/quote-documents/application/quote-documents-repository.ts';
+import {
+  QuoteDocumentNotFoundError,
+  QuoteDocumentTemplateMissingError,
+} from '../../modules/quote-documents/application/quote-documents-repository.ts';
 import { QuoteNotFoundError } from '../../modules/commercial-quotes/application/commercial-quotes-repository.ts';
-import type { CommercialQuotesService } from '../../modules/commercial-quotes/application/commercial-quotes-service.ts';
+import {
+  QuoteDocumentPreviewRequiresDraftError,
+  QuoteDocumentPreviewRequiresLinesError,
+  type CommercialQuotesService,
+} from '../../modules/commercial-quotes/application/commercial-quotes-service.ts';
 import { assertShopCustomerPrincipal, problem } from '../../modules/_shared/application/index.ts';
 import { defineGescomRoute, type GescomRoute } from './gescom-middleware.ts';
 
@@ -22,6 +32,53 @@ export function createQuoteDocumentsRoutes(
   commercialQuotes: CommercialQuotesService,
 ): readonly GescomRoute[] {
   return [
+    defineGescomRoute({
+      method: 'POST',
+      path: '/quotes/{quoteId}/document-previews',
+      operationId: 'createQuoteDocumentPreview',
+      authentication: 'user',
+      inputSchema: null,
+      dataSchema: quoteDocumentPreviewSchema,
+      async handle(context) {
+        try {
+          const preview = await commercialQuotes.createDocumentPreview(
+            context.tenantId,
+            context.params['quoteId']!,
+          );
+          return { status: 201, data: preview };
+        } catch (error) {
+          if (error instanceof QuoteNotFoundError) {
+            throw problem({ status: 404, title: 'Devis introuvable', code: 'quote.not_found' });
+          }
+          if (error instanceof QuoteDocumentPreviewRequiresDraftError) {
+            throw problem({
+              status: 409,
+              title: 'Aperçu indisponible',
+              code: 'quote.document_preview_requires_draft',
+              detail: error.message,
+            });
+          }
+          if (error instanceof QuoteDocumentPreviewRequiresLinesError) {
+            throw problem({
+              status: 409,
+              title: 'Aperçu vide',
+              code: 'quote.document_preview_requires_lines',
+              detail: error.message,
+            });
+          }
+          if (error instanceof QuoteDocumentTemplateMissingError) {
+            throw problem({
+              status: 409,
+              title: 'Aucun gabarit PDF',
+              code: 'quote.document_template_missing',
+              detail: error.message,
+            });
+          }
+          throw error;
+        }
+      },
+    }),
+
     defineGescomRoute({
       method: 'GET',
       path: '/quotes/{quoteId}/documents',

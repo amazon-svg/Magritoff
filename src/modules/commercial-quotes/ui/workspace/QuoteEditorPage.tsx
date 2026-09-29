@@ -18,7 +18,21 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { ArrowDown, ArrowLeft, ArrowUp, History, Loader2, Trash2 } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowUp,
+  ChevronDown,
+  ChevronUp,
+  Download,
+  Eye,
+  FileText,
+  History,
+  Loader2,
+  Pencil,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { useTenantPath } from '@/modules/tenants/ui/hooks';
 import { useWorkspaceApi } from '@/platform/runtime/workspace-ui-runtime';
 import { useAccessProfile } from '@/modules/roles/ui/runtime';
@@ -26,7 +40,10 @@ import { CustomersApiClient, type CustomerDto } from '@/modules/customers';
 import { customerDisplayName } from '@/modules/projects/ui';
 import { ProjectsApiClient, type ProjectItemDto } from '@/modules/projects';
 import { TEST_IDS } from '@/shared/presentation/testIds';
+import { SafeDescriptionHtml } from '@/shared/presentation/SafeDescriptionHtml';
 import { CommercialOrdersApiClient } from '@/modules/commercial-orders';
+import { CommercialLineFilesButton } from '@/modules/commercial-line-files/ui';
+import { QuoteLineDescriptionDialog } from '../components';
 import { CommercialQuotesApiClient } from '../../api/client';
 import type {
   QuoteAuditEntryDto,
@@ -34,6 +51,7 @@ import type {
   QuoteLineAuditEntryDto,
   QuoteLineDto,
   UpdateQuoteCommand,
+  UpdateQuoteLineCommand,
 } from '../../api/contracts';
 import { percentToRate, rateToPercent, statusLabel, vatLegalMention } from '../helpers';
 
@@ -46,6 +64,12 @@ function draftOf(line: QuoteLineDto): LineDraft {
     marginRate: line.sale_margin_rate ?? '',
     quantity: String(line.quantity),
   };
+}
+
+function forcePdfDownload(url: string, filename: string): string {
+  const downloadUrl = new URL(url);
+  downloadUrl.searchParams.set('download', filename);
+  return downloadUrl.toString();
 }
 
 /**
@@ -102,11 +126,16 @@ export function QuoteEditorPage() {
 
   const [drafts, setDrafts] = useState<Record<string, LineDraft>>({});
   const [busyLineId, setBusyLineId] = useState<string | null>(null);
+  const [descriptionLineId, setDescriptionLineId] = useState<string | null>(null);
+  const [expandedDescriptionIds, setExpandedDescriptionIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
 
   const [addLineOpen, setAddLineOpen] = useState(false);
   const [addLineMode, setAddLineMode] = useState<'project_item' | 'free'>('free');
   const [addLineProjectItemId, setAddLineProjectItemId] = useState('');
   const [addLineLabel, setAddLineLabel] = useState('');
+  const [addLineDescriptionHtml, setAddLineDescriptionHtml] = useState('');
   const [addLineQuantity, setAddLineQuantity] = useState('1');
   const [addLinePrice, setAddLinePrice] = useState('0.00');
   const [addingLine, setAddingLine] = useState(false);
@@ -127,6 +156,13 @@ export function QuoteEditorPage() {
 
   // ── E10.10a — duplication (`duplicateQuote`) ──────────────────────────────
   const [duplicating, setDuplicating] = useState(false);
+
+  const [documentBusy, setDocumentBusy] = useState<'preview' | 'view' | 'download' | null>(null);
+  const [documentError, setDocumentError] = useState<string | null>(null);
+  const [documentModal, setDocumentModal] = useState<Readonly<{
+    url: string;
+    isDraft: boolean;
+  }> | null>(null);
 
   // ── E10.12 — « bouton Valider » (`convertQuote`) ──────────────────────────
   const [convertDialogOpen, setConvertDialogOpen] = useState(false);
@@ -247,9 +283,9 @@ export function QuoteEditorPage() {
 
   async function commitLinePatch(
     lineId: string,
-    command: { sale_price?: string; margin_rate?: string; quantity?: number },
-  ): Promise<void> {
-    if (!detail) return;
+    command: UpdateQuoteLineCommand,
+  ): Promise<boolean> {
+    if (!detail) return false;
     setBusyLineId(lineId);
     setError(null);
     try {
@@ -257,8 +293,10 @@ export function QuoteEditorPage() {
       if (!lineEtag) throw new Error('ETag de la ligne manquant.');
       await quotesApi.updateLine(detail.id, lineId, command, lineEtag);
       await load();
+      return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Modification de la ligne impossible.');
+      return false;
     } finally {
       setBusyLineId(null);
     }
@@ -312,6 +350,7 @@ export function QuoteEditorPage() {
       } else {
         await quotesApi.addFreeLine(detail.id, {
           label: addLineLabel,
+          description_html: addLineDescriptionHtml.trim() || null,
           quantity: Math.max(Number(addLineQuantity) || 1, 1),
           production_price: addLinePrice,
         });
@@ -319,6 +358,7 @@ export function QuoteEditorPage() {
       setAddLineOpen(false);
       setAddLineProjectItemId('');
       setAddLineLabel('');
+      setAddLineDescriptionHtml('');
       setAddLineQuantity('1');
       setAddLinePrice('0.00');
       await load();
@@ -411,6 +451,45 @@ export function QuoteEditorPage() {
       setError(cause instanceof Error ? cause.message : 'Duplication du devis impossible.');
     } finally {
       setDuplicating(false);
+    }
+  }
+
+  async function openDocumentPreview(): Promise<void> {
+    if (!detail) return;
+    setDocumentBusy('preview');
+    setDocumentError(null);
+    try {
+      const preview = await quotesApi.createDocumentPreview(detail.id);
+      setDocumentModal({ url: preview.download_url, isDraft: true });
+    } catch (cause) {
+      setDocumentError(cause instanceof Error ? cause.message : 'Génération de l’aperçu PDF impossible.');
+    } finally {
+      setDocumentBusy(null);
+    }
+  }
+
+  async function getFinalDocumentUrl(action: 'view' | 'download'): Promise<void> {
+    if (!detail) return;
+    setDocumentBusy(action);
+    setDocumentError(null);
+    try {
+      const document = await quotesApi.getDocument(detail.id);
+      if (!document) throw new Error('Aucun PDF définitif n’est disponible pour ce devis.');
+
+      if (action === 'view') {
+        setDocumentModal({ url: document.download_url, isDraft: false });
+      } else {
+        const link = window.document.createElement('a');
+        link.href = forcePdfDownload(document.download_url, `${detail.number}.pdf`);
+        link.download = `${detail.number}.pdf`;
+        link.target = '_blank';
+        link.rel = 'noreferrer';
+        link.click();
+      }
+    } catch (cause) {
+      setDocumentError(cause instanceof Error ? cause.message : 'Récupération du PDF impossible.');
+    } finally {
+      setDocumentBusy(null);
     }
   }
 
@@ -623,6 +702,49 @@ export function QuoteEditorPage() {
       )}
 
       <div className="flex flex-wrap items-center gap-3">
+        {isDraft ? (
+          <button
+            type="button"
+            data-testid={TEST_IDS.commercialQuote.documentPreviewBtn}
+            onClick={() => void openDocumentPreview()}
+            disabled={documentBusy !== null}
+            className="px-4 py-2 border border-line-2 rounded-lg text-sm text-ink-2 hover:bg-bg disabled:opacity-50 inline-flex items-center gap-2"
+          >
+            {documentBusy === 'preview' ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <FileText className="size-4" />
+            )}
+            Aperçu PDF
+          </button>
+        ) : (
+          <>
+            <button
+              type="button"
+              data-testid={TEST_IDS.commercialQuote.documentViewBtn}
+              onClick={() => void getFinalDocumentUrl('view')}
+              disabled={documentBusy !== null}
+              className="px-4 py-2 border border-line-2 rounded-lg text-sm text-ink-2 hover:bg-bg disabled:opacity-50 inline-flex items-center gap-2"
+            >
+              {documentBusy === 'view' ? <Loader2 className="size-4 animate-spin" /> : <Eye className="size-4" />}
+              Voir le PDF
+            </button>
+            <button
+              type="button"
+              data-testid={TEST_IDS.commercialQuote.documentDownloadBtn}
+              onClick={() => void getFinalDocumentUrl('download')}
+              disabled={documentBusy !== null}
+              className="px-4 py-2 border border-line-2 rounded-lg text-sm text-ink-2 hover:bg-bg disabled:opacity-50 inline-flex items-center gap-2"
+            >
+              {documentBusy === 'download' ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Download className="size-4" />
+              )}
+              Télécharger
+            </button>
+          </>
+        )}
         {canSendOrResend && (
           <button
             type="button"
@@ -654,6 +776,12 @@ export function QuoteEditorPage() {
           </button>
         )}
       </div>
+
+      {documentError && (
+        <p data-testid={TEST_IDS.commercialQuote.documentError} className="text-sm text-err-fg">
+          {documentError}
+        </p>
+      )}
 
       {convertDialogOpen && (
         <div
@@ -828,7 +956,7 @@ export function QuoteEditorPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs uppercase tracking-wide text-ink-muted">
-                <th className="py-2 pr-3">Libelle</th>
+                <th className="w-[42%] py-2 pr-5">Libelle</th>
                 <th className="py-2 pr-3">Qte</th>
                 <th
                   className="py-2 pr-3"
@@ -852,21 +980,79 @@ export function QuoteEditorPage() {
                     : line.discount_rate.startsWith('-')
                       ? 'negative'
                       : 'positive';
+                const descriptionExpanded = expandedDescriptionIds.has(line.id);
                 return (
                   <tr
                     key={line.id}
                     data-testid={TEST_IDS.commercialQuote.lineRow}
                     data-line-id={line.id}
                   >
-                    <td className="py-2 pr-3">
+                    <td className="align-top py-3 pr-5">
                       <p className="text-ink font-medium">{line.label}</p>
+                      {line.description_html && (
+                        <div className="relative mt-1">
+                          <SafeDescriptionHtml
+                            html={line.description_html}
+                            className={`prose prose-sm max-w-none text-ink-muted [&_ol]:my-1 [&_p]:my-0.5 [&_ul]:my-1 ${
+                              descriptionExpanded ? '' : 'max-h-20 overflow-hidden'
+                            }`}
+                          />
+                          {!descriptionExpanded && (
+                            <div
+                              aria-hidden="true"
+                              className="pointer-events-none absolute inset-x-0 bottom-0 h-7 bg-gradient-to-t from-paper to-transparent"
+                            />
+                          )}
+                        </div>
+                      )}
+
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        {line.description_html && (
+                          <button
+                            type="button"
+                            aria-expanded={descriptionExpanded}
+                            onClick={() =>
+                              setExpandedDescriptionIds((current) => {
+                                const next = new Set(current);
+                                if (next.has(line.id)) next.delete(line.id);
+                                else next.add(line.id);
+                                return next;
+                              })
+                            }
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-line-2 px-2 py-1 text-xs font-medium text-ink-2 hover:bg-bg"
+                          >
+                            {descriptionExpanded ? (
+                              <ChevronUp className="size-3.5" />
+                            ) : (
+                              <ChevronDown className="size-3.5" />
+                            )}
+                            {descriptionExpanded ? 'Réduire' : 'Afficher le détail'}
+                          </button>
+                        )}
+                        {isDraft && (
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => setDescriptionLineId(line.id)}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-line-2 px-2 py-1 text-xs font-medium text-ink-2 hover:bg-bg disabled:opacity-50"
+                          >
+                            <Pencil className="size-3.5" />
+                            Modifier
+                          </button>
+                        )}
+                        <CommercialLineFilesButton
+                          lineType="quote_line"
+                          lineId={line.id}
+                          lineLabel={line.label}
+                        />
+                      </div>
                       {line.warnings.map((warning) => (
-                        <p key={warning.code} className="text-xs text-err-fg">
+                        <p key={warning.code} className="mt-2 text-xs text-err-fg">
                           {warning.message}
                         </p>
                       ))}
                     </td>
-                    <td className="py-2 pr-3">
+                    <td className="align-top py-3 pr-3">
                       {isDraft ? (
                         <input
                           data-testid={TEST_IDS.commercialQuote.lineQuantityInput}
@@ -883,10 +1069,10 @@ export function QuoteEditorPage() {
                         line.quantity
                       )}
                     </td>
-                    <td className="py-2 pr-3 font-mono text-xs text-ink-muted">
+                    <td className="align-top py-3 pr-3 font-mono text-xs text-ink-muted">
                       {line.production_price} / {line.public_price} / {line.customer_price}
                     </td>
-                    <td className="py-2 pr-3">
+                    <td className="align-top py-3 pr-3">
                       {isDraft ? (
                         <input
                           data-testid={TEST_IDS.commercialQuote.lineSalePriceInput}
@@ -903,7 +1089,7 @@ export function QuoteEditorPage() {
                         <span className="font-mono">{line.sale_price}</span>
                       )}
                     </td>
-                    <td className="py-2 pr-3">
+                    <td className="align-top py-3 pr-3">
                       {isDraft ? (
                         <input
                           data-testid={TEST_IDS.commercialQuote.lineMarginInput}
@@ -920,7 +1106,7 @@ export function QuoteEditorPage() {
                         <span className="font-mono">{line.sale_margin_rate ?? '—'}</span>
                       )}
                     </td>
-                    <td className="py-2 pr-3">
+                    <td className="align-top py-3 pr-3">
                       <span
                         data-testid={TEST_IDS.commercialQuote.lineDiscountDisplay}
                         data-line-id={line.id}
@@ -935,7 +1121,7 @@ export function QuoteEditorPage() {
                       </span>
                     </td>
                     {isDraft && (
-                      <td className="py-2 pr-3">
+                      <td className="align-top py-3 pr-3">
                         <div className="flex items-center gap-1">
                           <button
                             type="button"
@@ -980,6 +1166,21 @@ export function QuoteEditorPage() {
           </table>
         </div>
       </section>
+
+      {detail && descriptionLineId && (() => {
+        const line = detail.lines.find((candidate) => candidate.id === descriptionLineId);
+        if (!line) return null;
+        return (
+          <QuoteLineDescriptionDialog
+            open
+            label={line.label}
+            initialHtml={line.description_html}
+            saving={busyLineId === line.id}
+            onOpenChange={(open) => { if (!open) setDescriptionLineId(null); }}
+            onSave={(descriptionHtml) => commitLinePatch(line.id, { description_html: descriptionHtml })}
+          />
+        );
+      })()}
 
       {isDraft && addLineOpen && (
         <form
@@ -1051,6 +1252,13 @@ export function QuoteEditorPage() {
                 value={addLinePrice}
                 onChange={(event) => setAddLinePrice(event.target.value)}
                 className="px-2 py-1 border border-line-2 rounded-lg bg-paper text-ink text-sm"
+              />
+              <textarea
+                value={addLineDescriptionHtml}
+                onChange={(event) => setAddLineDescriptionHtml(event.target.value)}
+                placeholder="Détail HTML (p, br, strong, em, ul, ol, li)"
+                rows={3}
+                className="col-span-3 resize-y rounded-lg border border-line-2 bg-paper px-2 py-1 font-mono text-xs text-ink"
               />
             </div>
           )}
@@ -1321,6 +1529,53 @@ export function QuoteEditorPage() {
           </div>
         )}
       </section>
+
+      {documentModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={documentModal.isDraft ? 'Aperçu PDF du devis' : 'PDF du devis'}
+          data-testid={TEST_IDS.commercialQuote.documentModal}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4"
+        >
+          <div className="flex h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-paper shadow-2xl">
+            <div className="flex items-center justify-between gap-4 border-b border-line px-4 py-3">
+              <div>
+                <h2 className="font-semibold text-ink">
+                  {documentModal.isDraft ? 'Aperçu du devis' : `Devis ${detail.number}`}
+                </h2>
+                {documentModal.isDraft && (
+                  <p className="text-xs text-ink-muted">Brouillon filigrané — ce document ne peut pas être envoyé au client.</p>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={forcePdfDownload(
+                    documentModal.url,
+                    `${detail.number}${documentModal.isDraft ? '-DRAFT' : ''}.pdf`,
+                  )}
+                  download={`${detail.number}${documentModal.isDraft ? '-DRAFT' : ''}.pdf`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 rounded-lg border border-line-2 px-3 py-1.5 text-sm text-ink-2 hover:bg-bg"
+                >
+                  <Download className="size-4" />
+                  Télécharger
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setDocumentModal(null)}
+                  className="rounded-lg p-2 text-ink-muted hover:bg-bg hover:text-ink"
+                  aria-label="Fermer l’aperçu PDF"
+                >
+                  <X className="size-5" />
+                </button>
+              </div>
+            </div>
+            <iframe title="Document PDF du devis" src={documentModal.url} className="min-h-0 flex-1 bg-bg" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

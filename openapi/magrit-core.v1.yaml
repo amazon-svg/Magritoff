@@ -968,7 +968,16 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: >-
+            Conflit de concurrence optimiste, ou session HopeStudio déjà
+            associée à un autre projet du tenant
+            (`project.hopstudio_session_already_assigned`), ou tentative de
+            modifier une session déjà définie
+            (`project.hopstudio_session_locked`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
         '422':
           description: >-
             `customer_id` fourni mais inconnu du tenant
@@ -1084,6 +1093,98 @@ paths:
   /projects/{projectId}/items/{itemId}:
     parameters:
       - $ref: '#/components/parameters/MagritTenant'
+    get:
+      operationId: getProjectItem
+      summary: "Récupère un élément de projet modifiable"
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+        - serviceKey: []
+      x-required-scopes: [projects:read]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+      responses:
+        '200':
+          description: Élément courant avec son ETag de modification.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ProjectItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      operationId: updateProjectItem
+      summary: "Renomme un élément d’un projet"
+      description: >-
+        Modifie le libelle de la ligne projet pour les futurs usages. Les
+        lignes de devis ou de commande deja creees restent figees et ne sont
+        jamais renommees retroactivement.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProjectItemCommand'
+      responses:
+        '200':
+          description: Élément renommé.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ProjectItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+
     delete:
       operationId: removeProjectItem
       summary: "Retire un élément d’un projet"
@@ -1119,6 +1220,129 @@ paths:
                           removed:
                             type: boolean
                             enum: [true]
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /commercial-line-files/{lineType}/{lineId}:
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
+      - name: lineType
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/CommercialLineType'
+      - name: lineId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+    get:
+      operationId: listCommercialLineFiles
+      summary: "Liste les fichiers d’une ligne commerciale"
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Fichiers associés à la ligne, du plus récent au plus ancien.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/CommercialLineFile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      operationId: uploadCommercialLineFile
+      summary: "Ajoute un fichier typé à une ligne commerciale"
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadCommercialLineFileCommand'
+      responses:
+        '201':
+          description: Fichier ajouté à la ligne.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CommercialLineFile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /commercial-line-files/{lineType}/{lineId}/{fileId}:
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
+      - name: lineType
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/CommercialLineType'
+      - name: lineId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: fileId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+    get:
+      operationId: getCommercialLineFile
+      summary: "Obtient les liens temporaires d’un fichier de ligne"
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Métadonnées et liens temporaires de prévisualisation et téléchargement.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CommercialLineFileDetail'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -6860,10 +7084,66 @@ paths:
   # ==========================================================================
   # E10.10b-4c — LE DOCUMENT GENERE
   #
-  # Genere UNE FOIS a l envoi, stocke, jamais regenere (§8.13septies point 3,
-  # maintenu par la revision §8.18). Ces deux operations ne PRODUISENT rien :
-  # elles rendent une piece qui existe deja, ou 404.
+  # Le document definitif est genere UNE FOIS a l envoi, stocke, jamais
+  # regenere. Le POST d apercu est distinct : temporaire, reserve au brouillon
+  # et filigrane DRAFT. Les deux GET ne produisent rien.
   # ==========================================================================
+  /quotes/{quoteId}/document-previews:
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
+    post:
+      operationId: createQuoteDocumentPreview
+      summary: "Génère l’aperçu PDF d’un devis brouillon"
+      description: >-
+        Produit un apercu temporaire du devis dans son etat courant. Chaque
+        page porte le filigrane diagonal DRAFT. L apercu remplace le precedent
+        et ne cree jamais de `quote_documents` : il ne peut donc pas etre
+        confondu avec le PDF definitif genere au premier envoi.
+
+
+        Operation reservee aux utilisateurs de l atelier. Un devis envoye se
+        consulte via `getQuoteDocument` ; il n est jamais regenere.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/QuoteId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '201':
+          description: Apercu PDF filigrane, accessible par une URL signee de courte duree.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/QuoteDocumentPreview'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Devis introuvable dans le tenant (`quote.not_found`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: >-
+            Le devis n est plus un brouillon
+            (`quote.document_preview_requires_draft`), ne contient aucune ligne
+            (`quote.document_preview_requires_lines`) ou aucun gabarit PDF de
+            devis actif n est configure (`quote.document_template_missing`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
   /quotes/{quoteId}/documents:
     parameters:
       - $ref: '#/components/parameters/MagritTenant'
@@ -14017,6 +14297,16 @@ components:
         - '0.00'
         - '-89.90'
 
+    SafeDescriptionHtml:
+      title: SafeDescriptionHtml
+      description: >-
+        Description commerciale riche. Seules les balises `p`, `br`,
+        `strong`, `em`, `ul`, `ol` et `li`, sans aucun attribut, sont
+        autorisees. Les scripts, styles, liens, images et gestionnaires
+        d evenement sont refuses.
+      type: string
+      maxLength: 20000
+
     MoneyNonNegative:
       title: MoneyNonNegative
       description: >-
@@ -15208,6 +15498,7 @@ components:
         - customer_id
         - name
         - status
+        - hopstudio_session_id
         - tags
         - created_at
         - updated_at
@@ -15227,6 +15518,13 @@ components:
           maxLength: 300
         status:
           $ref: '#/components/schemas/ProjectStatus'
+        hopstudio_session_id:
+          description: Identifiant de session HopeStudio associé au projet, ou `null` avant le premier chat.
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 255
+            - type: 'null'
         tags:
           description: >-
             Tags libres colores du projet (CA1, CA6, E10.2), 0 a N. Ordre non
@@ -15256,6 +15554,7 @@ components:
         - id
         - project_id
         - label
+        - description_html
         - quote_payload
         - clariprint_config
         - position
@@ -15269,6 +15568,10 @@ components:
           type: string
           minLength: 1
           maxLength: 300
+        description_html:
+          oneOf:
+            - $ref: '#/components/schemas/SafeDescriptionHtml'
+            - type: 'null'
         quote_payload:
           description: Payload de chiffrage tel que calcule, forme libre.
           type: object
@@ -15302,6 +15605,7 @@ components:
         - customer_id
         - name
         - status
+        - hopstudio_session_id
         - tags
         - created_at
         - updated_at
@@ -15319,6 +15623,13 @@ components:
           maxLength: 300
         status:
           $ref: '#/components/schemas/ProjectStatus'
+        hopstudio_session_id:
+          description: Identifiant de session HopeStudio associé au projet, ou `null` avant le premier chat.
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 255
+            - type: 'null'
         tags:
           type: array
           items:
@@ -15370,6 +15681,19 @@ components:
           $ref: '#/components/schemas/Uuid'
         status:
           $ref: '#/components/schemas/ProjectStatus'
+        hopstudio_session_id:
+          description: >-
+            Session HopeStudio à associer au projet après initialisation du
+            chat, uniquement si la valeur actuelle est nulle. Une session déjà
+            définie est immuable (`project.hopstudio_session_locked`). Une
+            valeur non nulle ne peut appartenir qu à un seul projet du tenant ;
+            une réutilisation est refusée en 409
+            `project.hopstudio_session_already_assigned`.
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 255
+            - type: 'null'
 
     # --------------------------------------------------------------------------
     # story E10.2 — Tags libres colores sur les projets
@@ -15433,7 +15757,7 @@ components:
       properties:
         tag_ids:
           type: array
-          maxItems: 50
+          maxItems: 101
           items:
             $ref: '#/components/schemas/Uuid'
 
@@ -15448,6 +15772,10 @@ components:
           type: string
           minLength: 1
           maxLength: 300
+        description_html:
+          oneOf:
+            - $ref: '#/components/schemas/SafeDescriptionHtml'
+            - type: 'null'
         quote_payload:
           type: object
           additionalProperties: true
@@ -15456,6 +15784,68 @@ components:
             - type: object
               additionalProperties: true
             - type: 'null'
+
+    UpdateProjectItemCommand:
+      title: UpdateProjectItemCommand
+      description: Renommage d un element de projet.
+      type: object
+      additionalProperties: false
+      required: [label]
+      properties:
+        label:
+          type: string
+          minLength: 1
+          maxLength: 300
+
+    CommercialFileKind:
+      title: CommercialFileKind
+      description: >-
+        Rôle métier du fichier, indépendant de son type MIME. Le même fichier
+        immuable peut être associé successivement à une ligne de projet, de
+        devis puis de commande sans recopier ses octets.
+      type: string
+      enum:
+        - supplier_quote
+        - cutting_template
+        - folding_template
+        - technical_template
+        - artwork
+        - proof
+        - other
+
+    CommercialFileVisibility:
+      title: CommercialFileVisibility
+      description: >-
+        `customer` désigne un fichier communicable au client ; `internal`
+        réserve le fichier à la production et aux utilisateurs internes.
+      type: string
+      enum: [internal, customer]
+
+    ImportedCommercialFile:
+      title: ImportedCommercialFile
+      type: object
+      additionalProperties: false
+      required: [kind, filename, content_type, data_base64]
+      properties:
+        kind:
+          $ref: '#/components/schemas/CommercialFileKind'
+        visibility:
+          allOf:
+            - $ref: '#/components/schemas/CommercialFileVisibility'
+          default: internal
+        filename:
+          type: string
+          minLength: 1
+          maxLength: 255
+        content_type:
+          type: string
+          minLength: 1
+          maxLength: 255
+        data_base64:
+          description: Contenu encodé en base64, transféré ensuite dans le bucket privé.
+          type: string
+          minLength: 1
+          maxLength: 20000000
 
     ImportHopeStudioBasketItemCommand:
       title: ImportHopeStudioBasketItemCommand
@@ -15495,6 +15885,107 @@ components:
                       oneOf:
                         - type: number
                         - type: string
+        description_html:
+          allOf:
+            - $ref: '#/components/schemas/SafeDescriptionHtml'
+          nullable: true
+          description: Résumé lisible de la card produit par HopeStudio.
+        files:
+          type: array
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/ImportedCommercialFile'
+
+    CommercialLineType:
+      title: CommercialLineType
+      type: string
+      enum: [project_item, quote_line, order_line]
+
+    CommercialLineFile:
+      title: CommercialLineFile
+      type: object
+      additionalProperties: false
+      required: [id, kind, visibility, filename, content_type, byte_size, created_at]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        kind:
+          $ref: '#/components/schemas/CommercialFileKind'
+        visibility:
+          $ref: '#/components/schemas/CommercialFileVisibility'
+        filename:
+          type: string
+          minLength: 1
+          maxLength: 255
+        content_type:
+          type: string
+          minLength: 1
+          maxLength: 255
+        byte_size:
+          type: integer
+          minimum: 1
+          maximum: 15000000
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+
+    CommercialLineFileDetail:
+      title: CommercialLineFileDetail
+      type: object
+      additionalProperties: false
+      required: [id, kind, visibility, filename, content_type, byte_size, created_at, preview_url, download_url, url_expires_at]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        kind:
+          $ref: '#/components/schemas/CommercialFileKind'
+        visibility:
+          $ref: '#/components/schemas/CommercialFileVisibility'
+        filename:
+          type: string
+          minLength: 1
+          maxLength: 255
+        content_type:
+          type: string
+          minLength: 1
+          maxLength: 255
+        byte_size:
+          type: integer
+          minimum: 1
+          maximum: 15000000
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+        preview_url:
+          type: string
+          format: uri
+        download_url:
+          type: string
+          format: uri
+        url_expires_at:
+          $ref: '#/components/schemas/Timestamp'
+
+    UploadCommercialLineFileCommand:
+      title: UploadCommercialLineFileCommand
+      type: object
+      additionalProperties: false
+      required: [kind, filename, content_type, data_base64]
+      properties:
+        kind:
+          $ref: '#/components/schemas/CommercialFileKind'
+        visibility:
+          allOf:
+            - $ref: '#/components/schemas/CommercialFileVisibility'
+          default: internal
+        filename:
+          type: string
+          minLength: 1
+          maxLength: 255
+        content_type:
+          type: string
+          enum: [application/pdf, application/zip, application/x-zip-compressed, application/postscript, image/jpeg, image/png, image/tiff, image/svg+xml]
+        data_base64:
+          type: string
+          minLength: 1
+          maxLength: 20000000
 
     # --------------------------------------------------------------------------
     # Story E10.3 — Creation d un devis depuis un projet
@@ -15591,6 +16082,7 @@ components:
         - origin
         - project_item_id
         - label
+        - description_html
         - product_config
         - quantity
         - position
@@ -15638,6 +16130,10 @@ components:
           type: string
           minLength: 1
           maxLength: 300
+        description_html:
+          oneOf:
+            - $ref: '#/components/schemas/SafeDescriptionHtml'
+            - type: 'null'
         product_config:
           description: >-
             Configuration produit reprise telle quelle du chiffrage source
@@ -17362,6 +17858,7 @@ components:
       required:
         - id
         - label
+        - description_html
         - product_config
         - quantity
         - position
@@ -17375,6 +17872,10 @@ components:
           type: string
           minLength: 1
           maxLength: 300
+        description_html:
+          oneOf:
+            - $ref: '#/components/schemas/SafeDescriptionHtml'
+            - type: 'null'
         product_config:
           description: >-
             Configuration produit telle qu elle figure sur le devis (format,
@@ -17767,6 +18268,7 @@ components:
         - source_quote_line_id
         - origin
         - label
+        - description_html
         - product_config
         - quantity
         - position
@@ -17804,6 +18306,10 @@ components:
           type: string
           minLength: 1
           maxLength: 300
+        description_html:
+          oneOf:
+            - $ref: '#/components/schemas/SafeDescriptionHtml'
+            - type: 'null'
         product_config:
           description: >-
             Configuration produit recopiee telle quelle du devis, lui-meme
@@ -18519,6 +19025,10 @@ components:
           type: string
           minLength: 1
           maxLength: 300
+        description_html:
+          oneOf:
+            - $ref: '#/components/schemas/SafeDescriptionHtml'
+            - type: 'null'
         quantity:
           type: integer
           format: int32
@@ -18574,6 +19084,10 @@ components:
       not:
         required: [sale_price, margin_rate]
       properties:
+        description_html:
+          oneOf:
+            - $ref: '#/components/schemas/SafeDescriptionHtml'
+            - type: 'null'
         sale_price:
           description: >-
             Prix de vente propose, TOTAL pour la quantite de la ligne. Le
@@ -20704,6 +21218,51 @@ components:
             session. Une URL expiree se remplace en rappelant l operation ; la
             conserver plus longtemps ne rendrait service qu a qui l aurait
             recopiee ailleurs.
+          $ref: '#/components/schemas/Timestamp'
+
+    QuoteDocumentPreview:
+      title: QuoteDocumentPreview
+      description: >-
+        Apercu temporaire d un devis brouillon. Il est rendu depuis les
+        donnees courantes et porte le filigrane DRAFT sur chaque page. Il ne
+        constitue jamais la piece definitive remise au client.
+      type: object
+      additionalProperties: false
+      required:
+        - quote_id
+        - template_id
+        - generated_at
+        - byte_size
+        - content_type
+        - page_count
+        - watermark
+        - download_url
+        - download_url_expires_at
+      properties:
+        quote_id:
+          $ref: '#/components/schemas/Uuid'
+        template_id:
+          $ref: '#/components/schemas/Uuid'
+        generated_at:
+          $ref: '#/components/schemas/Timestamp'
+        byte_size:
+          type: integer
+          format: int64
+          minimum: 1
+        content_type:
+          type: string
+          enum: [application/pdf]
+        page_count:
+          type: integer
+          format: int32
+          minimum: 1
+        watermark:
+          type: string
+          enum: [DRAFT]
+        download_url:
+          type: string
+          format: uri
+        download_url_expires_at:
           $ref: '#/components/schemas/Timestamp'
 
     # ---- story E10.17 — fichiers d une commande ----------------------------

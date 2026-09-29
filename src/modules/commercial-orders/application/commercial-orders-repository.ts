@@ -136,6 +136,7 @@ export type ListOrderStepChangesResult = Readonly<{
 export type OrderLineDataForDocumentGeneration = Readonly<{
   position: number;
   label: string;
+  descriptionHtml: string | null;
   productConfig: Readonly<Record<string, unknown>>;
   quantity: number;
   /** `customer_price` — masque par le SERVICE quand `showDiscounts` est faux (jamais filtre ici). */

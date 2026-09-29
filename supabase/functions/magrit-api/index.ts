@@ -65,6 +65,8 @@ import { SupabaseCustomersRepository } from '../../../src/adapters/supabase/cust
 import { CustomerContactShopAccessService } from '../../../src/modules/shop-customers/application/customer-contact-shop-access-service.ts';
 import { ProjectsService } from '../../../src/modules/projects/application/projects-service.ts';
 import { SupabaseProjectsRepository } from '../../../src/adapters/supabase/projects-repository.ts';
+import { CommercialLineFilesService } from '../../../src/modules/commercial-line-files/application/commercial-line-files-service.ts';
+import { SupabaseCommercialLineFilesRepository } from '../../../src/adapters/supabase/commercial-line-files-repository.ts';
 import { ProjectTagsService } from '../../../src/modules/project-tags/application/project-tags-service.ts';
 import { SupabaseProjectTagsRepository } from '../../../src/adapters/supabase/project-tags-repository.ts';
 import { CommercialQuotesService } from '../../../src/modules/commercial-quotes/application/commercial-quotes-service.ts';
@@ -456,6 +458,9 @@ export async function handleRequest(request: Request): Promise<Response> {
       newEventId: () => crypto.randomUUID(),
     }),
   });
+  const commercialLineFilesService = new CommercialLineFilesService(
+    new SupabaseCommercialLineFilesRepository(client, publicSupabaseUrl(request, supabaseUrl)),
+  );
 
   // E10.6 — referentiel des regles de prix et marge publique standard par
   // gamme. Reutilise le referentiel Clients (E10.4) deja instancie pour
@@ -714,6 +719,7 @@ export async function handleRequest(request: Request): Promise<Response> {
       customers: customersService,
       customerShopAccess: customerShopAccessService,
       projects: projectsService,
+      commercialLineFiles: commercialLineFilesService,
       projectTags: projectTagsService,
       commercialQuotes: commercialQuotesService,
       priceRules: priceRulesService,

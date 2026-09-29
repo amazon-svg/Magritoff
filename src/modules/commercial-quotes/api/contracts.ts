@@ -45,6 +45,7 @@
  */
 import { z } from 'zod';
 import { moneySchema, rateSchema, timestampSchema, uuidSchema } from '../../_shared/api/index.ts';
+import { safeDescriptionHtmlSchema } from '../../../shared/validation/safe-description-html.ts';
 // `nonNegativeRateSchema` (E10.6) reutilise TEL QUEL pour `vat_rate` : un
 // taux de TVA negatif n a pas plus de sens qu un prix client negatif
 // (qa-review E10.10a round 1, B1). Meme rapport a `rateSchema` que celui deja
@@ -113,6 +114,7 @@ export const quoteLineSchema = z
     origin: quoteLineOriginSchema,
     project_item_id: uuidSchema.nullable(),
     label: z.string().min(1).max(300),
+    description_html: safeDescriptionHtmlSchema.nullable(),
     product_config: z.record(z.string(), z.unknown()),
     quantity: z.number().int().min(1),
     position: z.number().int().min(0),
@@ -355,6 +357,7 @@ export const createQuoteLineFromProjectItemCommandSchema = z
 export const createFreeQuoteLineCommandSchema = z
   .object({
     label: z.string().min(1).max(300),
+    description_html: safeDescriptionHtmlSchema.nullable().optional(),
     quantity: z.number().int().min(1),
     production_price: moneyNonNegativeSchema,
   })
@@ -379,6 +382,7 @@ export const createQuoteLineCommandSchema = z.union([
  */
 export const updateQuoteLineCommandSchema = z
   .object({
+    description_html: safeDescriptionHtmlSchema.nullable().optional(),
     sale_price: moneyNonNegativeSchema.optional(),
     margin_rate: rateSchema.optional(),
     quantity: z.number().int().min(1).optional(),

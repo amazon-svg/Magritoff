@@ -1,4 +1,4 @@
-export type ConfiguratorViewMode = 'home' | 'split' | 'studio' | 'pim';
+export type ConfiguratorViewMode = 'home' | 'studio';
 
 export type InitialConfiguratorRequest = Readonly<{
   id: string;
@@ -9,21 +9,67 @@ export type InitialConfiguratorRequest = Readonly<{
 export type ConfiguratorWorkspaceState = Readonly<{
   mode: ConfiguratorViewMode;
   initialRequest: InitialConfiguratorRequest | null;
-  pimQuery: string;
+  projectId: string | null;
+  hopstudioSessionId: string | null;
+  customerName: string | null;
+  projectName: string | null;
 }>;
 
 export type ConfiguratorWorkspaceAction =
   | Readonly<{ type: 'submit'; request: InitialConfiguratorRequest }>
-  | Readonly<{ type: 'focus-studio' }>
-  | Readonly<{ type: 'focus-pim' }>
-  | Readonly<{ type: 'show-split' }>
-  | Readonly<{ type: 'search-pim'; query: string }>;
+  | Readonly<{ type: 'select-project'; projectId: string; customerName: string; projectName: string; hopstudioSessionId: string | null }>
+  | Readonly<{ type: 'rename-project'; projectName: string }>
+  | Readonly<{ type: 'change-project' }>;
 
 export const INITIAL_CONFIGURATOR_WORKSPACE_STATE: ConfiguratorWorkspaceState = {
   mode: 'home',
   initialRequest: null,
-  pimQuery: '',
+  projectId: null,
+  hopstudioSessionId: null,
+  customerName: null,
+  projectName: null,
 };
+
+function createResumeConfiguratorRequest(
+  projectId: string,
+  sessionId: string,
+): InitialConfiguratorRequest {
+  return {
+    id: `resume:${projectId}:${sessionId}`,
+    query: '',
+    submittedAt: '',
+  };
+}
+
+export function createInitialConfiguratorWorkspaceState(
+  tenantId: string,
+): ConfiguratorWorkspaceState {
+  if (typeof window === 'undefined') return INITIAL_CONFIGURATOR_WORKSPACE_STATE;
+  try {
+    const raw = window.sessionStorage.getItem(`magrit-configurator-selection:${tenantId}`);
+    if (!raw) return INITIAL_CONFIGURATOR_WORKSPACE_STATE;
+    const selection = JSON.parse(raw) as Partial<ConfiguratorWorkspaceState>;
+    if (typeof selection.projectId !== 'string' || typeof selection.projectName !== 'string') {
+      return INITIAL_CONFIGURATOR_WORKSPACE_STATE;
+    }
+    const hopstudioSessionId = typeof selection.hopstudioSessionId === 'string'
+      ? selection.hopstudioSessionId
+      : null;
+    return {
+      ...INITIAL_CONFIGURATOR_WORKSPACE_STATE,
+      mode: hopstudioSessionId ? 'studio' : 'home',
+      initialRequest: hopstudioSessionId
+        ? createResumeConfiguratorRequest(selection.projectId, hopstudioSessionId)
+        : null,
+      projectId: selection.projectId,
+      customerName: typeof selection.customerName === 'string' ? selection.customerName : null,
+      projectName: selection.projectName,
+      hopstudioSessionId,
+    };
+  } catch {
+    return INITIAL_CONFIGURATOR_WORKSPACE_STATE;
+  }
+}
 
 export function configuratorWorkspaceReducer(
   state: ConfiguratorWorkspaceState,
@@ -32,18 +78,29 @@ export function configuratorWorkspaceReducer(
   switch (action.type) {
     case 'submit':
       return {
-        mode: 'split',
+        mode: 'studio',
         initialRequest: action.request,
-        pimQuery: action.request.query,
+        projectId: state.projectId,
+        hopstudioSessionId: state.hopstudioSessionId,
+        customerName: state.customerName,
+        projectName: state.projectName,
       };
-    case 'focus-studio':
-      return state.initialRequest ? { ...state, mode: 'studio' } : state;
-    case 'focus-pim':
-      return state.initialRequest ? { ...state, mode: 'pim' } : state;
-    case 'show-split':
-      return state.initialRequest ? { ...state, mode: 'split' } : state;
-    case 'search-pim':
-      return { ...state, pimQuery: action.query };
+    case 'select-project':
+      return {
+        ...state,
+        mode: action.hopstudioSessionId ? 'studio' : 'home',
+        projectId: action.projectId,
+        hopstudioSessionId: action.hopstudioSessionId,
+        customerName: action.customerName,
+        projectName: action.projectName,
+        initialRequest: action.hopstudioSessionId
+          ? createResumeConfiguratorRequest(action.projectId, action.hopstudioSessionId)
+          : null,
+      };
+    case 'change-project':
+      return INITIAL_CONFIGURATOR_WORKSPACE_STATE;
+    case 'rename-project':
+      return { ...state, projectName: action.projectName };
   }
 }
 

@@ -2,11 +2,13 @@ import type { TenantId, UserId } from '../../../kernel/ids/index.ts';
 import type {
   CreateProjectCommand,
   CreateProjectItemCommand,
+  ImportedCommercialFile,
   ProjectDetailDto,
   ProjectDto,
   ProjectItemDto,
   ProjectStatus,
   UpdateProjectCommand,
+  UpdateProjectItemCommand,
 } from '../api/contracts.ts';
 
 export type ListProjectsParams = Readonly<{
@@ -64,6 +66,12 @@ export interface ProjectsRepository {
 
   findDetailById(tenantId: TenantId, projectId: string): Promise<ProjectDetailDto | null>;
 
+  findItemById(
+    tenantId: TenantId,
+    projectId: string,
+    itemId: string,
+  ): Promise<ProjectItemDto | null>;
+
   /**
    * `command.customer_id` est ici GARANTI par le service comme etant un
    * UUID d un client existant du tenant : la verification metier (CA3) est
@@ -80,7 +88,14 @@ export interface ProjectsRepository {
   addItem(
     tenantId: TenantId,
     projectId: string,
-    command: CreateProjectItemCommand,
+    command: CreateProjectItemCommand & Readonly<{ files?: readonly ImportedCommercialFile[] }>,
+  ): Promise<ProjectItemDto>;
+
+  updateItem(
+    tenantId: TenantId,
+    projectId: string,
+    itemId: string,
+    command: UpdateProjectItemCommand,
   ): Promise<ProjectItemDto>;
 
   /** Retrait du LIEN uniquement ; ne supprime jamais un historique de chiffrage ailleurs. */

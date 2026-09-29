@@ -6,7 +6,18 @@
  * la creation ; `If-Match` doit reprendre l ETag lu sur la ressource.
  */
 import { successEnvelopeSchema } from '../../_shared/api/index.ts';
-import { API_V1_BASE_PATH, type ApiResponseWithEtag, FetchApiClient } from '../../../platform/api/index.ts';
+import {
+  API_V1_BASE_PATH,
+  ApiClientError,
+  type ApiResponseWithEtag,
+  FetchApiClient,
+} from '../../../platform/api/index.ts';
+import {
+  quoteDocumentPreviewSchema,
+  quoteDocumentSchema,
+  type QuoteDocumentDto,
+  type QuoteDocumentPreviewDto,
+} from '../../quote-documents/api/contracts.ts';
 import {
   createQuoteFromProjectCommandSchema,
   createQuoteLineCommandSchema,
@@ -118,6 +129,29 @@ export class CommercialQuotesApiClient {
       responseSchema: successEnvelopeSchema(quoteDetailSchema),
     });
     return unwrapEnvelopeWithEtag(result);
+  }
+
+  async createDocumentPreview(quoteId: string): Promise<QuoteDocumentPreviewDto> {
+    const envelope = await this.client.request({
+      method: 'POST',
+      path: `${BASE_PATH}/${quoteId}/document-previews`,
+      headers: { 'Idempotency-Key': newIdempotencyKey() },
+      responseSchema: successEnvelopeSchema(quoteDocumentPreviewSchema),
+    });
+    return envelope.data;
+  }
+
+  async getDocument(quoteId: string): Promise<QuoteDocumentDto | null> {
+    try {
+      const envelope = await this.client.request({
+        path: `${BASE_PATH}/${quoteId}/documents`,
+        responseSchema: successEnvelopeSchema(quoteDocumentSchema),
+      });
+      return envelope.data;
+    } catch (cause) {
+      if (cause instanceof ApiClientError && cause.problem.code === 'quote.document_not_generated') return null;
+      throw cause;
+    }
   }
 
   async update(

@@ -8,6 +8,7 @@
  */
 import { uuidSchema } from '../../_shared/api/index.ts';
 import type { TenantId, UserId } from '../../../kernel/ids/index.ts';
+import { buildDescriptionHtml } from '../../../shared/validation/safe-description-html.ts';
 import type { OutboxPublisher } from '../../_shared/application/index.ts';
 import type { CustomersRepository } from '../../customers/application/customers-repository.ts';
 import type { ProjectTagsRepository } from '../../project-tags/application/project-tags-repository.ts';
@@ -20,6 +21,7 @@ import type {
   ProjectItemDto,
   ReplaceProjectTagsCommand,
   UpdateProjectCommand,
+  UpdateProjectItemCommand,
 } from '../api/contracts.ts';
 import {
   ProjectCommandRejectedError,
@@ -33,6 +35,8 @@ import {
 const CUSTOMER_REQUIRED_CODE = 'project.customer_required';
 /** Code metier stable (CA6, E10.2) : un `tag_ids` reference un tag inconnu ou hors du tenant. */
 const TAG_UNKNOWN_CODE = 'project.tag_unknown';
+/** Une session HopeStudio deja fixee sur un projet est immuable. */
+const HOPSTUDIO_SESSION_LOCKED_CODE = 'project.hopstudio_session_locked';
 
 export type ProjectsServiceDependencies = Readonly<{
   repository: ProjectsRepository;
@@ -81,6 +85,12 @@ export class ProjectsService {
     return project;
   }
 
+  async getItem(tenantId: TenantId, projectId: string, itemId: string): Promise<ProjectItemDto> {
+    const item = await this.repository.findItemById(tenantId, projectId, itemId);
+    if (!item) throw new ProjectNotFoundError('Élément de projet introuvable dans ce tenant.');
+    return item;
+  }
+
   /**
    * Cree un projet (CA3, événement `project.created`). `customer_id` absent
    * ou ne correspondant a aucun client du tenant est refuse avec LE MEME
@@ -123,6 +133,20 @@ export class ProjectsService {
     if (!current) throw new ProjectNotFoundError();
 
     let patch: UpdateProjectCommand = command;
+    if (
+      command.hopstudio_session_id !== undefined &&
+      current.hopstudio_session_id !== null &&
+      command.hopstudio_session_id !== current.hopstudio_session_id
+    ) {
+      throw new ProjectCommandRejectedError(
+        HOPSTUDIO_SESSION_LOCKED_CODE,
+        'La session HopeStudio de ce projet est déjà définie et ne peut plus être modifiée.',
+        [{
+          field: 'hopstudio_session_id',
+          message: 'La session HopeStudio ne peut être renseignée que si elle est actuellement nulle.',
+        }],
+      );
+    }
     if (command.customer_id !== undefined) {
       const customerId = await this.requireExistingCustomer(tenantId, command.customer_id);
       patch = { ...command, customer_id: customerId };
@@ -138,7 +162,10 @@ export class ProjectsService {
   ): Promise<ProjectItemDto> {
     const exists = await this.repository.findById(tenantId, projectId);
     if (!exists) throw new ProjectNotFoundError();
-    return this.repository.addItem(tenantId, projectId, command);
+    return this.repository.addItem(tenantId, projectId, {
+      ...command,
+      description_html: command.description_html ?? buildDescriptionHtml(command.label, command.quote_payload),
+    });
   }
 
   async importHopeStudioBasketItem(
@@ -170,6 +197,7 @@ export class ProjectsService {
     }
     return this.repository.addItem(tenantId, projectId, {
       label,
+      description_html: command.description_html ?? buildDescriptionHtml(label, card.configuration),
       quote_payload: {
         ...card.configuration,
         name: card.selected || label,
@@ -177,9 +205,17 @@ export class ProjectsService {
         price: amount,
         clariprintQuote: { priceHT: amount },
         amounts: { price: money, clariprint_price_ht: money },
-        hopstudio: { card_key: card.DBK, selected: card.selected ?? null, configuration: card.configuration },
+        hopstudio: {
+          card_key: card.DBK,
+          selected: card.selected ?? null,
+          configuration: card.configuration,
+          // Le payload fournisseur complet est conserve pour les reprises
+          // métier futures, sans y mélanger les octets des fichiers.
+          card,
+        },
       },
       clariprint_config: card.configuration,
+      ...(command.files ? { files: command.files } : {}),
     });
   }
 
@@ -187,6 +223,17 @@ export class ProjectsService {
     const exists = await this.repository.findById(tenantId, projectId);
     if (!exists) throw new ProjectNotFoundError();
     return this.repository.removeItem(tenantId, projectId, itemId);
+  }
+
+  async updateItem(
+    tenantId: TenantId,
+    projectId: string,
+    itemId: string,
+    command: UpdateProjectItemCommand,
+  ): Promise<ProjectItemDto> {
+    const exists = await this.repository.findById(tenantId, projectId);
+    if (!exists) throw new ProjectNotFoundError();
+    return this.repository.updateItem(tenantId, projectId, itemId, command);
   }
 
   /**

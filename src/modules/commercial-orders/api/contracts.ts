@@ -26,6 +26,7 @@
  */
 import { z } from 'zod';
 import { moneySchema, rateSchema, timestampSchema, uuidSchema } from '../../_shared/api/index.ts';
+import { safeDescriptionHtmlSchema } from '../../../shared/validation/safe-description-html.ts';
 import {
   dateOnlySchema,
   moneyNonNegativeSchema,
@@ -114,6 +115,7 @@ export const commercialOrderLineSchema = z
     source_quote_line_id: uuidSchema,
     origin: quoteLineOriginSchema,
     label: z.string().min(1).max(300),
+    description_html: safeDescriptionHtmlSchema.nullable(),
     product_config: z.record(z.string(), z.unknown()),
     quantity: z.number().int().min(1),
     position: z.number().int().min(0),

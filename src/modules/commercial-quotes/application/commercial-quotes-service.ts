@@ -25,10 +25,14 @@
  * ce service.
  */
 import type { TenantId, UserId } from '../../../kernel/ids/index.ts';
+import { buildDescriptionHtml } from '../../../shared/validation/safe-description-html.ts';
 import type { OutboxPublisher } from '../../_shared/application/index.ts';
 import type { ProjectsRepository } from '../../projects/application/projects-repository.ts';
 import type { PriceRulesService } from '../../pricing/application/price-rules-service.ts';
 import type { PricingEngine } from '../../pricing/application/pricing-engine.ts';
+import type {
+  QuoteDocumentPreviewDto,
+} from '../../quote-documents/api/contracts.ts';
 import type {
   QuoteDocumentsService,
   QuoteForDocumentGeneration,
@@ -87,6 +91,20 @@ export class QuoteAuditAccessDeniedError extends Error {
   }
 }
 
+export class QuoteDocumentPreviewRequiresDraftError extends Error {
+  constructor(message = "L apercu PDF est reserve a un devis en brouillon.") {
+    super(message);
+    this.name = 'QuoteDocumentPreviewRequiresDraftError';
+  }
+}
+
+export class QuoteDocumentPreviewRequiresLinesError extends Error {
+  constructor(message = "Ajoutez au moins une ligne avant de generer l apercu PDF.") {
+    super(message);
+    this.name = 'QuoteDocumentPreviewRequiresLinesError';
+  }
+}
+
 export type ListQuoteLineAuditResultDto = Readonly<{ rows: readonly QuoteLineAuditEntryDto[] }>;
 export type ListQuoteHeaderAuditResultDto = Readonly<{ rows: readonly QuoteAuditEntryDto[] }>;
 
@@ -101,6 +119,7 @@ type ResolvedAddLineInput =
       kind: 'project_item';
       projectItemId: string;
       label: string;
+      descriptionHtml: string | null;
       productConfig: Readonly<Record<string, unknown>>;
       productionPrice: string;
       chiffrageQuantity: number;
@@ -109,6 +128,7 @@ type ResolvedAddLineInput =
   | Readonly<{
       kind: 'free';
       label: string;
+      descriptionHtml: string | null;
       quantity: number;
       productionPrice: string;
     }>;
@@ -215,6 +235,40 @@ export class CommercialQuotesService {
   // E10.10a — envoi/renvoi, duplication, journal d audit d entete.
   // ---------------------------------------------------------------------------
 
+  async createDocumentPreview(tenantId: TenantId, quoteId: string): Promise<QuoteDocumentPreviewDto> {
+    const detail = await this.getDetail(tenantId, quoteId);
+    if (detail.status !== 'draft') throw new QuoteDocumentPreviewRequiresDraftError();
+    if (detail.lines.length === 0) throw new QuoteDocumentPreviewRequiresLinesError();
+
+    const validUntil = await this.repository.resolveValidUntilForSend(tenantId, quoteId);
+    const previewInput: QuoteForDocumentGeneration = {
+      id: detail.id,
+      customerId: detail.customer_id,
+      number: detail.number,
+      validUntil,
+      totals: {
+        linesSubtotal: detail.show_discounts ? detail.totals.lines_subtotal : null,
+        globalDiscount: detail.show_discounts ? detail.totals.global_discount : null,
+        netTotal: detail.totals.net_total,
+        vatRate: detail.totals.vat_rate,
+        vatAmount: detail.totals.vat_amount,
+        totalInclTax: detail.totals.total_incl_tax,
+      },
+      lines: detail.lines.map((line) => ({
+        position: line.position,
+        label: line.label,
+        descriptionHtml: line.description_html,
+        productConfig: line.product_config,
+        quantity: line.quantity,
+        priceBeforeDiscount: detail.show_discounts ? line.customer_price : null,
+        discountRate: detail.show_discounts ? line.discount_rate : null,
+        price: line.sale_price,
+      })),
+    };
+
+    return this.documents.createDraftPreview(tenantId, previewInput, this.now().toISOString());
+  }
+
   /**
    * ENVOIE (`draft` -> `sent`) ou RENVOIE (`sent` -> `sent`) un devis. La
    * concurrence optimiste (`If-Match`, CA9) est verifiee par la ROUTE avant
@@ -307,6 +361,7 @@ export class CommercialQuotesService {
           lines: detail.lines.map((line) => ({
             position: line.position,
             label: line.label,
+            descriptionHtml: line.description_html,
             productConfig: line.product_config,
             quantity: line.quantity,
             priceBeforeDiscount: showDiscounts ? line.customer_price : null,
@@ -460,6 +515,7 @@ export class CommercialQuotesService {
         kind: 'project_item',
         projectItemId: item.id,
         label: item.label,
+        descriptionHtml: item.description_html,
         productConfig: payload,
         productionPrice,
         chiffrageQuantity,
@@ -470,6 +526,7 @@ export class CommercialQuotesService {
     return {
       kind: 'free',
       label: command.label,
+      descriptionHtml: command.description_html ?? buildDescriptionHtml(command.label),
       quantity: command.quantity,
       productionPrice: command.production_price,
     };
@@ -509,6 +566,7 @@ export class CommercialQuotesService {
       origin: input.kind,
       projectItemId: input.kind === 'project_item' ? input.projectItemId : null,
       label: input.label,
+      descriptionHtml: input.descriptionHtml,
       productConfig: input.kind === 'project_item' ? input.productConfig : {},
       quantity: input.quantity,
       chiffrageQuantity: input.kind === 'project_item' ? input.chiffrageQuantity : null,
@@ -541,6 +599,10 @@ export class CommercialQuotesService {
     if (!current) throw new QuoteLineNotFoundError();
 
     const update: { -readonly [K in keyof QuoteLineWriteUpdate]: QuoteLineWriteUpdate[K] } = {};
+
+    if (command.description_html !== undefined) {
+      update.descriptionHtml = command.description_html;
+    }
 
     let salePrice = current.sale_price;
     if (command.margin_rate !== undefined) {

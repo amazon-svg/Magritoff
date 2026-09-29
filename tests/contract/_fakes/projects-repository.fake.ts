@@ -20,6 +20,7 @@ import type {
   ProjectDto,
   ProjectItemDto,
   UpdateProjectCommand,
+  UpdateProjectItemCommand,
 } from '@/modules/projects/api/contracts';
 import type { InMemoryProjectTagsRepository } from './project-tags-repository.fake';
 // qa-review E10.2 : reutilise la MEME normalisation que l adaptateur reel
@@ -154,6 +155,17 @@ export class InMemoryProjectsRepository implements ProjectsRepository {
     return { ...project, items };
   }
 
+  async findItemById(
+    tenantId: TenantId,
+    projectId: string,
+    itemId: string,
+  ): Promise<ProjectItemDto | null> {
+    const project = await this.findById(tenantId, projectId);
+    if (!project) return null;
+    const item = this.items.get(itemId);
+    return item?.project_id === projectId ? item : null;
+  }
+
   async create(
     tenantId: TenantId,
     actor: UserId,
@@ -167,6 +179,7 @@ export class InMemoryProjectsRepository implements ProjectsRepository {
       customer_id: command.customer_id,
       name: command.name,
       status: 'active',
+      hopstudio_session_id: null,
       tags: [],
       created_by: actor,
       created_at: now,
@@ -183,6 +196,37 @@ export class InMemoryProjectsRepository implements ProjectsRepository {
   ): Promise<ProjectDto> {
     const current = this.projects.get(projectId);
     if (!current || current.tenant_id !== tenantId) throw new ProjectNotFoundError();
+    if (
+      command.hopstudio_session_id !== undefined &&
+      current.hopstudio_session_id !== null &&
+      command.hopstudio_session_id !== current.hopstudio_session_id
+    ) {
+      throw new ProjectCommandRejectedError(
+        'project.hopstudio_session_locked',
+        'La session HopeStudio de ce projet est déjà définie et ne peut plus être modifiée.',
+        [{
+          field: 'hopstudio_session_id',
+          message: 'La session HopeStudio ne peut être renseignée que si elle est actuellement nulle.',
+        }],
+      );
+    }
+    if (command.hopstudio_session_id) {
+      const alreadyAssigned = [...this.projects.values()].some((project) => (
+        project.tenant_id === tenantId &&
+        project.id !== projectId &&
+        project.hopstudio_session_id === command.hopstudio_session_id
+      ));
+      if (alreadyAssigned) {
+        throw new ProjectCommandRejectedError(
+          'project.hopstudio_session_already_assigned',
+          'Cette session HopeStudio est déjà associée à un autre projet.',
+          [{
+            field: 'hopstudio_session_id',
+            message: 'Une session HopeStudio ne peut appartenir qu’à un seul projet.',
+          }],
+        );
+      }
+    }
     const updated: ProjectDto = {
       ...current,
       ...('name' in command && command.name !== undefined ? { name: command.name } : {}),
@@ -190,6 +234,9 @@ export class InMemoryProjectsRepository implements ProjectsRepository {
         ? { customer_id: command.customer_id }
         : {}),
       ...('status' in command && command.status !== undefined ? { status: command.status } : {}),
+      ...('hopstudio_session_id' in command && command.hopstudio_session_id !== undefined
+        ? { hopstudio_session_id: command.hopstudio_session_id }
+        : {}),
       updated_at: new Date().toISOString(),
     };
     this.projects.set(projectId, updated);
@@ -247,6 +294,7 @@ export class InMemoryProjectsRepository implements ProjectsRepository {
       id: fakeUuid(),
       project_id: projectId,
       label: command.label,
+      description_html: command.description_html ?? null,
       quote_payload: command.quote_payload,
       clariprint_config: command.clariprint_config ?? null,
       position: siblings.length,
@@ -261,6 +309,23 @@ export class InMemoryProjectsRepository implements ProjectsRepository {
     if (!project) throw new ProjectNotFoundError();
     const item = this.items.get(itemId);
     if (item && item.project_id === projectId) this.items.delete(itemId);
+  }
+
+  async updateItem(
+    tenantId: TenantId,
+    projectId: string,
+    itemId: string,
+    command: UpdateProjectItemCommand,
+  ): Promise<ProjectItemDto> {
+    const project = await this.findById(tenantId, projectId);
+    if (!project) throw new ProjectNotFoundError();
+    const item = this.items.get(itemId);
+    if (!item || item.project_id !== projectId) {
+      throw new ProjectNotFoundError('Élément de projet introuvable dans ce tenant.');
+    }
+    const updated = { ...item, label: command.label };
+    this.items.set(itemId, updated);
+    return updated;
   }
 }
 

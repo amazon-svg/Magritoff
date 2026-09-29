@@ -50,7 +50,12 @@ export class HttpHopeStudioChatGateway implements HopeStudioChatGateway {
     const prompt = [...parsed.messages].reverse().find((message) => message.role === 'user')?.content;
     if (!prompt) throw new HopeStudioChatUnavailableError('Aucun message utilisateur à transmettre à HopeStudio.');
     const chatStartedAt = Date.now();
-
+    console.log('[HttpHopeStudioChatGateway] chat started', {
+      chatId: this.chatId,
+      traceId,
+      tenantId: parsed.tenantId,
+      userId: maskIdentifier(parsed.userId),
+    });
     const form = new URLSearchParams({
       action: 'CallAI',
       id: this.chatId,

@@ -18,6 +18,7 @@
  */
 import { z } from 'zod';
 import { timestampSchema, uuidSchema } from '../../_shared/api/index.ts';
+import { safeDescriptionHtmlSchema } from '../../../shared/validation/safe-description-html.ts';
 import { projectTagSchema } from '../../project-tags/api/contracts.ts';
 
 export const projectStatusSchema = z.enum(['active', 'archived']);
@@ -29,6 +30,7 @@ export const projectSchema = z
     customer_id: uuidSchema,
     name: z.string().min(1).max(300),
     status: projectStatusSchema,
+    hopstudio_session_id: z.string().min(1).max(255).nullable(),
     /** Tags libres colores du projet (CA1, CA6, E10.2), 0 a N. */
     tags: z.array(projectTagSchema),
     created_by: uuidSchema.nullable(),
@@ -42,6 +44,7 @@ export const projectItemSchema = z
     id: uuidSchema,
     project_id: uuidSchema,
     label: z.string().min(1).max(300),
+    description_html: safeDescriptionHtmlSchema.nullable(),
     quote_payload: z.record(z.string(), z.unknown()),
     clariprint_config: z.record(z.string(), z.unknown()).nullable(),
     position: z.number().int().min(0),
@@ -60,6 +63,7 @@ export const projectDetailSchema = z
     customer_id: uuidSchema,
     name: z.string().min(1).max(300),
     status: projectStatusSchema,
+    hopstudio_session_id: z.string().min(1).max(255).nullable(),
     tags: z.array(projectTagSchema),
     created_by: uuidSchema.nullable(),
     created_at: timestampSchema,
@@ -85,6 +89,7 @@ export const updateProjectCommandSchema = z
     name: z.string().trim().min(1).max(300).optional(),
     customer_id: z.string().trim().optional(),
     status: projectStatusSchema.optional(),
+    hopstudio_session_id: z.string().min(1).max(255).nullable().optional(),
   })
   .strict()
   .refine((value) => Object.keys(value).length > 0, {
@@ -105,10 +110,37 @@ export const replaceProjectTagsCommandSchema = z
 export const createProjectItemCommandSchema = z
   .object({
     label: z.string().trim().min(1).max(300),
+    description_html: safeDescriptionHtmlSchema.nullable().optional(),
     quote_payload: z.record(z.string(), z.unknown()),
     clariprint_config: z.record(z.string(), z.unknown()).nullable().optional(),
   })
   .strict();
+
+export const updateProjectItemCommandSchema = z
+  .object({
+    label: z.string().trim().min(1).max(300),
+  })
+  .strict();
+
+export const commercialFileKindSchema = z.enum([
+  'supplier_quote',
+  'cutting_template',
+  'folding_template',
+  'technical_template',
+  'artwork',
+  'proof',
+  'other',
+]);
+
+export const commercialFileVisibilitySchema = z.enum(['internal', 'customer']);
+
+export const importedCommercialFileSchema = z.object({
+  kind: commercialFileKindSchema,
+  visibility: commercialFileVisibilitySchema.optional().default('internal'),
+  filename: z.string().trim().min(1).max(255),
+  content_type: z.string().trim().min(1).max(255),
+  data_base64: z.string().min(1).max(20_000_000),
+}).strict();
 
 /** Ligne brute du panier HopeStudio, reçue uniquement depuis l'atelier utilisateur. */
 export const importHopeStudioBasketItemCommandSchema = z.object({
@@ -121,6 +153,10 @@ export const importHopeStudioBasketItemCommandSchema = z.object({
       getPrice: z.object({ response: z.union([z.number(), z.string()]) }).passthrough(),
     }).passthrough(),
   }).passthrough(),
+  description_html: safeDescriptionHtmlSchema.nullable().optional(),
+  // Une card peut produire jusqu'à 50 gabarits, chacun décliné en PAO et
+  // production, auxquels s'ajoute éventuellement le PDF fournisseur.
+  files: z.array(importedCommercialFileSchema).max(101).optional(),
 }).strict();
 
 export const removeProjectItemResultSchema = z.object({ removed: z.literal(true) }).strict();
@@ -135,6 +171,10 @@ export type CreateProjectCommand = z.infer<typeof createProjectCommandSchema>;
 export type UpdateProjectCommand = z.infer<typeof updateProjectCommandSchema>;
 export type ReplaceProjectTagsCommand = z.infer<typeof replaceProjectTagsCommandSchema>;
 export type CreateProjectItemCommand = z.infer<typeof createProjectItemCommandSchema>;
+export type UpdateProjectItemCommand = z.infer<typeof updateProjectItemCommandSchema>;
+export type CommercialFileKind = z.infer<typeof commercialFileKindSchema>;
+export type CommercialFileVisibility = z.infer<typeof commercialFileVisibilitySchema>;
+export type ImportedCommercialFile = z.infer<typeof importedCommercialFileSchema>;
 export type ImportHopeStudioBasketItemCommand = z.infer<typeof importHopeStudioBasketItemCommandSchema>;
 export type RemoveProjectItemResultDto = z.infer<typeof removeProjectItemResultSchema>;
 

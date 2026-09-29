@@ -26,7 +26,7 @@
  */
 import type { TenantId, UserId } from '../../../kernel/ids/index.ts';
 import type { EligibleDocumentPdfTemplate } from '../../document-templates/application/document-templates-repository.ts';
-import type { QuoteDocumentDto } from '../api/contracts.ts';
+import type { QuoteDocumentDto, QuoteDocumentPreviewDto } from '../api/contracts.ts';
 import {
   resolveDocumentFieldValues,
   resolveDocumentLineFieldValues,
@@ -36,6 +36,7 @@ import { renderQuoteDocument } from './quote-document-renderer.ts';
 import {
   QuoteDocumentGenerationFailedError,
   QuoteDocumentNotFoundError,
+  QuoteDocumentTemplateMissingError,
   type QuoteDocumentsRepository,
 } from './quote-documents-repository.ts';
 
@@ -79,6 +80,7 @@ const EMPTY_CUSTOMER: CustomerDocumentData = Object.freeze({
 export type QuoteLineForDocumentGeneration = Readonly<{
   position: number;
   label: string;
+  descriptionHtml?: string | null;
   productConfig: Readonly<Record<string, unknown>>;
   quantity: number;
   /** `customer_price` de la ligne — masque par l appelant quand `show_discounts` est faux (jamais recalcule ici). */
@@ -173,6 +175,42 @@ export class QuoteDocumentsService {
     quote: QuoteForDocumentGeneration,
     issuedAt: string,
   ): Promise<RenderedDocumentForSend | null> {
+    return this.render(tenantId, quote, issuedAt, false);
+  }
+
+  /**
+   * Produit un apercu temporaire du brouillon avec un filigrane DRAFT sur
+   * chaque page. L objet est remplace a chaque demande et n entre jamais
+   * dans la table des documents definitifs.
+   */
+  async createDraftPreview(
+    tenantId: TenantId,
+    quote: QuoteForDocumentGeneration,
+    generatedAt: string,
+  ): Promise<QuoteDocumentPreviewDto> {
+    const rendered = await this.render(tenantId, quote, generatedAt, true);
+    if (!rendered) throw new QuoteDocumentTemplateMissingError();
+
+    try {
+      return await this.repository.storePreview(tenantId, {
+        quoteId: quote.id,
+        templateId: rendered.templateId,
+        bytes: rendered.bytes,
+        pageCount: rendered.pageCount,
+        generatedAt: rendered.generatedAt,
+      });
+    } catch (cause) {
+      if (cause instanceof QuoteDocumentGenerationFailedError) throw cause;
+      throw new QuoteDocumentGenerationFailedError(cause instanceof Error ? cause.message : String(cause));
+    }
+  }
+
+  private async render(
+    tenantId: TenantId,
+    quote: QuoteForDocumentGeneration,
+    issuedAt: string,
+    draftWatermark: boolean,
+  ): Promise<RenderedDocumentForSend | null> {
     try {
       // qa-review (non bloquant, corrige avec B3) : cet appel vivait
       // AUPARAVANT hors du `try` — une erreur SQL (panne transitoire,
@@ -198,6 +236,7 @@ export class QuoteDocumentsService {
         linesBlock: eligible.linesBlock,
         fieldValues,
         lineValues,
+        draftWatermark,
       });
 
       return {

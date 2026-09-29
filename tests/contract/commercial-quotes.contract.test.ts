@@ -516,13 +516,16 @@ describe('module Devis commerciaux (E10.9) contre le contrat — lignes et audit
 
   it('CA1, addLine elargi — ligne LIBRE : sale_price demarre sur customer_price, aucune remise', async () => {
     const { quote } = await createDraftQuote();
-    const response = await addFreeLine(quote.id);
+    const response = await addFreeLine(quote.id, {
+      description_html: '<p><strong>Flyer premium</strong><br>Livraison incluse</p>',
+    });
     await expectContract(response, { status: 201, dataSchema: 'QuoteLine' });
     expect(response.headers.get('etag')).toBeTruthy();
     const { data: line } = (await response.json()) as { data: QuoteLineDto };
 
     expect(line.origin).toBe('free');
     expect(line.project_item_id).toBeNull();
+    expect(line.description_html).toBe('<p><strong>Flyer premium</strong><br>Livraison incluse</p>');
     expect(line.production_price).toBe('50.00');
     expect(line.public_price).toBe('50.00'); // aucune regle/marge active -> 0.0000
     expect(line.customer_price).toBe('50.00');
@@ -530,6 +533,30 @@ describe('module Devis commerciaux (E10.9) contre le contrat — lignes et audit
     expect(line.discount_rate).toBe('0.0000');
     expect(line.margin_variation).toBe('0.0000');
     expect(line.warnings).toEqual([]);
+  });
+
+  it('description HTML — modifiable seule sur un brouillon et HTML actif refuse', async () => {
+    const { quote } = await createDraftQuote();
+    const added = await addFreeLine(quote.id);
+    const { data: line } = (await added.json()) as { data: QuoteLineDto };
+    const etag = (await call(`/api/v1/quotes/${quote.id}/lines/${line.id}`, { headers: asUser })).headers.get(
+      'etag',
+    )!;
+
+    const patched = await call(`/api/v1/quotes/${quote.id}/lines/${line.id}`, {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': etag },
+      body: JSON.stringify({ description_html: '<p>Impression <em>recto verso</em></p>' }),
+    });
+    await expectContract(patched, { status: 200, dataSchema: 'QuoteLine' });
+    expect(((await patched.json()) as { data: QuoteLineDto }).data.description_html).toBe(
+      '<p>Impression <em>recto verso</em></p>',
+    );
+
+    const invalid = await addFreeLine(quote.id, {
+      description_html: '<img src=x onerror=alert(1)>',
+    });
+    await expectContract(invalid, { status: 422 });
   });
 
   it('addLine elargi — ligne LIEE a un chiffrage : reprend label/production_price, quantite differente alerte production_cost_stale', async () => {

@@ -11,5 +11,10 @@ export const HOPSTUDIO_STYLESHEET_URL = `${HOPSTUDIO_ASSET_ROOT}css/sugarcrepeHL
 
 export type HopeStudioBrowserChat = {
   session?: Readonly<Record<string, unknown>>;
+  initSession?: (sessionId: string) => Promise<unknown> | void;
   sendMessage?: (message: string) => Promise<unknown>;
+  getCardClearResume?: (card: unknown) => unknown;
+  getCardSvgs?: (card: unknown, callback: (data: unknown) => void) => unknown;
+  getDesignerSVG?: (svg: string) => unknown;
+  getPrinterSVG?: (svg: string) => unknown;
 };

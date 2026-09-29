@@ -199,6 +199,7 @@ export type PricedQuoteLineWrite = Readonly<{
   origin: 'project_item' | 'free';
   projectItemId: string | null;
   label: string;
+  descriptionHtml: string | null;
   productConfig: Readonly<Record<string, unknown>>;
   quantity: number;
   chiffrageQuantity: number | null;
@@ -216,6 +217,7 @@ export type PricedQuoteLineWrite = Readonly<{
 
 /** Champs persistes modifies par un `updateQuoteLine` (deja calcules par le service). */
 export type QuoteLineWriteUpdate = Readonly<{
+  descriptionHtml?: string | null;
   quantity?: number;
   salePrice?: string;
   saleMarginRate?: string | null;

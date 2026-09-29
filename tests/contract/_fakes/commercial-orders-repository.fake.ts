@@ -318,6 +318,7 @@ export class InMemoryCommercialOrdersRepository implements CommercialOrdersRepos
       source_quote_line_id: line.id,
       origin: line.origin,
       label: line.label,
+      description_html: line.description_html,
       product_config: line.product_config,
       quantity: line.quantity,
       position: line.position,

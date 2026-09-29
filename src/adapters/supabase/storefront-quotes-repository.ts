@@ -169,6 +169,7 @@ function toStorefrontQuoteLineDto(row: Record<string, unknown>): StorefrontQuote
   return {
     id: row.id as string,
     label: row.label as string,
+    description_html: (row.description_html as string | null) ?? null,
     product_config: (row.product_config as Record<string, unknown>) ?? {},
     quantity: Number(row.quantity),
     position: Number(row.position),

@@ -46,6 +46,7 @@ import type { OrderUploadLinksService } from '../../modules/order-upload-links/a
 import type { NotificationTemplatesService } from '../../modules/notifications/application/notification-templates-service.ts';
 import type { NotificationLogsService } from '../../modules/notifications/application/notification-logs-service.ts';
 import type { OrderExportsService } from '../../modules/order-exports/application/order-exports-service.ts';
+import type { CommercialLineFilesService } from '../../modules/commercial-line-files/application/commercial-line-files-service.ts';
 import { createCustomersRoutes } from './customers-routes.ts';
 import { createCustomerShopAccessRoutes } from './customer-shop-access-routes.ts';
 import { createProjectsRoutes } from './projects-routes.ts';
@@ -63,6 +64,7 @@ import { createOrderUploadLinksRoutes } from './order-upload-links-routes.ts';
 import { createNotificationTemplatesRoutes } from './notification-templates-routes.ts';
 import { createNotificationLogsRoutes } from './notification-logs-routes.ts';
 import { createOrderExportsRoutes } from './order-exports-routes.ts';
+import { createCommercialLineFilesRoutes } from './commercial-line-files-routes.ts';
 import type { GescomRoute } from './gescom-middleware.ts';
 
 /**
@@ -106,6 +108,8 @@ export type GescomServices = Readonly<{
   notificationLogs: NotificationLogsService;
   /** E10.18c — registre et demande d export comptable des commandes (CSV/XLSX). */
   orderExports: OrderExportsService;
+  /** Pièces jointes typées portées par les lignes projet, devis et commande. */
+  commercialLineFiles: CommercialLineFilesService;
 }>;
 
 /**
@@ -119,6 +123,7 @@ export function gescomRoutes(services: GescomServices): readonly GescomRoute[] {
     ...createCustomersRoutes(services.customers),
     ...createCustomerShopAccessRoutes(services.customers, services.customerShopAccess),
     ...createProjectsRoutes(services.projects),
+    ...createCommercialLineFilesRoutes(services.commercialLineFiles),
     ...createProjectTagsRoutes(services.projectTags),
     ...createCommercialQuotesRoutes(services.commercialQuotes),
     ...createPriceRulesRoutes(services.priceRules),
@@ -168,6 +173,7 @@ export const GESCOM_ROUTES: readonly GescomRoute[] = Object.freeze(
     notificationTemplates: createNullService('NotificationTemplatesService'),
     notificationLogs: createNullService('NotificationLogsService'),
     orderExports: createNullService('OrderExportsService'),
+    commercialLineFiles: createNullService('CommercialLineFilesService'),
   }),
 );
 

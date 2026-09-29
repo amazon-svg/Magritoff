@@ -22,6 +22,7 @@ import {
   removeProjectItemResultSchema,
   replaceProjectTagsCommandSchema,
   updateProjectCommandSchema,
+  updateProjectItemCommandSchema,
   type ProjectDetailDto,
   type ProjectDto,
 } from '../../modules/projects/api/contracts.ts';
@@ -156,6 +157,25 @@ export function createProjectsRoutes(service: ProjectsService): readonly GescomR
     }),
 
     defineGescomRoute({
+      method: 'GET',
+      path: '/projects/{projectId}/items/{itemId}',
+      operationId: 'getProjectItem',
+      requiredScopes: ['projects:read'],
+      inputSchema: null,
+      dataSchema: projectItemSchema,
+      async handle(context) {
+        return withDomainErrors(async () => {
+          const item = await service.getItem(
+            context.tenantId,
+            context.params['projectId']!,
+            context.params['itemId']!,
+          );
+          return { status: 200, data: item, etag: await computeEntityTag(item) };
+        });
+      },
+    }),
+
+    defineGescomRoute({
       method: 'PATCH',
       path: '/projects/{projectId}',
       operationId: 'updateProject',
@@ -204,6 +224,30 @@ export function createProjectsRoutes(service: ProjectsService): readonly GescomR
           status: 201,
           data: await service.importHopeStudioBasketItem(context.tenantId, context.params['projectId']!, input),
         }));
+      },
+    }),
+
+    defineGescomRoute({
+      method: 'PATCH',
+      path: '/projects/{projectId}/items/{itemId}',
+      operationId: 'updateProjectItem',
+      authentication: 'user',
+      inputSchema: updateProjectItemCommandSchema,
+      dataSchema: projectItemSchema,
+      async handle(context, input) {
+        return withDomainErrors(async () => {
+          const projectId = context.params['projectId']!;
+          const itemId = context.params['itemId']!;
+          const current = await service.getItem(context.tenantId, projectId, itemId);
+          assertPrecondition(context.ifMatch, await computeEntityTag(current), current);
+          const updated = await service.updateItem(
+            context.tenantId,
+            projectId,
+            itemId,
+            input,
+          );
+          return { status: 200, data: updated, etag: await computeEntityTag(updated) };
+        });
       },
     }),
 
@@ -282,8 +326,12 @@ async function withDomainErrors<T>(operation: () => Promise<T>): Promise<T> {
       throw problem({ status: 404, title: 'Projet introuvable', code: SHARED_PROBLEM_CODES.notFound });
     }
     if (error instanceof ProjectCommandRejectedError) {
+      const status = error.code === 'project.hopstudio_session_already_assigned' ||
+        error.code === 'project.hopstudio_session_locked'
+        ? 409
+        : 422;
       throw problem({
-        status: 422,
+        status,
         title: 'Commande refusee',
         code: error.code,
         detail: error.message,
