@@ -10,6 +10,7 @@ import { createPostgresPool } from '../../src/adapters/postgres/pool.ts';
 import { PostgresSessionBootstrapRepository } from '../../src/adapters/postgres/session-bootstrap-repository.ts';
 import { PostgresTransactionRunner } from '../../src/adapters/postgres/transaction-runner.ts';
 import { SessionPreferencesService } from '../../src/modules/session/application/session-service.ts';
+import { SessionTenantMutationError } from '../../src/modules/session/application/session-repository.ts';
 import { createApiV1Application } from '../../src/server/api/composition.ts';
 import { createSessionBootstrapRoute, createSessionPreferencesRoutes } from '../../src/server/api/session-routes.ts';
 import { createLocalAuthentication } from '../../src/server/auth/local-authentication.ts';
@@ -171,5 +172,82 @@ describeIntegration('Better Auth local — PostgreSQL reel', () => {
     } finally {
       await pool.query('delete from public.tenants where id = $1', [secondTenantId]);
     }
+  });
+
+  it('protege le slug et conserve son historique pendant les mutations tenant', async () => {
+    const repository = new PostgresSessionBootstrapRepository(
+      new PostgresTransactionRunner(pool, 'magrit_api'),
+    );
+    const original = await pool.query<{ name: string; slug: string }>(
+      'select name, slug from public.tenants where id = $1',
+      [seed.tenantId],
+    );
+    const originalTenant = original.rows[0];
+    expect(originalTenant).toBeDefined();
+    const nextSlug = `migration-${randomUUID().slice(0, 8)}`;
+
+    await pool.query(`
+      insert into public.user_preferences (user_id, is_admin)
+      values ($1, false)
+      on conflict (user_id) do update set is_admin = false
+    `, [seed.userId]);
+
+    try {
+      await repository.updateTenantSettings(seed.userId as never, seed.tenantId, {
+        name: 'Atelier PostgreSQL',
+      });
+      await expect(pool.query(
+        'select name from public.tenants where id = $1',
+        [seed.tenantId],
+      )).resolves.toMatchObject({ rows: [{ name: 'Atelier PostgreSQL' }] });
+
+      await expect(repository.updateTenantSettings(seed.userId as never, seed.tenantId, {
+        slug: nextSlug,
+      })).rejects.toMatchObject<Partial<SessionTenantMutationError>>({ code: 'permission_denied' });
+
+      await pool.query(
+        'update public.user_preferences set is_admin = true where user_id = $1',
+        [seed.userId],
+      );
+      await repository.updateTenantSettings(seed.userId as never, seed.tenantId, {
+        slug: nextSlug,
+      });
+      await expect(repository.resolveTenantSlug(seed.userId as never, originalTenant!.slug))
+        .resolves.toBe(nextSlug);
+    } finally {
+      await pool.query(
+        'update public.tenants set name = $2, slug = $3 where id = $1',
+        [seed.tenantId, originalTenant!.name, originalTenant!.slug],
+      );
+      await pool.query(
+        'update public.user_preferences set is_admin = false where user_id = $1',
+        [seed.userId],
+      );
+    }
+  });
+
+  it('borne les privileges SQL de mutation et d historique', async () => {
+    const privileges = await pool.query<{
+      api_can_update_tenants: boolean;
+      api_can_call_mutation: boolean;
+      readonly_can_read_history: boolean;
+    }>(`
+      select
+        has_table_privilege('magrit_api', 'public.tenants', 'UPDATE')
+          as api_can_update_tenants,
+        has_function_privilege(
+          'magrit_api',
+          'magrit.update_tenant_settings(uuid,text,text,text)',
+          'EXECUTE'
+        ) as api_can_call_mutation,
+        has_table_privilege('magrit_readonly', 'public.tenant_slug_history', 'SELECT')
+          as readonly_can_read_history
+    `);
+
+    expect(privileges.rows[0]).toEqual({
+      api_can_update_tenants: false,
+      api_can_call_mutation: true,
+      readonly_can_read_history: false,
+    });
   });
 });

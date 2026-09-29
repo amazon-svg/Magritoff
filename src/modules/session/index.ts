@@ -39,6 +39,7 @@ export {
   SessionBootstrapService,
   SessionPreferencesService,
   SessionService,
+  SessionTenantSettingsService,
   SessionTenantAccessDeniedError,
 } from './application/session-service';
 export type {
@@ -47,6 +48,7 @@ export type {
   SessionBootstrapRepository,
   SessionPreferencesRepository,
   SessionRepository,
+  SessionTenantSettingsRepository,
 } from './application/session-repository';
 export { SessionTenantMutationError } from './application/session-repository';
 export { SessionInvitationAcceptanceError } from './application/session-repository';

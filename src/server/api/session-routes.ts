@@ -21,6 +21,7 @@ import {
   type SessionBootstrapService,
   type SessionPreferencesService,
   type SessionService,
+  type SessionTenantSettingsService,
 } from '../../modules/session/application/session-service.ts';
 import { SessionInvitationAcceptanceError, SessionTenantMutationError } from '../../modules/session/application/session-repository.ts';
 import { API_V1_BASE_PATH } from '../../platform/api/contracts.ts';
@@ -29,10 +30,7 @@ import { defineJsonRoute, type ApiRequestContext, type ApiRoute } from './routes
 
 export function createSessionRoutes(service: SessionService): readonly ApiRoute[] {
   return [
-    defineJsonRoute({
-      method: 'GET', path: `${API_V1_BASE_PATH}/tenant-slugs/{slug}`, authentication: 'required', inputSchema: null, outputSchema: tenantSlugResolutionSchema,
-      async handle(context) { return { status: 200, body: await service.resolveTenantSlug(requireUserId(context), requireSlug(context)) }; },
-    }),
+    ...createSessionTenantSettingsRoutes(service),
     defineJsonRoute({
       method: 'POST', path: `${API_V1_BASE_PATH}/tenants`, authentication: 'required', inputSchema: createRootTenantSchema, outputSchema: createRootTenantResultSchema,
       async handle(context, command) {
@@ -64,20 +62,6 @@ export function createSessionRoutes(service: SessionService): readonly ApiRoute[
     }),
     createSessionBootstrapRoute(service),
     ...createSessionPreferencesRoutes(service),
-    defineJsonRoute({
-      method: 'PATCH',
-      path: `${API_V1_BASE_PATH}/tenants/{tenantId}`,
-      authentication: 'required',
-      inputSchema: updateTenantSettingsSchema,
-      outputSchema: tenantMutationResultSchema,
-      async handle(context, patch) {
-        try {
-          return { status: 200, body: await service.updateTenantSettings(requireUserId(context), requireTenantId(context), patch) };
-        } catch (error) {
-          throwTenantMutation(error);
-        }
-      },
-    }),
     defineJsonRoute({
       method: 'GET',
       path: `${API_V1_BASE_PATH}/tenants/{tenantId}/subtenants`,
@@ -177,6 +161,47 @@ export function createSessionPreferencesRoutes(
             });
           }
           throw error;
+        }
+      },
+    }),
+  ];
+}
+
+export function createSessionTenantSettingsRoutes(
+  service: Pick<SessionTenantSettingsService, 'resolveTenantSlug' | 'updateTenantSettings'>,
+): readonly ApiRoute[] {
+  return [
+    defineJsonRoute({
+      method: 'GET',
+      path: `${API_V1_BASE_PATH}/tenant-slugs/{slug}`,
+      authentication: 'required',
+      inputSchema: null,
+      outputSchema: tenantSlugResolutionSchema,
+      async handle(context) {
+        return {
+          status: 200,
+          body: await service.resolveTenantSlug(requireUserId(context), requireSlug(context)),
+        };
+      },
+    }),
+    defineJsonRoute({
+      method: 'PATCH',
+      path: `${API_V1_BASE_PATH}/tenants/{tenantId}`,
+      authentication: 'required',
+      inputSchema: updateTenantSettingsSchema,
+      outputSchema: tenantMutationResultSchema,
+      async handle(context, patch) {
+        try {
+          return {
+            status: 200,
+            body: await service.updateTenantSettings(
+              requireUserId(context),
+              requireTenantId(context),
+              patch,
+            ),
+          };
+        } catch (error) {
+          throwTenantMutation(error);
         }
       },
     }),

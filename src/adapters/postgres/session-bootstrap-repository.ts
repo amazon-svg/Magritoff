@@ -1,11 +1,19 @@
 import type { UserId } from '../../kernel/ids/index.ts';
-import type { SessionUserPreferences } from '../../modules/session/api/contracts.ts';
 import type {
-  DirectMembership,
-  SessionPreferencesRepository,
+  SessionUserPreferences,
+  UpdateTenantSettings,
+} from '../../modules/session/api/contracts.ts';
+import {
+  SessionTenantMutationError,
+  type DirectMembership,
+  type SessionTenantSettingsRepository,
 } from '../../modules/session/application/session-repository.ts';
 import type { PostgresTransactionRunner } from './transaction-runner.ts';
 
+/*
+ * Cet adaptateur grandit par tranches avec les routes de session migrees.
+ * Il restera partiel tant que les invitations et sous-espaces sont relayes.
+ */
 type MembershipRow = Readonly<{
   id: string;
   slug: string;
@@ -28,7 +36,7 @@ type PreferencesRow = Readonly<{
   last_tenant_id: string | null;
 }>;
 
-export class PostgresSessionBootstrapRepository implements SessionPreferencesRepository {
+export class PostgresSessionBootstrapRepository implements SessionTenantSettingsRepository {
   constructor(private readonly transactions: PostgresTransactionRunner) {}
 
   async autoAcceptPendingInvitations(): Promise<void> {
@@ -87,7 +95,7 @@ export class PostgresSessionBootstrapRepository implements SessionPreferencesRep
     });
   }
 
-  updatePreferences(userId: UserId, patch: Parameters<SessionPreferencesRepository['updatePreferences']>[1]) {
+  updatePreferences(userId: UserId, patch: Parameters<SessionTenantSettingsRepository['updatePreferences']>[1]) {
     return this.transactions.run({ userId }, async (client) => {
       const result = await client.query<PreferencesRow>(`
         insert into public.user_preferences (
@@ -132,6 +140,55 @@ export class PostgresSessionBootstrapRepository implements SessionPreferencesRep
       return mapPreferences(requiredRow(result.rows));
     });
   }
+
+  resolveTenantSlug(userId: UserId, slug: string): Promise<string | null> {
+    return this.transactions.run({ userId }, async (client) => {
+      const result = await client.query<{ slug: string | null }>(`
+        select coalesce(
+          (select t.slug from public.tenants t where t.slug = $1),
+          (
+            select t.slug
+              from public.tenant_slug_history h
+              join public.tenants t on t.id = h.tenant_id
+             where h.old_slug = $1
+               and h.expires_at > now()
+             order by h.changed_at desc
+             limit 1
+          )
+        ) as slug
+      `, [slug]);
+      return result.rows[0]?.slug ?? null;
+    });
+  }
+
+  async updateTenantSettings(
+    userId: UserId,
+    tenantId: string,
+    patch: UpdateTenantSettings,
+  ): Promise<void> {
+    try {
+      const updated = await this.transactions.run({ userId }, async (client) => {
+        const result = await client.query<{ updated: boolean }>(`
+          select magrit.update_tenant_settings($1, $2, $3, $4) as updated
+        `, [
+          tenantId,
+          patch.name ?? null,
+          patch.slug ?? null,
+          patch.plan ?? null,
+        ]);
+        return result.rows[0]?.updated === true;
+      });
+      if (!updated) {
+        throw new SessionTenantMutationError(
+          'permission_denied',
+          'Espace introuvable ou modification interdite.',
+        );
+      }
+    } catch (error) {
+      if (error instanceof SessionTenantMutationError) throw error;
+      throw mapTenantMutationError(error);
+    }
+  }
 }
 
 function mapTenant(row: MembershipRow) {
@@ -173,4 +230,15 @@ function mapPreferences(row: PreferencesRow): SessionUserPreferences {
     is_admin: row.is_admin,
     last_tenant_id: row.last_tenant_id,
   };
+}
+
+function mapTenantMutationError(error: unknown): SessionTenantMutationError {
+  const candidate = error as { code?: unknown; message?: unknown };
+  const message = typeof candidate.message === 'string'
+    ? candidate.message
+    : 'Modification du tenant impossible.';
+  return new SessionTenantMutationError(
+    candidate.code === '23505' ? 'conflict' : 'permission_denied',
+    message,
+  );
 }

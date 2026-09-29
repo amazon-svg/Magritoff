@@ -45,9 +45,12 @@ export interface SessionPreferencesRepository extends SessionBootstrapRepository
   updateLastTenant(userId: UserId, tenantId: string): Promise<Partial<SessionUserPreferences>>;
 }
 
-export interface SessionRepository extends SessionPreferencesRepository {
+export interface SessionTenantSettingsRepository extends SessionPreferencesRepository {
   resolveTenantSlug(userId: UserId, slug: string): Promise<string | null>;
   updateTenantSettings(userId: UserId, tenantId: string, patch: UpdateTenantSettings): Promise<void>;
+}
+
+export interface SessionRepository extends SessionTenantSettingsRepository {
   subTenantsDashboard(userId: UserId, parentTenantId: string): Promise<SubTenantsDashboard>;
   createSubTenant(userId: UserId, parentTenantId: string, command: CreateSubTenant): Promise<string>;
   removeSubTenant(userId: UserId, parentTenantId: string, subTenantId: string): Promise<void>;

@@ -13,6 +13,7 @@ import type {
   SessionBootstrapRepository,
   SessionPreferencesRepository,
   SessionRepository,
+  SessionTenantSettingsRepository,
 } from './session-repository.ts';
 
 export const DEFAULT_SESSION_PREFERENCES: SessionUserPreferences = Object.freeze({
@@ -92,15 +93,23 @@ export class SessionPreferencesService extends SessionBootstrapService {
   }
 }
 
-export class SessionService extends SessionPreferencesService {
-  constructor(private readonly repository: SessionRepository) { super(repository); }
+export class SessionTenantSettingsService extends SessionPreferencesService {
+  constructor(protected readonly tenantSettingsRepository: SessionTenantSettingsRepository) {
+    super(tenantSettingsRepository);
+  }
 
-  async resolveTenantSlug(userId: UserId, slug: string) { return { slug: await this.repository.resolveTenantSlug(userId, slug) }; }
+  async resolveTenantSlug(userId: UserId, slug: string) {
+    return { slug: await this.tenantSettingsRepository.resolveTenantSlug(userId, slug) };
+  }
 
   async updateTenantSettings(userId: UserId, tenantId: string, patch: UpdateTenantSettings) {
-    await this.repository.updateTenantSettings(userId, tenantId, patch);
+    await this.tenantSettingsRepository.updateTenantSettings(userId, tenantId, patch);
     return { updated: true as const };
   }
+}
+
+export class SessionService extends SessionTenantSettingsService {
+  constructor(private readonly repository: SessionRepository) { super(repository); }
   subTenantsDashboard(userId: UserId, parentTenantId: string) { return this.repository.subTenantsDashboard(userId, parentTenantId); }
   async createSubTenant(userId: UserId, parentTenantId: string, command: CreateSubTenant) { return { tenantId: await this.repository.createSubTenant(userId, parentTenantId, command) }; }
   async removeSubTenant(userId: UserId, parentTenantId: string, subTenantId: string) { await this.repository.removeSubTenant(userId, parentTenantId, subTenantId); return { removed: true as const }; }

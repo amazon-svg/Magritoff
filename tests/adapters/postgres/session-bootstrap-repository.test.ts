@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { PostgresSessionBootstrapRepository } from '../../../src/adapters/postgres/session-bootstrap-repository.ts';
+import { SessionTenantMutationError } from '../../../src/modules/session/application/session-repository.ts';
 
 describe('PostgresSessionBootstrapRepository', () => {
   it('traduit les roles PostgreSQL sans exposer les variantes internes', async () => {
@@ -72,5 +73,28 @@ describe('PostgresSessionBootstrapRepository', () => {
     await expect(repository.updateLastTenant('user-1' as never, 'tenant-1'))
       .resolves.toMatchObject({ last_tenant_id: 'tenant-1' });
     expect(run).toHaveBeenCalledWith({ userId: 'user-1' }, expect.any(Function));
+  });
+
+  it('resout un slug courant ou historique', async () => {
+    const query = vi.fn().mockResolvedValue({ rows: [{ slug: 'nouvel-atelier' }] });
+    const run = vi.fn(async (_context, operation) => operation({ query }));
+    const repository = new PostgresSessionBootstrapRepository({ run } as never);
+
+    await expect(repository.resolveTenantSlug('user-1' as never, 'ancien-atelier'))
+      .resolves.toBe('nouvel-atelier');
+    expect(run).toHaveBeenCalledWith({ userId: 'user-1' }, expect.any(Function));
+  });
+
+  it('traduit un conflit de slug PostgreSQL', async () => {
+    const run = vi.fn(async (_context, operation) => operation({
+      query: vi.fn().mockRejectedValue(Object.assign(new Error('duplicate'), { code: '23505' })),
+    }));
+    const repository = new PostgresSessionBootstrapRepository({ run } as never);
+
+    await expect(repository.updateTenantSettings(
+      'user-1' as never,
+      'tenant-1',
+      { slug: 'slug-utilise' },
+    )).rejects.toMatchObject<Partial<SessionTenantMutationError>>({ code: 'conflict' });
   });
 });

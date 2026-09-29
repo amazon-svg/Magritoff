@@ -1,7 +1,11 @@
 import { createApiV1Application } from '../api/composition.ts';
 import { createConversationsRoutes } from '../api/conversations-routes.ts';
 import { createReadinessRoute } from '../api/readiness-route.ts';
-import { createSessionBootstrapRoute, createSessionPreferencesRoutes } from '../api/session-routes.ts';
+import {
+  createSessionBootstrapRoute,
+  createSessionPreferencesRoutes,
+  createSessionTenantSettingsRoutes,
+} from '../api/session-routes.ts';
 import { OidcJwtVerifier } from '../../adapters/oidc/jwt-verifier.ts';
 import { PostgresConversationsRepository } from '../../adapters/postgres/conversations-repository.ts';
 import { PostgresOidcIdentityDirectory } from '../../adapters/postgres/oidc-identity-directory.ts';
@@ -10,7 +14,7 @@ import { PostgresReadinessProbe } from '../../adapters/postgres/readiness-probe.
 import { PostgresSessionBootstrapRepository } from '../../adapters/postgres/session-bootstrap-repository.ts';
 import { PostgresTransactionRunner } from '../../adapters/postgres/transaction-runner.ts';
 import { ConversationsService } from '../../modules/conversations/application/conversations-service.ts';
-import { SessionPreferencesService } from '../../modules/session/application/session-service.ts';
+import { SessionTenantSettingsService } from '../../modules/session/application/session-service.ts';
 import { createLocalAuthentication, readLocalAuthenticationConfiguration } from '../auth/local-authentication.ts';
 import { CredentialActorResolver, LocalSessionActorResolver } from '../auth/local-session-actor-resolver.ts';
 import { OidcActorResolver } from '../auth/oidc-actor-resolver.ts';
@@ -49,9 +53,13 @@ const sessionEnabled = actorResolver !== undefined;
 const sessionRepository = new PostgresSessionBootstrapRepository(
   new PostgresTransactionRunner(postgresPool, 'magrit_api'),
 );
-const sessionService = new SessionPreferencesService(sessionRepository);
+const sessionService = new SessionTenantSettingsService(sessionRepository);
 const sessionRoutes = sessionEnabled
-  ? [createSessionBootstrapRoute(sessionService), ...createSessionPreferencesRoutes(sessionService)]
+  ? [
+      createSessionBootstrapRoute(sessionService),
+      ...createSessionPreferencesRoutes(sessionService),
+      ...createSessionTenantSettingsRoutes(sessionService),
+    ]
   : [];
 const apiHandler = createApiV1Application({
   routes: [
@@ -77,6 +85,7 @@ const handler = createTransitionalApiHandler({
     (conversationsEnabled && isConversationsPath(url.pathname))
     || (localAuthentication !== null && isLocalAuthenticationPath(url.pathname))
     || (sessionEnabled && isSessionPreferencesRequest(request.method, url.pathname))
+    || (sessionEnabled && isSessionTenantSettingsRequest(request.method, url.pathname))
   ),
   ...(legacyApiUrl === undefined ? {} : { legacyApiUrl }),
 });
@@ -136,4 +145,9 @@ function isSessionPreferencesRequest(method: string, pathname: string): boolean 
   return (method === 'GET' && pathname === '/api/v1/session')
     || (method === 'PATCH' && pathname === '/api/v1/session/preferences')
     || (method === 'PUT' && pathname === '/api/v1/session/current-tenant');
+}
+
+function isSessionTenantSettingsRequest(method: string, pathname: string): boolean {
+  return (method === 'GET' && /^\/api\/v1\/tenant-slugs\/[^/]+\/?$/.test(pathname))
+    || (method === 'PATCH' && /^\/api\/v1\/tenants\/[^/]+\/?$/.test(pathname));
 }
