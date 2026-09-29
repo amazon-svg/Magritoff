@@ -25,8 +25,13 @@ pnpm infra:dev:env
 
 Il démarre PostgreSQL 17, un serveur S3-compatible SeaweedFS et Mailpit. Les
 ports par défaut sont respectivement `55432`, `58333`, `58025` pour l'interface
-Mailpit et `51025` pour SMTP. Les huit buckets attendus par Magrit sont créés
-automatiquement.
+Mailpit et `51025` pour SMTP. La commande applique aussi les migrations
+PostgreSQL portables et crée automatiquement les huit buckets attendus par
+Magrit.
+
+Les migrations peuvent être rejouées seules avec `pnpm db:migrate`. Elles sont
+transactionnelles, sérialisées par un verrou PostgreSQL et refusent toute
+modification d'un fichier déjà appliqué.
 
 ```bash
 pnpm infra:dev:status

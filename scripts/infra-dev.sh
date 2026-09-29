@@ -10,6 +10,7 @@ cd "$MAGRIT_PROJECT_ROOT"
 case "${1:-}" in
   up)
     "${MAGRIT_COMPOSE[@]}" up -d --wait --wait-timeout 60 postgres s3 mail
+    node scripts/db/migrate.mjs
     node scripts/infra/ensure-s3-buckets.mjs
     "${MAGRIT_COMPOSE[@]}" ps
     ;;
@@ -27,6 +28,7 @@ case "${1:-}" in
     ;;
   env)
     echo 'DATABASE_URL=postgresql://magrit:magrit-local-only@127.0.0.1:55432/magrit'
+    echo 'MAGRIT_DATABASE_MIGRATION_URL=postgresql://magrit:magrit-local-only@127.0.0.1:55432/magrit'
     echo 'S3_ENDPOINT=http://127.0.0.1:58333'
     echo 'S3_REGION=us-east-1'
     echo 'S3_ACCESS_KEY_ID=magrit-local'
