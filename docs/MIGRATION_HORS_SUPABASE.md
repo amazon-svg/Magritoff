@@ -14,7 +14,7 @@ Decision formelle : `docs/architecture/decisions/0001-sortie-de-supabase.md`.
 | J2 | runtime Node, health/readiness et facade de transition livres |
 | J3 | contexte transactionnel, roles et repository Conversations PostgreSQL livres |
 | J4 | adaptateur S3 des exports et buckets locaux livres ; bascule non activee |
-| J5 | verificateur JWT/OIDC standard livre ; mapping identite et auth locale restent a faire |
+| J5 | verificateur JWT/OIDC, annuaire `issuer/subject` et activation controlee de Conversations livres ; auth locale reste a faire |
 | J6 et suivants | non demarres |
 
 ## 1. Decision proposee
@@ -258,6 +258,23 @@ MAIL_PORT=
 ```
 
 Les secrets de fournisseurs OIDC ne sont jamais exposes a Vite.
+
+Le runtime Node active le module Conversations hors Supabase uniquement si les
+trois variables suivantes sont presentes. Une configuration partielle fait
+echouer le demarrage ; une configuration absente conserve le relais vers l'API
+historique :
+
+```text
+MAGRIT_OIDC_ISSUER=https://identity.client.example
+MAGRIT_OIDC_AUDIENCE=magrit-client-shop
+MAGRIT_OIDC_JWKS_URL=https://identity.client.example/.well-known/jwks.json
+MAGRIT_OIDC_ALGORITHMS=RS256
+```
+
+Le jeton ne contient pas l'identifiant applicatif faisant autorite. Le serveur
+verifie sa signature, traduit `(issuer, subject)` via `user_identities`, puis
+controle `tenant_members` avant d'injecter `user_id` et `tenant_id` dans la
+transaction PostgreSQL soumise a la RLS.
 
 ## 7. Identite et authentification
 

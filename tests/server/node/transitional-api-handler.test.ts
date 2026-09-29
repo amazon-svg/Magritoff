@@ -16,6 +16,23 @@ describe('facade API Node de transition', () => {
     expect(legacyFetch).not.toHaveBeenCalled();
   });
 
+  it('permet d activer localement une famille de routes sans intercepter les autres', async () => {
+    const legacyFetch = vi.fn(async () => Response.json({ status: 'legacy' }));
+    const handler = createTransitionalApiHandler({
+      localHandler: async () => Response.json({ status: 'local' }),
+      legacyApiUrl: 'https://legacy.example',
+      fetch: legacyFetch,
+      isLocalRequest: (_request, url) => /^\/api\/v1\/tenants\/[^/]+\/conversations/.test(url.pathname),
+    });
+
+    const local = await handler(new Request('http://node.local/api/v1/tenants/t1/conversations'));
+    const legacy = await handler(new Request('http://node.local/api/v1/tenants/t1/orders'));
+
+    await expect(local.json()).resolves.toEqual({ status: 'local' });
+    await expect(legacy.json()).resolves.toEqual({ status: 'legacy' });
+    expect(legacyFetch).toHaveBeenCalledTimes(1);
+  });
+
   it('relaie methode, chemin, query, autorisation et corps des routes restantes', async () => {
     const legacyFetch = vi.fn(async (request: Request) => Response.json({
       url: request.url,

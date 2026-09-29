@@ -19,14 +19,27 @@ describeIntegration('PostgresConversationsRepository — PostgreSQL reel', () =>
   const tenantB = randomUUID();
   const conversationId = `integration-${randomUUID()}`;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     pool = createPostgresPool();
     repository = new PostgresConversationsRepository(new PostgresTransactionRunner(pool, 'magrit_api'));
+    await pool.query(`
+      insert into public.app_users (id, email_normalized, display_name)
+      values ($1, $2, 'Integration A'), ($3, $4, 'Integration B')
+    `, [
+      actorA, `integration-${actorA}@example.invalid`,
+      actorB, `integration-${actorB}@example.invalid`,
+    ]);
+    await pool.query(`
+      insert into public.tenants (id, slug, name)
+      values ($1, $2, 'Integration A'), ($3, $4, 'Integration B')
+    `, [tenantA, `integration-${tenantA}`, tenantB, `integration-${tenantB}`]);
   });
 
   afterAll(async () => {
     if (!pool) return;
     await pool.query('delete from public.conversations where id = $1', [conversationId]);
+    await pool.query('delete from public.tenants where id = any($1::uuid[])', [[tenantA, tenantB]]);
+    await pool.query('delete from public.app_users where id = any($1::uuid[])', [[actorA, actorB]]);
     await pool.end();
   });
 

@@ -5,6 +5,7 @@ export type TransitionalApiHandlerOptions = Readonly<{
   legacyApiUrl?: string;
   fetch?: typeof globalThis.fetch;
   localPaths?: ReadonlySet<string>;
+  isLocalRequest?: (request: Request, url: URL) => boolean;
 }>;
 
 const DEFAULT_LOCAL_PATHS: ReadonlySet<string> = new Set(['/api/v1/health']);
@@ -24,7 +25,9 @@ export function createTransitionalApiHandler(options: TransitionalApiHandlerOpti
 
   return async (request) => {
     const sourceUrl = new URL(request.url);
-    if (localPaths.has(sourceUrl.pathname)) return options.localHandler(request);
+    if (localPaths.has(sourceUrl.pathname) || options.isLocalRequest?.(request, sourceUrl) === true) {
+      return options.localHandler(request);
+    }
 
     if (legacyApiUrl === null) {
       return problem(503, 'API en cours de migration', 'api.route_not_migrated');
