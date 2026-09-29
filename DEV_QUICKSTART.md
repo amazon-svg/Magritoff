@@ -50,6 +50,7 @@ compositions, se lance séparément :
 ```bash
 pnpm api:dev
 curl http://127.0.0.1:8787/api/v1/health
+curl http://127.0.0.1:8787/api/v1/readiness # vérifie réellement PostgreSQL
 ```
 
 Pour faire du serveur Node le point d'entrée pendant la migration, définir
