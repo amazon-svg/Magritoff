@@ -4,6 +4,8 @@
 >
 > Aucune nouvelle arborescence canonique ne sera créée avant validation de l'audit de correspondance avec les artefacts existants (`quality/specs`, `docs/spec`, `_bmad-output`, PRD historiques, `REGLES_ARCHITECTURE.md`, `SPRINT_HANDOFF.md`). Cet audit permettra de décider si `project/` est réellement la bonne destination ou si la structure existante doit simplement être normalisée.
 
+Un premier audit reproductible est disponible dans `docs/governance-audit/`. Il recommande de normaliser l'existant avant de créer `project/` et propose E10.15 comme micro-pilote. Cet audit reste à valider avant le démarrage du pilote.
+
 ## Objet du document
 
 Ce document définit une organisation cible pour gérer dans Git la vision produit, les spécifications, le backlog, les user stories, les décisions, les sprints et les preuves de test de Magrit.
