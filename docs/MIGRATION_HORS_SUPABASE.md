@@ -1,9 +1,11 @@
 # Plan de migration hors Supabase
 
-> Statut : proposition d'architecture a valider
-> Date : 2026-09-25
+> Statut : decision acceptee, execution en cours
+> Date : 2026-09-29
 > Perimetre : API, PostgreSQL, authentification, stockage objet, traitements
 > asynchrones et environnement de developpement
+
+Decision formelle : `docs/architecture/decisions/0001-sortie-de-supabase.md`.
 
 ## 1. Decision proposee
 
@@ -109,41 +111,106 @@ L'API et le worker sont deux points d'entree du meme code applicatif. Ils
 partagent les modules, les contrats et les adaptateurs, mais pas leur cycle de
 vie d'execution.
 
-## 5. Environnement de developpement cible
+## 5. Serveurs et services externes necessaires
 
-### 5.1 Services locaux
+### 5.1 Socle obligatoire en production
+
+| Besoin | Service attendu | Remplacable | Remarque |
+|---|---|---|---|
+| Execution | hebergeur de conteneurs ou VM | oui | l'API et le worker peuvent partager un serveur au demarrage |
+| Donnees | PostgreSQL 17 manage | oui | connexion standard, sauvegardes et restauration testees |
+| Fichiers | stockage objet S3-compatible | oui | buckets prives, URL signees produites par l'API |
+| Emails | service SMTP/API transactionnel | oui | Resend aujourd'hui, adaptateur remplacable |
+| Exposition | DNS, certificats TLS et reverse proxy | oui | peut etre inclus dans l'hebergeur de calcul |
+
+Le front statique peut etre servi par le meme hebergeur que l'API ou par un
+CDN distinct. L'API et le worker peuvent partager la meme VM au debut : ce
+sont deux processus, pas necessairement deux fournisseurs.
+
+### 5.2 Capacites d'exploitation obligatoires
+
+Ces capacites peuvent etre integrees aux fournisseurs precedents et ne
+necessitent pas obligatoirement un service supplementaire :
+
+- sauvegardes PostgreSQL avec restauration ponctuelle et PITR selon l'offre ;
+- copie ou versionnement des objets S3 ;
+- destination de sauvegarde separee du compte principal ;
+- centralisation des logs, metriques et alertes de disponibilite ;
+- stockage et rotation des secrets ;
+- CI/CD pour construire, tester et deployer les conteneurs.
+
+### 5.3 Integrations metier
+
+| Integration | Necessite | Comportement sans le service |
+|---|---|---|
+| Clariprint | necessaire au prix reel | repli explicite vers le prix marche quand le parcours l'autorise |
+| fournisseur IA | un seul parmi Anthropic, OpenAI ou Mistral | fonctions d'assistant et de generation indisponibles |
+| HopeStudio | optionnel, configure par tenant | parcours HopeStudio indisponibles uniquement |
+| fournisseur OIDC client | optionnel, configure par boutique | authentification locale conservee si elle est autorisee |
+
+Notion, Figma et les outils de qualite ne sont pas des dependances runtime de
+Magrit. Supabase ne figure plus dans la cible.
+
+### 5.4 Authentification
+
+L'authentification locale avec Better Auth ou une bibliotheque equivalente ne
+necessite aucun serveur d'identite externe : elle utilise l'API Magrit et le
+PostgreSQL du socle. Un serveur OpenID Connect externe n'est requis que pour
+les boutiques dont le client impose sa propre identite.
+
+### 5.5 Cache distribue
+
+Redis ou un serveur compatible n'est pas requis dans le socle initial. Les
+sessions, outbox, files de travaux et verrous utilisent PostgreSQL ; les caches
+HTTP sont portes par le reverse proxy ou le CDN et les caches purement
+techniques peuvent rester locaux au processus. Ce composant ne sera ajoute que
+si des mesures en production montrent un besoin de coordination entre
+plusieurs instances ou une pression de latence que PostgreSQL ne couvre pas.
+
+## 6. Environnement de developpement cible
+
+### 6.1 Services locaux
 
 Un fichier Compose dedie au developpement doit demarrer au minimum :
 
 | Service | Image/cible | Usage |
 |---|---|---|
 | `postgres` | PostgreSQL 17, version epinglee | donnees, auth, outbox |
-| `s3` | MinIO, version epinglee | API S3 locale |
-| `s3-init` | client MinIO epingle | creation idempotente des buckets |
+| `s3` | SeaweedFS, version epinglee | API S3 locale |
+| initialisation S3 | script AWS SDK versionne | creation idempotente des buckets |
 | `mail` | Mailpit, optionnel mais recommande | emails d'invitation et de recuperation |
 
 L'API React/Node et le worker restent lances par `pnpm` afin de conserver le
 rechargement a chaud. Une variante Compose pourra les lancer pour les tests
 d'integration et la CI.
 
-### 5.2 Buckets locaux
+MinIO n'est pas retenu : son depot communautaire a ete archive en avril 2026
+et ses binaires historiques ne sont plus maintenus. Le choix local reste sans
+incidence sur la production, car Magrit ne depend que du contrat S3.
 
-Le service `s3-init` recree de maniere idempotente les buckets actuels :
+### 6.2 Buckets locaux
 
-- `commercial_order_files`, prive, 50 Mio ;
-- `document_pdf_templates`, prive, 10 Mio ;
-- `order_documents`, prive ;
-- `order_exports`, prive, 20 Mio ;
-- `product_mockups`, lecture publique ou facade CDN/API, 5 Mio ;
-- `quote_documents`, prive ;
-- `shop_backgrounds`, lecture publique ou facade CDN/API, 5 Mio ;
-- `shop_product_mockups`, lecture publique ou facade CDN/API, 5 Mio.
+Le script d'initialisation recree les buckets de maniere idempotente. Les noms
+Supabase historiques contiennent des `_`, interdits dans un nom de bucket S3.
+Le mapping logique vers le nom physique S3 est donc explicite et versionne dans
+`config/storage-buckets.json` :
+
+| Bucket logique actuel | Bucket physique S3 | Acces / limite actuelle |
+|---|---|---|
+| `commercial_order_files` | `commercial-order-files` | prive, 50 Mio |
+| `document_pdf_templates` | `document-pdf-templates` | prive, 10 Mio |
+| `order_documents` | `order-documents` | prive |
+| `order_exports` | `order-exports` | prive, 20 Mio |
+| `product_mockups` | `product-mockups` | public ou facade CDN/API, 5 Mio |
+| `quote_documents` | `quote-documents` | prive |
+| `shop_backgrounds` | `shop-backgrounds` | public ou facade CDN/API, 5 Mio |
+| `shop_product_mockups` | `shop-product-mockups` | public ou facade CDN/API, 5 Mio |
 
 Les limites de taille et les types MIME sont controles par l'API. Les buckets
 peuvent rester tous prives ; dans ce cas l'API produit des URL signees ou sert
 les objets publics derriere une route cacheable.
 
-### 5.3 Commandes attendues
+### 6.3 Commandes attendues
 
 Le lot d'infrastructure locale introduit des commandes stables :
 
@@ -161,7 +228,7 @@ pnpm dev                # API, worker et Vite, ou orchestrateur equivalent
 `infra:dev:reset` doit afficher une confirmation et ne doit jamais accepter un
 chemin ou un nom de volume fourni librement par l'utilisateur.
 
-### 5.4 Variables locales
+### 6.4 Variables locales
 
 Les applications ne recoivent plus de cle Supabase. Les variables minimales
 sont :
@@ -182,9 +249,9 @@ MAIL_PORT=
 
 Les secrets de fournisseurs OIDC ne sont jamais exposes a Vite.
 
-## 6. Identite et authentification
+## 7. Identite et authentification
 
-### 6.1 Separation des responsabilites
+### 7.1 Separation des responsabilites
 
 La bibliotheque d'authentification gere :
 
@@ -203,7 +270,7 @@ Magrit gere :
 - autorisations metier ;
 - audit des actions.
 
-### 6.2 Modele cible
+### 7.2 Modele cible
 
 ```text
 app_users
@@ -232,7 +299,7 @@ Pour minimiser la migration, les `app_users.id` importes conservent les UUID
 actuels de `auth.users`. Les 60 cles etrangeres peuvent alors etre repointees
 transactionnellement sans reecrire les valeurs.
 
-### 6.3 Authentification locale
+### 7.3 Authentification locale
 
 La solution a evaluer en premier est Better Auth, branchee directement a
 PostgreSQL. La validation doit couvrir : inscription, invitation, verification
@@ -250,7 +317,7 @@ defaut. Deux strategies doivent etre prototypees puis tranchees :
 La deuxieme option n'est retenue qu'apres un test de migration et de
 rehashage atomique.
 
-### 6.4 OpenID Connect par boutique
+### 7.4 OpenID Connect par boutique
 
 Une boutique peut utiliser le serveur d'identite de son client. La
 configuration cible est :
@@ -293,9 +360,9 @@ bibliotheque MIT `openid-client` constitue la solution de repli independante
 si un plugin SSO ajoute une dependance commerciale ou une configuration trop
 statique.
 
-## 7. PostgreSQL et RLS
+## 8. PostgreSQL et RLS
 
-### 7.1 Baseline propre
+### 8.1 Baseline propre
 
 Les 160 migrations historiques ne doivent pas devenir le mecanisme
 d'installation d'une nouvelle base de production. Produire une baseline SQL
@@ -311,7 +378,7 @@ auditee representant l'etat voulu :
 L'historique reste archive pour la tracabilite. Les evolutions post-baseline
 reprennent avec des migrations incrementales immuables.
 
-### 7.2 Roles PostgreSQL
+### 8.2 Roles PostgreSQL
 
 Prevoir au minimum :
 
@@ -321,7 +388,7 @@ Prevoir au minimum :
 - `magrit_worker` : droits necessaires aux files, purges et traitements ;
 - `magrit_readonly` : diagnostic et support, sans secrets.
 
-### 7.3 Contexte de requete portable
+### 8.3 Contexte de requete portable
 
 Remplacer `auth.uid()` par des fonctions Magrit independantes du fournisseur,
 par exemple :
@@ -335,7 +402,7 @@ L'API positionne les valeurs avec `set_config(..., true)` dans une transaction
 dediee. Le caractere local a la transaction est obligatoire afin d'eviter la
 fuite de contexte entre connexions du pool.
 
-### 7.4 Reduction des policies
+### 8.4 Reduction des policies
 
 Pour chaque table, classer la protection attendue :
 
@@ -350,7 +417,7 @@ Les policies restantes expriment l'isolation tenant ou une exception metier
 documentee. Le nombre de policies n'est pas un objectif en soi ; la matrice
 d'autorisation et les tests sont la source de verite.
 
-## 8. Acces aux donnees
+## 9. Acces aux donnees
 
 Les interfaces de repositories presentes dans les modules sont conservees.
 Pour chaque domaine :
@@ -370,7 +437,7 @@ Les fonctions SQL metier peuvent etre conservees lorsqu'elles assurent une
 transaction atomique utile. Elles doivent seulement perdre leurs dependances a
 `auth.uid()`, `auth.users`, aux roles Supabase et a PostgREST.
 
-## 9. Stockage S3
+## 10. Stockage S3
 
 Introduire un contrat unique couvrant :
 
@@ -389,9 +456,9 @@ copie, verification taille/checksum, double lecture temporaire, bascule des
 ecritures, puis arret de l'ancien bucket. Les buckets publics font l'objet
 d'un controle de cache et de politique CORS separe.
 
-## 10. API, fonctions Edge et worker
+## 11. API, fonctions Edge et worker
 
-### 10.1 Extraction de l'API
+### 11.1 Extraction de l'API
 
 La facade `magrit-api` devient un point d'entree Node standard. Le handler
 actuel base sur `Request`/`Response` et les routes sous `src/server/api`
@@ -404,7 +471,7 @@ doivent rester reutilisables. Le runtime Node fournit seulement :
 - authentification ;
 - healthchecks, logs et arret propre.
 
-### 10.2 Classification des fonctions Edge
+### 11.2 Classification des fonctions Edge
 
 Chaque fonction existante recoit un statut documente :
 
@@ -417,7 +484,7 @@ Les quatre traitements de type worker identifies sont regroupes dans le
 worker Magrit. Les fonctions PIM, mockup, assistant et sitemap sont classees
 selon leur duree : route API si courte, commande asynchrone sinon.
 
-### 10.3 Planification
+### 11.3 Planification
 
 Les deux purges SQL actuelles peuvent etre declenchees par :
 
@@ -428,7 +495,7 @@ Le choix ne doit pas exiger `pg_cron`. En developpement, les commandes de purge
 restent invocables manuellement et le scheduler peut etre active avec une
 cadence acceleree dans les tests.
 
-## 11. Deroulement par jalons
+## 12. Deroulement par jalons
 
 ### J0 - Decision et gel de la dette
 
@@ -445,7 +512,7 @@ Sortie : aucun nouveau developpement n'augmente les compteurs Supabase.
 
 Livrables :
 
-- Compose PostgreSQL 17 + MinIO + initialisation + Mailpit ;
+- Compose PostgreSQL 17 + SeaweedFS + initialisation + Mailpit ;
 - commandes `infra:dev:*`, migrations et seed ;
 - healthchecks ;
 - CI d'integration sur cette infrastructure.
@@ -484,7 +551,7 @@ PostgREST.
 Livrables :
 
 - contrat Storage unique ;
-- adaptateur S3 et MinIO ;
+- adaptateur S3 et SeaweedFS ;
 - huit buckets et leurs controles ;
 - outil de copie et de verification ;
 - double lecture temporaire et procedure de rollback.
@@ -532,7 +599,7 @@ Livrables :
 Sortie : deux repetitions completes reussies, dont une avec le volume cible
 estime, avant la bascule definitive.
 
-## 12. Strategie de bascule
+## 13. Strategie de bascule
 
 Tant que le projet n'est pas en production, privilegier une bascule courte :
 
@@ -549,7 +616,7 @@ Le rollback remet l'ancienne API en service tant qu'aucune ecriture n'a ete
 acceptee sur la nouvelle cible. Apres reouverture des ecritures, un rollback
 exige une procedure de reconciliation explicite ; il ne doit pas etre improvise.
 
-## 13. Validation obligatoire
+## 14. Validation obligatoire
 
 Chaque jalon execute au minimum :
 
@@ -567,7 +634,7 @@ Les chemins sensibles ajoutent des tests de mutation ou de refus explicite :
 utilisateur d'un autre tenant, boutique non associee, objet d'un autre tenant,
 OIDC issuer/audience/nonce invalides et session revoquee.
 
-## 14. Criteres de sortie de Supabase
+## 15. Criteres de sortie de Supabase
 
 La migration est terminee lorsque :
 
@@ -584,7 +651,7 @@ La migration est terminee lorsque :
 - les procedures d'exploitation, sauvegarde, restauration et rotation des
   secrets sont documentees.
 
-## 15. Risques et parades
+## 16. Risques et parades
 
 | Risque | Parade |
 |---|---|
@@ -595,9 +662,9 @@ La migration est terminee lorsque :
 | objet manquant apres copie | inventaire, taille, checksum et double lecture |
 | divergence pendant la bascule | gel des ecritures ou synchronisation explicitement concue |
 | nouvelle dependance a une bibliotheque Auth | `app_users` independant et port d'authentification Magrit |
-| environnement local trop lourd | seulement PostgreSQL, MinIO et Mailpit ; API/worker executes par `pnpm` |
+| environnement local trop lourd | seulement PostgreSQL, SeaweedFS et Mailpit ; API/worker executes par `pnpm` |
 
-## 16. Ordre de grandeur
+## 17. Ordre de grandeur
 
 L'ordre de grandeur initial, a recalibrer apres J0 et le prototype Auth, est :
 
