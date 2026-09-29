@@ -35,4 +35,42 @@ describe('PostgresSessionBootstrapRepository', () => {
       permissions: { can_quote: true, can_order: true, can_invite: true },
     }]);
   });
+
+  it('met a jour uniquement les preferences fournies', async () => {
+    const query = vi.fn().mockResolvedValue({ rows: [{
+      theme: 'dark',
+      language: 'fr',
+      default_delivery_zone: 'FR-75',
+      notifications_email: true,
+      plan: 'freemium',
+      is_admin: false,
+      last_tenant_id: null,
+    }] });
+    const run = vi.fn(async (_context, operation) => operation({ query }));
+    const repository = new PostgresSessionBootstrapRepository({ run } as never);
+
+    await expect(repository.updatePreferences('user-1' as never, { theme: 'dark' }))
+      .resolves.toMatchObject({ theme: 'dark', language: 'fr' });
+    expect(query).toHaveBeenCalledWith(expect.stringContaining('on conflict (user_id)'), [
+      'user-1', 'dark', null, null, null,
+    ]);
+  });
+
+  it('memorise le tenant courant', async () => {
+    const query = vi.fn().mockResolvedValue({ rows: [{
+      theme: 'light',
+      language: 'fr',
+      default_delivery_zone: 'FR-75',
+      notifications_email: true,
+      plan: 'freemium',
+      is_admin: false,
+      last_tenant_id: 'tenant-1',
+    }] });
+    const run = vi.fn(async (_context, operation) => operation({ query }));
+    const repository = new PostgresSessionBootstrapRepository({ run } as never);
+
+    await expect(repository.updateLastTenant('user-1' as never, 'tenant-1'))
+      .resolves.toMatchObject({ last_tenant_id: 'tenant-1' });
+    expect(run).toHaveBeenCalledWith({ userId: 'user-1' }, expect.any(Function));
+  });
 });

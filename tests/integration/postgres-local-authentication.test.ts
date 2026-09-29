@@ -9,9 +9,9 @@ import { PostgresOidcIdentityDirectory } from '../../src/adapters/postgres/oidc-
 import { createPostgresPool } from '../../src/adapters/postgres/pool.ts';
 import { PostgresSessionBootstrapRepository } from '../../src/adapters/postgres/session-bootstrap-repository.ts';
 import { PostgresTransactionRunner } from '../../src/adapters/postgres/transaction-runner.ts';
-import { SessionBootstrapService } from '../../src/modules/session/application/session-service.ts';
+import { SessionPreferencesService } from '../../src/modules/session/application/session-service.ts';
 import { createApiV1Application } from '../../src/server/api/composition.ts';
-import { createSessionBootstrapRoute } from '../../src/server/api/session-routes.ts';
+import { createSessionBootstrapRoute, createSessionPreferencesRoutes } from '../../src/server/api/session-routes.ts';
 import { createLocalAuthentication } from '../../src/server/auth/local-authentication.ts';
 import { LocalSessionActorResolver } from '../../src/server/auth/local-session-actor-resolver.ts';
 
@@ -29,10 +29,12 @@ describeIntegration('Better Auth local — PostgreSQL reel', () => {
   beforeAll(async () => {
     pool = createPostgresPool();
     await seedDevelopmentIdentity(pool, seed);
+    await pool.query('delete from public.user_preferences where user_id = $1', [seed.userId]);
   });
 
   afterAll(async () => {
     if (!pool) return;
+    await pool.query('delete from public.user_preferences where user_id = $1', [seed.userId]);
     await pool.query('delete from authn.session where "userId" = $1', [seed.userId]);
     await pool.end();
   });
@@ -70,11 +72,15 @@ describeIntegration('Better Auth local — PostgreSQL reel', () => {
       tenantId: seed.tenantId,
     });
 
+    const sessionService = new SessionPreferencesService(
+      new PostgresSessionBootstrapRepository(new PostgresTransactionRunner(pool, 'magrit_api')),
+    );
     const application = createApiV1Application({
       actorResolver: resolver,
-      routes: [createSessionBootstrapRoute(new SessionBootstrapService(
-        new PostgresSessionBootstrapRepository(new PostgresTransactionRunner(pool, 'magrit_api')),
-      ))],
+      routes: [
+        createSessionBootstrapRoute(sessionService),
+        ...createSessionPreferencesRoutes(sessionService),
+      ],
       requestIdFactory: () => 'integration-request',
     });
     const bootstrap = await application(new Request('http://api.local/api/v1/session', {
@@ -91,6 +97,32 @@ describeIntegration('Better Auth local — PostgreSQL reel', () => {
       }],
       preferences: { theme: 'light', language: 'fr' },
     });
+
+    const preferences = await application(new Request(
+      'http://api.local/api/v1/session/preferences',
+      {
+        method: 'PATCH',
+        headers: { cookie: cookie!, 'content-type': 'application/json' },
+        body: JSON.stringify({ theme: 'dark', notifications_email: false }),
+      },
+    ));
+    expect(preferences.status).toBe(200);
+    await expect(preferences.json()).resolves.toMatchObject({
+      theme: 'dark',
+      notifications_email: false,
+      language: 'fr',
+    });
+
+    const currentTenant = await application(new Request(
+      'http://api.local/api/v1/session/current-tenant',
+      {
+        method: 'PUT',
+        headers: { cookie: cookie!, 'content-type': 'application/json' },
+        body: JSON.stringify({ tenantId: seed.tenantId }),
+      },
+    ));
+    expect(currentTenant.status).toBe(200);
+    await expect(currentTenant.json()).resolves.toMatchObject({ last_tenant_id: seed.tenantId });
   });
 
   it('maintient l inscription publique fermee', async () => {

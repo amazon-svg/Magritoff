@@ -19,6 +19,7 @@ import {
 import {
   SessionTenantAccessDeniedError,
   type SessionBootstrapService,
+  type SessionPreferencesService,
   type SessionService,
 } from '../../modules/session/application/session-service.ts';
 import { SessionInvitationAcceptanceError, SessionTenantMutationError } from '../../modules/session/application/session-repository.ts';
@@ -62,44 +63,7 @@ export function createSessionRoutes(service: SessionService): readonly ApiRoute[
       },
     }),
     createSessionBootstrapRoute(service),
-    defineJsonRoute({
-      method: 'PATCH',
-      path: `${API_V1_BASE_PATH}/session/preferences`,
-      authentication: 'required',
-      inputSchema: updatePreferencesSchema,
-      outputSchema: userPreferencesSchema,
-      async handle(context, patch) {
-        return {
-          status: 200,
-          body: await service.updatePreferences(requireUserId(context), patch),
-        };
-      },
-    }),
-    defineJsonRoute({
-      method: 'PUT',
-      path: `${API_V1_BASE_PATH}/session/current-tenant`,
-      authentication: 'required',
-      inputSchema: updateCurrentTenantSchema,
-      outputSchema: userPreferencesSchema,
-      async handle(context, { tenantId }) {
-        try {
-          return {
-            status: 200,
-            body: await service.updateLastTenant(requireUserId(context), tenantId),
-          };
-        } catch (error) {
-          if (error instanceof SessionTenantAccessDeniedError) {
-            throw new ApiHttpError({
-              type: 'about:blank',
-              title: 'Accès tenant refusé',
-              status: 403,
-              code: 'session.tenant_access_denied',
-            });
-          }
-          throw error;
-        }
-      },
-    }),
+    ...createSessionPreferencesRoutes(service),
     defineJsonRoute({
       method: 'PATCH',
       path: `${API_V1_BASE_PATH}/tenants/{tenantId}`,
@@ -172,6 +136,51 @@ export function createSessionBootstrapRoute(
       return { status: 200, body: await service.load(requireUserId(context)) };
     },
   });
+}
+
+export function createSessionPreferencesRoutes(
+  service: Pick<SessionPreferencesService, 'updatePreferences' | 'updateLastTenant'>,
+): readonly ApiRoute[] {
+  return [
+    defineJsonRoute({
+      method: 'PATCH',
+      path: `${API_V1_BASE_PATH}/session/preferences`,
+      authentication: 'required',
+      inputSchema: updatePreferencesSchema,
+      outputSchema: userPreferencesSchema,
+      async handle(context, patch) {
+        return {
+          status: 200,
+          body: await service.updatePreferences(requireUserId(context), patch),
+        };
+      },
+    }),
+    defineJsonRoute({
+      method: 'PUT',
+      path: `${API_V1_BASE_PATH}/session/current-tenant`,
+      authentication: 'required',
+      inputSchema: updateCurrentTenantSchema,
+      outputSchema: userPreferencesSchema,
+      async handle(context, { tenantId }) {
+        try {
+          return {
+            status: 200,
+            body: await service.updateLastTenant(requireUserId(context), tenantId),
+          };
+        } catch (error) {
+          if (error instanceof SessionTenantAccessDeniedError) {
+            throw new ApiHttpError({
+              type: 'about:blank',
+              title: 'Accès tenant refusé',
+              status: 403,
+              code: 'session.tenant_access_denied',
+            });
+          }
+          throw error;
+        }
+      },
+    }),
+  ];
 }
 
 function throwTenantMutation(error: unknown): never {

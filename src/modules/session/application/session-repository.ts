@@ -37,13 +37,16 @@ export interface SessionBootstrapRepository {
   getPreferences(userId: UserId): Promise<Partial<SessionUserPreferences> | null>;
 }
 
-export interface SessionRepository extends SessionBootstrapRepository {
-  resolveTenantSlug(userId: UserId, slug: string): Promise<string | null>;
+export interface SessionPreferencesRepository extends SessionBootstrapRepository {
   updatePreferences(
     userId: UserId,
     patch: UpdatePreferences,
   ): Promise<Partial<SessionUserPreferences>>;
   updateLastTenant(userId: UserId, tenantId: string): Promise<Partial<SessionUserPreferences>>;
+}
+
+export interface SessionRepository extends SessionPreferencesRepository {
+  resolveTenantSlug(userId: UserId, slug: string): Promise<string | null>;
   updateTenantSettings(userId: UserId, tenantId: string, patch: UpdateTenantSettings): Promise<void>;
   subTenantsDashboard(userId: UserId, parentTenantId: string): Promise<SubTenantsDashboard>;
   createSubTenant(userId: UserId, parentTenantId: string, command: CreateSubTenant): Promise<string>;

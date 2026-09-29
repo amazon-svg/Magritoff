@@ -8,7 +8,12 @@ import type {
   CreateSubTenant,
   CreateRootTenant,
 } from '../api/contracts.ts';
-import type { DirectMembership, SessionBootstrapRepository, SessionRepository } from './session-repository.ts';
+import type {
+  DirectMembership,
+  SessionBootstrapRepository,
+  SessionPreferencesRepository,
+  SessionRepository,
+} from './session-repository.ts';
 
 export const DEFAULT_SESSION_PREFERENCES: SessionUserPreferences = Object.freeze({
   theme: 'light',
@@ -69,13 +74,13 @@ export class SessionBootstrapService {
   }
 }
 
-export class SessionService extends SessionBootstrapService {
-  constructor(private readonly repository: SessionRepository) { super(repository); }
-
-  async resolveTenantSlug(userId: UserId, slug: string) { return { slug: await this.repository.resolveTenantSlug(userId, slug) }; }
+export class SessionPreferencesService extends SessionBootstrapService {
+  constructor(protected readonly preferencesRepository: SessionPreferencesRepository) {
+    super(preferencesRepository);
+  }
 
   async updatePreferences(userId: UserId, patch: UpdatePreferences) {
-    return normalizePreferences(await this.repository.updatePreferences(userId, patch));
+    return normalizePreferences(await this.preferencesRepository.updatePreferences(userId, patch));
   }
 
   async updateLastTenant(userId: UserId, tenantId: string) {
@@ -83,8 +88,14 @@ export class SessionService extends SessionBootstrapService {
     if (!session.tenants.some((tenant) => tenant.id === tenantId)) {
       throw new SessionTenantAccessDeniedError(tenantId);
     }
-    return normalizePreferences(await this.repository.updateLastTenant(userId, tenantId));
+    return normalizePreferences(await this.preferencesRepository.updateLastTenant(userId, tenantId));
   }
+}
+
+export class SessionService extends SessionPreferencesService {
+  constructor(private readonly repository: SessionRepository) { super(repository); }
+
+  async resolveTenantSlug(userId: UserId, slug: string) { return { slug: await this.repository.resolveTenantSlug(userId, slug) }; }
 
   async updateTenantSettings(userId: UserId, tenantId: string, patch: UpdateTenantSettings) {
     await this.repository.updateTenantSettings(userId, tenantId, patch);
