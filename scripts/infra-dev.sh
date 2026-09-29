@@ -38,9 +38,12 @@ case "${1:-}" in
     echo 'MAIL_HOST=127.0.0.1'
     echo 'MAIL_PORT=51025'
     echo 'MAGRIT_DEV_USER_EMAIL=developer@magrit.local'
+    echo 'MAGRIT_DEV_USER_PASSWORD=magrit-development-only'
     echo 'MAGRIT_DEV_TENANT_SLUG=magrit-development'
     echo 'MAGRIT_DEV_OIDC_ISSUER=http://127.0.0.1:5556/dex'
     echo 'MAGRIT_DEV_OIDC_SUBJECT=10000000-0000-4000-8000-000000000001'
+    echo 'APP_BASE_URL=http://127.0.0.1:5176'
+    echo 'MAGRIT_AUTH_SECRET=magrit-local-auth-secret-change-me-32chars'
     ;;
   reset)
     if [[ "${2:-}" != "--yes" ]]; then

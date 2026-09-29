@@ -11,6 +11,7 @@ describe('seed de developpement PostgreSQL', () => {
       issuer: 'http://127.0.0.1:5556/dex',
       tenantSlug: 'magrit-development',
       role: 'owner',
+      password: 'magrit-development-only',
     });
   });
 
@@ -28,6 +29,9 @@ describe('seed de developpement PostgreSQL', () => {
     expect(() => developmentSeedConfiguration({
       MAGRIT_DEV_OIDC_ISSUER: 'http://identity.example',
     })).toThrow(/non securise/);
+    expect(() => developmentSeedConfiguration({
+      MAGRIT_DEV_USER_PASSWORD: 'court',
+    })).toThrow(/12 et 128/);
   });
 
   it('verifie le rattachement existant avant de valider la transaction', async () => {

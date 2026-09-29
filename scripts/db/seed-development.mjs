@@ -1,6 +1,7 @@
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
+import { hashPassword } from 'better-auth/crypto';
 import { databaseConfiguration } from './migrate.mjs';
 
 const { Client } = pg;
@@ -8,6 +9,8 @@ const { Client } = pg;
 const DEFAULTS = Object.freeze({
   userId: '10000000-0000-4000-8000-000000000001',
   identityId: '10000000-0000-4000-8000-000000000002',
+  localIdentityId: '10000000-0000-4000-8000-000000000003',
+  authAccountId: '10000000-0000-4000-8000-000000000004',
   tenantId: '20000000-0000-4000-8000-000000000001',
   email: 'developer@magrit.local',
   displayName: 'Developpeur Magrit',
@@ -17,12 +20,15 @@ const DEFAULTS = Object.freeze({
   tenantSlug: 'magrit-development',
   tenantName: 'Magrit Development',
   role: 'owner',
+  password: 'magrit-development-only',
 });
 
 export function developmentSeedConfiguration(environment = process.env) {
   const configuration = {
     userId: value(environment, 'MAGRIT_DEV_USER_ID', DEFAULTS.userId),
     identityId: value(environment, 'MAGRIT_DEV_IDENTITY_ID', DEFAULTS.identityId),
+    localIdentityId: value(environment, 'MAGRIT_DEV_LOCAL_IDENTITY_ID', DEFAULTS.localIdentityId),
+    authAccountId: value(environment, 'MAGRIT_DEV_AUTH_ACCOUNT_ID', DEFAULTS.authAccountId),
     tenantId: value(environment, 'MAGRIT_DEV_TENANT_ID', DEFAULTS.tenantId),
     email: value(environment, 'MAGRIT_DEV_USER_EMAIL', DEFAULTS.email).toLowerCase(),
     displayName: value(environment, 'MAGRIT_DEV_USER_DISPLAY_NAME', DEFAULTS.displayName),
@@ -32,14 +38,20 @@ export function developmentSeedConfiguration(environment = process.env) {
     tenantSlug: value(environment, 'MAGRIT_DEV_TENANT_SLUG', DEFAULTS.tenantSlug),
     tenantName: value(environment, 'MAGRIT_DEV_TENANT_NAME', DEFAULTS.tenantName),
     role: value(environment, 'MAGRIT_DEV_TENANT_ROLE', DEFAULTS.role),
+    password: value(environment, 'MAGRIT_DEV_USER_PASSWORD', DEFAULTS.password),
   };
-  for (const key of ['userId', 'identityId', 'tenantId']) assertUuid(configuration[key], key);
+  for (const key of ['userId', 'identityId', 'localIdentityId', 'authAccountId', 'tenantId']) {
+    assertUuid(configuration[key], key);
+  }
   if (!/^[^\s@]+@[^\s@]+$/.test(configuration.email)) throw new Error('Email de seed invalide.');
   if (!/^[a-z0-9][a-z0-9-]{0,62}$/.test(configuration.tenantSlug)) {
     throw new Error('Slug de tenant de seed invalide.');
   }
   if (!['owner', 'admin', 'member', 'partner'].includes(configuration.role)) {
     throw new Error('Role de tenant de seed invalide.');
+  }
+  if (configuration.password.length < 12 || configuration.password.length > 128) {
+    throw new Error('Mot de passe du seed doit contenir entre 12 et 128 caracteres.');
   }
   return Object.freeze(configuration);
 }
@@ -84,6 +96,40 @@ export async function seedDevelopmentIdentity(client, configuration) {
     `, [configuration.issuer, configuration.subject]);
     if (identity.rows[0]?.app_user_id !== configuration.userId) {
       throw new Error('Le sujet OIDC de developpement appartient deja a un autre utilisateur.');
+    }
+    await client.query(`
+      insert into authn."user" (id, name, email, "emailVerified")
+      values ($1, $2, $3, true)
+      on conflict (id) do update set
+        name = excluded.name,
+        email = excluded.email,
+        "emailVerified" = true,
+        "updatedAt" = now()
+    `, [configuration.userId, configuration.displayName, configuration.email]);
+    const credential = await client.query(`
+      select id from authn.account
+      where "providerId" = 'credential' and "accountId" = $1 and "userId" = $1
+    `, [configuration.userId]);
+    if (credential.rows.length === 0) {
+      await client.query(`
+        insert into authn.account (
+          id, "accountId", "providerId", "userId", password, "updatedAt"
+        ) values ($1, $2, 'credential', $2, $3, now())
+      `, [configuration.authAccountId, configuration.userId, await hashPassword(configuration.password)]);
+    }
+    await client.query(`
+      insert into public.user_identities (
+        id, app_user_id, provider_type, provider_id, issuer, subject
+      ) values ($1, $2::uuid, 'local', 'better-auth', 'urn:magrit:local', $2::text)
+      on conflict (issuer, subject) do nothing
+    `, [configuration.localIdentityId, configuration.userId]);
+    const localIdentity = await client.query(`
+      select app_user_id::text as app_user_id
+      from public.user_identities
+      where issuer = 'urn:magrit:local' and subject = $1
+    `, [configuration.userId]);
+    if (localIdentity.rows[0]?.app_user_id !== configuration.userId) {
+      throw new Error('Le compte local de developpement appartient deja a un autre utilisateur.');
     }
     await client.query(`
       insert into public.tenant_members (tenant_id, user_id, role)

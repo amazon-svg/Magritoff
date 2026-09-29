@@ -8,6 +8,8 @@ import { createPostgresPool } from '../../adapters/postgres/pool.ts';
 import { PostgresReadinessProbe } from '../../adapters/postgres/readiness-probe.ts';
 import { PostgresTransactionRunner } from '../../adapters/postgres/transaction-runner.ts';
 import { ConversationsService } from '../../modules/conversations/application/conversations-service.ts';
+import { createLocalAuthentication, readLocalAuthenticationConfiguration } from '../auth/local-authentication.ts';
+import { CredentialActorResolver, LocalSessionActorResolver } from '../auth/local-session-actor-resolver.ts';
 import { OidcActorResolver } from '../auth/oidc-actor-resolver.ts';
 import { createNodeHttpServer } from './http-server.ts';
 import { readOidcConfiguration } from './oidc-configuration.ts';
@@ -20,30 +22,46 @@ postgresPool.on('error', (error) => {
   console.error(JSON.stringify({ level: 'error', event: 'postgres.pool_error', error: error.message }));
 });
 const oidcConfiguration = readOidcConfiguration();
-const conversationsEnabled = oidcConfiguration !== null;
+const localAuthenticationConfiguration = readLocalAuthenticationConfiguration();
+const localAuthentication = localAuthenticationConfiguration === null
+  ? null
+  : createLocalAuthentication(postgresPool, localAuthenticationConfiguration);
+const identityDirectory = new PostgresOidcIdentityDirectory(postgresPool);
+const oidcActorResolver = oidcConfiguration === null
+  ? null
+  : new OidcActorResolver(new OidcJwtVerifier(oidcConfiguration), identityDirectory);
+const localSessionActorResolver = localAuthentication === null
+  ? null
+  : new LocalSessionActorResolver(localAuthentication.api, identityDirectory);
+const actorResolver = oidcActorResolver === null && localSessionActorResolver === null
+  ? undefined
+  : new CredentialActorResolver(oidcActorResolver, localSessionActorResolver);
+const conversationsEnabled = actorResolver !== undefined;
 const conversationsRoutes = conversationsEnabled
   ? createConversationsRoutes(new ConversationsService(new PostgresConversationsRepository(
       new PostgresTransactionRunner(postgresPool, 'magrit_api'),
     )))
   : [];
-const actorResolver = oidcConfiguration === null
-  ? undefined
-  : new OidcActorResolver(
-      new OidcJwtVerifier(oidcConfiguration),
-      new PostgresOidcIdentityDirectory(postgresPool),
-    );
-const localHandler = createApiV1Application({
+const apiHandler = createApiV1Application({
   routes: [createReadinessRoute(new PostgresReadinessProbe(postgresPool)), ...conversationsRoutes],
   ...(actorResolver === undefined ? {} : { actorResolver }),
   onUnexpectedError(error, requestId) {
     console.error(JSON.stringify({ level: 'error', event: 'api.unexpected_error', requestId, error: errorMessage(error) }));
   },
 });
+const localHandler = localAuthentication === null
+  ? apiHandler
+  : (request: Request) => isLocalAuthenticationPath(new URL(request.url).pathname)
+      ? localAuthentication.handler(request)
+      : apiHandler(request);
 const legacyApiUrl = process.env['MAGRIT_LEGACY_API_URL'];
 const handler = createTransitionalApiHandler({
   localHandler,
   localPaths: new Set(['/api/v1/health', '/api/v1/readiness']),
-  isLocalRequest: (_request, url) => conversationsEnabled && isConversationsPath(url.pathname),
+  isLocalRequest: (_request, url) => (
+    (conversationsEnabled && isConversationsPath(url.pathname))
+    || (localAuthentication !== null && isLocalAuthenticationPath(url.pathname))
+  ),
   ...(legacyApiUrl === undefined ? {} : { legacyApiUrl }),
 });
 const server = createNodeHttpServer(handler, {
@@ -58,7 +76,10 @@ server.listen(port, host, () => {
     event: 'api.started',
     address: `http://${host}:${port}`,
     mode: legacyApiUrl === undefined ? 'health-only' : 'transitional-proxy',
-    modules: conversationsEnabled ? ['conversations'] : [],
+    modules: [
+      ...(conversationsEnabled ? ['conversations'] : []),
+      ...(localAuthentication === null ? [] : ['local-authentication']),
+    ],
   }));
 });
 
@@ -88,4 +109,8 @@ function errorMessage(error: unknown): string {
 
 function isConversationsPath(pathname: string): boolean {
   return /^\/api\/v1\/tenants\/[^/]+\/conversations(?:\/[^/]+)?\/?$/.test(pathname);
+}
+
+function isLocalAuthenticationPath(pathname: string): boolean {
+  return pathname === '/api/v1/auth' || pathname.startsWith('/api/v1/auth/');
 }

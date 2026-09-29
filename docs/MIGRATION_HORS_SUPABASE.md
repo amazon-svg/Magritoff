@@ -14,7 +14,7 @@ Decision formelle : `docs/architecture/decisions/0001-sortie-de-supabase.md`.
 | J2 | runtime Node, health/readiness et facade de transition livres |
 | J3 | contexte transactionnel, roles et repository Conversations PostgreSQL livres |
 | J4 | adaptateur S3 des exports et buckets locaux livres ; bascule non activee |
-| J5 | verificateur JWT/OIDC, annuaire `issuer/subject` et activation controlee de Conversations livres ; auth locale reste a faire |
+| J5 | OIDC, annuaire d'identites et socle Better Auth PostgreSQL livres ; invitations, recovery et bascule UI restent a faire |
 | J6 et suivants | non demarres |
 
 ## 1. Decision proposee
@@ -245,13 +245,13 @@ sont :
 
 ```text
 DATABASE_URL=
-DATABASE_MIGRATOR_URL=
+MAGRIT_DATABASE_MIGRATION_URL=
 S3_ENDPOINT=
 S3_REGION=
 S3_ACCESS_KEY_ID=
 S3_SECRET_ACCESS_KEY=
 S3_FORCE_PATH_STYLE=true
-AUTH_SECRET=
+MAGRIT_AUTH_SECRET=
 APP_BASE_URL=
 MAIL_HOST=
 MAIL_PORT=
@@ -259,11 +259,23 @@ MAIL_PORT=
 
 Les secrets de fournisseurs OIDC ne sont jamais exposes a Vite.
 
+L'authentification locale est activee uniquement lorsque `APP_BASE_URL` et
+`MAGRIT_AUTH_SECRET` sont definis. Le secret doit contenir au moins 32
+caracteres. Better Auth utilise le schema PostgreSQL isole `authn`, garde les
+sessions opaques en base et expose ses routes sous `/api/v1/auth`. Le cache de
+session en cookie n'est pas active afin qu'une revocation prenne effet sans
+attendre l'expiration d'un cache. L'inscription publique est desactivee ; les
+comptes de production devront provenir du flux d'invitation Magrit.
+
 Le seed local est idempotent. Il cree par defaut
 `developer@magrit.local`, le tenant `magrit-development` et une identite OIDC
 de developpement. Les valeurs peuvent etre surchargees avec les variables
 `MAGRIT_DEV_USER_*`, `MAGRIT_DEV_TENANT_*` et `MAGRIT_DEV_OIDC_*`. Ce seed ne
 demarre pas un fournisseur OIDC et ne doit jamais etre execute en production.
+Il cree aussi un compte Better Auth local avec le mot de passe
+`MAGRIT_DEV_USER_PASSWORD` (valeur locale par defaut :
+`magrit-development-only`). Le mot de passe est hache par Better Auth avant
+son insertion et n'est jamais journalise.
 
 Le runtime Node active le module Conversations hors Supabase uniquement si les
 trois variables suivantes sont presentes. Une configuration partielle fait
