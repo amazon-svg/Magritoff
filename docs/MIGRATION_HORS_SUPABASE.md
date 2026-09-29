@@ -14,7 +14,8 @@ Decision formelle : `docs/architecture/decisions/0001-sortie-de-supabase.md`.
 | J2 | runtime Node, health/readiness et facade de transition livres |
 | J3 | contexte transactionnel, roles et repository Conversations PostgreSQL livres |
 | J4 | adaptateur S3 des exports et buckets locaux livres ; bascule non activee |
-| J5 et suivants | non demarres |
+| J5 | verificateur JWT/OIDC standard livre ; mapping identite et auth locale restent a faire |
+| J6 et suivants | non demarres |
 
 ## 1. Decision proposee
 
