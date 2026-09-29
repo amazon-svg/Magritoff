@@ -39,6 +39,14 @@ Ce socle ne remplace pas encore l'exécution Supabase de l'application : il est
 destiné à accueillir progressivement les adaptateurs PostgreSQL et S3 ainsi
 que l'authentification portable.
 
+Le premier point d'entrée Node, limité au healthcheck pendant l'extraction des
+compositions, se lance séparément :
+
+```bash
+pnpm api:dev
+curl http://127.0.0.1:8787/api/v1/health
+```
+
 ## Supabase local avec Docker
 
 Prérequis : Docker Desktop, OrbStack, Colima ou un autre runtime compatible Docker doit être démarré.
