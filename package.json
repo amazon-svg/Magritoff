@@ -53,6 +53,7 @@
     "logs:hopstudio:recent": "./scripts/hopstudio-logs.sh",
     "test:architecture": "vitest run tests/architecture",
     "test:contract": "vitest run tests/contract",
+    "test:postgres:integration": "MAGRIT_POSTGRES_INTEGRATION=1 vitest run tests/integration/postgres-conversations-repository.test.ts --maxWorkers=1",
     "test:storefront:sql": "./scripts/test-storefront-sql.sh",
     "test:coverage": "vitest run --coverage",
     "test:e2e:quality": "playwright test tests/e2e/a11y-dynamic.spec.ts tests/e2e/atelier-no-cart-button.spec.ts",

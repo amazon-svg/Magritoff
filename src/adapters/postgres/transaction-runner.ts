@@ -12,7 +12,14 @@ export type PostgresRequestContext = Readonly<{
  * ROLLBACK avant que la connexion ne retourne dans le pool.
  */
 export class PostgresTransactionRunner {
-  constructor(private readonly pool: Pick<Pool, 'connect'>) {}
+  private readonly role: string | null;
+
+  constructor(private readonly pool: Pick<Pool, 'connect'>, role?: string) {
+    if (role !== undefined && !/^[a-z_][a-z0-9_]*$/.test(role)) {
+      throw new Error('Role PostgreSQL invalide.');
+    }
+    this.role = role ?? null;
+  }
 
   async run<T>(
     context: PostgresRequestContext,
@@ -21,6 +28,7 @@ export class PostgresTransactionRunner {
     const client = await this.pool.connect();
     try {
       await client.query('begin');
+      if (this.role !== null) await client.query(`set local role "${this.role}"`);
       await client.query(
         `select
            set_config('magrit.user_id', $1, true),

@@ -48,4 +48,21 @@ describe('PostgresTransactionRunner', () => {
     expect(query.mock.calls[1]?.[1]).toEqual(['', '']);
     expect(release).toHaveBeenCalledOnce();
   });
+
+  it('peut imposer un role runtime non privilegie dans la transaction', async () => {
+    const query = vi.fn().mockResolvedValue({ rows: [] });
+    const client = { query, release: vi.fn() } as unknown as PoolClient;
+    const pool = { connect: vi.fn().mockResolvedValue(client) } as unknown as Pool;
+    const runner = new PostgresTransactionRunner(pool, 'magrit_api');
+
+    await runner.run({}, async () => undefined);
+
+    expect(query.mock.calls.map(([sql]) => sql.trim().replace(/\s+/g, ' '))).toEqual([
+      'begin',
+      'set local role "magrit_api"',
+      "select set_config('magrit.user_id', $1, true), set_config('magrit.tenant_id', $2, true)",
+      'commit',
+    ]);
+    expect(() => new PostgresTransactionRunner(pool, 'role; reset role')).toThrow(/Role PostgreSQL invalide/);
+  });
 });

@@ -7,6 +7,15 @@
 
 Decision formelle : `docs/architecture/decisions/0001-sortie-de-supabase.md`.
 
+| Jalon | Etat au 29 septembre 2026 |
+|---|---|
+| J0 | ADR et garde-fou contre les nouvelles dependances Supabase livres |
+| J1 | Compose, healthchecks, migrations et buckets livres ; seed et CI restent a faire |
+| J2 | runtime Node, health/readiness et facade de transition livres |
+| J3 | contexte transactionnel, roles et repository Conversations PostgreSQL livres |
+| J4 | adaptateur S3 des exports et buckets locaux livres ; bascule non activee |
+| J5 et suivants | non demarres |
+
 ## 1. Decision proposee
 
 Magrit doit sortir de la plateforme Supabase avant la mise en production, sans
