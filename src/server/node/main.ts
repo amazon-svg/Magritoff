@@ -2,6 +2,7 @@ import { createApiV1Application } from '../api/composition.ts';
 import { createCommercialSettingsRoutes } from '../api/commercial-settings-routes.ts';
 import { createGescomApiHandler } from '../api/gescom-middleware.ts';
 import { createConversationsRoutes } from '../api/conversations-routes.ts';
+import { createCustomersRoutes } from '../api/customers-routes.ts';
 import { createProductionStepsRoutes } from '../api/production-steps-routes.ts';
 import { createReadinessRoute } from '../api/readiness-route.ts';
 import {
@@ -14,8 +15,10 @@ import {
 import { OidcJwtVerifier } from '../../adapters/oidc/jwt-verifier.ts';
 import { PostgresCommercialSettingsRepository } from '../../adapters/postgres/commercial-settings-repository.ts';
 import { PostgresConversationsRepository } from '../../adapters/postgres/conversations-repository.ts';
+import { PostgresCustomersRepository } from '../../adapters/postgres/customers-repository.ts';
 import { PostgresIdempotencyStore } from '../../adapters/postgres/idempotency-store.ts';
 import { PostgresOidcIdentityDirectory } from '../../adapters/postgres/oidc-identity-directory.ts';
+import { PostgresOutboxRepository } from '../../adapters/postgres/outbox-repository.ts';
 import { createPostgresPool } from '../../adapters/postgres/pool.ts';
 import { PostgresProductionStepsRepository } from '../../adapters/postgres/production-steps-repository.ts';
 import { PostgresReadinessProbe } from '../../adapters/postgres/readiness-probe.ts';
@@ -23,6 +26,8 @@ import { PostgresSessionBootstrapRepository } from '../../adapters/postgres/sess
 import { PostgresTransactionRunner } from '../../adapters/postgres/transaction-runner.ts';
 import { ConversationsService } from '../../modules/conversations/application/conversations-service.ts';
 import { CommercialSettingsService } from '../../modules/commercial-settings/application/commercial-settings-service.ts';
+import { CustomersService } from '../../modules/customers/application/customers-service.ts';
+import { OutboxPublisher } from '../../modules/_shared/application/index.ts';
 import { ProductionStepsService } from '../../modules/production-steps/application/production-steps-service.ts';
 import { SessionSubTenantMutationService } from '../../modules/session/application/session-service.ts';
 import { createLocalAuthentication, readLocalAuthenticationConfiguration } from '../auth/local-authentication.ts';
@@ -98,10 +103,24 @@ const productionStepsRoutes = gescomPrincipalVerifier === null
         new PostgresTransactionRunner(postgresPool, 'magrit_api'),
       ),
     }));
+const customersRoutes = gescomPrincipalVerifier === null
+  ? []
+  : createCustomersRoutes(new CustomersService({
+      repository: new PostgresCustomersRepository(
+        new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+      ),
+      outbox: new OutboxPublisher({
+        repository: new PostgresOutboxRepository(
+          new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+        ),
+        now: () => new Date(),
+        newEventId: () => crypto.randomUUID(),
+      }),
+    }));
 const gescomHandler = gescomPrincipalVerifier === null
   ? null
   : createGescomApiHandler({
-      routes: [...commercialSettingsRoutes, ...productionStepsRoutes],
+      routes: [...commercialSettingsRoutes, ...productionStepsRoutes, ...customersRoutes],
       principalVerifier: gescomPrincipalVerifier,
       idempotencyStore: new PostgresIdempotencyStore(
         new PostgresTransactionRunner(postgresPool, 'magrit_api'),
@@ -166,6 +185,7 @@ server.listen(port, host, () => {
       ...(sessionEnabled ? ['session-bootstrap'] : []),
       ...(gescomHandler === null ? [] : ['commercial-settings']),
       ...(gescomHandler === null ? [] : ['production-steps']),
+      ...(gescomHandler === null ? [] : ['customers']),
     ],
   }));
 });
@@ -209,7 +229,8 @@ function isCommercialSettingsPath(pathname: string): boolean {
 function isLocalGescomPath(pathname: string): boolean {
   return isCommercialSettingsPath(pathname)
     || /^\/api\/v1\/production-steps(?:\/[^/]+)?\/?$/.test(pathname)
-    || pathname === '/api/v1/production-step-positions';
+    || pathname === '/api/v1/production-step-positions'
+    || /^\/api\/v1\/customers(?:\/[^/]+(?:\/contacts(?:\/[^/]+)?|\/siret-verifications)?)?\/?$/.test(pathname);
 }
 
 function isSessionPreferencesRequest(method: string, pathname: string): boolean {
