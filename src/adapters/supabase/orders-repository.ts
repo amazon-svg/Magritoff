@@ -60,27 +60,27 @@ const TENANT_ORDER_SELECTION =
 export class SupabaseOrdersRepository implements OrdersRepository {
   constructor(private readonly client: UserScopedClient) {}
 
-  async getTenantTaxRegime(tenantId: string): Promise<TaxRegime | null> {
+  async getTenantTaxRegime(tenantId: string, _actor: UserId): Promise<TaxRegime | null> {
     const { data, error } = await this.client.from('tenants').select('tax_regime').eq('id', tenantId).maybeSingle();
     if (error) throw new Error(`Lecture du régime fiscal impossible: ${error.message}`);
     return normalizeTaxRegime(data?.tax_regime);
   }
 
-  async getShopTaxRegime(shopId: string): Promise<TaxRegime | null> {
+  async getShopTaxRegime(shopId: string, actor: UserId): Promise<TaxRegime | null> {
     const { data: shop, error: shopError } = await this.client.from('shops').select('tenant_id').eq('id', shopId).maybeSingle();
     if (shopError) throw new Error(`Lecture de la boutique impossible: ${shopError.message}`);
     if (!shop?.tenant_id) return null;
-    return this.getTenantTaxRegime(shop.tenant_id);
+    return this.getTenantTaxRegime(shop.tenant_id, actor);
   }
 
-  async listTenantOrders(tenantId: string): Promise<readonly TenantOrderRecord[]> {
+  async listTenantOrders(tenantId: string, _actor: UserId): Promise<readonly TenantOrderRecord[]> {
     const { data, error } = await this.client.from('tenant_orders').select(TENANT_ORDER_SELECTION)
       .eq('tenant_id', tenantId).order('created_at', { ascending: false }).limit(100);
     if (error) throw new Error(`Lecture des commandes tenant impossible: ${error.message}`);
     return this.withCustomerIdentities(data ?? []);
   }
 
-  async listTenantOrdersByIds(orderIds: readonly string[]): Promise<readonly TenantOrderRecord[]> {
+  async listTenantOrdersByIds(orderIds: readonly string[], _actor: UserId): Promise<readonly TenantOrderRecord[]> {
     if (orderIds.length === 0) return [];
     const { data, error } = await this.client.from('tenant_orders').select(TENANT_ORDER_SELECTION).in('id', [...orderIds]);
     if (error) throw new Error(`Lecture des commandes portail impossible: ${error.message}`);
@@ -129,7 +129,7 @@ export class SupabaseOrdersRepository implements OrdersRepository {
     return (data ?? []).map((row) => row.order_id);
   }
 
-  async getAuthenticatedUserEmail(): Promise<string | null> {
+  async getAuthenticatedUserEmail(_actor: UserId): Promise<string | null> {
     const { data, error } = await this.client.auth.getUser();
     if (error) throw new Error(`Lecture de l identité impossible: ${error.message}`);
     return data.user?.email ?? null;
@@ -392,7 +392,7 @@ export class SupabaseOrdersRepository implements OrdersRepository {
     };
   }
 
-  async getOrderRoles(orderId: string): Promise<OrderRolesResponse> {
+  async getOrderRoles(orderId: string, _actor: UserId): Promise<OrderRolesResponse> {
     const { data, error } = await this.client.rpc('api_get_tenant_order_roles', {
       p_order_id: orderId,
     });

@@ -108,7 +108,9 @@ describe('Q17-a — zéro appel Clariprint sur le chemin du recalcul serveur', (
           productId: null, productLabel: 'Flyers', clariprintOptions: null,
           quantity: 1, expectedUnitPriceHt: '12.00',
         }],
-      }, 'https://magrit.test');
+      }, 'https://magrit.test', {
+        kind: 'magrit_user', userId: '11111111-1111-4111-8111-111111111111' as never,
+      });
 
       await service.updateDraft('22222222-2222-4222-8222-222222222222', {
         items: [{
@@ -116,6 +118,9 @@ describe('Q17-a — zéro appel Clariprint sur le chemin du recalcul serveur', (
           productLabel: 'Flyers', quantity: 1, expectedUnitPriceHt: '12.00',
         }],
         idempotencyKey: 'q17a-zero-clariprint-update',
+      }, {
+        storefrontToken: null,
+        magritUserId: '11111111-1111-4111-8111-111111111111' as never,
       });
 
       await service.transition('22222222-2222-4222-8222-222222222222', {

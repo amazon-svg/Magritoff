@@ -23,17 +23,18 @@ import type {
   TenantOrderRecord,
   TransitionOrderAuthorization,
 } from './orders-repository.ts';
+import type { UserId } from '../../../kernel/ids/index.ts';
 
 const PORTAL_TABS: readonly PortalOrdersTab[] = ['mine', 'to_validate', 'to_approve', 'to_produce'];
 
 export class OrdersService {
   constructor(private readonly repository: OrdersRepository) {}
 
-  async listTenantOrders(tenantId: string, shopIds: readonly string[]): Promise<OrdersList> {
-    const taxRate = taxRateFor(await this.repository.getTenantTaxRegime(tenantId));
+  async listTenantOrders(actor: UserId, tenantId: string, shopIds: readonly string[]): Promise<OrdersList> {
+    const taxRate = taxRateFor(await this.repository.getTenantTaxRegime(tenantId, actor));
     const [legacy, tenant] = await Promise.all([
       this.repository.listLegacyOrders(shopIds),
-      this.repository.listTenantOrders(tenantId),
+      this.repository.listTenantOrders(tenantId, actor),
     ]);
     return { orders: sortOrders([...legacy.map(toLegacySummary), ...tenant.map((order) => toTenantSummary(order, taxRate))]) };
   }
@@ -80,13 +81,13 @@ export class OrdersService {
     const [counters, idsByTab, email] = await Promise.all([
       this.repository.getPortalCounters(shopId, userId),
       Promise.all(PORTAL_TABS.map((tab) => this.repository.getPortalOrderIds(shopId, userId, tab))),
-      this.repository.getAuthenticatedUserEmail(),
+      this.repository.getAuthenticatedUserEmail(userId),
     ]);
     const uniqueIds = Array.from(new Set(idsByTab.flat()));
     const [tenantOrders, legacy, taxRegime] = await Promise.all([
-      this.repository.listTenantOrdersByIds(uniqueIds),
+      this.repository.listTenantOrdersByIds(uniqueIds, userId),
       this.repository.listLegacyOrders([shopId], email ?? undefined),
-      this.repository.getShopTaxRegime(shopId),
+      this.repository.getShopTaxRegime(shopId, userId),
     ]);
     const taxRate = taxRateFor(taxRegime);
     const byId = new Map(tenantOrders.map((order) => [order.id, toTenantSummary(order, taxRate)]));
@@ -170,7 +171,7 @@ export class OrdersService {
    * SQL, donc hors du périmètre front-only déclaré de ce lot — je ne la fais
    * pas ici, je la nomme.
    */
-  async getAuditTrail(orderId: string, authorization: OrderResourceAuthorization = { storefrontToken: null }): Promise<OrderAuditTrail> {
+  async getAuditTrail(orderId: string, authorization: OrderResourceAuthorization): Promise<OrderAuditTrail> {
     const events = await this.repository.listAuditEvents(orderId, authorization);
     const isBuyerBranch = authorization.storefrontToken !== null;
     return {
@@ -205,7 +206,7 @@ export class OrdersService {
     return result;
   }
 
-  async create(command: CreateOrderCommand, baseUrl: string, authorization: CreateOrderAuthorization = { kind: 'magrit_user' }): Promise<CreateOrderResult> {
+  async create(command: CreateOrderCommand, baseUrl: string, authorization: CreateOrderAuthorization): Promise<CreateOrderResult> {
     const result = await this.repository.createOrder(command, authorization);
     if (!result.replayed) {
       void this.repository.notifyOrderCreated(result, baseUrl).catch((error) => {
@@ -215,16 +216,16 @@ export class OrdersService {
     return result;
   }
 
-  getDraft(orderId: string, authorization: OrderResourceAuthorization = { storefrontToken: null }): Promise<DraftOrder> {
+  getDraft(orderId: string, authorization: OrderResourceAuthorization): Promise<DraftOrder> {
     return this.repository.getDraftOrder(orderId, authorization);
   }
 
-  updateDraft(orderId: string, command: UpdateDraftOrderCommand, authorization: OrderResourceAuthorization = { storefrontToken: null }): Promise<UpdateDraftOrderResult> {
+  updateDraft(orderId: string, command: UpdateDraftOrderCommand, authorization: OrderResourceAuthorization): Promise<UpdateDraftOrderResult> {
     return this.repository.updateDraftOrder(orderId, command, authorization);
   }
 
-  getRoles(orderId: string): Promise<OrderRolesResponse> {
-    return this.repository.getOrderRoles(orderId);
+  getRoles(orderId: string, actor: UserId): Promise<OrderRolesResponse> {
+    return this.repository.getOrderRoles(orderId, actor);
   }
 }
 
