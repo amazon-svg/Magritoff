@@ -84,7 +84,8 @@ export class SupabaseApiPrincipalVerifier implements PrincipalVerifier {
     if (credential.kind === 'bearer') return this.verifyUser();
     if (credential.kind === 'service_key') return this.verifyServiceKey(credential.key);
     if (credential.kind === 'upload_link') return this.verifyUploadLink(credential.token);
-    return this.verifyShopCustomer(credential.token);
+    if (credential.kind === 'cookie') return this.verifyShopCustomer(credential.token);
+    return null;
   }
 
   /** Bearer JWT utilisateur Supabase. */
