@@ -18,7 +18,7 @@ import { createProductionStepsRoutes } from '../api/production-steps-routes.ts';
 import { createQuoteDocumentsRoutes } from '../api/quote-documents-routes.ts';
 import { createReadinessRoute } from '../api/readiness-route.ts';
 import { createRolesRoutes } from '../api/roles-routes.ts';
-import { createShopAdministrationRoutes } from '../api/shops-routes.ts';
+import { createPublicShopsRoutes, createShopAdministrationRoutes } from '../api/shops-routes.ts';
 import { createShopCustomerAdministrationRoutes } from '../api/shop-customers-routes.ts';
 import { createShopCustomerDelegationRoutes } from '../api/shop-customer-delegation-routes.ts';
 import { createStorefrontSessionRoutes } from '../api/storefront-session-routes.ts';
@@ -334,12 +334,13 @@ const commercialQuotesRoutes = commercialQuotesService === null
 const quoteDocumentsRoutes = commercialQuotesService === null || quoteDocumentsService === null
   ? []
   : createQuoteDocumentsRoutes(quoteDocumentsService, commercialQuotesService);
-const shopAdministrationRoutes = actorResolver === undefined || s3Client === null
-  ? []
-  : createShopAdministrationRoutes(new ShopsService(new PostgresShopsRepository(
+const shopsService = s3Client === null ? null : new ShopsService(new PostgresShopsRepository(
       new PostgresTransactionRunner(postgresPool, 'magrit_api'),
       new S3ShopAssetStorage(s3Client, s3PublicBaseUrl),
-    )));
+    ));
+const shopAdministrationRoutes = actorResolver === undefined || shopsService === null
+  ? []
+  : createShopAdministrationRoutes(shopsService);
 const shopCustomerAdministrationRoutes = actorResolver === undefined
   ? []
   : createShopCustomerAdministrationRoutes(new ShopCustomersService(
@@ -357,6 +358,9 @@ const storefrontSessionRoutes = createStorefrontSessionRoutes(
   new StorefrontRegistrationService(storefrontAuthenticationGateway),
   storefrontSessions,
   storefrontCookiePolicy,
+);
+const publicShopRoutes = shopsService === null ? [] : createPublicShopsRoutes(
+  shopsService,storefrontSessions,storefrontCookiePolicy,
 );
 const shopCustomerDelegationRoutes = actorResolver === undefined ? [] : createShopCustomerDelegationRoutes(
   new ShopCustomerDelegationService(new PostgresShopCustomerDelegationGateway(
@@ -419,6 +423,7 @@ const apiHandler = createApiV1Application({
     ...catalogRoutes,
     ...shopAdministrationRoutes,
     ...shopCustomerAdministrationRoutes,
+    ...publicShopRoutes,
     ...storefrontSessionRoutes,
     ...shopCustomerDelegationRoutes,
     ...storefrontActivationRoutes,
@@ -457,6 +462,7 @@ const handler = createTransitionalApiHandler({
     || (actorResolver !== undefined && isMembersPath(url.pathname))
     || (actorResolver !== undefined && isRolesPath(url.pathname))
     || (actorResolver !== undefined && isShopAdministrationPath(url.pathname))
+    || isPublicShopPath(url.pathname)
     || (actorResolver !== undefined && isShopCustomerAdministrationPath(url.pathname))
     || isStorefrontSessionRequest(request.method, url.pathname)
     || (actorResolver !== undefined && isShopCustomerDelegationRequest(request.method, url.pathname))
@@ -491,6 +497,7 @@ server.listen(port, host, () => {
       ...(actorResolver === undefined ? [] : ['catalog']),
       ...(shopAdministrationRoutes.length === 0 ? [] : ['shops:backoffice']),
       ...(shopCustomerAdministrationRoutes.length === 0 ? [] : ['shop-customers:backoffice']),
+      ...(publicShopRoutes.length === 0 ? [] : ['shops:public-catalog']),
       'storefront-sessions',
       ...(shopCustomerDelegationRoutes.length === 0 ? [] : ['storefront-delegation']),
       ...(storefrontActivationRoutes.length === 0 ? [] : ['storefront-activation']),
@@ -629,6 +636,10 @@ function isRolesPath(pathname: string): boolean {
 
 function isShopAdministrationPath(pathname: string): boolean {
   return /^\/api\/v1\/tenants\/[^/]+\/shops(?:\/[^/]+(?:\/(?:pricing(?:\/[^/]+)?|brand-assets|custom-mockups(?:\/[^/]+\/[^/]+)?|ai-products|products(?:\/[^/]+)?))?)?\/?$/.test(pathname);
+}
+
+function isPublicShopPath(pathname:string):boolean{
+  return /^\/api\/v1\/public\/shops\/[^/]+\/(?:probe|catalog)\/?$/.test(pathname);
 }
 
 function isShopCustomerAdministrationPath(pathname: string): boolean {

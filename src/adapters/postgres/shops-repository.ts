@@ -6,6 +6,7 @@ import type {
   ShopBrandAssetUpload, ShopCustomMockup, ShopCustomMockupUpload, ShopDto,
   ShopPricingOverride, ShopProductDto, UpdateShopCommand, UpdateShopProductCommand,
 } from '../../modules/shops/api/contracts.ts';
+import { shopTaxRegimeSchema } from '../../modules/shops/api/contracts.ts';
 import {
   ShopRejectedError,
   type PublicShopCatalogAccess,
@@ -180,8 +181,34 @@ export class PostgresShopsRepository implements ShopsRepository {
     });
   }
 
-  publicProbe(_slug: string): Promise<PublicShopProbe> { return Promise.reject(notLocal()); }
-  publicCatalog(_access: PublicShopCatalogAccess, _slug: string): Promise<PublicShopCatalog> { return Promise.reject(notLocal()); }
+  publicProbe(slug: string): Promise<PublicShopProbe> { return this.tx.run({}, async (client) => {
+    const row = (await client.query<{id:string;tenant_id:string;access_mode:string}>('select * from magrit.public_shop_probe($1)', [slug])).rows[0];
+    if (!row) throw reject('shop_not_found', 'Boutique introuvable.');
+    return { id:row.id,tenantId:row.tenant_id,accessMode:row.access_mode==='self_signup'?'self_signup':'invite_only' };
+  }); }
+  async publicCatalog(access: PublicShopCatalogAccess, slug: string): Promise<PublicShopCatalog> {
+    const probe=await this.publicProbe(slug);
+    if(probe.accessMode!=='self_signup'&&access.storefront?.shopId!==probe.id){
+      const code=access.storefront?'permission_denied':'authentication_required';
+      throw reject(code,code==='permission_denied'?'La session appartient à une autre boutique.':'Authentification boutique requise.');
+    }
+    return this.tx.run({},async client=>{
+      const payload=(await client.query<{catalog:CatalogPayload|null}>('select magrit.public_shop_catalog_data($1) catalog',[slug])).rows[0]?.catalog;
+      if(!payload)throw reject('shop_not_found','Boutique introuvable.');
+      const manual=payload.products.map(mapProduct);
+      const linkedIds=new Set(manual.map(product=>product.productId).filter((id):id is string=>id!==null));
+      const pricing=new Map(payload.pricing.map(row=>[String(row['library_product_id']),Number(row['price_ht_override'])]));
+      const library=payload.libraryProducts.filter(row=>!linkedIds.has(String(row['id']))).map(row=>({
+        id:`lib-${String(row['id'])}`,shopId:probe.id,productId:String(row['id']),name:String(row['name']),
+        category:String(row['category']??'Autres'),description:String(row['description']??''),
+        priceHt:pricing.get(String(row['id']))??Number(row['price_ht']),imageUrl:String(row['image_url']??''),
+        config:record(row['config']),displayOrder:0,createdAt:iso(row['created_at']),tenantId:String(row['tenant_id']),
+        gammeSlug:row['gamme_slug']===null?null:String(row['gamme_slug']),
+      }));
+      const pricedManual=manual.map(product=>product.productId&&pricing.has(product.productId)?{...product,priceHt:pricing.get(product.productId)!}:product);
+      return {shop:mapPublicShop(payload.shop,this.storage),taxRegime:shopTaxRegimeSchema.parse(payload.taxRegime),products:[...pricedManual,...library],gammes:payload.gammes as PublicShopCatalog['gammes'],definitions:payload.definitions,subscribedSlugs:payload.subscribedSlugs,customMockups:payload.customMockups.map(row=>mapMockup(row,this.storage))};
+    });
+  }
 
   private read<T>(actor: UserId, tenantId: string, operation: (client: PoolClient) => Promise<T>): Promise<T> {
     return this.run(actor, tenantId, operation);
@@ -209,6 +236,7 @@ function mapShop(row: Row, storage: ShopAssetStorage): ShopDto {
   const theme = record(row['theme']);
   return { id: String(row['id']), tenantId: String(row['tenant_id']), ownerUserId: String(row['owner_user_id']), slug: String(row['slug']), name: String(row['name']), description: String(row['description']), theme: { ...DEFAULT_THEME, ...theme }, logoUrl: storage.publicUrl(String(row['logo_url'])), address: String(row['address']), contactEmail: String(row['contact_email']), active: row['active'] === true, libraryIds: strings(row['library_ids']), excludedProductIds: strings(row['excluded_product_ids']), heroImageUrl: row['hero_image_url'] === null ? null : storage.publicUrl(String(row['hero_image_url'])), tagline: row['tagline'] === null ? null : String(row['tagline']), pimCatalogMode: row['pim_catalog_mode'] === true, pimGammeSlugs: strings(row['pim_gamme_slugs']), accessMode: row['access_mode'] === 'self_signup' ? 'self_signup' : 'invite_only', createdAt: iso(row['created_at']) };
 }
+function mapPublicShop(row:Row,storage:ShopAssetStorage):PublicShopCatalog['shop']{const{ownerUserId:_,libraryIds:__,excludedProductIds:___,pimCatalogMode:____,pimGammeSlugs:_____,...shop}=mapShop(row,storage);return shop;}
 function mapProduct(row: Row): ShopProductDto { return { id:String(row['id']),shopId:String(row['shop_id']),productId:row['product_id']===null?null:String(row['product_id']),name:String(row['name']),category:String(row['category']),description:String(row['description']),priceHt:Number(row['price_ht']),imageUrl:String(row['image_url']),config:record(row['config']),displayOrder:Number(row['display_order']),createdAt:iso(row['created_at']),tenantId:row['tenant_id']===null?null:String(row['tenant_id']),gammeSlug:row['gamme_slug']===null?null:String(row['gamme_slug']) }; }
 function mapMockup(row: Row, storage: ShopAssetStorage): ShopCustomMockup { return { shopId:String(row['shop_id']),templateType:row['template_type'] as MockupTemplateType,view:row['view'] as MockupView,mockupImageUrl:storage.publicUrl(String(row['mockup_image_url'])) }; }
 function shopPatch(command: UpdateShopCommand, storage: ShopAssetStorage): Record<string, unknown> { const patch:Record<string,unknown>={}; const mapping:Record<string,string>={logoUrl:'logo_url',contactEmail:'contact_email',libraryIds:'library_ids',excludedProductIds:'excluded_product_ids',heroImageUrl:'hero_image_url',pimCatalogMode:'pim_catalog_mode',pimGammeSlugs:'pim_gamme_slugs',accessMode:'access_mode'}; for(const [key,value] of Object.entries(command)){const column=mapping[key]??key.replace(/[A-Z]/g,(letter)=>`_${letter.toLowerCase()}`);patch[column]=key==='theme'?JSON.stringify(value):key==='logoUrl'||key==='heroImageUrl'?(value===null?null:storage.reference(String(value))):value;} return patch; }
@@ -217,7 +245,7 @@ function record(value: unknown): Record<string, unknown> { return value&&typeof 
 function strings(value: unknown): string[] { return Array.isArray(value)?value.map(String):[]; }
 function iso(value: unknown): string { return value instanceof Date?value.toISOString():new Date(String(value)).toISOString(); }
 function slug(): string { return `shop-${crypto.randomUUID().replaceAll('-','').slice(0,20)}`; }
-function notLocal(): ShopRejectedError { return reject('invalid_request', 'Le catalogue public reste temporairement servi par l API historique.'); }
 function classified(error: unknown): ShopRejectedError { const value=error as {code?:string;message?:string}; if(value.code==='23505')return reject('conflict',value.message??'Conflit boutique.'); if(value.code==='23503'||value.code==='23514'||value.code==='22P02')return reject('invalid_request',value.message??'Modification boutique invalide.'); return reject('permission_denied',value.message??String(error)); }
 function reject(code: ConstructorParameters<typeof ShopRejectedError>[0], detail: string): ShopRejectedError { return new ShopRejectedError(code, detail); }
 function message(error: unknown): string { return error instanceof Error?error.message:String(error); }
+type CatalogPayload={shop:Row;taxRegime:unknown;products:Row[];libraryProducts:Row[];pricing:Row[];gammes:Row[];definitions:Row[];subscribedSlugs:string[];customMockups:Row[]};

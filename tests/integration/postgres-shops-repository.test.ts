@@ -89,6 +89,29 @@ describeIntegration('PostgresShopsRepository — PostgreSQL reel', () => {
     ]);
   });
 
+  it('sert le catalogue public avec controle boutique et produits de bibliotheque', async () => {
+    const shop = (await repository.list(ownerId, tenantId))[0]!;
+    expect(await repository.publicProbe(shop.slug)).toEqual({ id: shop.id, tenantId, accessMode: 'invite_only' });
+    await expect(repository.publicCatalog({ storefront: null }, shop.slug)).rejects.toMatchObject({ code: 'authentication_required' });
+    await expect(repository.publicCatalog({ storefront: { kind: 'shop_customer', shopId: randomUUID(), shopCustomerAccountId: randomUUID() } }, shop.slug)).rejects.toMatchObject({ code: 'permission_denied' });
+    const libraryId = randomUUID();
+    const libraryProductId = randomUUID();
+    await pool.query(`insert into public.libraries(id,tenant_id,user_id,name) values($1,$2,$3,'Catalogue public')`, [libraryId, tenantId, ownerId]);
+    await pool.query(`insert into public.product_library
+      (id,tenant_id,user_id,library_id,name,category,description,price_ht,image_url,config)
+      values($1,$2,$3,$4,'Brochure','Impression','Brochure publique',20,'', '{}')`, [libraryProductId, tenantId, ownerId, libraryId]);
+    await pool.query('update public.shops set library_ids=array[$2::uuid] where id=$1', [shop.id, libraryId]);
+    await repository.setPricing(ownerId, tenantId, shop.id, libraryProductId, { priceHtOverride: 18 });
+    const catalog = await repository.publicCatalog({ storefront: { kind: 'shop_customer', shopId: shop.id, shopCustomerAccountId: randomUUID() } }, shop.slug);
+    expect(catalog).toMatchObject({ shop: { id: shop.id, slug: shop.slug }, taxRegime: 'metropole_fr' });
+    expect(catalog.products).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: 'Flyer', priceHt: 13 }),
+      expect.objectContaining({ id: `lib-${libraryProductId}`, name: 'Brochure', priceHt: 18 }),
+    ]));
+    await pool.query(`update public.shops set access_mode='self_signup' where id=$1`, [shop.id]);
+    await expect(repository.publicCatalog({ storefront: null }, shop.slug)).resolves.toMatchObject({ shop: { id: shop.id } });
+  });
+
   it('supprime logiquement la boutique et nettoie ses objets', async () => {
     const shop = (await repository.list(ownerId, tenantId))[0]!;
     const scopedRole = await pool.query<{id:string}>(`insert into public.tenant_role_definitions
