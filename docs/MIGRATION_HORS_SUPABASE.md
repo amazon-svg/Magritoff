@@ -12,9 +12,9 @@ Decision formelle : `docs/architecture/decisions/0001-sortie-de-supabase.md`.
 | J0 | ADR et garde-fou contre les nouvelles dependances Supabase livres |
 | J1 | Compose, healthchecks, migrations et buckets livres ; seed et CI restent a faire |
 | J2 | runtime Node, health/readiness et facade de transition livres |
-| J3 | contexte transactionnel, roles, Conversations, session, réglages tenant, membres et rôles, réglages commerciaux, étapes de production, clients, projets, étiquettes, catalogue PIM, règles tarifaires, devis et gabarits PDF PostgreSQL livres ; idempotence API et outbox durables livrées |
+| J3 | contexte transactionnel, roles, Conversations, session, réglages tenant, membres, rôles et invitations, réglages commerciaux, étapes de production, clients, projets, étiquettes, catalogue PIM, règles tarifaires, devis et gabarits PDF PostgreSQL livres ; idempotence API et outbox durables livrées |
 | J4 | adaptateurs S3 des exports, fichiers de lignes projet, gabarits PDF et documents de devis livres ; autres buckets non bascules |
-| J5 | OIDC, annuaire d'identites et socle Better Auth PostgreSQL livres ; invitations, recovery et bascule UI restent a faire |
+| J5 | OIDC, annuaire d'identites, socle Better Auth PostgreSQL et invitations Magrit livres ; recovery et bascule UI restent a faire |
 | J6 et suivants | non demarres |
 
 ## 1. Decision proposee
@@ -280,8 +280,8 @@ En developpement, `VITE_API_PROXY_TARGET=http://127.0.0.1:8787` dirige alors
 la SPA vers le serveur Node. `GET /session`, `PATCH /session/preferences` et
 `PUT /session/current-tenant` sont deja traites par PostgreSQL ; le fournisseur
 Supabase reste la valeur par defaut jusqu'a la migration du tableau de bord KPI
-des sous-espaces, des invitations et des autres domaines indispensables au
-workspace. La création et la suppression des sous-espaces sont locales, avec
+des sous-espaces et des autres domaines indispensables au workspace. La
+création et la suppression des sous-espaces sont locales, avec
 une profondeur limitée à deux niveaux. La création d'un
 tenant racine, son SIREN et ses gammes d'onboarding sont désormais atomiques
 dans PostgreSQL. La résolution des
@@ -341,8 +341,17 @@ rôle, d'accès ou suppression est atomique avec son journal. Une garde sous
 verrou empêche de rétrograder ou retirer le dernier administrateur. Les rôles
 personnalisés sont désormais eux aussi locaux : définitions, portées boutique,
 affectations, capacités, ordre et archivage sont tenus par PostgreSQL. Les deux
-options produit sont initialisées automatiquement pour chaque tenant. Les
-invitations restent à extraire dans le lot suivant.
+options produit sont initialisées automatiquement pour chaque tenant.
+
+Le cycle des invitations Magrit est désormais local : création, activation,
+liste, renvoi, révocation et acceptation sont servis par Node et PostgreSQL.
+Les liens utilisent un jeton opaque de 256 bits dont seul le SHA-256 est
+conservé. L'acceptation vérifie l'adresse du compte connecté, ajoute
+l'appartenance et ses options dans une seule transaction, et reste idempotente
+pour le destinataire après succès. L'envoi utilise encore l'adaptateur Resend ;
+si sa clé n'est pas configurée, l'API restitue le lien et signale explicitement
+que le courriel n'a pas été envoyé. Le branchement SMTP vers Mailpit reste à
+faire avec le lot récupération de mot de passe et vérification d'adresse.
 
 Le seed local est idempotent. Il cree par defaut
 `developer@magrit.local`, le tenant `magrit-development` et une identite OIDC

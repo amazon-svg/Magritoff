@@ -7,6 +7,7 @@ import { createGescomApiHandler } from '../api/gescom-middleware.ts';
 import { createConversationsRoutes } from '../api/conversations-routes.ts';
 import { createCustomersRoutes } from '../api/customers-routes.ts';
 import { createDocumentTemplatesRoutes } from '../api/document-templates-routes.ts';
+import { createInvitationsRoutes } from '../api/invitations-routes.ts';
 import { createMembersRoutes } from '../api/members-routes.ts';
 import { createProjectTagsRoutes } from '../api/project-tags-routes.ts';
 import { createPriceRulesRoutes } from '../api/price-rules-routes.ts';
@@ -17,6 +18,7 @@ import { createReadinessRoute } from '../api/readiness-route.ts';
 import { createRolesRoutes } from '../api/roles-routes.ts';
 import {
   createSessionBootstrapRoute,
+  createSessionInvitationAcceptanceRoute,
   createSessionPreferencesRoutes,
   createSessionSubTenantMutationRoutes,
   createSessionTenantCreationRoute,
@@ -31,6 +33,7 @@ import { PostgresConversationsRepository } from '../../adapters/postgres/convers
 import { PostgresCustomersRepository } from '../../adapters/postgres/customers-repository.ts';
 import { PostgresDocumentTemplatesRepository } from '../../adapters/postgres/document-templates-repository.ts';
 import { PostgresIdempotencyStore } from '../../adapters/postgres/idempotency-store.ts';
+import { PostgresInvitationsRepository } from '../../adapters/postgres/invitations-repository.ts';
 import { PostgresMembersRepository } from '../../adapters/postgres/members-repository.ts';
 import { PostgresOidcIdentityDirectory } from '../../adapters/postgres/oidc-identity-directory.ts';
 import { PostgresOutboxRepository } from '../../adapters/postgres/outbox-repository.ts';
@@ -44,6 +47,7 @@ import { PostgresProductionStepsRepository } from '../../adapters/postgres/produ
 import { PostgresReadinessProbe } from '../../adapters/postgres/readiness-probe.ts';
 import { PostgresSessionBootstrapRepository } from '../../adapters/postgres/session-bootstrap-repository.ts';
 import { PostgresTransactionRunner } from '../../adapters/postgres/transaction-runner.ts';
+import { ResendInvitationEmailSender } from '../../adapters/resend/invitation-email-sender.ts';
 import { createS3Client } from '../../adapters/s3/client.ts';
 import { S3CommercialLineFileStorage } from '../../adapters/s3/commercial-line-file-storage.ts';
 import { S3ProjectCommercialFileStorage } from '../../adapters/s3/project-commercial-file-storage.ts';
@@ -55,6 +59,7 @@ import { CatalogService } from '../../modules/catalog/application/catalog-servic
 import { CatalogRejectedError } from '../../modules/catalog/application/catalog-repository.ts';
 import { CustomersService } from '../../modules/customers/application/customers-service.ts';
 import { DocumentTemplatesService } from '../../modules/document-templates/application/document-templates-service.ts';
+import { InvitationsService } from '../../modules/invitations/application/invitations-service.ts';
 import { MembersService } from '../../modules/members/application/members-service.ts';
 import { CustomersRepositoryDocumentDataGateway } from '../../modules/quote-documents/application/customer-document-data-gateway.ts';
 import { QuoteDocumentsService } from '../../modules/quote-documents/application/quote-documents-service.ts';
@@ -65,7 +70,7 @@ import { PriceRulesService } from '../../modules/pricing/application/price-rules
 import { createPricingEngine } from '../../modules/pricing/application/pricing-engine-provider.ts';
 import { ProjectsService } from '../../modules/projects/application/projects-service.ts';
 import { ProductionStepsService } from '../../modules/production-steps/application/production-steps-service.ts';
-import { SessionSubTenantMutationService } from '../../modules/session/application/session-service.ts';
+import { SessionInvitationAcceptanceService, SessionSubTenantMutationService } from '../../modules/session/application/session-service.ts';
 import { createLocalAuthentication, readLocalAuthenticationConfiguration } from '../auth/local-authentication.ts';
 import { CredentialActorResolver, LocalSessionActorResolver } from '../auth/local-session-actor-resolver.ts';
 import { LocalApiPrincipalVerifier } from '../auth/local-api-principal-verifier.ts';
@@ -109,6 +114,7 @@ const sessionRepository = new PostgresSessionBootstrapRepository(
   new PostgresTransactionRunner(postgresPool, 'magrit_api'),
 );
 const sessionService = new SessionSubTenantMutationService(sessionRepository);
+const sessionInvitationAcceptanceService = new SessionInvitationAcceptanceService(sessionRepository);
 const sessionRoutes = sessionEnabled
   ? [
       createSessionBootstrapRoute(sessionService),
@@ -116,8 +122,20 @@ const sessionRoutes = sessionEnabled
       ...createSessionTenantSettingsRoutes(sessionService),
       createSessionTenantCreationRoute(sessionService),
       ...createSessionSubTenantMutationRoutes(sessionService),
+      createSessionInvitationAcceptanceRoute(sessionInvitationAcceptanceService),
     ]
   : [];
+const invitationsRoutes = actorResolver === undefined
+  ? []
+  : createInvitationsRoutes(new InvitationsService(
+      new PostgresInvitationsRepository(
+        new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+        new ResendInvitationEmailSender(
+          process.env['RESEND_API_KEY'] ?? null,
+          process.env['MAGRIT_FROM_EMAIL'] ?? 'Magrit <noreply@localhost>',
+        ),
+      ),
+    ));
 const membersRoutes = actorResolver === undefined
   ? []
   : createMembersRoutes(new MembersService(
@@ -289,6 +307,7 @@ const apiHandler = createApiV1Application({
     createReadinessRoute(new PostgresReadinessProbe(postgresPool)),
     ...conversationsRoutes,
     ...sessionRoutes,
+    ...invitationsRoutes,
     ...membersRoutes,
     ...rolesRoutes,
     ...catalogRoutes,
@@ -321,6 +340,7 @@ const handler = createTransitionalApiHandler({
     || (sessionEnabled && isSessionTenantSettingsRequest(request.method, url.pathname))
     || (sessionEnabled && request.method === 'POST' && url.pathname === '/api/v1/tenants')
     || (sessionEnabled && isSubTenantMutationRequest(request.method, url.pathname))
+    || (sessionEnabled && isInvitationRequest(request.method, url.pathname))
     || (actorResolver !== undefined && isMembersPath(url.pathname))
     || (actorResolver !== undefined && isRolesPath(url.pathname))
     || (actorResolver !== undefined && isLocalCatalogRequest(request.method, url.pathname))
@@ -344,6 +364,7 @@ server.listen(port, host, () => {
       ...(conversationsEnabled ? ['conversations'] : []),
       ...(localAuthentication === null ? [] : ['local-authentication']),
       ...(sessionEnabled ? ['session-bootstrap'] : []),
+      ...(actorResolver === undefined ? [] : ['invitations']),
       ...(actorResolver === undefined ? [] : ['members']),
       ...(actorResolver === undefined ? [] : ['roles']),
       ...(actorResolver === undefined ? [] : ['catalog']),
@@ -451,6 +472,16 @@ function isSubTenantMutationRequest(method: string, pathname: string): boolean {
   return (method === 'POST' && /^\/api\/v1\/tenants\/[^/]+\/subtenants\/?$/.test(pathname))
     || (method === 'DELETE'
       && /^\/api\/v1\/tenants\/[^/]+\/subtenants\/[^/]+\/?$/.test(pathname));
+}
+
+function isInvitationRequest(method: string, pathname: string): boolean {
+  if (method === 'POST' && pathname === '/api/v1/session/invitations/accept') return true;
+  if (method === 'POST' && /^\/api\/v1\/invitations\/?$/.test(pathname)) return true;
+  if (method === 'GET' && /^\/api\/v1\/invitations\/[^/]+\/activation\/?$/.test(pathname)) return true;
+  if (/^\/api\/v1\/invitations\/[^/]+\/?$/.test(pathname)) return method === 'DELETE';
+  if (/^\/api\/v1\/invitations\/[^/]+\/resend\/?$/.test(pathname)) return method === 'POST';
+  return method === 'GET'
+    && /^\/api\/v1\/tenants\/[^/]+\/(?:invitations|invitation-options)\/?$/.test(pathname);
 }
 
 function isMembersPath(pathname: string): boolean {

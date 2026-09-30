@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { PostgresSessionBootstrapRepository } from '../../../src/adapters/postgres/session-bootstrap-repository.ts';
-import { SessionTenantMutationError } from '../../../src/modules/session/application/session-repository.ts';
+import { SessionInvitationAcceptanceError, SessionTenantMutationError } from '../../../src/modules/session/application/session-repository.ts';
 
 describe('PostgresSessionBootstrapRepository', () => {
   it('traduit les roles PostgreSQL sans exposer les variantes internes', async () => {
@@ -153,5 +153,26 @@ describe('PostgresSessionBootstrapRepository', () => {
       'tenant-parent',
       'subtenant-absent',
     )).rejects.toMatchObject<Partial<SessionTenantMutationError>>({ code: 'not_found' });
+  });
+
+  it('accepte une invitation avec le condensat du jeton', async () => {
+    const query = vi.fn().mockResolvedValue({ rows: [{ tenant_id: 'tenant-invite' }] });
+    const run = vi.fn(async (_context, operation) => operation({ query }));
+    const repository = new PostgresSessionBootstrapRepository({ run } as never);
+
+    await expect(repository.acceptInvitation('user-1' as never, 'jeton-secret'))
+      .resolves.toBe('tenant-invite');
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('magrit.accept_tenant_invitation'),
+      ['3645d6a4ce16f52d2d53ff39a7a864f7461af48e8a666121fd40dda5a945b235'],
+    );
+  });
+
+  it('distingue une invitation destinee a un autre compte', async () => {
+    const run = vi.fn().mockRejectedValue(new Error('invitation_email_mismatch'));
+    const repository = new PostgresSessionBootstrapRepository({ run } as never);
+
+    await expect(repository.acceptInvitation('user-1' as never, 'jeton-secret'))
+      .rejects.toMatchObject<Partial<SessionInvitationAcceptanceError>>({ code: 'email_mismatch' });
   });
 });

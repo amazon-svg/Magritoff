@@ -11,6 +11,7 @@ import type {
 import type {
   DirectMembership,
   SessionBootstrapRepository,
+  SessionInvitationAcceptanceRepository,
   SessionPreferencesRepository,
   SessionRepository,
   SessionSubTenantMutationRepository,
@@ -132,6 +133,13 @@ export class SessionSubTenantMutationService extends SessionTenantCreationServic
   async removeSubTenant(userId: UserId, parentTenantId: string, subTenantId: string) {
     await this.subTenantRepository.removeSubTenant(userId, parentTenantId, subTenantId);
     return { removed: true as const };
+  }
+}
+
+export class SessionInvitationAcceptanceService {
+  constructor(private readonly repository: SessionInvitationAcceptanceRepository) {}
+  async acceptInvitation(userId: UserId, token: string) {
+    return { tenantId: await this.repository.acceptInvitation(userId, token) };
   }
 }
 

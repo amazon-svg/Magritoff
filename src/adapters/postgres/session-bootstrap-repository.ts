@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { UserId } from '../../kernel/ids/index.ts';
 import type {
   CreateRootTenant,
@@ -7,6 +8,8 @@ import type {
 } from '../../modules/session/api/contracts.ts';
 import {
   SessionTenantMutationError,
+  SessionInvitationAcceptanceError,
+  type SessionInvitationAcceptanceRepository,
   type DirectMembership,
   type SessionSubTenantMutationRepository,
 } from '../../modules/session/application/session-repository.ts';
@@ -43,7 +46,7 @@ type PreferencesRow = Readonly<{
   last_tenant_id: string | null;
 }>;
 
-export class PostgresSessionBootstrapRepository implements SessionSubTenantMutationRepository {
+export class PostgresSessionBootstrapRepository implements SessionSubTenantMutationRepository, SessionInvitationAcceptanceRepository {
   constructor(private readonly transactions: PostgresTransactionRunner) {}
 
   async autoAcceptPendingInvitations(): Promise<void> {
@@ -270,6 +273,28 @@ export class PostgresSessionBootstrapRepository implements SessionSubTenantMutat
         ? 'Sous-espace introuvable ou déjà supprimé.'
         : 'Suppression du sous-espace interdite.',
     );
+  }
+
+  async acceptInvitation(userId: UserId, token: string): Promise<string> {
+    try {
+      return await this.transactions.run({ userId }, async (client) => {
+        const result = await client.query<{ tenant_id: string }>(`
+          select magrit.accept_tenant_invitation($1)::text as tenant_id
+        `, [createHash('sha256').update(token, 'utf8').digest('hex')]);
+        const tenantId = result.rows[0]?.tenant_id;
+        if (tenantId === undefined) throw new SessionInvitationAcceptanceError('invalid', 'Invitation invalide.');
+        return tenantId;
+      });
+    } catch (error) {
+      if (error instanceof SessionInvitationAcceptanceError) throw error;
+      const message = error instanceof Error ? error.message : String(error);
+      throw new SessionInvitationAcceptanceError(
+        message.includes('invitation_email_mismatch') ? 'email_mismatch' : 'invalid',
+        message.includes('invitation_email_mismatch')
+          ? 'Cette invitation est destinée à un autre compte.'
+          : 'Invitation invalide, expirée ou déjà utilisée.',
+      );
+    }
   }
 }
 
