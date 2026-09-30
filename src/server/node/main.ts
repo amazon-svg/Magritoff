@@ -18,6 +18,7 @@ import { createReadinessRoute } from '../api/readiness-route.ts';
 import { createRolesRoutes } from '../api/roles-routes.ts';
 import { createShopAdministrationRoutes } from '../api/shops-routes.ts';
 import { createShopCustomerAdministrationRoutes } from '../api/shop-customers-routes.ts';
+import { createStorefrontSessionRoutes } from '../api/storefront-session-routes.ts';
 import {
   createSessionBootstrapRoute,
   createSessionInvitationAcceptanceRoute,
@@ -46,6 +47,7 @@ import { PostgresQuoteDocumentsRepository } from '../../adapters/postgres/quote-
 import { PostgresRolesRepository } from '../../adapters/postgres/roles-repository.ts';
 import { PostgresShopsRepository } from '../../adapters/postgres/shops-repository.ts';
 import { PostgresShopCustomersRepository } from '../../adapters/postgres/shop-customers-repository.ts';
+import { PostgresStorefrontAuthenticationGateway } from '../../adapters/postgres/storefront-authentication-gateway.ts';
 import { createPostgresPool } from '../../adapters/postgres/pool.ts';
 import { PostgresProductionStepsRepository } from '../../adapters/postgres/production-steps-repository.ts';
 import { PostgresReadinessProbe } from '../../adapters/postgres/readiness-probe.ts';
@@ -75,6 +77,9 @@ import { QuoteDocumentsService } from '../../modules/quote-documents/application
 import { RolesService } from '../../modules/roles/application/roles-service.ts';
 import { ShopsService } from '../../modules/shops/application/shops-service.ts';
 import { ShopCustomersService } from '../../modules/shop-customers/application/shop-customers-service.ts';
+import { StorefrontAuthenticationService } from '../../modules/shop-customers/application/storefront-authentication-service.ts';
+import { StorefrontRegistrationService } from '../../modules/shop-customers/application/storefront-registration-service.ts';
+import { StorefrontSessionService } from '../../modules/shop-customers/application/storefront-session-service.ts';
 import { OutboxPublisher } from '../../modules/_shared/application/index.ts';
 import { ProjectTagsService } from '../../modules/project-tags/application/project-tags-service.ts';
 import { PriceRulesService } from '../../modules/pricing/application/price-rules-service.ts';
@@ -89,6 +94,7 @@ import { OidcActorResolver } from '../auth/oidc-actor-resolver.ts';
 import { createNodeHttpServer } from './http-server.ts';
 import { readOidcConfiguration } from './oidc-configuration.ts';
 import { createTransitionalApiHandler } from './transitional-api-handler.ts';
+import { storefrontSessionCookiePolicy } from '../storefront/session-cookie.ts';
 
 const host = process.env['MAGRIT_API_HOST'] ?? '127.0.0.1';
 const port = parsePort(process.env['MAGRIT_API_PORT'] ?? '8787');
@@ -310,6 +316,19 @@ const shopCustomerAdministrationRoutes = actorResolver === undefined
   : createShopCustomerAdministrationRoutes(new ShopCustomersService(
       new PostgresShopCustomersRepository(new PostgresTransactionRunner(postgresPool, 'magrit_api')),
     ));
+const storefrontAuthenticationGateway = new PostgresStorefrontAuthenticationGateway(
+  new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+);
+const storefrontSessions = new StorefrontSessionService(storefrontAuthenticationGateway);
+const storefrontCookiePolicy = storefrontSessionCookiePolicy(
+  (process.env['APP_BASE_URL'] ?? '').startsWith('https://') || process.env['NODE_ENV'] === 'production',
+);
+const storefrontSessionRoutes = createStorefrontSessionRoutes(
+  new StorefrontAuthenticationService(storefrontAuthenticationGateway),
+  new StorefrontRegistrationService(storefrontAuthenticationGateway),
+  storefrontSessions,
+  storefrontCookiePolicy,
+);
 const gescomHandler = gescomPrincipalVerifier === null
   ? null
   : createGescomApiHandler({
@@ -344,6 +363,7 @@ const apiHandler = createApiV1Application({
     ...catalogRoutes,
     ...shopAdministrationRoutes,
     ...shopCustomerAdministrationRoutes,
+    ...storefrontSessionRoutes,
   ],
   ...(actorResolver === undefined ? {} : { actorResolver }),
   onUnexpectedError(error, requestId) {
@@ -378,6 +398,7 @@ const handler = createTransitionalApiHandler({
     || (actorResolver !== undefined && isRolesPath(url.pathname))
     || (actorResolver !== undefined && isShopAdministrationPath(url.pathname))
     || (actorResolver !== undefined && isShopCustomerAdministrationPath(url.pathname))
+    || isStorefrontSessionRequest(request.method, url.pathname)
     || (actorResolver !== undefined && isLocalCatalogRequest(request.method, url.pathname))
     || (gescomHandler !== null && isLocalGescomPath(url.pathname))
   ),
@@ -405,6 +426,7 @@ server.listen(port, host, () => {
       ...(actorResolver === undefined ? [] : ['catalog']),
       ...(shopAdministrationRoutes.length === 0 ? [] : ['shops:backoffice']),
       ...(shopCustomerAdministrationRoutes.length === 0 ? [] : ['shop-customers:backoffice']),
+      'storefront-sessions',
       ...(gescomHandler === null ? [] : ['commercial-settings']),
       ...(gescomHandler === null ? [] : ['production-steps']),
       ...(gescomHandler === null ? [] : ['customers']),
@@ -535,4 +557,9 @@ function isShopAdministrationPath(pathname: string): boolean {
 
 function isShopCustomerAdministrationPath(pathname: string): boolean {
   return /^\/api\/v1\/tenants\/[^/]+\/shops\/[^/]+\/customers(?:\/self)?\/?$/.test(pathname);
+}
+
+function isStorefrontSessionRequest(method: string, pathname: string): boolean {
+  if (pathname === '/api/v1/storefront/session/current') return method === 'GET' || method === 'DELETE';
+  return method === 'POST' && /^\/api\/v1\/storefront\/[^/]+\/(?:session|registration)\/?$/.test(pathname);
 }
