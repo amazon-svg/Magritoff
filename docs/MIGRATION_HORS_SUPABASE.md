@@ -13,7 +13,7 @@ Decision formelle : `docs/architecture/decisions/0001-sortie-de-supabase.md`.
 | J1 | Compose, healthchecks, migrations et buckets livres ; seed et CI restent a faire |
 | J2 | runtime Node, health/readiness et facade de transition livres |
 | J3 | contexte transactionnel, roles, Conversations, session, réglages tenant, réglages commerciaux, étapes de production, clients, projets, étiquettes, catalogue PIM, règles tarifaires, devis et gabarits PDF PostgreSQL livres ; idempotence API et outbox durables livrées |
-| J4 | adaptateurs S3 des exports, fichiers de lignes projet et gabarits PDF livres ; autres buckets non bascules |
+| J4 | adaptateurs S3 des exports, fichiers de lignes projet, gabarits PDF et documents de devis livres ; autres buckets non bascules |
 | J5 | OIDC, annuaire d'identites et socle Better Auth PostgreSQL livres ; invitations, recovery et bascule UI restent a faire |
 | J6 et suivants | non demarres |
 
@@ -317,10 +317,9 @@ tarifées, compteur annuel, isolation tenant, garde des lignes hors brouillon et
 journaux append-only. L'adaptateur PostgreSQL direct couvre aussi les lectures,
 la création tarifée, les mutations, l'envoi et la duplication transactionnels ;
 les auteurs d'audit sont désormais transmis explicitement par le port. Les
-routes Devis ne sont pas encore activées dans le serveur Node : leur service
-dépend toujours du lot Documents de devis, à extraire avant cette bascule. Les
-données existantes devront être copiées et contrôlées avant l'activation de ces
-routes en environnement partagé.
+routes Devis et Documents de devis sont désormais activées dans le serveur Node
+pour le back-office. Les données existantes devront être copiées et contrôlées
+avant l'activation de ces routes en environnement partagé.
 
 Les gabarits PDF de devis et de commandes sont maintenant servis par la façade
 Node avec PostgreSQL et le bucket S3 `document-pdf-templates`. Le dépôt reste
@@ -328,9 +327,12 @@ direct vers S3 par URL signée, puis l'API relit et inspecte le PDF avant de le
 publier. La géométrie et la carte de champs sont isolées par tenant ; un
 remplacement conserve le statut par défaut et refuse un changement de
 géométrie tant que la carte n'est pas explicitement réinitialisée. La table
-append-only des documents de devis est également posée, mais son adaptateur et
-le bucket `quote-documents` restent le prochain lot avant l'activation des
-routes Devis.
+append-only des documents de devis est également servie par un adaptateur
+PostgreSQL/S3. Le dépôt définitif est protégé contre l'écrasement et les aperçus
+filigranés restent remplaçables. La lecture portail client continue d'être
+relayée vers l'API historique : elle ne basculera qu'avec les comptes et
+sessions boutique, afin de conserver un contrôle d'accès complet plutôt qu'un
+mode dégradé.
 
 Le seed local est idempotent. Il cree par defaut
 `developer@magrit.local`, le tenant `magrit-development` et une identite OIDC

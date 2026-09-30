@@ -1,6 +1,7 @@
 import { createApiV1Application } from '../api/composition.ts';
 import { createCommercialSettingsRoutes } from '../api/commercial-settings-routes.ts';
 import { createCommercialLineFilesRoutes } from '../api/commercial-line-files-routes.ts';
+import { createCommercialQuotesRoutes } from '../api/commercial-quotes-routes.ts';
 import { createCatalogRoutes } from '../api/catalog-routes.ts';
 import { createGescomApiHandler } from '../api/gescom-middleware.ts';
 import { createConversationsRoutes } from '../api/conversations-routes.ts';
@@ -10,6 +11,7 @@ import { createProjectTagsRoutes } from '../api/project-tags-routes.ts';
 import { createPriceRulesRoutes } from '../api/price-rules-routes.ts';
 import { createProjectsRoutes } from '../api/projects-routes.ts';
 import { createProductionStepsRoutes } from '../api/production-steps-routes.ts';
+import { createQuoteDocumentsRoutes } from '../api/quote-documents-routes.ts';
 import { createReadinessRoute } from '../api/readiness-route.ts';
 import {
   createSessionBootstrapRoute,
@@ -21,6 +23,7 @@ import {
 import { OidcJwtVerifier } from '../../adapters/oidc/jwt-verifier.ts';
 import { PostgresCommercialSettingsRepository } from '../../adapters/postgres/commercial-settings-repository.ts';
 import { PostgresCommercialLineFilesRepository } from '../../adapters/postgres/commercial-line-files-repository.ts';
+import { PostgresCommercialQuotesRepository } from '../../adapters/postgres/commercial-quotes-repository.ts';
 import { PostgresCatalogRepository } from '../../adapters/postgres/catalog-repository.ts';
 import { PostgresConversationsRepository } from '../../adapters/postgres/conversations-repository.ts';
 import { PostgresCustomersRepository } from '../../adapters/postgres/customers-repository.ts';
@@ -31,6 +34,7 @@ import { PostgresOutboxRepository } from '../../adapters/postgres/outbox-reposit
 import { PostgresPriceRulesRepository } from '../../adapters/postgres/price-rules-repository.ts';
 import { PostgresProjectTagsRepository } from '../../adapters/postgres/project-tags-repository.ts';
 import { PostgresProjectsRepository } from '../../adapters/postgres/projects-repository.ts';
+import { PostgresQuoteDocumentsRepository } from '../../adapters/postgres/quote-documents-repository.ts';
 import { createPostgresPool } from '../../adapters/postgres/pool.ts';
 import { PostgresProductionStepsRepository } from '../../adapters/postgres/production-steps-repository.ts';
 import { PostgresReadinessProbe } from '../../adapters/postgres/readiness-probe.ts';
@@ -42,13 +46,17 @@ import { S3ProjectCommercialFileStorage } from '../../adapters/s3/project-commer
 import { ConversationsService } from '../../modules/conversations/application/conversations-service.ts';
 import { CommercialSettingsService } from '../../modules/commercial-settings/application/commercial-settings-service.ts';
 import { CommercialLineFilesService } from '../../modules/commercial-line-files/application/commercial-line-files-service.ts';
+import { CommercialQuotesService } from '../../modules/commercial-quotes/application/commercial-quotes-service.ts';
 import { CatalogService } from '../../modules/catalog/application/catalog-service.ts';
 import { CatalogRejectedError } from '../../modules/catalog/application/catalog-repository.ts';
 import { CustomersService } from '../../modules/customers/application/customers-service.ts';
 import { DocumentTemplatesService } from '../../modules/document-templates/application/document-templates-service.ts';
+import { CustomersRepositoryDocumentDataGateway } from '../../modules/quote-documents/application/customer-document-data-gateway.ts';
+import { QuoteDocumentsService } from '../../modules/quote-documents/application/quote-documents-service.ts';
 import { OutboxPublisher } from '../../modules/_shared/application/index.ts';
 import { ProjectTagsService } from '../../modules/project-tags/application/project-tags-service.ts';
 import { PriceRulesService } from '../../modules/pricing/application/price-rules-service.ts';
+import { createPricingEngine } from '../../modules/pricing/application/pricing-engine-provider.ts';
 import { ProjectsService } from '../../modules/projects/application/projects-service.ts';
 import { ProductionStepsService } from '../../modules/production-steps/application/production-steps-service.ts';
 import { SessionSubTenantMutationService } from '../../modules/session/application/session-service.ts';
@@ -137,6 +145,47 @@ const outboxPublisher = new OutboxPublisher({
   newEventId: () => crypto.randomUUID(),
 });
 const s3Client = gescomPrincipalVerifier === null ? null : createS3Client();
+const priceRulesService = new PriceRulesService({
+  repository: new PostgresPriceRulesRepository(
+    new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+  ),
+  customers: customersRepository,
+  outbox: outboxPublisher,
+});
+const projectsRepository = s3Client === null
+  ? null
+  : new PostgresProjectsRepository(
+      new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+      new S3ProjectCommercialFileStorage(s3Client),
+    );
+const documentTemplatesRepository = s3Client === null
+  ? null
+  : new PostgresDocumentTemplatesRepository(
+      new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+      s3Client,
+    );
+const quoteDocumentsService = s3Client === null || documentTemplatesRepository === null
+  ? null
+  : new QuoteDocumentsService({
+      templates: documentTemplatesRepository,
+      customers: new CustomersRepositoryDocumentDataGateway(customersRepository),
+      repository: new PostgresQuoteDocumentsRepository(
+        new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+        s3Client,
+      ),
+    });
+const commercialQuotesService = projectsRepository === null || quoteDocumentsService === null
+  ? null
+  : new CommercialQuotesService({
+      repository: new PostgresCommercialQuotesRepository(
+        new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+      ),
+      outbox: outboxPublisher,
+      projects: projectsRepository,
+      priceRules: priceRulesService,
+      pricingEngine: createPricingEngine(),
+      documents: quoteDocumentsService,
+    });
 const commercialSettingsRoutes = gescomPrincipalVerifier === null
   ? []
   : createCommercialSettingsRoutes(new CommercialSettingsService({
@@ -164,20 +213,11 @@ const projectTagsRoutes = gescomPrincipalVerifier === null
     }));
 const priceRulesRoutes = gescomPrincipalVerifier === null
   ? []
-  : createPriceRulesRoutes(new PriceRulesService({
-      repository: new PostgresPriceRulesRepository(
-        new PostgresTransactionRunner(postgresPool, 'magrit_api'),
-      ),
-      customers: customersRepository,
-      outbox: outboxPublisher,
-    }));
+  : createPriceRulesRoutes(priceRulesService);
 const projectsRoutes = gescomPrincipalVerifier === null
   ? []
   : createProjectsRoutes(new ProjectsService({
-      repository: new PostgresProjectsRepository(
-        new PostgresTransactionRunner(postgresPool, 'magrit_api'),
-        new S3ProjectCommercialFileStorage(s3Client!),
-      ),
+      repository: projectsRepository!,
       customers: customersRepository,
       projectTags: projectTagsRepository,
       outbox: outboxPublisher,
@@ -193,11 +233,14 @@ const commercialLineFilesRoutes = gescomPrincipalVerifier === null
 const documentTemplatesRoutes = gescomPrincipalVerifier === null
   ? []
   : createDocumentTemplatesRoutes(new DocumentTemplatesService({
-      repository: new PostgresDocumentTemplatesRepository(
-        new PostgresTransactionRunner(postgresPool, 'magrit_api'),
-        s3Client!,
-      ),
+      repository: documentTemplatesRepository!,
     }));
+const commercialQuotesRoutes = commercialQuotesService === null
+  ? []
+  : createCommercialQuotesRoutes(commercialQuotesService);
+const quoteDocumentsRoutes = commercialQuotesService === null || quoteDocumentsService === null
+  ? []
+  : createQuoteDocumentsRoutes(quoteDocumentsService, commercialQuotesService);
 const gescomHandler = gescomPrincipalVerifier === null
   ? null
   : createGescomApiHandler({
@@ -210,6 +253,8 @@ const gescomHandler = gescomPrincipalVerifier === null
         ...projectsRoutes,
         ...commercialLineFilesRoutes,
         ...documentTemplatesRoutes,
+        ...commercialQuotesRoutes,
+        ...quoteDocumentsRoutes,
       ],
       principalVerifier: gescomPrincipalVerifier,
       idempotencyStore: new PostgresIdempotencyStore(
@@ -284,6 +329,8 @@ server.listen(port, host, () => {
       ...(gescomHandler === null ? [] : ['projects']),
       ...(gescomHandler === null ? [] : ['commercial-line-files:project-item']),
       ...(gescomHandler === null ? [] : ['document-pdf-templates']),
+      ...(commercialQuotesService === null ? [] : ['commercial-quotes']),
+      ...(quoteDocumentsService === null ? [] : ['quote-documents:backoffice']),
     ],
   }));
 });
@@ -358,6 +405,8 @@ function isLocalGescomPath(pathname: string): boolean {
     || /^\/api\/v1\/projects(?:\/[^/]+(?:\/(?:items(?:\/[^/]+)?|hopstudio-items|tags))?)?\/?$/.test(pathname)
     || /^\/api\/v1\/commercial-line-files\/project_item\/[^/]+(?:\/[^/]+)?\/?$/.test(pathname)
     || /^\/api\/v1\/document-pdf-templates(?:\/[^/]+(?:\/(?:upload-urls|uploads|fields))?)?\/?$/.test(pathname)
+    || pathname === '/api/v1/quotes'
+    || pathname.startsWith('/api/v1/quotes/')
     || /^\/api\/v1\/customers(?:\/[^/]+(?:\/contacts(?:\/[^/]+)?|\/siret-verifications)?)?\/?$/.test(pathname);
 }
 
