@@ -16,6 +16,7 @@ import { createPriceRulesRoutes } from '../api/price-rules-routes.ts';
 import { createProjectsRoutes } from '../api/projects-routes.ts';
 import { createProductionStepsRoutes } from '../api/production-steps-routes.ts';
 import { createQuoteDocumentsRoutes } from '../api/quote-documents-routes.ts';
+import { createQuoteTemplatesRoutes } from '../api/quote-templates-routes.ts';
 import { createReadinessRoute } from '../api/readiness-route.ts';
 import { createRolesRoutes } from '../api/roles-routes.ts';
 import { createPublicShopsRoutes, createShopAdministrationRoutes } from '../api/shops-routes.ts';
@@ -51,6 +52,7 @@ import { PostgresPriceRulesRepository } from '../../adapters/postgres/price-rule
 import { PostgresProjectTagsRepository } from '../../adapters/postgres/project-tags-repository.ts';
 import { PostgresProjectsRepository } from '../../adapters/postgres/projects-repository.ts';
 import { PostgresQuoteDocumentsRepository } from '../../adapters/postgres/quote-documents-repository.ts';
+import { PostgresQuoteTemplatesRepository } from '../../adapters/postgres/quote-templates-repository.ts';
 import { PostgresRolesRepository } from '../../adapters/postgres/roles-repository.ts';
 import { PostgresShopsRepository } from '../../adapters/postgres/shops-repository.ts';
 import { PostgresShopCustomersRepository } from '../../adapters/postgres/shop-customers-repository.ts';
@@ -90,6 +92,7 @@ import { LibraryProductsService } from '../../modules/libraries/application/libr
 import { MembersService } from '../../modules/members/application/members-service.ts';
 import { CustomersRepositoryDocumentDataGateway } from '../../modules/quote-documents/application/customer-document-data-gateway.ts';
 import { QuoteDocumentsService } from '../../modules/quote-documents/application/quote-documents-service.ts';
+import { QuoteTemplatesService } from '../../modules/quote-templates/application/quote-templates-service.ts';
 import { RolesService } from '../../modules/roles/application/roles-service.ts';
 import { ShopsService } from '../../modules/shops/application/shops-service.ts';
 import { ShopCustomersService } from '../../modules/shop-customers/application/shop-customers-service.ts';
@@ -202,6 +205,11 @@ const rolesRoutes = actorResolver === undefined
         new PostgresTransactionRunner(postgresPool, 'magrit_api'),
       ),
     ));
+const quoteTemplatesRoutes = actorResolver === undefined
+  ? []
+  : createQuoteTemplatesRoutes(new QuoteTemplatesService(new PostgresQuoteTemplatesRepository(
+      new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+    )));
 const catalogRoutes = actorResolver === undefined
   ? []
   : createCatalogRoutes(new CatalogService(
@@ -420,6 +428,7 @@ const apiHandler = createApiV1Application({
     ...libraryProductsRoutes,
     ...membersRoutes,
     ...rolesRoutes,
+    ...quoteTemplatesRoutes,
     ...catalogRoutes,
     ...shopAdministrationRoutes,
     ...shopCustomerAdministrationRoutes,
@@ -461,6 +470,7 @@ const handler = createTransitionalApiHandler({
     || (actorResolver !== undefined && isLibrariesPath(url.pathname))
     || (actorResolver !== undefined && isMembersPath(url.pathname))
     || (actorResolver !== undefined && isRolesPath(url.pathname))
+    || (actorResolver !== undefined && isQuoteTemplatesPath(url.pathname))
     || (actorResolver !== undefined && isShopAdministrationPath(url.pathname))
     || isPublicShopPath(url.pathname)
     || (actorResolver !== undefined && isShopCustomerAdministrationPath(url.pathname))
@@ -494,6 +504,7 @@ server.listen(port, host, () => {
       ...(libraryProductsRoutes.length === 0 ? [] : ['library-products']),
       ...(actorResolver === undefined ? [] : ['members']),
       ...(actorResolver === undefined ? [] : ['roles']),
+      ...(quoteTemplatesRoutes.length === 0 ? [] : ['quote-templates']),
       ...(actorResolver === undefined ? [] : ['catalog']),
       ...(shopAdministrationRoutes.length === 0 ? [] : ['shops:backoffice']),
       ...(shopCustomerAdministrationRoutes.length === 0 ? [] : ['shop-customers:backoffice']),
@@ -557,6 +568,10 @@ function isLocalAuthenticationPath(pathname: string): boolean {
 
 function isLibrariesPath(pathname:string):boolean{
   return /^\/api\/v1\/tenants\/[^/]+\/(?:libraries|library-products)(?:\/[^/]+)?\/?$/.test(pathname);
+}
+
+function isQuoteTemplatesPath(pathname:string):boolean{
+  return /^\/api\/v1\/tenants\/[^/]+\/quote-templates(?:\/[^/]+)?\/?$/.test(pathname);
 }
 
 function isShopCustomerDelegationRequest(method:string,pathname:string):boolean{
