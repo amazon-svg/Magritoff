@@ -14,7 +14,7 @@ Decision formelle : `docs/architecture/decisions/0001-sortie-de-supabase.md`.
 | J2 | runtime Node, health/readiness et facade de transition livres |
 | J3 | contexte transactionnel, roles, Conversations, session, réglages tenant, membres, rôles et invitations, réglages commerciaux, étapes de production, clients, projets, étiquettes, catalogue PIM, règles tarifaires, devis et gabarits PDF PostgreSQL livres ; idempotence API et outbox durables livrées |
 | J4 | adaptateurs S3 des exports, fichiers de lignes projet, gabarits PDF et documents de devis livres ; autres buckets non bascules |
-| J5 | OIDC, annuaire d'identites, socle Better Auth PostgreSQL et invitations Magrit livres ; recovery et bascule UI restent a faire |
+| J5 | OIDC, annuaire d'identites, socle Better Auth PostgreSQL, invitations Magrit et récupération de mot de passe livres ; bascule UI globale reste a faire |
 | J6 et suivants | non demarres |
 
 ## 1. Decision proposee
@@ -259,6 +259,10 @@ MAGRIT_AUTH_SECRET=
 APP_BASE_URL=
 MAIL_HOST=
 MAIL_PORT=
+MAIL_SECURE=false
+MAIL_USER=
+MAIL_PASSWORD=
+MAGRIT_FROM_EMAIL=
 ```
 
 Les secrets de fournisseurs OIDC ne sont jamais exposes a Vite.
@@ -348,15 +352,22 @@ liste, renvoi, révocation et acceptation sont servis par Node et PostgreSQL.
 Les liens utilisent un jeton opaque de 256 bits dont seul le SHA-256 est
 conservé. L'acceptation vérifie l'adresse du compte connecté, ajoute
 l'appartenance et ses options dans une seule transaction, et reste idempotente
-pour le destinataire après succès. L'envoi utilise encore l'adaptateur Resend ;
-si sa clé n'est pas configurée, l'API restitue le lien et signale explicitement
-que le courriel n'a pas été envoyé. Le branchement SMTP vers Mailpit reste à
-faire avec le lot récupération de mot de passe et vérification d'adresse.
+pour le destinataire après succès. En production, l'envoi utilise l'adaptateur
+Resend lorsqu'aucun SMTP n'est configuré ; sans clé, l'API restitue le lien et
+signale explicitement que le courriel n'a pas été envoyé. En développement,
+`MAIL_HOST` et `MAIL_PORT` sélectionnent l'adaptateur SMTP et livrent les
+invitations dans Mailpit. `MAIL_USER` et `MAIL_PASSWORD` sont facultatifs mais
+doivent être fournis ensemble ; `MAIL_SECURE=true` active TLS implicite.
 Pour une adresse encore inconnue, le même jeton autorise une seule création de
 compte Better Auth : le serveur impose l'adresse portée par l'invitation, un
 mot de passe d'au moins 12 caractères et des identifiants UUID. Un trigger
 transactionnel provisionne alors `app_users` et l'identité
 `urn:magrit:local` ; l'inscription Better Auth sans invitation reste refusée.
+La récupération de mot de passe suit le même choix de transport. Better Auth
+conserve en base un jeton à usage unique valable une heure, le courriel pointe
+vers son endpoint de validation puis revient sur `/reset-password`. Le
+navigateur transmet explicitement le jeton avec un mot de passe de 12 à 128
+caractères ; les sessions précédentes sont révoquées après succès.
 
 Le seed local est idempotent. Il cree par defaut
 `developer@magrit.local`, le tenant `magrit-development` et une identite OIDC

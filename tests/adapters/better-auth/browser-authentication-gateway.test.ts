@@ -77,4 +77,17 @@ describe('BetterAuthBrowserAuthenticationGateway', () => {
     expect(result.session).toBeNull();
     expect(result.error?.message).toBe('Invalid email or password');
   });
+
+  it('transmet le jeton de recuperation avec le nouveau mot de passe', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ status: true }));
+    const gateway = new BetterAuthBrowserAuthenticationGateway(fetchMock);
+
+    await expect(gateway.updatePassword('nouveau-mot-de-passe', 'reset-token'))
+      .resolves.toEqual({ error: null });
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/auth/reset-password', expect.objectContaining({
+      body: JSON.stringify({ newPassword: 'nouveau-mot-de-passe', token: 'reset-token' }),
+    }));
+    await expect(gateway.updatePassword('nouveau-mot-de-passe'))
+      .resolves.toMatchObject({ error: expect.any(Error) });
+  });
 });

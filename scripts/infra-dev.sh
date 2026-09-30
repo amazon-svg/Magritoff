@@ -37,6 +37,8 @@ case "${1:-}" in
     echo 'S3_FORCE_PATH_STYLE=true'
     echo 'MAIL_HOST=127.0.0.1'
     echo 'MAIL_PORT=51025'
+    echo 'MAIL_SECURE=false'
+    echo "MAGRIT_FROM_EMAIL='Magrit <noreply@magrit.local>'"
     echo 'MAGRIT_DEV_USER_EMAIL=developer@magrit.local'
     echo 'MAGRIT_DEV_USER_PASSWORD=magrit-development-only'
     echo 'MAGRIT_DEV_TENANT_SLUG=magrit-development'

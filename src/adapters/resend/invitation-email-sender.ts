@@ -16,7 +16,7 @@ export class ResendInvitationEmailSender implements InvitationEmailSender {
         body: JSON.stringify({
           from: this.from, to: [message.to],
           subject: `Invitation à rejoindre ${message.tenantName} sur Magrit`,
-          html: renderHtml(message), text: renderText(message),
+          html: renderInvitationHtml(message), text: renderInvitationText(message),
         }),
       });
       if (!response.ok) {
@@ -30,12 +30,12 @@ export class ResendInvitationEmailSender implements InvitationEmailSender {
   }
 }
 
-function renderHtml(message: InvitationEmail): string {
+export function renderInvitationHtml(message: InvitationEmail): string {
   const tenant = escapeHtml(message.tenantName);
   const link = escapeHtml(message.link);
   return `<!doctype html><html lang="fr"><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1a1a1a;max-width:560px;margin:0 auto;padding:24px"><p>Bonjour,</p><p>Vous avez été invité(e) à rejoindre <strong>${tenant}</strong> sur Magrit.</p><p>Rôle : <strong>${escapeHtml(roleLabel(message.role))}</strong><br>Invitation valable jusqu’au ${escapeHtml(formatDate(message.expiresAt))}.</p><p style="margin:28px 0"><a href="${link}" style="background:#1a1a1a;color:#fff;text-decoration:none;padding:12px 20px;border-radius:6px">Accepter l’invitation</a></p><p style="font-size:12px;color:#777">Ou copiez ce lien : <a href="${link}">${link}</a></p></body></html>`;
 }
-function renderText(message: InvitationEmail): string {
+export function renderInvitationText(message: InvitationEmail): string {
   return `Bonjour,\n\nVous avez été invité(e) à rejoindre ${message.tenantName} sur Magrit.\nRôle : ${roleLabel(message.role)}\nInvitation valable jusqu’au ${formatDate(message.expiresAt)}.\n\n${message.link}`;
 }
 function roleLabel(role: InvitationEmail['role']): string {

@@ -3,6 +3,7 @@ import { APIError, betterAuth } from 'better-auth';
 import { createAuthMiddleware } from 'better-auth/api';
 import { PostgresDialect } from 'kysely';
 import type { Pool } from 'pg';
+import type { PasswordResetEmailSender } from '../../modules/account/application/password-reset-email-sender.ts';
 
 export type LocalAuthenticationConfiguration = Readonly<{
   baseUrl: string;
@@ -39,6 +40,7 @@ export function readLocalAuthenticationConfiguration(
 export function createLocalAuthentication(
   pool: Pool,
   configuration: LocalAuthenticationConfiguration,
+  passwordResetEmailSender: PasswordResetEmailSender = disabledPasswordResetEmailSender,
 ) {
   const baseUrl = new URL(configuration.baseUrl);
   return betterAuth({
@@ -60,6 +62,16 @@ export function createLocalAuthentication(
       minPasswordLength: 12,
       maxPasswordLength: 128,
       revokeSessionsOnPasswordReset: true,
+      async sendResetPassword({ user, url }) {
+        const delivery = await passwordResetEmailSender.send({
+          to: user.email,
+          displayName: user.name,
+          link: url,
+        });
+        if (!delivery.sent) {
+          throw new Error(delivery.reason ?? 'Envoi du courriel de réinitialisation impossible.');
+        }
+      },
     },
     session: {
       expiresIn: 60 * 60 * 24 * 7,
@@ -95,6 +107,10 @@ export function createLocalAuthentication(
     },
   });
 }
+
+const disabledPasswordResetEmailSender: PasswordResetEmailSender = Object.freeze({
+  async send() { return { sent: false, reason: 'Aucun transport email configuré' }; },
+});
 
 async function isValidInvitationRegistration(
   pool: Pool,

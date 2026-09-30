@@ -22,6 +22,6 @@ export interface AuthenticationGateway {
   refreshSession(): Promise<AuthenticationResult>;
   signOut(): Promise<void>;
   resetPassword(email: string, redirectTo: string): Promise<{ error: Error | null }>;
-  updatePassword(password: string): Promise<{ error: Error | null }>;
+  updatePassword(password: string, token?: string): Promise<{ error: Error | null }>;
   updateProfile(fullName: string): Promise<{ error: Error | null }>;
 }

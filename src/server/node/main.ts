@@ -48,9 +48,13 @@ import { PostgresReadinessProbe } from '../../adapters/postgres/readiness-probe.
 import { PostgresSessionBootstrapRepository } from '../../adapters/postgres/session-bootstrap-repository.ts';
 import { PostgresTransactionRunner } from '../../adapters/postgres/transaction-runner.ts';
 import { ResendInvitationEmailSender } from '../../adapters/resend/invitation-email-sender.ts';
+import { ResendPasswordResetEmailSender } from '../../adapters/resend/password-reset-email-sender.ts';
 import { createS3Client } from '../../adapters/s3/client.ts';
 import { S3CommercialLineFileStorage } from '../../adapters/s3/commercial-line-file-storage.ts';
 import { S3ProjectCommercialFileStorage } from '../../adapters/s3/project-commercial-file-storage.ts';
+import { SmtpInvitationEmailSender } from '../../adapters/smtp/invitation-email-sender.ts';
+import { SmtpPasswordResetEmailSender } from '../../adapters/smtp/password-reset-email-sender.ts';
+import { readSmtpConfiguration, SmtpTransport } from '../../adapters/smtp/transport.ts';
 import { ConversationsService } from '../../modules/conversations/application/conversations-service.ts';
 import { CommercialSettingsService } from '../../modules/commercial-settings/application/commercial-settings-service.ts';
 import { CommercialLineFilesService } from '../../modules/commercial-line-files/application/commercial-line-files-service.ts';
@@ -87,9 +91,18 @@ postgresPool.on('error', (error) => {
 });
 const oidcConfiguration = readOidcConfiguration();
 const localAuthenticationConfiguration = readLocalAuthenticationConfiguration();
+const fromEmail = process.env['MAGRIT_FROM_EMAIL'] ?? 'Magrit <noreply@magrit.local>';
+const smtpConfiguration = readSmtpConfiguration();
+const smtpTransport = smtpConfiguration === null ? null : new SmtpTransport(smtpConfiguration);
+const invitationEmailSender = smtpTransport === null
+  ? new ResendInvitationEmailSender(process.env['RESEND_API_KEY'] ?? null, fromEmail)
+  : new SmtpInvitationEmailSender(smtpTransport, fromEmail);
+const passwordResetEmailSender = smtpTransport === null
+  ? new ResendPasswordResetEmailSender(process.env['RESEND_API_KEY'] ?? null, fromEmail)
+  : new SmtpPasswordResetEmailSender(smtpTransport, fromEmail);
 const localAuthentication = localAuthenticationConfiguration === null
   ? null
-  : createLocalAuthentication(postgresPool, localAuthenticationConfiguration);
+  : createLocalAuthentication(postgresPool, localAuthenticationConfiguration, passwordResetEmailSender);
 const identityDirectory = new PostgresOidcIdentityDirectory(postgresPool);
 const oidcJwtVerifier = oidcConfiguration === null
   ? null
@@ -130,10 +143,7 @@ const invitationsRoutes = actorResolver === undefined
   : createInvitationsRoutes(new InvitationsService(
       new PostgresInvitationsRepository(
         new PostgresTransactionRunner(postgresPool, 'magrit_api'),
-        new ResendInvitationEmailSender(
-          process.env['RESEND_API_KEY'] ?? null,
-          process.env['MAGRIT_FROM_EMAIL'] ?? 'Magrit <noreply@localhost>',
-        ),
+        invitationEmailSender,
       ),
     ));
 const membersRoutes = actorResolver === undefined

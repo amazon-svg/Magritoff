@@ -102,8 +102,14 @@ export class BetterAuthBrowserAuthenticationGateway implements AuthenticationGat
     }
   }
 
-  async updatePassword() {
-    return { error: new Error('Le nouveau parcours de reinitialisation du mot de passe reste a activer.') };
+  async updatePassword(password: string, token?: string) {
+    if (!token) return { error: new Error('Le lien de réinitialisation est invalide ou incomplet.') };
+    try {
+      const response = await this.post('/reset-password', { newPassword: password, token });
+      return { error: response.ok ? null : await responseError(response) };
+    } catch (cause) {
+      return { error: asError(cause) };
+    }
   }
 
   async updateProfile(fullName: string) {

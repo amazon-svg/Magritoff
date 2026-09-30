@@ -151,7 +151,13 @@ describeIntegration('Better Auth local — PostgreSQL reel', () => {
   });
 
   it('provisionne un compte local uniquement depuis une invitation valide', async () => {
-    const authentication = createLocalAuthentication(pool, configuration);
+    let resetLink: string | null = null;
+    const authentication = createLocalAuthentication(pool, configuration, {
+      async send(message) {
+        resetLink = message.link;
+        return { sent: true };
+      },
+    });
     const token = `${randomUUID()}${randomUUID()}`.replaceAll('-', '');
     const email = `invited-${randomUUID()}@example.invalid`;
     const invitationId = randomUUID();
@@ -231,6 +237,52 @@ describeIntegration('Better Auth local — PostgreSQL reel', () => {
       ));
       expect(signIn.status).toBe(200);
       expect(signIn.headers.get('set-cookie')).toContain('magrit.session_token=');
+
+      const resetRequest = await authentication.handler(new Request(
+        `${configuration.baseUrl}/api/v1/auth/request-password-reset`,
+        {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            origin: configuration.baseUrl,
+            'x-forwarded-for': '127.0.0.1',
+          },
+          body: JSON.stringify({ email, redirectTo: `${configuration.baseUrl}/reset-password` }),
+        },
+      ));
+      expect(resetRequest.status).toBe(200);
+      expect(resetLink).toContain('/api/v1/auth/reset-password/');
+      const resetCallback = await authentication.handler(new Request(resetLink!));
+      expect(resetCallback.status).toBe(302);
+      const redirected = new URL(resetCallback.headers.get('location')!);
+      const resetToken = redirected.searchParams.get('token');
+      expect(resetToken).toBeTruthy();
+      const reset = await authentication.handler(new Request(
+        `${configuration.baseUrl}/api/v1/auth/reset-password`,
+        {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            origin: configuration.baseUrl,
+            'x-forwarded-for': '127.0.0.1',
+          },
+          body: JSON.stringify({ newPassword: 'nouveau-mot-de-passe', token: resetToken }),
+        },
+      ));
+      expect(reset.status).toBe(200);
+      const newSignIn = await authentication.handler(new Request(
+        `${configuration.baseUrl}/api/v1/auth/sign-in/email`,
+        {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            origin: configuration.baseUrl,
+            'x-forwarded-for': '127.0.0.1',
+          },
+          body: JSON.stringify({ email, password: 'nouveau-mot-de-passe' }),
+        },
+      ));
+      expect(newSignIn.status).toBe(200);
 
       const sessions = new PostgresSessionBootstrapRepository(
         new PostgresTransactionRunner(pool, 'magrit_api'),

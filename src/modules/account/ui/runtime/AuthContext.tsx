@@ -98,7 +98,8 @@ export function AuthProvider({
   };
 
   const updatePassword = async (newPassword: string) => {
-    return auth.updatePassword(newPassword);
+    const token = new URLSearchParams(window.location.search).get('token') ?? undefined;
+    return auth.updatePassword(newPassword, token);
   };
 
   const updateProfile = async ({ fullName }: { fullName: string }) => {

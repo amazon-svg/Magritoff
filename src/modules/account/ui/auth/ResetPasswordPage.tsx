@@ -18,8 +18,8 @@ export function ResetPasswordPage() {
       setError('Les mots de passe ne correspondent pas.');
       return;
     }
-    if (password.length < 6) {
-      setError('Le mot de passe doit contenir au moins 6 caractères.');
+    if (password.length < 12) {
+      setError('Le mot de passe doit contenir au moins 12 caractères.');
       return;
     }
     setLoading(true);
@@ -43,6 +43,8 @@ export function ResetPasswordPage() {
             <input
               type="password"
               required
+              minLength={12}
+              maxLength={128}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -53,6 +55,8 @@ export function ResetPasswordPage() {
             <input
               type="password"
               required
+              minLength={12}
+              maxLength={128}
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
