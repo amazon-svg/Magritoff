@@ -113,6 +113,7 @@ export class InMemoryProductionStepsRepository implements ProductionStepsReposit
 
   async update(
     tenantId: TenantId,
+    _actor: UserId,
     stepId: string,
     command: UpdateProductionStepCommand,
   ): Promise<ProductionStepDto> {

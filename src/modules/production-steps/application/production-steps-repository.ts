@@ -108,7 +108,12 @@ export interface ProductionStepsRepository {
    * fonction dediee (contrat, §3). Leve `ProductionStepNotFoundError`/
    * `ProductionStepLabelConflictError`/`ProductionStepAccessDeniedError`.
    */
-  update(tenantId: TenantId, stepId: string, command: UpdateProductionStepCommand): Promise<ProductionStepDto>;
+  update(
+    tenantId: TenantId,
+    actor: UserId,
+    stepId: string,
+    command: UpdateProductionStepCommand,
+  ): Promise<ProductionStepDto>;
 
   /**
    * `security definer` (`api_delete_production_step`) : reindexation des

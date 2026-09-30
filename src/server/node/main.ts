@@ -2,6 +2,7 @@ import { createApiV1Application } from '../api/composition.ts';
 import { createCommercialSettingsRoutes } from '../api/commercial-settings-routes.ts';
 import { createGescomApiHandler } from '../api/gescom-middleware.ts';
 import { createConversationsRoutes } from '../api/conversations-routes.ts';
+import { createProductionStepsRoutes } from '../api/production-steps-routes.ts';
 import { createReadinessRoute } from '../api/readiness-route.ts';
 import {
   createSessionBootstrapRoute,
@@ -16,11 +17,13 @@ import { PostgresConversationsRepository } from '../../adapters/postgres/convers
 import { PostgresIdempotencyStore } from '../../adapters/postgres/idempotency-store.ts';
 import { PostgresOidcIdentityDirectory } from '../../adapters/postgres/oidc-identity-directory.ts';
 import { createPostgresPool } from '../../adapters/postgres/pool.ts';
+import { PostgresProductionStepsRepository } from '../../adapters/postgres/production-steps-repository.ts';
 import { PostgresReadinessProbe } from '../../adapters/postgres/readiness-probe.ts';
 import { PostgresSessionBootstrapRepository } from '../../adapters/postgres/session-bootstrap-repository.ts';
 import { PostgresTransactionRunner } from '../../adapters/postgres/transaction-runner.ts';
 import { ConversationsService } from '../../modules/conversations/application/conversations-service.ts';
 import { CommercialSettingsService } from '../../modules/commercial-settings/application/commercial-settings-service.ts';
+import { ProductionStepsService } from '../../modules/production-steps/application/production-steps-service.ts';
 import { SessionSubTenantMutationService } from '../../modules/session/application/session-service.ts';
 import { createLocalAuthentication, readLocalAuthenticationConfiguration } from '../auth/local-authentication.ts';
 import { CredentialActorResolver, LocalSessionActorResolver } from '../auth/local-session-actor-resolver.ts';
@@ -88,10 +91,17 @@ const commercialSettingsRoutes = gescomPrincipalVerifier === null
         new PostgresTransactionRunner(postgresPool, 'magrit_api'),
       ),
     }));
-const commercialSettingsHandler = gescomPrincipalVerifier === null
+const productionStepsRoutes = gescomPrincipalVerifier === null
+  ? []
+  : createProductionStepsRoutes(new ProductionStepsService({
+      repository: new PostgresProductionStepsRepository(
+        new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+      ),
+    }));
+const gescomHandler = gescomPrincipalVerifier === null
   ? null
   : createGescomApiHandler({
-      routes: commercialSettingsRoutes,
+      routes: [...commercialSettingsRoutes, ...productionStepsRoutes],
       principalVerifier: gescomPrincipalVerifier,
       idempotencyStore: new PostgresIdempotencyStore(
         new PostgresTransactionRunner(postgresPool, 'magrit_api'),
@@ -112,14 +122,14 @@ const apiHandler = createApiV1Application({
   },
 });
 const localHandler = localAuthentication === null
-  ? (request: Request) => isCommercialSettingsPath(new URL(request.url).pathname) && commercialSettingsHandler !== null
-      ? commercialSettingsHandler(request)
+  ? (request: Request) => isLocalGescomPath(new URL(request.url).pathname) && gescomHandler !== null
+      ? gescomHandler(request)
       : apiHandler(request)
   : (request: Request) => {
       const pathname = new URL(request.url).pathname;
       if (isLocalAuthenticationPath(pathname)) return localAuthentication.handler(request);
-      if (isCommercialSettingsPath(pathname) && commercialSettingsHandler !== null) {
-        return commercialSettingsHandler(request);
+      if (isLocalGescomPath(pathname) && gescomHandler !== null) {
+        return gescomHandler(request);
       }
       return apiHandler(request);
     };
@@ -134,7 +144,7 @@ const handler = createTransitionalApiHandler({
     || (sessionEnabled && isSessionTenantSettingsRequest(request.method, url.pathname))
     || (sessionEnabled && request.method === 'POST' && url.pathname === '/api/v1/tenants')
     || (sessionEnabled && isSubTenantMutationRequest(request.method, url.pathname))
-    || (commercialSettingsHandler !== null && isCommercialSettingsPath(url.pathname))
+    || (gescomHandler !== null && isLocalGescomPath(url.pathname))
   ),
   ...(legacyApiUrl === undefined ? {} : { legacyApiUrl }),
 });
@@ -154,7 +164,8 @@ server.listen(port, host, () => {
       ...(conversationsEnabled ? ['conversations'] : []),
       ...(localAuthentication === null ? [] : ['local-authentication']),
       ...(sessionEnabled ? ['session-bootstrap'] : []),
-      ...(commercialSettingsHandler === null ? [] : ['commercial-settings']),
+      ...(gescomHandler === null ? [] : ['commercial-settings']),
+      ...(gescomHandler === null ? [] : ['production-steps']),
     ],
   }));
 });
@@ -193,6 +204,12 @@ function isLocalAuthenticationPath(pathname: string): boolean {
 
 function isCommercialSettingsPath(pathname: string): boolean {
   return pathname === '/api/v1/commercial-settings';
+}
+
+function isLocalGescomPath(pathname: string): boolean {
+  return isCommercialSettingsPath(pathname)
+    || /^\/api\/v1\/production-steps(?:\/[^/]+)?\/?$/.test(pathname)
+    || pathname === '/api/v1/production-step-positions';
 }
 
 function isSessionPreferencesRequest(method: string, pathname: string): boolean {

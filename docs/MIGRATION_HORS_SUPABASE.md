@@ -12,7 +12,7 @@ Decision formelle : `docs/architecture/decisions/0001-sortie-de-supabase.md`.
 | J0 | ADR et garde-fou contre les nouvelles dependances Supabase livres |
 | J1 | Compose, healthchecks, migrations et buckets livres ; seed et CI restent a faire |
 | J2 | runtime Node, health/readiness et facade de transition livres |
-| J3 | contexte transactionnel, roles, Conversations, session, réglages tenant et réglages commerciaux PostgreSQL livres ; idempotence API durable livrée |
+| J3 | contexte transactionnel, roles, Conversations, session, réglages tenant, réglages commerciaux et étapes de production PostgreSQL livres ; idempotence API durable livrée |
 | J4 | adaptateur S3 des exports et buckets locaux livres ; bascule non activee |
 | J5 | OIDC, annuaire d'identites et socle Better Auth PostgreSQL livres ; invitations, recovery et bascule UI restent a faire |
 | J6 et suivants | non demarres |
@@ -289,6 +289,9 @@ restent réservés aux super-administrateurs et historisés 90 jours.
 `GET/PATCH /commercial-settings` passe également par la façade Node et
 PostgreSQL, avec ETag, capacités applicatives et RLS. C'est le premier module de
 la façade Gestion commerciale entièrement sorti du runtime Supabase.
+Le référentiel `/production-steps` est également local : les six étapes
+standard sont initialisées pour chaque tenant et les créations, suppressions et
+réordonnancements restent atomiques sous verrou PostgreSQL.
 
 Le seed local est idempotent. Il cree par defaut
 `developer@magrit.local`, le tenant `magrit-development` et une identite OIDC
