@@ -19,6 +19,8 @@ import { createRolesRoutes } from '../api/roles-routes.ts';
 import { createShopAdministrationRoutes } from '../api/shops-routes.ts';
 import { createShopCustomerAdministrationRoutes } from '../api/shop-customers-routes.ts';
 import { createStorefrontSessionRoutes } from '../api/storefront-session-routes.ts';
+import { createStorefrontActivationRoutes } from '../api/storefront-activation-routes.ts';
+import { createStorefrontPasswordRecoveryRoutes } from '../api/storefront-password-recovery-routes.ts';
 import {
   createSessionBootstrapRoute,
   createSessionInvitationAcceptanceRoute,
@@ -48,6 +50,8 @@ import { PostgresRolesRepository } from '../../adapters/postgres/roles-repositor
 import { PostgresShopsRepository } from '../../adapters/postgres/shops-repository.ts';
 import { PostgresShopCustomersRepository } from '../../adapters/postgres/shop-customers-repository.ts';
 import { PostgresStorefrontAuthenticationGateway } from '../../adapters/postgres/storefront-authentication-gateway.ts';
+import { PostgresStorefrontActivationGateway } from '../../adapters/postgres/storefront-activation-gateway.ts';
+import { PostgresStorefrontPasswordRecoveryGateway } from '../../adapters/postgres/storefront-password-recovery-gateway.ts';
 import { createPostgresPool } from '../../adapters/postgres/pool.ts';
 import { PostgresProductionStepsRepository } from '../../adapters/postgres/production-steps-repository.ts';
 import { PostgresReadinessProbe } from '../../adapters/postgres/readiness-probe.ts';
@@ -55,12 +59,16 @@ import { PostgresSessionBootstrapRepository } from '../../adapters/postgres/sess
 import { PostgresTransactionRunner } from '../../adapters/postgres/transaction-runner.ts';
 import { ResendInvitationEmailSender } from '../../adapters/resend/invitation-email-sender.ts';
 import { ResendPasswordResetEmailSender } from '../../adapters/resend/password-reset-email-sender.ts';
+import { ResendStorefrontActivationEmailSender } from '../../adapters/resend/storefront-activation-email-sender.ts';
+import { ResendStorefrontPasswordRecoveryEmailSender } from '../../adapters/resend/storefront-password-recovery-email-sender.ts';
 import { createS3Client } from '../../adapters/s3/client.ts';
 import { S3CommercialLineFileStorage } from '../../adapters/s3/commercial-line-file-storage.ts';
 import { S3ProjectCommercialFileStorage } from '../../adapters/s3/project-commercial-file-storage.ts';
 import { S3ShopAssetStorage } from '../../adapters/s3/shop-asset-storage.ts';
 import { SmtpInvitationEmailSender } from '../../adapters/smtp/invitation-email-sender.ts';
 import { SmtpPasswordResetEmailSender } from '../../adapters/smtp/password-reset-email-sender.ts';
+import { SmtpStorefrontActivationEmailSender } from '../../adapters/smtp/storefront-activation-email-sender.ts';
+import { SmtpStorefrontPasswordRecoveryEmailSender } from '../../adapters/smtp/storefront-password-recovery-email-sender.ts';
 import { readSmtpConfiguration, SmtpTransport } from '../../adapters/smtp/transport.ts';
 import { ConversationsService } from '../../modules/conversations/application/conversations-service.ts';
 import { CommercialSettingsService } from '../../modules/commercial-settings/application/commercial-settings-service.ts';
@@ -80,6 +88,8 @@ import { ShopCustomersService } from '../../modules/shop-customers/application/s
 import { StorefrontAuthenticationService } from '../../modules/shop-customers/application/storefront-authentication-service.ts';
 import { StorefrontRegistrationService } from '../../modules/shop-customers/application/storefront-registration-service.ts';
 import { StorefrontSessionService } from '../../modules/shop-customers/application/storefront-session-service.ts';
+import { StorefrontActivationService } from '../../modules/shop-customers/application/storefront-activation-service.ts';
+import { StorefrontPasswordRecoveryService } from '../../modules/shop-customers/application/storefront-password-recovery-service.ts';
 import { OutboxPublisher } from '../../modules/_shared/application/index.ts';
 import { ProjectTagsService } from '../../modules/project-tags/application/project-tags-service.ts';
 import { PriceRulesService } from '../../modules/pricing/application/price-rules-service.ts';
@@ -329,6 +339,25 @@ const storefrontSessionRoutes = createStorefrontSessionRoutes(
   storefrontSessions,
   storefrontCookiePolicy,
 );
+const storefrontActivationGateway = new PostgresStorefrontActivationGateway(
+  new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+);
+const storefrontActivationEmailSender = smtpTransport === null
+  ? new ResendStorefrontActivationEmailSender(process.env['RESEND_API_KEY'] ?? null, fromEmail)
+  : new SmtpStorefrontActivationEmailSender(smtpTransport, fromEmail);
+const storefrontActivationRoutes = actorResolver === undefined ? [] : createStorefrontActivationRoutes(
+  new StorefrontActivationService(storefrontActivationGateway, storefrontActivationEmailSender),
+  storefrontCookiePolicy,
+);
+const storefrontPasswordRecoveryGateway = new PostgresStorefrontPasswordRecoveryGateway(
+  new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+);
+const storefrontPasswordRecoveryEmailSender = smtpTransport === null
+  ? new ResendStorefrontPasswordRecoveryEmailSender(process.env['RESEND_API_KEY'] ?? null, fromEmail)
+  : new SmtpStorefrontPasswordRecoveryEmailSender(smtpTransport, fromEmail);
+const storefrontPasswordRecoveryRoutes = createStorefrontPasswordRecoveryRoutes(
+  new StorefrontPasswordRecoveryService(storefrontPasswordRecoveryGateway, storefrontPasswordRecoveryEmailSender),
+);
 const gescomHandler = gescomPrincipalVerifier === null
   ? null
   : createGescomApiHandler({
@@ -364,6 +393,8 @@ const apiHandler = createApiV1Application({
     ...shopAdministrationRoutes,
     ...shopCustomerAdministrationRoutes,
     ...storefrontSessionRoutes,
+    ...storefrontActivationRoutes,
+    ...storefrontPasswordRecoveryRoutes,
   ],
   ...(actorResolver === undefined ? {} : { actorResolver }),
   onUnexpectedError(error, requestId) {
@@ -399,6 +430,8 @@ const handler = createTransitionalApiHandler({
     || (actorResolver !== undefined && isShopAdministrationPath(url.pathname))
     || (actorResolver !== undefined && isShopCustomerAdministrationPath(url.pathname))
     || isStorefrontSessionRequest(request.method, url.pathname)
+    || (actorResolver !== undefined && isStorefrontActivationRequest(request.method, url.pathname))
+    || isStorefrontPasswordRecoveryRequest(request.method, url.pathname)
     || (actorResolver !== undefined && isLocalCatalogRequest(request.method, url.pathname))
     || (gescomHandler !== null && isLocalGescomPath(url.pathname))
   ),
@@ -427,6 +460,8 @@ server.listen(port, host, () => {
       ...(shopAdministrationRoutes.length === 0 ? [] : ['shops:backoffice']),
       ...(shopCustomerAdministrationRoutes.length === 0 ? [] : ['shop-customers:backoffice']),
       'storefront-sessions',
+      ...(storefrontActivationRoutes.length === 0 ? [] : ['storefront-activation']),
+      'storefront-password-recovery',
       ...(gescomHandler === null ? [] : ['commercial-settings']),
       ...(gescomHandler === null ? [] : ['production-steps']),
       ...(gescomHandler === null ? [] : ['customers']),
@@ -562,4 +597,14 @@ function isShopCustomerAdministrationPath(pathname: string): boolean {
 function isStorefrontSessionRequest(method: string, pathname: string): boolean {
   if (pathname === '/api/v1/storefront/session/current') return method === 'GET' || method === 'DELETE';
   return method === 'POST' && /^\/api\/v1\/storefront\/[^/]+\/(?:session|registration)\/?$/.test(pathname);
+}
+
+function isStorefrontActivationRequest(method: string, pathname: string): boolean {
+  return method === 'POST' && (pathname === '/api/v1/storefront/activation'
+    || /^\/api\/v1\/tenants\/[^/]+\/shops\/[^/]+\/customers\/[^/]+\/activation\/?$/.test(pathname));
+}
+
+function isStorefrontPasswordRecoveryRequest(method: string, pathname: string): boolean {
+  return method === 'POST' && (pathname === '/api/v1/storefront/password-reset'
+    || /^\/api\/v1\/storefront\/[^/]+\/password-recovery\/?$/.test(pathname));
 }
