@@ -12,7 +12,7 @@ Decision formelle : `docs/architecture/decisions/0001-sortie-de-supabase.md`.
 | J0 | ADR et garde-fou contre les nouvelles dependances Supabase livres |
 | J1 | Compose, healthchecks, migrations et buckets livres ; seed et CI restent a faire |
 | J2 | runtime Node, health/readiness et facade de transition livres |
-| J3 | contexte transactionnel, roles, Conversations, session, réglages tenant, membres, rôles et invitations, réglages commerciaux, étapes de production, clients, projets, étiquettes, catalogue PIM et public, bibliothèques produits, règles tarifaires, devis, gabarits HTML et PDF, administration et invitations des comptes clients boutique PostgreSQL livrés ; commandes boutique, rôles, transitions, audit, idempotence, notifications et routes Node livrés ; outil idempotent de reprise des anciennes `shop_orders` livré, exécution à faire sur chaque environnement ; rapport de migration legacy encore relayé ; idempotence API et outbox durables livrées |
+| J3 | contexte transactionnel, roles, Conversations, session, réglages tenant, membres, rôles et invitations, réglages commerciaux, étapes de production, clients, projets, étiquettes, catalogue PIM et public, bibliothèques produits, règles tarifaires, devis, gabarits HTML et PDF, administration et invitations des comptes clients boutique PostgreSQL livrés ; commandes boutique, rôles, transitions, audit, idempotence, notifications et routes Node livrés ; outils idempotents de reprise des anciennes `shop_orders` et du rapport clients legacy livrés, exécution à faire sur chaque environnement ; idempotence API et outbox durables livrées |
 | J4 | adaptateurs S3 des exports, fichiers de lignes projet, gabarits PDF, documents de devis et visuels de boutiques livres ; autres buckets non bascules |
 | J5 | OIDC, annuaire d'identites, socle Better Auth PostgreSQL, invitations Magrit, récupération de mot de passe, authentification directe storefront, activation, recovery et délégation storefront livres ; bascule UI globale reste a faire |
 | J6 et suivants | diagnostics IA/Clariprint, assistant éditorial et chiffrage Clariprint avec quotas PostgreSQL servis par Node ; worker et autres jobs restent à migrer |
@@ -386,6 +386,21 @@ conserve un `product_id` que si le produit appartient au même tenant. La table
 identique est un replay, tandis qu'une source modifiée après import fait
 échouer la transaction. La fonction de cutover est révoquée au rôle
 `magrit_api` et reste réservée au compte de migration.
+
+Le rapport de contrôle des anciens membres `shop_only` est copié séparément,
+avant l'arrêt de la source, car sa vue historique dépend encore de
+`auth.users`. `pnpm db:import:legacy-shop-customer-report` suit la même
+discipline : simulation transactionnelle par défaut, puis `--apply` après
+contrôle. Le snapshot cible est isolé par tenant, lisible seulement avec
+`can_manage_shop_customers`, et son import est inaccessible au rôle API :
+
+```text
+MAGRIT_LEGACY_SOURCE_DATABASE_URL=postgresql://... \
+MAGRIT_DATABASE_MIGRATION_URL=postgresql://... \
+pnpm db:import:legacy-shop-customer-report
+
+pnpm db:import:legacy-shop-customer-report -- --apply
+```
 
 L'administration des membres du tenant est également locale. Les lectures
 s'appuient sur `app_users`, les rôles historiques `owner` et `admin` sont

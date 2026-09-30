@@ -1,6 +1,6 @@
 import type { PoolClient } from 'pg';
 import type { TenantId, UserId } from '../../kernel/ids/index.ts';
-import { shopCustomerAccountSchema, type EnsureSelfShopCustomerResult, type LegacyShopCustomerMigrationReportRow, type ShopCustomerAccount } from '../../modules/shop-customers/api/contracts.ts';
+import { legacyShopCustomerMigrationReportSchema, shopCustomerAccountSchema, type EnsureSelfShopCustomerResult, type LegacyShopCustomerMigrationReportRow, type ShopCustomerAccount } from '../../modules/shop-customers/api/contracts.ts';
 import { ShopCustomerRejectedError, type CreateShopCustomerRecord, type ShopCustomersRepository } from '../../modules/shop-customers/application/shop-customers-repository.ts';
 import type { PostgresTransactionRunner } from './transaction-runner.ts';
 
@@ -10,8 +10,14 @@ const COLUMNS = 'id,shop_id,email,normalized_email,full_name,auth_subject_id,sta
 export class PostgresShopCustomersRepository implements ShopCustomersRepository {
   constructor(private readonly tx: PostgresTransactionRunner) {}
 
-  migrationReport(_actor: UserId, _tenantId: string): Promise<LegacyShopCustomerMigrationReportRow[]> {
-    return Promise.reject(reject('invalid_request', 'Le rapport legacy reste temporairement servi par l API historique.'));
+  migrationReport(actor: UserId, tenantId: string): Promise<LegacyShopCustomerMigrationReportRow[]> {
+    return this.write(actor,tenantId,'can_manage_shop_customers',async c=>legacyShopCustomerMigrationReportSchema.parse((await c.query<Row>(`
+      select legacy_user_id,shop_id,normalized_email,proposed_action,target_account_id,
+             migration_outcome,orders_linked_count,last_attempt_at
+        from public.legacy_shop_customer_migration_reports
+       where legacy_tenant_id=$1
+       order by normalized_email nulls last,shop_id nulls last
+    `,[tenantId])).rows.map(row=>({legacyUserId:String(row['legacy_user_id']),shopId:nullable(row['shop_id']),normalizedEmail:nullable(row['normalized_email']),proposedAction:row['proposed_action'],targetAccountId:nullable(row['target_account_id']),migrationOutcome:row['migration_outcome'],ordersLinkedCount:Number(row['orders_linked_count']),lastAttemptAt:nullableIso(row['last_attempt_at'])}))));
   }
   list(actor: UserId, tenantId: string, shopId: string): Promise<ShopCustomerAccount[]> { return this.read(actor,tenantId,async c=>{await shop(c,tenantId,shopId);return (await c.query<Row>(`select ${COLUMNS} from public.shop_customer_accounts where tenant_id=$1 and shop_id=$2 order by created_at desc,id`,[tenantId,shopId])).rows.map(account);}); }
   findByNormalizedEmail(actor: UserId,tenantId:string,shopId:string,email:string):Promise<ShopCustomerAccount|null>{return this.read(actor,tenantId,async c=>{await shop(c,tenantId,shopId);return maybe((await c.query<Row>(`select ${COLUMNS} from public.shop_customer_accounts where tenant_id=$1 and shop_id=$2 and normalized_email=$3`,[tenantId,shopId,email])).rows[0]);});}
@@ -32,4 +38,5 @@ function maybe(row:Row|undefined){return row?account(row):null;}
 function account(row:Row):ShopCustomerAccount{return shopCustomerAccountSchema.parse({id:String(row['id']),shopId:String(row['shop_id']),email:String(row['email']),normalizedEmail:String(row['normalized_email']),fullName:String(row['full_name']),authSubjectId:row['auth_subject_id']===null?null:String(row['auth_subject_id']),status:row['status'],createdByMagritUserId:row['created_by_magrit_user_id']===null?null:String(row['created_by_magrit_user_id']),customerContactId:row['customer_contact_id']===null?null:String(row['customer_contact_id']),createdAt:iso(row['created_at']),activatedAt:nullableIso(row['activated_at']),suspendedAt:nullableIso(row['suspended_at'])});}
 function iso(value:unknown){return value instanceof Date?value.toISOString():new Date(String(value)).toISOString();}
 function nullableIso(value:unknown){return value===null?null:iso(value);}
+function nullable(value:unknown){return value===null||value===undefined?null:String(value);}
 function reject(code:ConstructorParameters<typeof ShopCustomerRejectedError>[0],message:string){return new ShopCustomerRejectedError(code,message);}

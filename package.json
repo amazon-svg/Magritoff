@@ -25,6 +25,7 @@
     "db:migrate": "node scripts/db/migrate.mjs",
     "db:seed": "node scripts/db/seed-development.mjs",
     "db:import:legacy-orders": "node scripts/db/import-legacy-shop-orders.mjs",
+    "db:import:legacy-shop-customer-report": "node scripts/db/import-legacy-shop-customer-report.mjs",
     "dev:b5": "./scripts/dev-b5.sh",
     "dev:b5:bg": "./scripts/dev-b5.sh --bg",
     "dev:b5:stop": "./scripts/dev-b5.sh --stop",
