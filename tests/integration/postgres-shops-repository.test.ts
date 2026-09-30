@@ -70,6 +70,9 @@ describeIntegration('PostgresShopsRepository — PostgreSQL reel', () => {
       expect.objectContaining({ id: product.id, priceHt: 13, displayOrder: 1 }),
     ]);
     const libraryProductId = randomUUID();
+    await pool.query(`insert into public.product_library
+      (id,tenant_id,user_id,name,category,description,price_ht,image_url,config)
+      values($1,$2,$3,'Produit tarifé','Impression','',12,'','{}')`, [libraryProductId, tenantId, ownerId]);
     await repository.setPricing(ownerId, tenantId, shop.id, libraryProductId, { priceHtOverride: 9.9 });
     expect(await repository.pricing(readerId, tenantId, shop.id)).toEqual([{ libraryProductId, priceHtOverride: 9.9 }]);
     await repository.uploadCustomMockup(ownerId, tenantId, shop.id, {

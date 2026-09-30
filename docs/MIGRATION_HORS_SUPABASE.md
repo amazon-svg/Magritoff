@@ -12,7 +12,7 @@ Decision formelle : `docs/architecture/decisions/0001-sortie-de-supabase.md`.
 | J0 | ADR et garde-fou contre les nouvelles dependances Supabase livres |
 | J1 | Compose, healthchecks, migrations et buckets livres ; seed et CI restent a faire |
 | J2 | runtime Node, health/readiness et facade de transition livres |
-| J3 | contexte transactionnel, roles, Conversations, session, réglages tenant, membres, rôles et invitations, réglages commerciaux, étapes de production, clients, projets, étiquettes, catalogue PIM, règles tarifaires, devis, gabarits PDF, administration des boutiques et comptes clients boutique PostgreSQL livres ; catalogue public, sessions storefront et rapport de migration legacy encore relayés ; idempotence API et outbox durables livrées |
+| J3 | contexte transactionnel, roles, Conversations, session, réglages tenant, membres, rôles et invitations, réglages commerciaux, étapes de production, clients, projets, étiquettes, catalogue PIM, bibliothèques produits, règles tarifaires, devis, gabarits PDF, administration des boutiques et comptes clients boutique PostgreSQL livres ; catalogue public et rapport de migration legacy encore relayés ; idempotence API et outbox durables livrées |
 | J4 | adaptateurs S3 des exports, fichiers de lignes projet, gabarits PDF, documents de devis et visuels de boutiques livres ; autres buckets non bascules |
 | J5 | OIDC, annuaire d'identites, socle Better Auth PostgreSQL, invitations Magrit, récupération de mot de passe, authentification directe storefront, activation, recovery et délégation storefront livres ; bascule UI globale reste a faire |
 | J6 et suivants | non demarres |

@@ -8,6 +8,8 @@ import { createConversationsRoutes } from '../api/conversations-routes.ts';
 import { createCustomersRoutes } from '../api/customers-routes.ts';
 import { createDocumentTemplatesRoutes } from '../api/document-templates-routes.ts';
 import { createInvitationsRoutes } from '../api/invitations-routes.ts';
+import { createLibrariesRoutes } from '../api/libraries-routes.ts';
+import { createLibraryProductsRoutes } from '../api/library-products-routes.ts';
 import { createMembersRoutes } from '../api/members-routes.ts';
 import { createProjectTagsRoutes } from '../api/project-tags-routes.ts';
 import { createPriceRulesRoutes } from '../api/price-rules-routes.ts';
@@ -40,6 +42,8 @@ import { PostgresCustomersRepository } from '../../adapters/postgres/customers-r
 import { PostgresDocumentTemplatesRepository } from '../../adapters/postgres/document-templates-repository.ts';
 import { PostgresIdempotencyStore } from '../../adapters/postgres/idempotency-store.ts';
 import { PostgresInvitationsRepository } from '../../adapters/postgres/invitations-repository.ts';
+import { PostgresLibrariesRepository } from '../../adapters/postgres/libraries-repository.ts';
+import { PostgresLibraryProductsRepository } from '../../adapters/postgres/library-products-repository.ts';
 import { PostgresMembersRepository } from '../../adapters/postgres/members-repository.ts';
 import { PostgresOidcIdentityDirectory } from '../../adapters/postgres/oidc-identity-directory.ts';
 import { PostgresOutboxRepository } from '../../adapters/postgres/outbox-repository.ts';
@@ -81,6 +85,8 @@ import { CatalogRejectedError } from '../../modules/catalog/application/catalog-
 import { CustomersService } from '../../modules/customers/application/customers-service.ts';
 import { DocumentTemplatesService } from '../../modules/document-templates/application/document-templates-service.ts';
 import { InvitationsService } from '../../modules/invitations/application/invitations-service.ts';
+import { LibrariesService } from '../../modules/libraries/application/libraries-service.ts';
+import { LibraryProductsService } from '../../modules/libraries/application/library-products-service.ts';
 import { MembersService } from '../../modules/members/application/members-service.ts';
 import { CustomersRepositoryDocumentDataGateway } from '../../modules/quote-documents/application/customer-document-data-gateway.ts';
 import { QuoteDocumentsService } from '../../modules/quote-documents/application/quote-documents-service.ts';
@@ -179,6 +185,16 @@ const membersRoutes = actorResolver === undefined
         new PostgresTransactionRunner(postgresPool, 'magrit_api'),
       ),
     ));
+const librariesRoutes = actorResolver === undefined
+  ? []
+  : createLibrariesRoutes(new LibrariesService(new PostgresLibrariesRepository(
+      new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+    )));
+const libraryProductsRoutes = actorResolver === undefined
+  ? []
+  : createLibraryProductsRoutes(new LibraryProductsService(new PostgresLibraryProductsRepository(
+      new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+    )));
 const rolesRoutes = actorResolver === undefined
   ? []
   : createRolesRoutes(new RolesService(
@@ -396,6 +412,8 @@ const apiHandler = createApiV1Application({
     ...conversationsRoutes,
     ...sessionRoutes,
     ...invitationsRoutes,
+    ...librariesRoutes,
+    ...libraryProductsRoutes,
     ...membersRoutes,
     ...rolesRoutes,
     ...catalogRoutes,
@@ -435,6 +453,7 @@ const handler = createTransitionalApiHandler({
     || (sessionEnabled && request.method === 'POST' && url.pathname === '/api/v1/tenants')
     || (sessionEnabled && isSubTenantMutationRequest(request.method, url.pathname))
     || (sessionEnabled && isInvitationRequest(request.method, url.pathname))
+    || (actorResolver !== undefined && isLibrariesPath(url.pathname))
     || (actorResolver !== undefined && isMembersPath(url.pathname))
     || (actorResolver !== undefined && isRolesPath(url.pathname))
     || (actorResolver !== undefined && isShopAdministrationPath(url.pathname))
@@ -465,6 +484,8 @@ server.listen(port, host, () => {
       ...(localAuthentication === null ? [] : ['local-authentication']),
       ...(sessionEnabled ? ['session-bootstrap'] : []),
       ...(actorResolver === undefined ? [] : ['invitations']),
+      ...(librariesRoutes.length === 0 ? [] : ['libraries']),
+      ...(libraryProductsRoutes.length === 0 ? [] : ['library-products']),
       ...(actorResolver === undefined ? [] : ['members']),
       ...(actorResolver === undefined ? [] : ['roles']),
       ...(actorResolver === undefined ? [] : ['catalog']),
@@ -525,6 +546,10 @@ function isConversationsPath(pathname: string): boolean {
 
 function isLocalAuthenticationPath(pathname: string): boolean {
   return pathname === '/api/v1/auth' || pathname.startsWith('/api/v1/auth/');
+}
+
+function isLibrariesPath(pathname:string):boolean{
+  return /^\/api\/v1\/tenants\/[^/]+\/(?:libraries|library-products)(?:\/[^/]+)?\/?$/.test(pathname);
 }
 
 function isShopCustomerDelegationRequest(method:string,pathname:string):boolean{
