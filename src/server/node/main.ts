@@ -4,6 +4,7 @@ import { createReadinessRoute } from '../api/readiness-route.ts';
 import {
   createSessionBootstrapRoute,
   createSessionPreferencesRoutes,
+  createSessionTenantCreationRoute,
   createSessionTenantSettingsRoutes,
 } from '../api/session-routes.ts';
 import { OidcJwtVerifier } from '../../adapters/oidc/jwt-verifier.ts';
@@ -14,7 +15,7 @@ import { PostgresReadinessProbe } from '../../adapters/postgres/readiness-probe.
 import { PostgresSessionBootstrapRepository } from '../../adapters/postgres/session-bootstrap-repository.ts';
 import { PostgresTransactionRunner } from '../../adapters/postgres/transaction-runner.ts';
 import { ConversationsService } from '../../modules/conversations/application/conversations-service.ts';
-import { SessionTenantSettingsService } from '../../modules/session/application/session-service.ts';
+import { SessionTenantCreationService } from '../../modules/session/application/session-service.ts';
 import { createLocalAuthentication, readLocalAuthenticationConfiguration } from '../auth/local-authentication.ts';
 import { CredentialActorResolver, LocalSessionActorResolver } from '../auth/local-session-actor-resolver.ts';
 import { OidcActorResolver } from '../auth/oidc-actor-resolver.ts';
@@ -53,12 +54,13 @@ const sessionEnabled = actorResolver !== undefined;
 const sessionRepository = new PostgresSessionBootstrapRepository(
   new PostgresTransactionRunner(postgresPool, 'magrit_api'),
 );
-const sessionService = new SessionTenantSettingsService(sessionRepository);
+const sessionService = new SessionTenantCreationService(sessionRepository);
 const sessionRoutes = sessionEnabled
   ? [
       createSessionBootstrapRoute(sessionService),
       ...createSessionPreferencesRoutes(sessionService),
       ...createSessionTenantSettingsRoutes(sessionService),
+      createSessionTenantCreationRoute(sessionService),
     ]
   : [];
 const apiHandler = createApiV1Application({
@@ -86,6 +88,7 @@ const handler = createTransitionalApiHandler({
     || (localAuthentication !== null && isLocalAuthenticationPath(url.pathname))
     || (sessionEnabled && isSessionPreferencesRequest(request.method, url.pathname))
     || (sessionEnabled && isSessionTenantSettingsRequest(request.method, url.pathname))
+    || (sessionEnabled && request.method === 'POST' && url.pathname === '/api/v1/tenants')
   ),
   ...(legacyApiUrl === undefined ? {} : { legacyApiUrl }),
 });

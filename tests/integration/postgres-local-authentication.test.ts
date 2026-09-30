@@ -231,6 +231,9 @@ describeIntegration('Better Auth local — PostgreSQL reel', () => {
       api_can_update_tenants: boolean;
       api_can_call_mutation: boolean;
       readonly_can_read_history: boolean;
+      api_can_insert_tenants: boolean;
+      api_can_call_creation: boolean;
+      api_can_read_gammes: boolean;
     }>(`
       select
         has_table_privilege('magrit_api', 'public.tenants', 'UPDATE')
@@ -241,13 +244,101 @@ describeIntegration('Better Auth local — PostgreSQL reel', () => {
           'EXECUTE'
         ) as api_can_call_mutation,
         has_table_privilege('magrit_readonly', 'public.tenant_slug_history', 'SELECT')
-          as readonly_can_read_history
+          as readonly_can_read_history,
+        has_table_privilege('magrit_api', 'public.tenants', 'INSERT')
+          as api_can_insert_tenants,
+        has_function_privilege(
+          'magrit_api',
+          'magrit.create_root_tenant(text,text,text,jsonb,text[])',
+          'EXECUTE'
+        ) as api_can_call_creation,
+        has_table_privilege('magrit_api', 'public.tenant_gamme_subscriptions', 'SELECT')
+          as api_can_read_gammes
     `);
 
     expect(privileges.rows[0]).toEqual({
       api_can_update_tenants: false,
       api_can_call_mutation: true,
       readonly_can_read_history: false,
+      api_can_insert_tenants: false,
+      api_can_call_creation: true,
+      api_can_read_gammes: false,
     });
+  });
+
+  it('cree atomiquement un tenant racine avec son onboarding', async () => {
+    const repository = new PostgresSessionBootstrapRepository(
+      new PostgresTransactionRunner(pool, 'magrit_api'),
+    );
+    const suffix = randomUUID().slice(0, 8);
+    const slug = `onboarding-${suffix}`;
+    const siren = `test-${suffix}`;
+    let tenantId: string | null = null;
+
+    try {
+      tenantId = await repository.createRootTenant(seed.userId as never, {
+        slug,
+        name: 'Tenant onboarding PostgreSQL',
+        siren,
+        sirenData: { denomination: 'Tenant onboarding PostgreSQL SAS' },
+        gammeSlugs: ['flyers', 'brochures', 'flyers'],
+      });
+
+      const tenant = await pool.query(`
+        select t.slug, t.name, t.plan, t.siren, t.siren_data, t.verified,
+               t.verified_at is not null as has_verified_at,
+               m.role,
+               p.last_tenant_id::text
+          from public.tenants t
+          join public.tenant_members m
+            on m.tenant_id = t.id and m.user_id = $2
+          join public.user_preferences p on p.user_id = $2
+         where t.id = $1
+      `, [tenantId, seed.userId]);
+      expect(tenant.rows[0]).toMatchObject({
+        slug,
+        name: 'Tenant onboarding PostgreSQL',
+        plan: 'freemium',
+        siren,
+        siren_data: { denomination: 'Tenant onboarding PostgreSQL SAS' },
+        verified: true,
+        has_verified_at: true,
+        role: 'admin',
+        last_tenant_id: tenantId,
+      });
+
+      const gammes = await pool.query<{ gamme_slug: string }>(`
+        select gamme_slug
+          from public.tenant_gamme_subscriptions
+         where tenant_id = $1
+         order by gamme_slug
+      `, [tenantId]);
+      expect(gammes.rows.map(({ gamme_slug }) => gamme_slug))
+        .toEqual(['brochures', 'flyers']);
+    } finally {
+      if (tenantId !== null) {
+        await pool.query('delete from public.tenants where id = $1', [tenantId]);
+      }
+      await pool.query(`
+        update public.user_preferences
+           set last_tenant_id = $2
+         where user_id = $1
+      `, [seed.userId, seed.tenantId]);
+    }
+  });
+
+  it('refuse les tenants dont les invariants metier sont incomplets', async () => {
+    const suffix = randomUUID().slice(0, 8);
+    await expect(pool.query(`
+      insert into public.tenants (slug, name, siren)
+      values ($1, 'Tenant SIREN incomplet', $2)
+    `, [`invalid-siren-${suffix}`, `test-${suffix}`]))
+      .rejects.toMatchObject({ code: '23514' });
+
+    await expect(pool.query(`
+      insert into public.tenants (slug, name, plan)
+      values ($1, 'Tenant plan invalide', 'illimite')
+    `, [`invalid-plan-${suffix}`]))
+      .rejects.toMatchObject({ code: '23514' });
   });
 });

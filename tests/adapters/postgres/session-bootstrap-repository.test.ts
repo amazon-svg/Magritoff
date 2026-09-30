@@ -29,6 +29,11 @@ describe('PostgresSessionBootstrapRepository', () => {
         is_system_tenant: false,
         settings: {},
         created_at: '2026-09-29T00:00:00.000Z',
+        siren: null,
+        siren_data: null,
+        verified: false,
+        verified_at: null,
+        tax_regime: 'metropole_fr',
       },
       role: 'admin',
       accessScope: 'magrit_full',
@@ -96,5 +101,26 @@ describe('PostgresSessionBootstrapRepository', () => {
       'tenant-1',
       { slug: 'slug-utilise' },
     )).rejects.toMatchObject<Partial<SessionTenantMutationError>>({ code: 'conflict' });
+  });
+
+  it('cree un tenant racine et transmet les donnees d onboarding', async () => {
+    const query = vi.fn().mockResolvedValue({ rows: [{ tenant_id: 'tenant-created' }] });
+    const run = vi.fn(async (_context, operation) => operation({ query }));
+    const repository = new PostgresSessionBootstrapRepository({ run } as never);
+
+    await expect(repository.createRootTenant('user-1' as never, {
+      slug: 'nouvel-atelier',
+      name: 'Nouvel atelier',
+      siren: '123456789',
+      sirenData: { denomination: 'Nouvel atelier SAS' },
+      gammeSlugs: ['flyers', 'brochures'],
+    })).resolves.toBe('tenant-created');
+    expect(query).toHaveBeenCalledWith(expect.stringContaining('magrit.create_root_tenant'), [
+      'nouvel-atelier',
+      'Nouvel atelier',
+      '123456789',
+      JSON.stringify({ denomination: 'Nouvel atelier SAS' }),
+      ['flyers', 'brochures'],
+    ]);
   });
 });

@@ -21,6 +21,7 @@ import {
   type SessionBootstrapService,
   type SessionPreferencesService,
   type SessionService,
+  type SessionTenantCreationService,
   type SessionTenantSettingsService,
 } from '../../modules/session/application/session-service.ts';
 import { SessionInvitationAcceptanceError, SessionTenantMutationError } from '../../modules/session/application/session-repository.ts';
@@ -31,16 +32,7 @@ import { defineJsonRoute, type ApiRequestContext, type ApiRoute } from './routes
 export function createSessionRoutes(service: SessionService): readonly ApiRoute[] {
   return [
     ...createSessionTenantSettingsRoutes(service),
-    defineJsonRoute({
-      method: 'POST', path: `${API_V1_BASE_PATH}/tenants`, authentication: 'required', inputSchema: createRootTenantSchema, outputSchema: createRootTenantResultSchema,
-      async handle(context, command) {
-        try {
-          return { status: 201, body: await service.createRootTenant(requireUserId(context), command) };
-        } catch (error) {
-          throwTenantMutation(error);
-        }
-      },
-    }),
+    createSessionTenantCreationRoute(service),
     defineJsonRoute({
       method: 'POST', path: `${API_V1_BASE_PATH}/session/invitations/accept`, authentication: 'required', inputSchema: acceptTenantInvitationSchema, outputSchema: acceptTenantInvitationResultSchema,
       async handle(context, { token }) {
@@ -206,6 +198,28 @@ export function createSessionTenantSettingsRoutes(
       },
     }),
   ];
+}
+
+export function createSessionTenantCreationRoute(
+  service: Pick<SessionTenantCreationService, 'createRootTenant'>,
+): ApiRoute {
+  return defineJsonRoute({
+    method: 'POST',
+    path: `${API_V1_BASE_PATH}/tenants`,
+    authentication: 'required',
+    inputSchema: createRootTenantSchema,
+    outputSchema: createRootTenantResultSchema,
+    async handle(context, command) {
+      try {
+        return {
+          status: 201,
+          body: await service.createRootTenant(requireUserId(context), command),
+        };
+      } catch (error) {
+        throwTenantMutation(error);
+      }
+    },
+  });
 }
 
 function throwTenantMutation(error: unknown): never {

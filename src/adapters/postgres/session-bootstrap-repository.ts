@@ -1,12 +1,13 @@
 import type { UserId } from '../../kernel/ids/index.ts';
 import type {
+  CreateRootTenant,
   SessionUserPreferences,
   UpdateTenantSettings,
 } from '../../modules/session/api/contracts.ts';
 import {
   SessionTenantMutationError,
   type DirectMembership,
-  type SessionTenantSettingsRepository,
+  type SessionTenantCreationRepository,
 } from '../../modules/session/application/session-repository.ts';
 import type { PostgresTransactionRunner } from './transaction-runner.ts';
 
@@ -24,6 +25,11 @@ type MembershipRow = Readonly<{
   settings: unknown;
   created_at: Date;
   role: string;
+  siren?: string | null;
+  siren_data?: unknown;
+  verified?: boolean;
+  verified_at?: Date | null;
+  tax_regime?: string;
 }>;
 
 type PreferencesRow = Readonly<{
@@ -36,7 +42,7 @@ type PreferencesRow = Readonly<{
   last_tenant_id: string | null;
 }>;
 
-export class PostgresSessionBootstrapRepository implements SessionTenantSettingsRepository {
+export class PostgresSessionBootstrapRepository implements SessionTenantCreationRepository {
   constructor(private readonly transactions: PostgresTransactionRunner) {}
 
   async autoAcceptPendingInvitations(): Promise<void> {
@@ -48,7 +54,8 @@ export class PostgresSessionBootstrapRepository implements SessionTenantSettings
     return this.transactions.run({ userId }, async (client) => {
       const result = await client.query<MembershipRow>(`
         select t.id::text, t.slug, t.name, t.parent_tenant_id::text,
-               t.plan, t.is_system_tenant, t.settings, t.created_at, tm.role
+               t.plan, t.is_system_tenant, t.settings, t.created_at, tm.role,
+               t.siren, t.siren_data, t.verified, t.verified_at, t.tax_regime
         from public.tenant_members tm
         join public.tenants t on t.id = tm.tenant_id
         where tm.user_id = $1
@@ -73,7 +80,8 @@ export class PostgresSessionBootstrapRepository implements SessionTenantSettings
     return this.transactions.run({}, async (client) => {
       const result = await client.query<MembershipRow>(`
         select id::text, slug, name, parent_tenant_id::text, plan,
-               is_system_tenant, settings, created_at, 'member'::text as role
+               is_system_tenant, settings, created_at, 'member'::text as role,
+               siren, siren_data, verified, verified_at, tax_regime
         from public.tenants
         where parent_tenant_id = any($1::uuid[])
         order by name, id
@@ -95,7 +103,7 @@ export class PostgresSessionBootstrapRepository implements SessionTenantSettings
     });
   }
 
-  updatePreferences(userId: UserId, patch: Parameters<SessionTenantSettingsRepository['updatePreferences']>[1]) {
+  updatePreferences(userId: UserId, patch: Parameters<SessionTenantCreationRepository['updatePreferences']>[1]) {
     return this.transactions.run({ userId }, async (client) => {
       const result = await client.query<PreferencesRow>(`
         insert into public.user_preferences (
@@ -189,6 +197,34 @@ export class PostgresSessionBootstrapRepository implements SessionTenantSettings
       throw mapTenantMutationError(error);
     }
   }
+
+  async createRootTenant(userId: UserId, command: CreateRootTenant): Promise<string> {
+    try {
+      const tenantId = await this.transactions.run({ userId }, async (client) => {
+        const result = await client.query<{ tenant_id: string | null }>(`
+          select magrit.create_root_tenant($1, $2, $3, $4::jsonb, $5::text[])::text
+            as tenant_id
+        `, [
+          command.slug,
+          command.name,
+          command.siren ?? null,
+          command.sirenData === undefined ? null : JSON.stringify(command.sirenData),
+          command.gammeSlugs ?? [],
+        ]);
+        return result.rows[0]?.tenant_id ?? null;
+      });
+      if (tenantId === null) {
+        throw new SessionTenantMutationError(
+          'permission_denied',
+          'Création de l’espace interdite.',
+        );
+      }
+      return tenantId;
+    } catch (error) {
+      if (error instanceof SessionTenantMutationError) throw error;
+      throw mapTenantMutationError(error);
+    }
+  }
 }
 
 function mapTenant(row: MembershipRow) {
@@ -201,6 +237,11 @@ function mapTenant(row: MembershipRow) {
     is_system_tenant: row.is_system_tenant,
     settings: asRecord(row.settings),
     created_at: row.created_at.toISOString(),
+    siren: row.siren ?? null,
+    siren_data: row.siren_data == null ? null : asRecord(row.siren_data),
+    verified: row.verified ?? false,
+    verified_at: row.verified_at?.toISOString() ?? null,
+    tax_regime: row.tax_regime ?? 'metropole_fr',
   };
 }
 

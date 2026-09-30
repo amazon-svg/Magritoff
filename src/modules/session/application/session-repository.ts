@@ -50,10 +50,13 @@ export interface SessionTenantSettingsRepository extends SessionPreferencesRepos
   updateTenantSettings(userId: UserId, tenantId: string, patch: UpdateTenantSettings): Promise<void>;
 }
 
-export interface SessionRepository extends SessionTenantSettingsRepository {
+export interface SessionTenantCreationRepository extends SessionTenantSettingsRepository {
+  createRootTenant(userId: UserId, command: CreateRootTenant): Promise<string>;
+}
+
+export interface SessionRepository extends SessionTenantCreationRepository {
   subTenantsDashboard(userId: UserId, parentTenantId: string): Promise<SubTenantsDashboard>;
   createSubTenant(userId: UserId, parentTenantId: string, command: CreateSubTenant): Promise<string>;
   removeSubTenant(userId: UserId, parentTenantId: string, subTenantId: string): Promise<void>;
-  createRootTenant(userId: UserId, command: CreateRootTenant): Promise<string>;
   acceptInvitation(userId: UserId, token: string): Promise<string>;
 }

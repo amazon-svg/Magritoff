@@ -13,6 +13,7 @@ import type {
   SessionBootstrapRepository,
   SessionPreferencesRepository,
   SessionRepository,
+  SessionTenantCreationRepository,
   SessionTenantSettingsRepository,
 } from './session-repository.ts';
 
@@ -108,12 +109,21 @@ export class SessionTenantSettingsService extends SessionPreferencesService {
   }
 }
 
-export class SessionService extends SessionTenantSettingsService {
+export class SessionTenantCreationService extends SessionTenantSettingsService {
+  constructor(protected readonly tenantCreationRepository: SessionTenantCreationRepository) {
+    super(tenantCreationRepository);
+  }
+
+  async createRootTenant(userId: UserId, command: CreateRootTenant) {
+    return { tenantId: await this.tenantCreationRepository.createRootTenant(userId, command) };
+  }
+}
+
+export class SessionService extends SessionTenantCreationService {
   constructor(private readonly repository: SessionRepository) { super(repository); }
   subTenantsDashboard(userId: UserId, parentTenantId: string) { return this.repository.subTenantsDashboard(userId, parentTenantId); }
   async createSubTenant(userId: UserId, parentTenantId: string, command: CreateSubTenant) { return { tenantId: await this.repository.createSubTenant(userId, parentTenantId, command) }; }
   async removeSubTenant(userId: UserId, parentTenantId: string, subTenantId: string) { await this.repository.removeSubTenant(userId, parentTenantId, subTenantId); return { removed: true as const }; }
-  async createRootTenant(userId: UserId, command: CreateRootTenant) { return { tenantId: await this.repository.createRootTenant(userId, command) }; }
   async acceptInvitation(userId: UserId, token: string) { return { tenantId: await this.repository.acceptInvitation(userId, token) }; }
 }
 
