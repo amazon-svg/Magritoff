@@ -7,6 +7,8 @@ import { createGescomApiHandler } from '../api/gescom-middleware.ts';
 import { createConversationsRoutes } from '../api/conversations-routes.ts';
 import { createCustomersRoutes } from '../api/customers-routes.ts';
 import { createDocumentTemplatesRoutes } from '../api/document-templates-routes.ts';
+import { createDiagnosticsRoutes } from '../api/diagnostics-routes.ts';
+import { createAssistantRoutes } from '../api/assistant-routes.ts';
 import { createInvitationsRoutes } from '../api/invitations-routes.ts';
 import { createLibrariesRoutes } from '../api/libraries-routes.ts';
 import { createLibraryProductsRoutes } from '../api/library-products-routes.ts';
@@ -34,6 +36,9 @@ import {
   createSessionTenantSettingsRoutes,
 } from '../api/session-routes.ts';
 import { OidcJwtVerifier } from '../../adapters/oidc/jwt-verifier.ts';
+import { ConfiguredAiCompletionGateway } from '../../adapters/ai/configured-ai-completion-gateway.ts';
+import { ConfiguredAiDiagnosticsGateway, aiProviderConfigurationFromEnvironment } from '../../adapters/ai/configured-ai-diagnostics-gateway.ts';
+import { HttpClariprintDiagnosticsGateway } from '../../adapters/clariprint/clariprint-diagnostics-gateway.ts';
 import { PostgresCommercialSettingsRepository } from '../../adapters/postgres/commercial-settings-repository.ts';
 import { PostgresCommercialLineFilesRepository } from '../../adapters/postgres/commercial-line-files-repository.ts';
 import { PostgresCommercialQuotesRepository } from '../../adapters/postgres/commercial-quotes-repository.ts';
@@ -41,6 +46,7 @@ import { PostgresCatalogRepository } from '../../adapters/postgres/catalog-repos
 import { PostgresConversationsRepository } from '../../adapters/postgres/conversations-repository.ts';
 import { PostgresCustomersRepository } from '../../adapters/postgres/customers-repository.ts';
 import { PostgresDocumentTemplatesRepository } from '../../adapters/postgres/document-templates-repository.ts';
+import { PostgresDiagnosticsAccessGateway } from '../../adapters/postgres/diagnostics-access-gateway.ts';
 import { PostgresIdempotencyStore } from '../../adapters/postgres/idempotency-store.ts';
 import { PostgresInvitationsRepository } from '../../adapters/postgres/invitations-repository.ts';
 import { PostgresLibrariesRepository } from '../../adapters/postgres/libraries-repository.ts';
@@ -86,6 +92,8 @@ import { CatalogService } from '../../modules/catalog/application/catalog-servic
 import { CatalogRejectedError } from '../../modules/catalog/application/catalog-repository.ts';
 import { CustomersService } from '../../modules/customers/application/customers-service.ts';
 import { DocumentTemplatesService } from '../../modules/document-templates/application/document-templates-service.ts';
+import { DiagnosticsService } from '../../modules/diagnostics/application/diagnostics-service.ts';
+import { AssistantService } from '../../modules/diagnostics/application/assistant-service.ts';
 import { InvitationsService } from '../../modules/invitations/application/invitations-service.ts';
 import { LibrariesService } from '../../modules/libraries/application/libraries-service.ts';
 import { LibraryProductsService } from '../../modules/libraries/application/library-products-service.ts';
@@ -116,7 +124,7 @@ import { OidcActorResolver } from '../auth/oidc-actor-resolver.ts';
 import { createNodeHttpServer } from './http-server.ts';
 import { readOidcConfiguration } from './oidc-configuration.ts';
 import { createTransitionalApiHandler } from './transitional-api-handler.ts';
-import { storefrontSessionCookiePolicy } from '../storefront/session-cookie.ts';
+import { readStorefrontSessionCookie, storefrontSessionCookiePolicy } from '../storefront/session-cookie.ts';
 
 const host = process.env['MAGRIT_API_HOST'] ?? '127.0.0.1';
 const port = parsePort(process.env['MAGRIT_API_PORT'] ?? '8787');
@@ -151,6 +159,23 @@ const localSessionActorResolver = localAuthentication === null
 const actorResolver = oidcActorResolver === null && localSessionActorResolver === null
   ? undefined
   : new CredentialActorResolver(oidcActorResolver, localSessionActorResolver);
+const aiConfiguration = aiProviderConfigurationFromEnvironment((name) => process.env[name]);
+const diagnosticsAccess = new PostgresDiagnosticsAccessGateway(
+  new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+);
+const diagnosticsRoutes = actorResolver === undefined ? [] : createDiagnosticsRoutes(new DiagnosticsService(
+  new ConfiguredAiDiagnosticsGateway(aiConfiguration),
+  new HttpClariprintDiagnosticsGateway(
+    process.env['CLARIPRINT_HOST'] ?? 'https://lrdp.clariprint.com',
+    process.env['CLARIPRINT_LOGIN'] ?? null,
+    process.env['CLARIPRINT_PASSWORD'] ?? null,
+  ),
+  diagnosticsAccess,
+));
+const assistantService = new AssistantService(
+  new ConfiguredAiCompletionGateway(aiConfiguration),
+  diagnosticsAccess,
+);
 const conversationsEnabled = actorResolver !== undefined;
 const conversationsRoutes = conversationsEnabled
   ? createConversationsRoutes(new ConversationsService(new PostgresConversationsRepository(
@@ -370,6 +395,21 @@ const storefrontSessionRoutes = createStorefrontSessionRoutes(
 const publicShopRoutes = shopsService === null ? [] : createPublicShopsRoutes(
   shopsService,storefrontSessions,storefrontCookiePolicy,
 );
+const assistantRoutes = createAssistantRoutes(assistantService, async (request, shopSlug) => {
+  if (shopsService === null) return null;
+  const token = readStorefrontSessionCookie(
+    request.headers.get('cookie'),
+    storefrontCookiePolicy,
+  );
+  const session = token ? await storefrontSessions.current(token) : null;
+  if (session === null) return null;
+  try {
+    const shop = await shopsService.publicProbe(shopSlug);
+    return shop.id === session.identity.shopId ? { tenantId: shop.tenantId } : null;
+  } catch {
+    return null;
+  }
+});
 const shopCustomerDelegationRoutes = actorResolver === undefined ? [] : createShopCustomerDelegationRoutes(
   new ShopCustomerDelegationService(new PostgresShopCustomerDelegationGateway(
     new PostgresTransactionRunner(postgresPool, 'magrit_api'),
@@ -422,6 +462,8 @@ const apiHandler = createApiV1Application({
   routes: [
     createReadinessRoute(new PostgresReadinessProbe(postgresPool)),
     ...conversationsRoutes,
+    ...diagnosticsRoutes,
+    ...assistantRoutes,
     ...sessionRoutes,
     ...invitationsRoutes,
     ...librariesRoutes,
@@ -461,6 +503,8 @@ const handler = createTransitionalApiHandler({
   localPaths: new Set(['/api/v1/health', '/api/v1/readiness']),
   isLocalRequest: (request, url) => (
     (conversationsEnabled && isConversationsPath(url.pathname))
+    || (actorResolver !== undefined && isDiagnosticsPath(url.pathname))
+    || isAssistantPath(url.pathname)
     || (localAuthentication !== null && isLocalAuthenticationPath(url.pathname))
     || (sessionEnabled && isSessionPreferencesRequest(request.method, url.pathname))
     || (sessionEnabled && isSessionTenantSettingsRequest(request.method, url.pathname))
@@ -497,6 +541,8 @@ server.listen(port, host, () => {
     mode: legacyApiUrl === undefined ? 'health-only' : 'transitional-proxy',
     modules: [
       ...(conversationsEnabled ? ['conversations'] : []),
+      ...(diagnosticsRoutes.length === 0 ? [] : ['diagnostics']),
+      'assistant',
       ...(localAuthentication === null ? [] : ['local-authentication']),
       ...(sessionEnabled ? ['session-bootstrap'] : []),
       ...(actorResolver === undefined ? [] : ['invitations']),
@@ -560,6 +606,15 @@ function catalogAutomationNotMigrated(): CatalogRejectedError {
 
 function isConversationsPath(pathname: string): boolean {
   return /^\/api\/v1\/tenants\/[^/]+\/conversations(?:\/[^/]+)?\/?$/.test(pathname);
+}
+
+function isDiagnosticsPath(pathname: string): boolean {
+  return pathname === '/api/v1/diagnostics/ai'
+    || pathname === '/api/v1/diagnostics/clariprint';
+}
+
+function isAssistantPath(pathname: string): boolean {
+  return /^\/api\/v1\/(?:tenants\/[^/]+|public\/shops\/[^/]+)\/assistant\/category-editorial\/?$/.test(pathname);
 }
 
 function isLocalAuthenticationPath(pathname: string): boolean {
