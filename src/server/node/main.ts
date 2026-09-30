@@ -3,6 +3,7 @@ import { createCommercialSettingsRoutes } from '../api/commercial-settings-route
 import { createGescomApiHandler } from '../api/gescom-middleware.ts';
 import { createConversationsRoutes } from '../api/conversations-routes.ts';
 import { createCustomersRoutes } from '../api/customers-routes.ts';
+import { createProjectTagsRoutes } from '../api/project-tags-routes.ts';
 import { createProductionStepsRoutes } from '../api/production-steps-routes.ts';
 import { createReadinessRoute } from '../api/readiness-route.ts';
 import {
@@ -19,6 +20,7 @@ import { PostgresCustomersRepository } from '../../adapters/postgres/customers-r
 import { PostgresIdempotencyStore } from '../../adapters/postgres/idempotency-store.ts';
 import { PostgresOidcIdentityDirectory } from '../../adapters/postgres/oidc-identity-directory.ts';
 import { PostgresOutboxRepository } from '../../adapters/postgres/outbox-repository.ts';
+import { PostgresProjectTagsRepository } from '../../adapters/postgres/project-tags-repository.ts';
 import { createPostgresPool } from '../../adapters/postgres/pool.ts';
 import { PostgresProductionStepsRepository } from '../../adapters/postgres/production-steps-repository.ts';
 import { PostgresReadinessProbe } from '../../adapters/postgres/readiness-probe.ts';
@@ -28,6 +30,7 @@ import { ConversationsService } from '../../modules/conversations/application/co
 import { CommercialSettingsService } from '../../modules/commercial-settings/application/commercial-settings-service.ts';
 import { CustomersService } from '../../modules/customers/application/customers-service.ts';
 import { OutboxPublisher } from '../../modules/_shared/application/index.ts';
+import { ProjectTagsService } from '../../modules/project-tags/application/project-tags-service.ts';
 import { ProductionStepsService } from '../../modules/production-steps/application/production-steps-service.ts';
 import { SessionSubTenantMutationService } from '../../modules/session/application/session-service.ts';
 import { createLocalAuthentication, readLocalAuthenticationConfiguration } from '../auth/local-authentication.ts';
@@ -117,10 +120,22 @@ const customersRoutes = gescomPrincipalVerifier === null
         newEventId: () => crypto.randomUUID(),
       }),
     }));
+const projectTagsRoutes = gescomPrincipalVerifier === null
+  ? []
+  : createProjectTagsRoutes(new ProjectTagsService({
+      repository: new PostgresProjectTagsRepository(
+        new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+      ),
+    }));
 const gescomHandler = gescomPrincipalVerifier === null
   ? null
   : createGescomApiHandler({
-      routes: [...commercialSettingsRoutes, ...productionStepsRoutes, ...customersRoutes],
+      routes: [
+        ...commercialSettingsRoutes,
+        ...productionStepsRoutes,
+        ...customersRoutes,
+        ...projectTagsRoutes,
+      ],
       principalVerifier: gescomPrincipalVerifier,
       idempotencyStore: new PostgresIdempotencyStore(
         new PostgresTransactionRunner(postgresPool, 'magrit_api'),
@@ -186,6 +201,7 @@ server.listen(port, host, () => {
       ...(gescomHandler === null ? [] : ['commercial-settings']),
       ...(gescomHandler === null ? [] : ['production-steps']),
       ...(gescomHandler === null ? [] : ['customers']),
+      ...(gescomHandler === null ? [] : ['project-tags']),
     ],
   }));
 });
@@ -230,6 +246,7 @@ function isLocalGescomPath(pathname: string): boolean {
   return isCommercialSettingsPath(pathname)
     || /^\/api\/v1\/production-steps(?:\/[^/]+)?\/?$/.test(pathname)
     || pathname === '/api/v1/production-step-positions'
+    || /^\/api\/v1\/project-tags(?:\/[^/]+)?\/?$/.test(pathname)
     || /^\/api\/v1\/customers(?:\/[^/]+(?:\/contacts(?:\/[^/]+)?|\/siret-verifications)?)?\/?$/.test(pathname);
 }
 
