@@ -84,17 +84,18 @@ export class ShopCustomersService {
   }
 
   /** E10.5 — tous les acces boutique ouverts pour cet interlocuteur, toutes boutiques confondues. */
-  listForContact(actor: UserId, customerContactId: string): Promise<ShopCustomerAccount[]> {
-    return this.repository.listByCustomerContactId(actor, customerContactId);
+  listForContact(actor: UserId, tenantId: string, customerContactId: string): Promise<ShopCustomerAccount[]> {
+    return this.repository.listByCustomerContactId(actor, tenantId, customerContactId);
   }
 
   /** E10.5 — relie un compte boutique existant (trouve par email, non lie) a l interlocuteur. */
   linkContact(
     actor: UserId,
+    tenantId: string,
     accountId: string,
     customerContactId: string,
   ): Promise<ShopCustomerAccount> {
-    return this.repository.linkCustomerContact(actor, accountId, customerContactId);
+    return this.repository.linkCustomerContact(actor, tenantId, accountId, customerContactId);
   }
 
   /** E10.5 — revoque l acces : delie l interlocuteur et suspend le compte. */

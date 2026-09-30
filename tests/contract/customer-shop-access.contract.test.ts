@@ -180,12 +180,13 @@ class InMemoryShopCustomersRepository implements ShopCustomersRepository {
     );
   }
 
-  async listByCustomerContactId(_actor: UserId, customerContactId: string): Promise<ShopCustomerAccount[]> {
+  async listByCustomerContactId(_actor: UserId, _tenantId: string, customerContactId: string): Promise<ShopCustomerAccount[]> {
     return [...this.accounts.values()].filter((account) => account.customerContactId === customerContactId);
   }
 
   async linkCustomerContact(
     _actor: UserId,
+    _tenantId: string,
     accountId: string,
     customerContactId: string,
   ): Promise<ShopCustomerAccount> {

@@ -142,6 +142,7 @@ export class SupabaseShopCustomersRepository implements ShopCustomersRepository 
 
   async listByCustomerContactId(
     _actor: UserId,
+    _tenantId: string,
     customerContactId: string,
   ): Promise<ShopCustomerAccount[]> {
     const { data, error } = await this.client.from('shop_customer_accounts')
@@ -154,6 +155,7 @@ export class SupabaseShopCustomersRepository implements ShopCustomersRepository 
 
   async linkCustomerContact(
     _actor: UserId,
+    _tenantId: string,
     accountId: string,
     customerContactId: string,
   ): Promise<ShopCustomerAccount> {

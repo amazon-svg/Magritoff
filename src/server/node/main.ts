@@ -17,6 +17,7 @@ import { createQuoteDocumentsRoutes } from '../api/quote-documents-routes.ts';
 import { createReadinessRoute } from '../api/readiness-route.ts';
 import { createRolesRoutes } from '../api/roles-routes.ts';
 import { createShopAdministrationRoutes } from '../api/shops-routes.ts';
+import { createShopCustomerAdministrationRoutes } from '../api/shop-customers-routes.ts';
 import {
   createSessionBootstrapRoute,
   createSessionInvitationAcceptanceRoute,
@@ -44,6 +45,7 @@ import { PostgresProjectsRepository } from '../../adapters/postgres/projects-rep
 import { PostgresQuoteDocumentsRepository } from '../../adapters/postgres/quote-documents-repository.ts';
 import { PostgresRolesRepository } from '../../adapters/postgres/roles-repository.ts';
 import { PostgresShopsRepository } from '../../adapters/postgres/shops-repository.ts';
+import { PostgresShopCustomersRepository } from '../../adapters/postgres/shop-customers-repository.ts';
 import { createPostgresPool } from '../../adapters/postgres/pool.ts';
 import { PostgresProductionStepsRepository } from '../../adapters/postgres/production-steps-repository.ts';
 import { PostgresReadinessProbe } from '../../adapters/postgres/readiness-probe.ts';
@@ -72,6 +74,7 @@ import { CustomersRepositoryDocumentDataGateway } from '../../modules/quote-docu
 import { QuoteDocumentsService } from '../../modules/quote-documents/application/quote-documents-service.ts';
 import { RolesService } from '../../modules/roles/application/roles-service.ts';
 import { ShopsService } from '../../modules/shops/application/shops-service.ts';
+import { ShopCustomersService } from '../../modules/shop-customers/application/shop-customers-service.ts';
 import { OutboxPublisher } from '../../modules/_shared/application/index.ts';
 import { ProjectTagsService } from '../../modules/project-tags/application/project-tags-service.ts';
 import { PriceRulesService } from '../../modules/pricing/application/price-rules-service.ts';
@@ -302,6 +305,11 @@ const shopAdministrationRoutes = actorResolver === undefined || s3Client === nul
       new PostgresTransactionRunner(postgresPool, 'magrit_api'),
       new S3ShopAssetStorage(s3Client, s3PublicBaseUrl),
     )));
+const shopCustomerAdministrationRoutes = actorResolver === undefined
+  ? []
+  : createShopCustomerAdministrationRoutes(new ShopCustomersService(
+      new PostgresShopCustomersRepository(new PostgresTransactionRunner(postgresPool, 'magrit_api')),
+    ));
 const gescomHandler = gescomPrincipalVerifier === null
   ? null
   : createGescomApiHandler({
@@ -335,6 +343,7 @@ const apiHandler = createApiV1Application({
     ...rolesRoutes,
     ...catalogRoutes,
     ...shopAdministrationRoutes,
+    ...shopCustomerAdministrationRoutes,
   ],
   ...(actorResolver === undefined ? {} : { actorResolver }),
   onUnexpectedError(error, requestId) {
@@ -368,6 +377,7 @@ const handler = createTransitionalApiHandler({
     || (actorResolver !== undefined && isMembersPath(url.pathname))
     || (actorResolver !== undefined && isRolesPath(url.pathname))
     || (actorResolver !== undefined && isShopAdministrationPath(url.pathname))
+    || (actorResolver !== undefined && isShopCustomerAdministrationPath(url.pathname))
     || (actorResolver !== undefined && isLocalCatalogRequest(request.method, url.pathname))
     || (gescomHandler !== null && isLocalGescomPath(url.pathname))
   ),
@@ -394,6 +404,7 @@ server.listen(port, host, () => {
       ...(actorResolver === undefined ? [] : ['roles']),
       ...(actorResolver === undefined ? [] : ['catalog']),
       ...(shopAdministrationRoutes.length === 0 ? [] : ['shops:backoffice']),
+      ...(shopCustomerAdministrationRoutes.length === 0 ? [] : ['shop-customers:backoffice']),
       ...(gescomHandler === null ? [] : ['commercial-settings']),
       ...(gescomHandler === null ? [] : ['production-steps']),
       ...(gescomHandler === null ? [] : ['customers']),
@@ -520,4 +531,8 @@ function isRolesPath(pathname: string): boolean {
 
 function isShopAdministrationPath(pathname: string): boolean {
   return /^\/api\/v1\/tenants\/[^/]+\/shops(?:\/[^/]+(?:\/(?:pricing(?:\/[^/]+)?|brand-assets|custom-mockups(?:\/[^/]+\/[^/]+)?|ai-products|products(?:\/[^/]+)?))?)?\/?$/.test(pathname);
+}
+
+function isShopCustomerAdministrationPath(pathname: string): boolean {
+  return /^\/api\/v1\/tenants\/[^/]+\/shops\/[^/]+\/customers(?:\/self)?\/?$/.test(pathname);
 }

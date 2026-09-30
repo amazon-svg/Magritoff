@@ -66,6 +66,7 @@ export class PostgresShopsRepository implements ShopsRepository {
       await client.query('delete from public.shop_products where tenant_id=$1 and shop_id=$2', [tenantId, shopId]);
       await client.query('delete from public.shop_product_pricing where tenant_id=$1 and shop_id=$2', [tenantId, shopId]);
       await client.query('delete from public.shop_template_mockups where tenant_id=$1 and shop_id=$2', [tenantId, shopId]);
+      await client.query('delete from public.shop_customer_accounts where tenant_id=$1 and shop_id=$2', [tenantId, shopId]);
       await client.query(`update public.shops set active=false,deleted_at=clock_timestamp(),name='[Boutique supprimée]',
         description='',logo_url='',address='',contact_email='',hero_image_url=null,tagline=null,library_ids='{}',
         excluded_product_ids='{}',pim_catalog_mode=false,pim_gamme_slugs='{}' where tenant_id=$1 and id=$2`, [tenantId, shopId]);

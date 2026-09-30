@@ -7,7 +7,13 @@ import { ApiHttpError } from './errors.ts';
 import { defineJsonRoute, type ApiRequestContext, type ApiRoute } from './routes.ts';
 
 export function createShopCustomersRoutes(service: ShopCustomersService): readonly ApiRoute[] {
-  const base = `${API_V1_BASE_PATH}/tenants/{tenantId}/shops/{shopId}/customers`;
+  return [
+    ...createShopCustomerMigrationReportRoutes(service),
+    ...createShopCustomerAdministrationRoutes(service),
+  ];
+}
+
+export function createShopCustomerMigrationReportRoutes(service: ShopCustomersService): readonly ApiRoute[] {
   return [
     defineJsonRoute({
       method: 'GET',
@@ -16,12 +22,15 @@ export function createShopCustomersRoutes(service: ShopCustomersService): readon
       inputSchema: null,
       outputSchema: legacyShopCustomerMigrationReportSchema,
       async handle(context) {
-        return execute(async () => ({
-          status: 200,
-          body: await service.migrationReport(actor(context), param(context, 'tenantId')),
-        }));
+        return execute(async () => ({ status: 200, body: await service.migrationReport(actor(context), param(context, 'tenantId')) }));
       },
     }),
+  ];
+}
+
+export function createShopCustomerAdministrationRoutes(service: ShopCustomersService): readonly ApiRoute[] {
+  const base = `${API_V1_BASE_PATH}/tenants/{tenantId}/shops/{shopId}/customers`;
+  return [
     defineJsonRoute({
       method: 'GET', path: base, authentication: 'required',
       inputSchema: null, outputSchema: shopCustomerAccountsSchema,

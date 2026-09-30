@@ -52,10 +52,11 @@ export interface ShopCustomersRepository {
     customerContactId: string,
   ): Promise<ShopCustomerAccount | null>;
   /** E10.5 — tous les acces boutique ouverts pour cet interlocuteur, toutes boutiques du tenant confondues. */
-  listByCustomerContactId(actor: UserId, customerContactId: string): Promise<ShopCustomerAccount[]>;
+  listByCustomerContactId(actor: UserId, tenantId: string, customerContactId: string): Promise<ShopCustomerAccount[]>;
   /** E10.5 — relie un compte boutique existant (email trouve, non lie) a l interlocuteur. */
   linkCustomerContact(
     actor: UserId,
+    tenantId: string,
     accountId: string,
     customerContactId: string,
   ): Promise<ShopCustomerAccount>;

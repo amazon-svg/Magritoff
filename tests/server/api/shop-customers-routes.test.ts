@@ -159,6 +159,10 @@ function repositoryStub(): ShopCustomersRepository {
       status: record.status,
     }),
     ensureSelf: async () => ({ customer: account({ status: 'delegated_only' }), created: true }),
+    findByCustomerContactId: async () => null,
+    listByCustomerContactId: async () => [],
+    linkCustomerContact: async () => account(),
+    revokeCustomerContactAccess: async () => undefined,
   };
 }
 
