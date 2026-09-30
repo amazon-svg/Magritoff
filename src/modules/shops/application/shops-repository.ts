@@ -13,6 +13,13 @@ export type PublicShopCatalogAccess = Readonly<{
     shopCustomerAccountId: string;
   }> | null;
 }>;
+export interface ShopAssetStorage {
+  uploadBrandAsset(shopId: string, upload: ShopBrandAssetUpload): Promise<string>;
+  uploadCustomMockup(shopId: string, upload: ShopCustomMockupUpload): Promise<string>;
+  removeShopAssets(shopId: string): Promise<void>;
+  publicUrl(reference: string): string;
+  reference(value: string): string;
+}
 export interface ShopsRepository {
   list(actor: UserId, tenantId: string): Promise<ShopDto[]>;
   create(actor: UserId, tenantId: string, command: CreateShopCommand): Promise<ShopDto>;

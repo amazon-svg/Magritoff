@@ -31,6 +31,7 @@ case "${1:-}" in
     echo 'DATABASE_URL=postgresql://magrit:magrit-local-only@127.0.0.1:55432/magrit'
     echo 'MAGRIT_DATABASE_MIGRATION_URL=postgresql://magrit:magrit-local-only@127.0.0.1:55432/magrit'
     echo 'S3_ENDPOINT=http://127.0.0.1:58333'
+    echo 'S3_PUBLIC_BASE_URL=http://127.0.0.1:58333'
     echo 'S3_REGION=us-east-1'
     echo 'S3_ACCESS_KEY_ID=magrit-local'
     echo 'S3_SECRET_ACCESS_KEY=magrit-local-secret'

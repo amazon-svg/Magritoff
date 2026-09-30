@@ -16,6 +16,7 @@ import { createProductionStepsRoutes } from '../api/production-steps-routes.ts';
 import { createQuoteDocumentsRoutes } from '../api/quote-documents-routes.ts';
 import { createReadinessRoute } from '../api/readiness-route.ts';
 import { createRolesRoutes } from '../api/roles-routes.ts';
+import { createShopAdministrationRoutes } from '../api/shops-routes.ts';
 import {
   createSessionBootstrapRoute,
   createSessionInvitationAcceptanceRoute,
@@ -42,6 +43,7 @@ import { PostgresProjectTagsRepository } from '../../adapters/postgres/project-t
 import { PostgresProjectsRepository } from '../../adapters/postgres/projects-repository.ts';
 import { PostgresQuoteDocumentsRepository } from '../../adapters/postgres/quote-documents-repository.ts';
 import { PostgresRolesRepository } from '../../adapters/postgres/roles-repository.ts';
+import { PostgresShopsRepository } from '../../adapters/postgres/shops-repository.ts';
 import { createPostgresPool } from '../../adapters/postgres/pool.ts';
 import { PostgresProductionStepsRepository } from '../../adapters/postgres/production-steps-repository.ts';
 import { PostgresReadinessProbe } from '../../adapters/postgres/readiness-probe.ts';
@@ -52,6 +54,7 @@ import { ResendPasswordResetEmailSender } from '../../adapters/resend/password-r
 import { createS3Client } from '../../adapters/s3/client.ts';
 import { S3CommercialLineFileStorage } from '../../adapters/s3/commercial-line-file-storage.ts';
 import { S3ProjectCommercialFileStorage } from '../../adapters/s3/project-commercial-file-storage.ts';
+import { S3ShopAssetStorage } from '../../adapters/s3/shop-asset-storage.ts';
 import { SmtpInvitationEmailSender } from '../../adapters/smtp/invitation-email-sender.ts';
 import { SmtpPasswordResetEmailSender } from '../../adapters/smtp/password-reset-email-sender.ts';
 import { readSmtpConfiguration, SmtpTransport } from '../../adapters/smtp/transport.ts';
@@ -68,6 +71,7 @@ import { MembersService } from '../../modules/members/application/members-servic
 import { CustomersRepositoryDocumentDataGateway } from '../../modules/quote-documents/application/customer-document-data-gateway.ts';
 import { QuoteDocumentsService } from '../../modules/quote-documents/application/quote-documents-service.ts';
 import { RolesService } from '../../modules/roles/application/roles-service.ts';
+import { ShopsService } from '../../modules/shops/application/shops-service.ts';
 import { OutboxPublisher } from '../../modules/_shared/application/index.ts';
 import { ProjectTagsService } from '../../modules/project-tags/application/project-tags-service.ts';
 import { PriceRulesService } from '../../modules/pricing/application/price-rules-service.ts';
@@ -193,6 +197,9 @@ const outboxPublisher = new OutboxPublisher({
   newEventId: () => crypto.randomUUID(),
 });
 const s3Client = gescomPrincipalVerifier === null ? null : createS3Client();
+const s3PublicBaseUrl = process.env['S3_PUBLIC_BASE_URL']
+  ?? process.env['S3_ENDPOINT']
+  ?? `https://s3.${process.env['S3_REGION'] ?? 'us-east-1'}.amazonaws.com`;
 const priceRulesService = new PriceRulesService({
   repository: new PostgresPriceRulesRepository(
     new PostgresTransactionRunner(postgresPool, 'magrit_api'),
@@ -289,6 +296,12 @@ const commercialQuotesRoutes = commercialQuotesService === null
 const quoteDocumentsRoutes = commercialQuotesService === null || quoteDocumentsService === null
   ? []
   : createQuoteDocumentsRoutes(quoteDocumentsService, commercialQuotesService);
+const shopAdministrationRoutes = actorResolver === undefined || s3Client === null
+  ? []
+  : createShopAdministrationRoutes(new ShopsService(new PostgresShopsRepository(
+      new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+      new S3ShopAssetStorage(s3Client, s3PublicBaseUrl),
+    )));
 const gescomHandler = gescomPrincipalVerifier === null
   ? null
   : createGescomApiHandler({
@@ -321,6 +334,7 @@ const apiHandler = createApiV1Application({
     ...membersRoutes,
     ...rolesRoutes,
     ...catalogRoutes,
+    ...shopAdministrationRoutes,
   ],
   ...(actorResolver === undefined ? {} : { actorResolver }),
   onUnexpectedError(error, requestId) {
@@ -353,6 +367,7 @@ const handler = createTransitionalApiHandler({
     || (sessionEnabled && isInvitationRequest(request.method, url.pathname))
     || (actorResolver !== undefined && isMembersPath(url.pathname))
     || (actorResolver !== undefined && isRolesPath(url.pathname))
+    || (actorResolver !== undefined && isShopAdministrationPath(url.pathname))
     || (actorResolver !== undefined && isLocalCatalogRequest(request.method, url.pathname))
     || (gescomHandler !== null && isLocalGescomPath(url.pathname))
   ),
@@ -378,6 +393,7 @@ server.listen(port, host, () => {
       ...(actorResolver === undefined ? [] : ['members']),
       ...(actorResolver === undefined ? [] : ['roles']),
       ...(actorResolver === undefined ? [] : ['catalog']),
+      ...(shopAdministrationRoutes.length === 0 ? [] : ['shops:backoffice']),
       ...(gescomHandler === null ? [] : ['commercial-settings']),
       ...(gescomHandler === null ? [] : ['production-steps']),
       ...(gescomHandler === null ? [] : ['customers']),
@@ -500,4 +516,8 @@ function isMembersPath(pathname: string): boolean {
 
 function isRolesPath(pathname: string): boolean {
   return /^\/api\/v1\/tenants\/[^/]+\/(?:capabilities\/[^/]+|access-profile|roles-overview|roles-catalog|roles(?:\/[^/]+)?|roles-order|members\/[^/]+\/roles-detail|members\/[^/]+\/roles\/[^/]+)\/?$/.test(pathname);
+}
+
+function isShopAdministrationPath(pathname: string): boolean {
+  return /^\/api\/v1\/tenants\/[^/]+\/shops(?:\/[^/]+(?:\/(?:pricing(?:\/[^/]+)?|brand-assets|custom-mockups(?:\/[^/]+\/[^/]+)?|ai-products|products(?:\/[^/]+)?))?)?\/?$/.test(pathname);
 }

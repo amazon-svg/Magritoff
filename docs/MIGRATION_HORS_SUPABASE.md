@@ -12,8 +12,8 @@ Decision formelle : `docs/architecture/decisions/0001-sortie-de-supabase.md`.
 | J0 | ADR et garde-fou contre les nouvelles dependances Supabase livres |
 | J1 | Compose, healthchecks, migrations et buckets livres ; seed et CI restent a faire |
 | J2 | runtime Node, health/readiness et facade de transition livres |
-| J3 | contexte transactionnel, roles, Conversations, session, réglages tenant, membres, rôles et invitations, réglages commerciaux, étapes de production, clients, projets, étiquettes, catalogue PIM, règles tarifaires, devis et gabarits PDF PostgreSQL livres ; idempotence API et outbox durables livrées |
-| J4 | adaptateurs S3 des exports, fichiers de lignes projet, gabarits PDF et documents de devis livres ; autres buckets non bascules |
+| J3 | contexte transactionnel, roles, Conversations, session, réglages tenant, membres, rôles et invitations, réglages commerciaux, étapes de production, clients, projets, étiquettes, catalogue PIM, règles tarifaires, devis, gabarits PDF et administration des boutiques PostgreSQL livres ; catalogue public/storefront encore relayé ; idempotence API et outbox durables livrées |
+| J4 | adaptateurs S3 des exports, fichiers de lignes projet, gabarits PDF, documents de devis et visuels de boutiques livres ; autres buckets non bascules |
 | J5 | OIDC, annuaire d'identites, socle Better Auth PostgreSQL, invitations Magrit et récupération de mot de passe livres ; bascule UI globale reste a faire |
 | J6 et suivants | non demarres |
 
@@ -224,6 +224,12 @@ Les limites de taille et les types MIME sont controles par l'API. Les buckets
 peuvent rester tous prives ; dans ce cas l'API produit des URL signees ou sert
 les objets publics derriere une route cacheable.
 
+En developpement, le script d'initialisation applique idempotemment une policy
+`s3:GetObject` anonyme aux trois buckets de visuels publics (`product-mockups`,
+`shop-backgrounds`, `shop-product-mockups`). `S3_PUBLIC_BASE_URL` designe leur
+origine HTTP ; en production, cette origine peut etre un endpoint S3 public ou
+une facade CDN/API appliquant la meme politique de lecture.
+
 ### 6.3 Commandes attendues
 
 Le lot d'infrastructure locale introduit des commandes stables :
@@ -251,6 +257,7 @@ sont :
 DATABASE_URL=
 MAGRIT_DATABASE_MIGRATION_URL=
 S3_ENDPOINT=
+S3_PUBLIC_BASE_URL=
 S3_REGION=
 S3_ACCESS_KEY_ID=
 S3_SECRET_ACCESS_KEY=

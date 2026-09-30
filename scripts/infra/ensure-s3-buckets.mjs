@@ -1,6 +1,7 @@
 import {
   CreateBucketCommand,
   ListBucketsCommand,
+  PutBucketPolicyCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
 import { readFile } from 'node:fs/promises';
@@ -10,6 +11,11 @@ const storageBuckets = JSON.parse(
 );
 
 const buckets = Object.values(storageBuckets);
+const publicReadBuckets = [
+  storageBuckets.product_mockups,
+  storageBuckets.shop_backgrounds,
+  storageBuckets.shop_product_mockups,
+];
 
 if (new Set(buckets).size !== buckets.length) {
   throw new Error('Deux buckets logiques utilisent le meme nom physique S3.');
@@ -55,9 +61,25 @@ const existing = new Set((response.Buckets ?? []).flatMap((bucket) => (
 )));
 
 for (const bucket of buckets) {
-  if (existing.has(bucket)) continue;
-  await client.send(new CreateBucketCommand({ Bucket: bucket }));
-  process.stdout.write(`Bucket S3 local cree : ${bucket}\n`);
+  if (!existing.has(bucket)) {
+    await client.send(new CreateBucketCommand({ Bucket: bucket }));
+    process.stdout.write(`Bucket S3 local cree : ${bucket}\n`);
+  }
+  if (publicReadBuckets.includes(bucket)) {
+    await client.send(new PutBucketPolicyCommand({
+      Bucket: bucket,
+      Policy: JSON.stringify({
+        Version: '2012-10-17',
+        Statement: [{
+          Sid: 'PublicReadObjects',
+          Effect: 'Allow',
+          Principal: '*',
+          Action: ['s3:GetObject'],
+          Resource: [`arn:aws:s3:::${bucket}/*`],
+        }],
+      }),
+    }));
+  }
 }
 
 process.stdout.write(`S3 local pret : ${buckets.length} buckets sur ${endpoint}\n`);
