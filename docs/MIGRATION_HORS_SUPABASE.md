@@ -312,6 +312,14 @@ la portée la plus spécifique, puis la règle la plus récente. Cette extractio
 permet au futur adaptateur Devis d'utiliser le moteur Pricing sans rappel vers
 Supabase.
 
+Le schéma PostgreSQL portable des devis commerciaux est posé : entêtes, lignes
+tarifées, compteur annuel, isolation tenant, garde des lignes hors brouillon et
+journaux append-only. Cette étape prépare la bascule mais ne l'active pas : le
+repository, les gestes transactionnels et les routes Devis utilisent encore
+l'adaptateur historique jusqu'au lot suivant. Les données existantes devront
+être copiées et contrôlées avant l'activation de ces routes en environnement
+partagé.
+
 Le seed local est idempotent. Il cree par defaut
 `developer@magrit.local`, le tenant `magrit-development` et une identite OIDC
 de developpement. Les valeurs peuvent etre surchargees avec les variables
