@@ -282,16 +282,14 @@ session en cookie n'est pas active afin qu'une revocation prenne effet sans
 attendre l'expiration d'un cache. L'inscription publique est desactivee ; les
 comptes de production devront provenir du flux d'invitation Magrit.
 
-Le navigateur peut utiliser ce nouvel adaptateur avec
-`VITE_AUTH_PROVIDER=local`. Cette activation reste volontaire pendant la
-transition : les domaines encore relayes vers l'API Supabase exigent toujours
-leur ancien bearer. L'adaptateur local n'expose aucun token au JavaScript ; les
+Le navigateur utilise exclusivement l'adaptateur Better Auth local. Le fallback
+Supabase Auth et `VITE_AUTH_PROVIDER` ont été retirés. L'adaptateur local
+n'expose aucun token au JavaScript ; les
 requêtes same-origin transportent uniquement le cookie `HttpOnly`.
-En developpement, `VITE_API_PROXY_TARGET=http://127.0.0.1:8787` dirige alors
+En developpement, `VITE_API_PROXY_TARGET=http://127.0.0.1:8787` dirige
 la SPA vers le serveur Node. `GET /session`, `PATCH /session/preferences` et
 `PUT /session/current-tenant` sont deja traites par PostgreSQL ; le fournisseur
-Supabase reste la valeur par defaut jusqu'a la migration du tableau de bord KPI
-des sous-espaces et des autres domaines indispensables au workspace. La
+Supabase n'est plus une option d'authentification du navigateur. La
 création et la suppression des sous-espaces sont locales, avec
 une profondeur limitée à deux niveaux. La création d'un
 tenant racine, son SIREN et ses gammes d'onboarding sont désormais atomiques
