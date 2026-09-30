@@ -49,7 +49,7 @@ export class PostgresStorefrontAuthenticationGateway implements StorefrontAuthen
     if(!row)return null;
     return session(row);
   });}
-  revoke(opaqueToken:string):Promise<boolean>{return this.tx.run({},async c=>(await c.query('update private.shop_customer_sessions set revoked_at=coalesce(revoked_at,clock_timestamp()) where token_hash=$1 and revoked_at is null',[storefrontTokenHash(opaqueToken)])).rowCount===1);}
+  revoke(opaqueToken:string):Promise<boolean>{return this.tx.run({},async c=>(await c.query<{revoked:boolean}>('select magrit.revoke_storefront_session($1) revoked',[storefrontTokenHash(opaqueToken)])).rows[0]?.revoked===true);}
 }
 
 async function issue(c:{query:(text:string,values?:unknown[])=>Promise<unknown>},account:AccountRow,now:Date):Promise<IssuedStorefrontSession>{const token=randomBytes(32).toString('base64url');const expires=new Date(now.getTime()+STOREFRONT_SESSION_SECONDS*1000);await c.query('insert into private.shop_customer_sessions(shop_customer_account_id,shop_id,token_hash,issued_at,expires_at,last_seen_at) values($1,$2,$3,$4,$5,$4)',[account.id,account.shop_id,storefrontTokenHash(token),now,expires]);return{opaqueToken:token,maxAgeSeconds:STOREFRONT_SESSION_SECONDS,session:{identity:{kind:'shop_customer',shopId:account.shop_id,shopCustomerAccountId:account.id},customer:{id:account.id,shopId:account.shop_id,email:account.email,fullName:account.full_name,status:'active'},expiresAt:expires.toISOString()}};}

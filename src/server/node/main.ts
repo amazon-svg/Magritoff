@@ -18,6 +18,7 @@ import { createReadinessRoute } from '../api/readiness-route.ts';
 import { createRolesRoutes } from '../api/roles-routes.ts';
 import { createShopAdministrationRoutes } from '../api/shops-routes.ts';
 import { createShopCustomerAdministrationRoutes } from '../api/shop-customers-routes.ts';
+import { createShopCustomerDelegationRoutes } from '../api/shop-customer-delegation-routes.ts';
 import { createStorefrontSessionRoutes } from '../api/storefront-session-routes.ts';
 import { createStorefrontActivationRoutes } from '../api/storefront-activation-routes.ts';
 import { createStorefrontPasswordRecoveryRoutes } from '../api/storefront-password-recovery-routes.ts';
@@ -49,6 +50,7 @@ import { PostgresQuoteDocumentsRepository } from '../../adapters/postgres/quote-
 import { PostgresRolesRepository } from '../../adapters/postgres/roles-repository.ts';
 import { PostgresShopsRepository } from '../../adapters/postgres/shops-repository.ts';
 import { PostgresShopCustomersRepository } from '../../adapters/postgres/shop-customers-repository.ts';
+import { PostgresShopCustomerDelegationGateway } from '../../adapters/postgres/shop-customer-delegation-gateway.ts';
 import { PostgresStorefrontAuthenticationGateway } from '../../adapters/postgres/storefront-authentication-gateway.ts';
 import { PostgresStorefrontActivationGateway } from '../../adapters/postgres/storefront-activation-gateway.ts';
 import { PostgresStorefrontPasswordRecoveryGateway } from '../../adapters/postgres/storefront-password-recovery-gateway.ts';
@@ -85,6 +87,7 @@ import { QuoteDocumentsService } from '../../modules/quote-documents/application
 import { RolesService } from '../../modules/roles/application/roles-service.ts';
 import { ShopsService } from '../../modules/shops/application/shops-service.ts';
 import { ShopCustomersService } from '../../modules/shop-customers/application/shop-customers-service.ts';
+import { ShopCustomerDelegationService } from '../../modules/shop-customers/application/shop-customer-delegation-service.ts';
 import { StorefrontAuthenticationService } from '../../modules/shop-customers/application/storefront-authentication-service.ts';
 import { StorefrontRegistrationService } from '../../modules/shop-customers/application/storefront-registration-service.ts';
 import { StorefrontSessionService } from '../../modules/shop-customers/application/storefront-session-service.ts';
@@ -339,6 +342,12 @@ const storefrontSessionRoutes = createStorefrontSessionRoutes(
   storefrontSessions,
   storefrontCookiePolicy,
 );
+const shopCustomerDelegationRoutes = actorResolver === undefined ? [] : createShopCustomerDelegationRoutes(
+  new ShopCustomerDelegationService(new PostgresShopCustomerDelegationGateway(
+    new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+  )),
+  storefrontCookiePolicy,
+);
 const storefrontActivationGateway = new PostgresStorefrontActivationGateway(
   new PostgresTransactionRunner(postgresPool, 'magrit_api'),
 );
@@ -393,6 +402,7 @@ const apiHandler = createApiV1Application({
     ...shopAdministrationRoutes,
     ...shopCustomerAdministrationRoutes,
     ...storefrontSessionRoutes,
+    ...shopCustomerDelegationRoutes,
     ...storefrontActivationRoutes,
     ...storefrontPasswordRecoveryRoutes,
   ],
@@ -430,6 +440,7 @@ const handler = createTransitionalApiHandler({
     || (actorResolver !== undefined && isShopAdministrationPath(url.pathname))
     || (actorResolver !== undefined && isShopCustomerAdministrationPath(url.pathname))
     || isStorefrontSessionRequest(request.method, url.pathname)
+    || (actorResolver !== undefined && isShopCustomerDelegationRequest(request.method, url.pathname))
     || (actorResolver !== undefined && isStorefrontActivationRequest(request.method, url.pathname))
     || isStorefrontPasswordRecoveryRequest(request.method, url.pathname)
     || (actorResolver !== undefined && isLocalCatalogRequest(request.method, url.pathname))
@@ -460,6 +471,7 @@ server.listen(port, host, () => {
       ...(shopAdministrationRoutes.length === 0 ? [] : ['shops:backoffice']),
       ...(shopCustomerAdministrationRoutes.length === 0 ? [] : ['shop-customers:backoffice']),
       'storefront-sessions',
+      ...(shopCustomerDelegationRoutes.length === 0 ? [] : ['storefront-delegation']),
       ...(storefrontActivationRoutes.length === 0 ? [] : ['storefront-activation']),
       'storefront-password-recovery',
       ...(gescomHandler === null ? [] : ['commercial-settings']),
@@ -513,6 +525,10 @@ function isConversationsPath(pathname: string): boolean {
 
 function isLocalAuthenticationPath(pathname: string): boolean {
   return pathname === '/api/v1/auth' || pathname.startsWith('/api/v1/auth/');
+}
+
+function isShopCustomerDelegationRequest(method:string,pathname:string):boolean{
+  return method==='POST'&&/^\/api\/v1\/tenants\/[^/]+\/shops\/[^/]+\/customers\/self-delegation\/?$/.test(pathname);
 }
 
 function isCommercialSettingsPath(pathname: string): boolean {
