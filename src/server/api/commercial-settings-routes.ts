@@ -41,7 +41,7 @@ export function createCommercialSettingsRoutes(
       inputSchema: null,
       dataSchema: commercialSettingsSchema,
       async handle(context) {
-        const settings = await service.get(context.tenantId);
+        const settings = await service.get(context.tenantId, requireUserId(context));
         return { status: 200, data: settings, etag: await computeEntityTag(settings) };
       },
     }),
@@ -69,7 +69,7 @@ export function createCommercialSettingsRoutes(
           // identity.capability_required avant tout 409/428.
           await service.assertCanManageNotificationFields(context.tenantId, actor, input);
 
-          const current = await service.get(context.tenantId);
+          const current = await service.get(context.tenantId, actor);
           const currentTag = await computeEntityTag(current);
           assertPrecondition(context.ifMatch, currentTag, current);
 

@@ -39,14 +39,18 @@ export interface CommercialSettingsRepository {
    * `CommercialSettings` : « un tenant en a exactement un »). Ouvert a tout
    * membre du tenant, sans droit metier.
    */
-   get(tenantId: TenantId): Promise<CommercialSettingsDto>;
+  get(tenantId: TenantId, actorId: UserId): Promise<CommercialSettingsDto>;
 
   /**
    * Modifie les reglages (garde `can_manage_pricing` deja verifiee par le
    * service AVANT cet appel). Cree la ligne si elle n existe pas encore
    * (meme semantique que `get`).
    */
-  update(tenantId: TenantId, command: UpdateCommercialSettingsCommand): Promise<CommercialSettingsDto>;
+  update(
+    tenantId: TenantId,
+    actorId: UserId,
+    command: UpdateCommercialSettingsCommand,
+  ): Promise<CommercialSettingsDto>;
 
   /**
    * Evalue le droit metier `can_manage_pricing` (E10.11) de l acteur dans le

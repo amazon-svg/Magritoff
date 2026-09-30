@@ -1,4 +1,6 @@
 import { createApiV1Application } from '../api/composition.ts';
+import { createCommercialSettingsRoutes } from '../api/commercial-settings-routes.ts';
+import { createGescomApiHandler } from '../api/gescom-middleware.ts';
 import { createConversationsRoutes } from '../api/conversations-routes.ts';
 import { createReadinessRoute } from '../api/readiness-route.ts';
 import {
@@ -9,6 +11,7 @@ import {
   createSessionTenantSettingsRoutes,
 } from '../api/session-routes.ts';
 import { OidcJwtVerifier } from '../../adapters/oidc/jwt-verifier.ts';
+import { PostgresCommercialSettingsRepository } from '../../adapters/postgres/commercial-settings-repository.ts';
 import { PostgresConversationsRepository } from '../../adapters/postgres/conversations-repository.ts';
 import { PostgresOidcIdentityDirectory } from '../../adapters/postgres/oidc-identity-directory.ts';
 import { createPostgresPool } from '../../adapters/postgres/pool.ts';
@@ -16,9 +19,12 @@ import { PostgresReadinessProbe } from '../../adapters/postgres/readiness-probe.
 import { PostgresSessionBootstrapRepository } from '../../adapters/postgres/session-bootstrap-repository.ts';
 import { PostgresTransactionRunner } from '../../adapters/postgres/transaction-runner.ts';
 import { ConversationsService } from '../../modules/conversations/application/conversations-service.ts';
+import { CommercialSettingsService } from '../../modules/commercial-settings/application/commercial-settings-service.ts';
+import { InMemoryIdempotencyStore } from '../../modules/_shared/application/index.ts';
 import { SessionSubTenantMutationService } from '../../modules/session/application/session-service.ts';
 import { createLocalAuthentication, readLocalAuthenticationConfiguration } from '../auth/local-authentication.ts';
 import { CredentialActorResolver, LocalSessionActorResolver } from '../auth/local-session-actor-resolver.ts';
+import { LocalApiPrincipalVerifier } from '../auth/local-api-principal-verifier.ts';
 import { OidcActorResolver } from '../auth/oidc-actor-resolver.ts';
 import { createNodeHttpServer } from './http-server.ts';
 import { readOidcConfiguration } from './oidc-configuration.ts';
@@ -36,9 +42,12 @@ const localAuthentication = localAuthenticationConfiguration === null
   ? null
   : createLocalAuthentication(postgresPool, localAuthenticationConfiguration);
 const identityDirectory = new PostgresOidcIdentityDirectory(postgresPool);
+const oidcJwtVerifier = oidcConfiguration === null
+  ? null
+  : new OidcJwtVerifier(oidcConfiguration);
 const oidcActorResolver = oidcConfiguration === null
   ? null
-  : new OidcActorResolver(new OidcJwtVerifier(oidcConfiguration), identityDirectory);
+  : new OidcActorResolver(oidcJwtVerifier!, identityDirectory);
 const localSessionActorResolver = localAuthentication === null
   ? null
   : new LocalSessionActorResolver(localAuthentication.api, identityDirectory);
@@ -65,6 +74,30 @@ const sessionRoutes = sessionEnabled
       ...createSessionSubTenantMutationRoutes(sessionService),
     ]
   : [];
+const gescomPrincipalVerifier = oidcJwtVerifier === null && localAuthentication === null
+  ? null
+  : new LocalApiPrincipalVerifier({
+      identities: identityDirectory,
+      ...(oidcJwtVerifier === null ? {} : { oidc: oidcJwtVerifier }),
+      ...(localAuthentication === null ? {} : { sessions: localAuthentication.api }),
+    });
+const commercialSettingsRoutes = gescomPrincipalVerifier === null
+  ? []
+  : createCommercialSettingsRoutes(new CommercialSettingsService({
+      repository: new PostgresCommercialSettingsRepository(
+        new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+      ),
+    }));
+const commercialSettingsHandler = gescomPrincipalVerifier === null
+  ? null
+  : createGescomApiHandler({
+      routes: commercialSettingsRoutes,
+      principalVerifier: gescomPrincipalVerifier,
+      idempotencyStore: new InMemoryIdempotencyStore(),
+      onUnexpectedError(error, requestId) {
+        console.error(JSON.stringify({ level: 'error', event: 'gescom.unexpected_error', requestId, error: errorMessage(error) }));
+      },
+    });
 const apiHandler = createApiV1Application({
   routes: [
     createReadinessRoute(new PostgresReadinessProbe(postgresPool)),
@@ -77,10 +110,17 @@ const apiHandler = createApiV1Application({
   },
 });
 const localHandler = localAuthentication === null
-  ? apiHandler
-  : (request: Request) => isLocalAuthenticationPath(new URL(request.url).pathname)
-      ? localAuthentication.handler(request)
-      : apiHandler(request);
+  ? (request: Request) => isCommercialSettingsPath(new URL(request.url).pathname) && commercialSettingsHandler !== null
+      ? commercialSettingsHandler(request)
+      : apiHandler(request)
+  : (request: Request) => {
+      const pathname = new URL(request.url).pathname;
+      if (isLocalAuthenticationPath(pathname)) return localAuthentication.handler(request);
+      if (isCommercialSettingsPath(pathname) && commercialSettingsHandler !== null) {
+        return commercialSettingsHandler(request);
+      }
+      return apiHandler(request);
+    };
 const legacyApiUrl = process.env['MAGRIT_LEGACY_API_URL'];
 const handler = createTransitionalApiHandler({
   localHandler,
@@ -92,6 +132,7 @@ const handler = createTransitionalApiHandler({
     || (sessionEnabled && isSessionTenantSettingsRequest(request.method, url.pathname))
     || (sessionEnabled && request.method === 'POST' && url.pathname === '/api/v1/tenants')
     || (sessionEnabled && isSubTenantMutationRequest(request.method, url.pathname))
+    || (commercialSettingsHandler !== null && isCommercialSettingsPath(url.pathname))
   ),
   ...(legacyApiUrl === undefined ? {} : { legacyApiUrl }),
 });
@@ -111,6 +152,7 @@ server.listen(port, host, () => {
       ...(conversationsEnabled ? ['conversations'] : []),
       ...(localAuthentication === null ? [] : ['local-authentication']),
       ...(sessionEnabled ? ['session-bootstrap'] : []),
+      ...(commercialSettingsHandler === null ? [] : ['commercial-settings']),
     ],
   }));
 });
@@ -145,6 +187,10 @@ function isConversationsPath(pathname: string): boolean {
 
 function isLocalAuthenticationPath(pathname: string): boolean {
   return pathname === '/api/v1/auth' || pathname.startsWith('/api/v1/auth/');
+}
+
+function isCommercialSettingsPath(pathname: string): boolean {
+  return pathname === '/api/v1/commercial-settings';
 }
 
 function isSessionPreferencesRequest(method: string, pathname: string): boolean {

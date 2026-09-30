@@ -45,7 +45,7 @@ const ORDER_FILE_PURGE_ACTIVATION_FLOOR_DAYS = 30;
 export class SupabaseCommercialSettingsRepository implements CommercialSettingsRepository {
   constructor(private readonly client: SupabaseClient<any>) {}
 
-  async get(tenantId: TenantId): Promise<CommercialSettingsDto> {
+  async get(tenantId: TenantId, _actorId?: UserId): Promise<CommercialSettingsDto> {
     const { data, error } = await this.client.rpc('api_get_commercial_settings', {
       p_tenant_id: tenantId,
     });
@@ -55,6 +55,7 @@ export class SupabaseCommercialSettingsRepository implements CommercialSettingsR
 
   async update(
     tenantId: TenantId,
+    _actorId: UserId,
     command: UpdateCommercialSettingsCommand,
   ): Promise<CommercialSettingsDto> {
     const patch: Record<string, unknown> = { tenant_id: tenantId };
