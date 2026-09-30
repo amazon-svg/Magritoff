@@ -145,6 +145,7 @@ export class InMemoryNotificationTemplatesRepository implements NotificationTemp
 
   async update(
     tenantId: TenantId,
+    actor: UserId,
     templateId: string,
     command: UpdateNotificationTemplateCommand,
   ): Promise<NotificationTemplateDto> {
@@ -161,6 +162,7 @@ export class InMemoryNotificationTemplatesRepository implements NotificationTemp
       ...('body' in command ? { body: command.body! } : {}),
       ...('is_active' in command ? { is_active: command.is_active! } : {}),
       updated_at: new Date().toISOString(),
+      updated_by: actor,
     };
     this.templates.set(templateId, updated);
     return updated;
