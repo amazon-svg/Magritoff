@@ -12,7 +12,7 @@ Decision formelle : `docs/architecture/decisions/0001-sortie-de-supabase.md`.
 | J0 | ADR et garde-fou contre les nouvelles dependances Supabase livres |
 | J1 | Compose, healthchecks, migrations et buckets livres ; seed et CI restent a faire |
 | J2 | runtime Node, health/readiness et facade de transition livres |
-| J3 | contexte transactionnel, roles, Conversations, session, réglages tenant, membres, rôles et invitations, réglages commerciaux, étapes de production, clients, projets, étiquettes, catalogue PIM et public, bibliothèques produits, règles tarifaires, devis, gabarits HTML et PDF, administration et invitations des comptes clients boutique PostgreSQL livrés ; commandes boutique, rôles, transitions, audit, idempotence, notifications et routes Node livrés ; reprise des anciennes `shop_orders` et rapport de migration legacy encore à réaliser ; idempotence API et outbox durables livrées |
+| J3 | contexte transactionnel, roles, Conversations, session, réglages tenant, membres, rôles et invitations, réglages commerciaux, étapes de production, clients, projets, étiquettes, catalogue PIM et public, bibliothèques produits, règles tarifaires, devis, gabarits HTML et PDF, administration et invitations des comptes clients boutique PostgreSQL livrés ; commandes boutique, rôles, transitions, audit, idempotence, notifications et routes Node livrés ; outil idempotent de reprise des anciennes `shop_orders` livré, exécution à faire sur chaque environnement ; rapport de migration legacy encore relayé ; idempotence API et outbox durables livrées |
 | J4 | adaptateurs S3 des exports, fichiers de lignes projet, gabarits PDF, documents de devis et visuels de boutiques livres ; autres buckets non bascules |
 | J5 | OIDC, annuaire d'identites, socle Better Auth PostgreSQL, invitations Magrit, récupération de mot de passe, authentification directe storefront, activation, recovery et délégation storefront livres ; bascule UI globale reste a faire |
 | J6 et suivants | diagnostics IA/Clariprint, assistant éditorial et chiffrage Clariprint avec quotas PostgreSQL servis par Node ; worker et autres jobs restent à migrer |
@@ -358,6 +358,34 @@ runtime Node. La bascule d'un environnement existant exige encore une reprise
 contrôlée de `shop_orders` vers `tenant_orders` : l'adaptateur portable ne lit
 volontairement pas la table historique et ne doit donc être activé qu'après ce
 cutover.
+
+La reprise est fournie par `pnpm db:import:legacy-orders`. Elle exige une URL
+PostgreSQL directe vers la source historique dans
+`MAGRIT_LEGACY_SOURCE_DATABASE_URL` et utilise
+`MAGRIT_DATABASE_MIGRATION_URL` (ou `DATABASE_URL`) comme cible. Sans option,
+la commande importe et vérifie toute la cohorte dans une transaction puis fait
+un `ROLLBACK` : c'est le mode de répétition obligatoire avant la bascule.
+L'écriture nécessite explicitement `--apply` :
+
+```text
+MAGRIT_LEGACY_SOURCE_DATABASE_URL=postgresql://... \
+MAGRIT_DATABASE_MIGRATION_URL=postgresql://... \
+pnpm db:import:legacy-orders
+
+# après contrôle du bilan JSON et gel des écritures sur la source
+MAGRIT_LEGACY_SOURCE_DATABASE_URL=postgresql://... \
+MAGRIT_DATABASE_MIGRATION_URL=postgresql://... \
+pnpm db:import:legacy-orders -- --apply
+```
+
+Les boutiques doivent déjà exister dans la cible. L'outil conserve l'UUID, la
+date, les montants, le statut traduit et le snapshot source intégral. Il crée
+ou réutilise le compte client de la boutique, marque les lignes `legacy` et ne
+conserve un `product_id` que si le produit appartient au même tenant. La table
+`legacy_shop_order_imports` porte le SHA-256 du snapshot : une deuxième passe
+identique est un replay, tandis qu'une source modifiée après import fait
+échouer la transaction. La fonction de cutover est révoquée au rôle
+`magrit_api` et reste réservée au compte de migration.
 
 L'administration des membres du tenant est également locale. Les lectures
 s'appuient sur `app_users`, les rôles historiques `owner` et `admin` sont
