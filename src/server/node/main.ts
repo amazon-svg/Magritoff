@@ -15,6 +15,8 @@ import { createLibrariesRoutes } from '../api/libraries-routes.ts';
 import { createLibraryProductsRoutes } from '../api/library-products-routes.ts';
 import { createMembersRoutes } from '../api/members-routes.ts';
 import { createOrdersRoutes } from '../api/orders-routes.ts';
+import { createNotificationLogsRoutes } from '../api/notification-logs-routes.ts';
+import { createNotificationTemplatesRoutes } from '../api/notification-templates-routes.ts';
 import { createProjectTagsRoutes } from '../api/project-tags-routes.ts';
 import { createPriceRulesRoutes } from '../api/price-rules-routes.ts';
 import { createProjectsRoutes } from '../api/projects-routes.ts';
@@ -62,6 +64,8 @@ import { PostgresOidcIdentityDirectory } from '../../adapters/postgres/oidc-iden
 import { PostgresOutboxRepository } from '../../adapters/postgres/outbox-repository.ts';
 import { PostgresOrdersNotificationGateway } from '../../adapters/postgres/orders-notification-gateway.ts';
 import { PostgresOrdersRepository } from '../../adapters/postgres/orders-repository.ts';
+import { PostgresNotificationLogsRepository } from '../../adapters/postgres/notification-logs-repository.ts';
+import { PostgresNotificationTemplatesRepository } from '../../adapters/postgres/notification-templates-repository.ts';
 import { PostgresPriceRulesRepository } from '../../adapters/postgres/price-rules-repository.ts';
 import { PostgresProjectTagsRepository } from '../../adapters/postgres/project-tags-repository.ts';
 import { PostgresProjectsRepository } from '../../adapters/postgres/projects-repository.ts';
@@ -110,6 +114,8 @@ import { LibrariesService } from '../../modules/libraries/application/libraries-
 import { LibraryProductsService } from '../../modules/libraries/application/library-products-service.ts';
 import { MembersService } from '../../modules/members/application/members-service.ts';
 import { OrdersService } from '../../modules/orders/application/orders-service.ts';
+import { NotificationLogsService } from '../../modules/notifications/application/notification-logs-service.ts';
+import { NotificationTemplatesService } from '../../modules/notifications/application/notification-templates-service.ts';
 import { CustomersRepositoryDocumentDataGateway } from '../../modules/quote-documents/application/customer-document-data-gateway.ts';
 import { QuoteDocumentsService } from '../../modules/quote-documents/application/quote-documents-service.ts';
 import { QuoteTemplatesService } from '../../modules/quote-templates/application/quote-templates-service.ts';
@@ -355,6 +361,12 @@ const productionStepsRoutes = gescomPrincipalVerifier === null
         new PostgresTransactionRunner(postgresPool, 'magrit_api'),
       ),
     }));
+const notificationTemplatesRoutes = gescomPrincipalVerifier === null ? [] : createNotificationTemplatesRoutes(
+  new NotificationTemplatesService({repository:new PostgresNotificationTemplatesRepository(new PostgresTransactionRunner(postgresPool,'magrit_api'))}),
+);
+const notificationLogsRoutes = gescomPrincipalVerifier === null ? [] : createNotificationLogsRoutes(
+  new NotificationLogsService({repository:new PostgresNotificationLogsRepository(new PostgresTransactionRunner(postgresPool,'magrit_api'))}),
+);
 const customersRoutes = gescomPrincipalVerifier === null
   ? []
   : createCustomersRoutes(new CustomersService({
@@ -507,6 +519,8 @@ const gescomHandler = gescomPrincipalVerifier === null
       routes: [
         ...commercialSettingsRoutes,
         ...productionStepsRoutes,
+        ...notificationTemplatesRoutes,
+        ...notificationLogsRoutes,
         ...customersRoutes,
         ...projectTagsRoutes,
         ...priceRulesRoutes,
@@ -636,6 +650,8 @@ server.listen(port, host, () => {
       'storefront-password-recovery',
       ...(gescomHandler === null ? [] : ['commercial-settings']),
       ...(gescomHandler === null ? [] : ['production-steps']),
+      ...(notificationTemplatesRoutes.length === 0 ? [] : ['notification-templates']),
+      ...(notificationLogsRoutes.length === 0 ? [] : ['notification-logs']),
       ...(gescomHandler === null ? [] : ['customers']),
       ...(gescomHandler === null ? [] : ['project-tags']),
       ...(gescomHandler === null ? [] : ['price-rules']),

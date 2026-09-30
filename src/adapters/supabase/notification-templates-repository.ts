@@ -94,9 +94,11 @@ export class SupabaseNotificationTemplatesRepository implements NotificationTemp
 
   async update(
     tenantId: TenantId,
+    actor: UserId,
     templateId: string,
     command: UpdateNotificationTemplateCommand,
   ): Promise<NotificationTemplateDto> {
+    void actor;
     const patch: Record<string, unknown> = {};
     if ('audience' in command) patch['audience'] = command.audience;
     if ('recipients' in command) patch['recipients'] = command.recipients ?? null;

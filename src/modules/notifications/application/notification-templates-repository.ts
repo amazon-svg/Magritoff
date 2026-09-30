@@ -139,6 +139,7 @@ export interface NotificationTemplatesRepository {
    */
   update(
     tenantId: TenantId,
+    actor: UserId,
     templateId: string,
     command: UpdateNotificationTemplateCommand,
   ): Promise<NotificationTemplateDto>;

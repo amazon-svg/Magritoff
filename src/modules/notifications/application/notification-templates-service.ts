@@ -129,7 +129,7 @@ export class NotificationTemplatesService {
       body: command.body ?? current.body,
     };
     await this.assertBusinessRules(tenantId, merged);
-    return this.repository.update(tenantId, templateId, command);
+    return this.repository.update(tenantId, actor, templateId, command);
   }
 
   /**
