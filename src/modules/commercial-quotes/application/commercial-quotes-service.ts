@@ -219,10 +219,15 @@ export class CommercialQuotesService {
     return created;
   }
 
-  async update(tenantId: TenantId, quoteId: string, command: UpdateQuoteCommand): Promise<QuoteDto> {
+  async update(
+    tenantId: TenantId,
+    actor: UserId,
+    quoteId: string,
+    command: UpdateQuoteCommand,
+  ): Promise<QuoteDto> {
     const current = await this.repository.findById(tenantId, quoteId);
     if (!current) throw new QuoteNotFoundError();
-    return this.repository.update(tenantId, quoteId, command);
+    return this.repository.update(tenantId, quoteId, actor, command);
   }
 
   async remove(tenantId: TenantId, quoteId: string): Promise<void> {
@@ -473,6 +478,7 @@ export class CommercialQuotesService {
    */
   async addLine(
     tenantId: TenantId,
+    actor: UserId,
     quoteId: string,
     command: CreateQuoteLineCommand,
   ): Promise<QuoteLineDto> {
@@ -481,7 +487,7 @@ export class CommercialQuotesService {
 
     const input = await this.resolveAddLineInput(tenantId, quote.project_id, command);
     const priced = await this.priceLine(tenantId, quote.customer_id, input);
-    return this.repository.addLine(tenantId, quoteId, priced);
+    return this.repository.addLine(tenantId, quoteId, actor, priced);
   }
 
   private async resolveAddLineInput(
@@ -591,6 +597,7 @@ export class CommercialQuotesService {
    */
   async updateLine(
     tenantId: TenantId,
+    actor: UserId,
     quoteId: string,
     lineId: string,
     command: UpdateQuoteLineCommand,
@@ -634,23 +641,24 @@ export class CommercialQuotesService {
       update.quantity = command.quantity;
     }
 
-    return this.repository.updateLine(tenantId, quoteId, lineId, update);
+    return this.repository.updateLine(tenantId, quoteId, lineId, actor, update);
   }
 
-  async removeLine(tenantId: TenantId, quoteId: string, lineId: string): Promise<void> {
+  async removeLine(tenantId: TenantId, actor: UserId, quoteId: string, lineId: string): Promise<void> {
     const exists = await this.repository.findLineById(tenantId, quoteId, lineId);
     if (!exists) throw new QuoteLineNotFoundError();
-    await this.repository.removeLine(tenantId, quoteId, lineId);
+    await this.repository.removeLine(tenantId, quoteId, lineId, actor);
   }
 
   async reorderLines(
     tenantId: TenantId,
+    actor: UserId,
     quoteId: string,
     lineIds: readonly string[],
   ): Promise<QuoteDetailDto> {
     const exists = await this.repository.findById(tenantId, quoteId);
     if (!exists) throw new QuoteNotFoundError();
-    return this.repository.reorderLines(tenantId, quoteId, lineIds);
+    return this.repository.reorderLines(tenantId, quoteId, actor, lineIds);
   }
 
   /**

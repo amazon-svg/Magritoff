@@ -209,7 +209,13 @@ export class SupabaseCommercialQuotesRepository implements CommercialQuotesRepos
     return detail;
   }
 
-  async update(tenantId: TenantId, quoteId: string, command: UpdateQuoteCommand): Promise<QuoteDto> {
+  async update(
+    tenantId: TenantId,
+    quoteId: string,
+    actor: UserId,
+    command: UpdateQuoteCommand,
+  ): Promise<QuoteDto> {
+    void actor; // Le client Supabase historique porte encore l acteur dans son JWT.
     const patch: Record<string, unknown> = {};
     if ('valid_until' in command && command.valid_until !== undefined) {
       patch['valid_until'] = command.valid_until;
@@ -427,8 +433,14 @@ export class SupabaseCommercialQuotesRepository implements CommercialQuotesRepos
    * A LA MEME MILLISECONDE sur le MEME devis) et UNE retentative suffit a le
    * rendre correct plutot que silencieux.
    */
-  async addLine(tenantId: TenantId, quoteId: string, line: PricedQuoteLineWrite): Promise<QuoteLineDto> {
+  async addLine(
+    tenantId: TenantId,
+    quoteId: string,
+    actor: UserId,
+    line: PricedQuoteLineWrite,
+  ): Promise<QuoteLineDto> {
     void tenantId;
+    void actor; // Le client Supabase historique porte encore l acteur dans son JWT.
     const MAX_ATTEMPTS = 3;
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
       const { count, error: countError } = await this.client
@@ -478,9 +490,11 @@ export class SupabaseCommercialQuotesRepository implements CommercialQuotesRepos
     tenantId: TenantId,
     quoteId: string,
     lineId: string,
+    actor: UserId,
     update: QuoteLineWriteUpdate,
   ): Promise<QuoteLineDto> {
     void tenantId;
+    void actor;
     const patch: Record<string, unknown> = {};
     if (update.descriptionHtml !== undefined) patch['description_html'] = update.descriptionHtml;
     if (update.quantity !== undefined) patch['quantity'] = update.quantity;
@@ -501,7 +515,8 @@ export class SupabaseCommercialQuotesRepository implements CommercialQuotesRepos
     return toQuoteLineDto(data);
   }
 
-  async removeLine(tenantId: TenantId, quoteId: string, lineId: string): Promise<void> {
+  async removeLine(tenantId: TenantId, quoteId: string, lineId: string, actor: UserId): Promise<void> {
+    void actor;
     const { error } = await this.client.rpc('api_delete_commercial_quote_line', {
       p_tenant_id: tenantId,
       p_quote_id: quoteId,
@@ -513,8 +528,10 @@ export class SupabaseCommercialQuotesRepository implements CommercialQuotesRepos
   async reorderLines(
     tenantId: TenantId,
     quoteId: string,
+    actor: UserId,
     lineIds: readonly string[],
   ): Promise<QuoteDetailDto> {
+    void actor;
     const { error } = await this.client.rpc('api_reorder_commercial_quote_lines', {
       p_tenant_id: tenantId,
       p_quote_id: quoteId,

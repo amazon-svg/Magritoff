@@ -416,7 +416,12 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
     return detailResult;
   }
 
-  async update(tenantId: TenantId, quoteId: string, command: UpdateQuoteCommand): Promise<QuoteDto> {
+  async update(
+    tenantId: TenantId,
+    quoteId: string,
+    actor: UserId,
+    command: UpdateQuoteCommand,
+  ): Promise<QuoteDto> {
     const current = this.quotes.get(quoteId);
     if (!current || current.tenant_id !== tenantId) throw new QuoteNotFoundError();
     // E10.10a — GARDE D ETAT (409 `quote.update_requires_draft`), meme
@@ -436,7 +441,7 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
         previous_value: previousValue,
         new_value: newValue,
         quote_snapshot: null,
-        actor_id: null,
+        actor_id: actor,
         actor_label: null,
       });
     };
@@ -879,7 +884,12 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
     return found && found.quote_id === quoteId ? toDto(found) : null;
   }
 
-  async addLine(tenantId: TenantId, quoteId: string, line: PricedQuoteLineWrite): Promise<QuoteLineDto> {
+  async addLine(
+    tenantId: TenantId,
+    quoteId: string,
+    actor: UserId,
+    line: PricedQuoteLineWrite,
+  ): Promise<QuoteLineDto> {
     void tenantId;
     this.assertDraft(quoteId);
     const position = this.linesOf(quoteId).length;
@@ -918,7 +928,7 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
       previous_value: null,
       new_value: null,
       line_snapshot: stored as unknown as Readonly<Record<string, unknown>>,
-      actor_id: null,
+      actor_id: actor,
       actor_label: null,
     });
     this.touchQuoteUpdatedAt(quoteId);
@@ -929,6 +939,7 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
     tenantId: TenantId,
     quoteId: string,
     lineId: string,
+    actor: UserId,
     update: QuoteLineWriteUpdate,
   ): Promise<QuoteLineDto> {
     void tenantId;
@@ -951,7 +962,7 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
         previous_value: String(current.quantity),
         new_value: String(update.quantity),
         line_snapshot: null,
-        actor_id: null,
+        actor_id: actor,
         actor_label: null,
       });
       next.quantity = update.quantity;
@@ -966,7 +977,7 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
         previous_value: current.sale_price,
         new_value: update.salePrice,
         line_snapshot: null,
-        actor_id: null,
+        actor_id: actor,
         actor_label: null,
       });
       next.sale_price = update.salePrice;
@@ -982,7 +993,7 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
         previous_value: current.discount_rate,
         new_value: update.discountRate,
         line_snapshot: null,
-        actor_id: null,
+        actor_id: actor,
         actor_label: null,
       });
       next.discount_rate = update.discountRate;
@@ -1000,7 +1011,7 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
         previous_value: current.margin_variation,
         new_value: update.marginVariation,
         line_snapshot: null,
-        actor_id: null,
+        actor_id: actor,
         actor_label: null,
       });
       next.margin_variation = update.marginVariation;
@@ -1011,7 +1022,7 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
     return toDto(next);
   }
 
-  async removeLine(tenantId: TenantId, quoteId: string, lineId: string): Promise<void> {
+  async removeLine(tenantId: TenantId, quoteId: string, lineId: string, actor: UserId): Promise<void> {
     void tenantId;
     this.assertDraft(quoteId);
     const current = this.lines.get(lineId);
@@ -1028,7 +1039,7 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
       previous_value: null,
       new_value: null,
       line_snapshot: current as unknown as Readonly<Record<string, unknown>>,
-      actor_id: null,
+      actor_id: actor,
       actor_label: null,
     });
 
@@ -1049,7 +1060,7 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
           previous_value: String(line.position),
           new_value: String(index),
           line_snapshot: null,
-          actor_id: null,
+          actor_id: actor,
           actor_label: null,
         });
         this.lines.set(line.id, { ...line, position: index });
@@ -1061,6 +1072,7 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
   async reorderLines(
     tenantId: TenantId,
     quoteId: string,
+    actor: UserId,
     lineIds: readonly string[],
   ): Promise<QuoteDetailDto> {
     this.assertDraft(quoteId);
@@ -1094,7 +1106,7 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
           previous_value: String(line.position),
           new_value: String(index),
           line_snapshot: null,
-          actor_id: null,
+          actor_id: actor,
           actor_label: null,
         });
         this.lines.set(id, { ...line, position: index });

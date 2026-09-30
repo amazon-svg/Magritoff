@@ -314,11 +314,13 @@ Supabase.
 
 Le schéma PostgreSQL portable des devis commerciaux est posé : entêtes, lignes
 tarifées, compteur annuel, isolation tenant, garde des lignes hors brouillon et
-journaux append-only. Cette étape prépare la bascule mais ne l'active pas : le
-repository, les gestes transactionnels et les routes Devis utilisent encore
-l'adaptateur historique jusqu'au lot suivant. Les données existantes devront
-être copiées et contrôlées avant l'activation de ces routes en environnement
-partagé.
+journaux append-only. L'adaptateur PostgreSQL direct couvre aussi les lectures,
+la création tarifée, les mutations, l'envoi et la duplication transactionnels ;
+les auteurs d'audit sont désormais transmis explicitement par le port. Les
+routes Devis ne sont pas encore activées dans le serveur Node : leur service
+dépend toujours du lot Documents de devis, à extraire avant cette bascule. Les
+données existantes devront être copiées et contrôlées avant l'activation de ces
+routes en environnement partagé.
 
 Le seed local est idempotent. Il cree par defaut
 `developer@magrit.local`, le tenant `magrit-development` et une identite OIDC
