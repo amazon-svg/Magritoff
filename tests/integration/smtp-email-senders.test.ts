@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { SmtpInvitationEmailSender } from '../../src/adapters/smtp/invitation-email-sender.ts';
+import { SmtpNotificationEmailSender } from '../../src/adapters/smtp/notification-email-sender.ts';
 import { SmtpPasswordResetEmailSender } from '../../src/adapters/smtp/password-reset-email-sender.ts';
 import { SmtpStorefrontActivationEmailSender } from '../../src/adapters/smtp/storefront-activation-email-sender.ts';
 import { SmtpStorefrontPasswordRecoveryEmailSender } from '../../src/adapters/smtp/storefront-password-recovery-email-sender.ts';
@@ -15,6 +16,7 @@ const enabled = process.env['MAGRIT_SMTP_INTEGRATION'] === '1';
     const password = new SmtpPasswordResetEmailSender(transport, from);
     const storefrontActivation = new SmtpStorefrontActivationEmailSender(transport, from);
     const storefrontRecovery = new SmtpStorefrontPasswordRecoveryEmailSender(transport, from);
+    const notification = new SmtpNotificationEmailSender(transport, from);
     await expect(invitation.send({
       to: 'invitation@magrit.local', tenantName: 'Atelier local', role: 'member',
       link: 'http://127.0.0.1:5176/invitations/test', expiresAt: '2026-10-14T00:00:00.000Z',
@@ -31,5 +33,9 @@ const enabled = process.env['MAGRIT_SMTP_INTEGRATION'] === '1';
       to: 'recovery-boutique@magrit.local', customerName: 'Client local', shopName: 'Boutique locale',
       link: 'http://127.0.0.1:5176/shop/locale/reset-password?token=test',
     })).resolves.toBeUndefined();
+    await expect(notification.send({
+      channel: 'email', to: 'orders@magrit.local', subject: 'Commande locale',
+      body: 'Une commande locale attend votre validation.',
+    })).resolves.toEqual({ sent: true });
   });
 });

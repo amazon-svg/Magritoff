@@ -14,6 +14,7 @@ import { createInvitationsRoutes } from '../api/invitations-routes.ts';
 import { createLibrariesRoutes } from '../api/libraries-routes.ts';
 import { createLibraryProductsRoutes } from '../api/library-products-routes.ts';
 import { createMembersRoutes } from '../api/members-routes.ts';
+import { createOrdersRoutes } from '../api/orders-routes.ts';
 import { createProjectTagsRoutes } from '../api/project-tags-routes.ts';
 import { createPriceRulesRoutes } from '../api/price-rules-routes.ts';
 import { createProjectsRoutes } from '../api/projects-routes.ts';
@@ -59,6 +60,8 @@ import { PostgresLibraryProductsRepository } from '../../adapters/postgres/libra
 import { PostgresMembersRepository } from '../../adapters/postgres/members-repository.ts';
 import { PostgresOidcIdentityDirectory } from '../../adapters/postgres/oidc-identity-directory.ts';
 import { PostgresOutboxRepository } from '../../adapters/postgres/outbox-repository.ts';
+import { PostgresOrdersNotificationGateway } from '../../adapters/postgres/orders-notification-gateway.ts';
+import { PostgresOrdersRepository } from '../../adapters/postgres/orders-repository.ts';
 import { PostgresPriceRulesRepository } from '../../adapters/postgres/price-rules-repository.ts';
 import { PostgresProjectTagsRepository } from '../../adapters/postgres/project-tags-repository.ts';
 import { PostgresProjectsRepository } from '../../adapters/postgres/projects-repository.ts';
@@ -77,6 +80,7 @@ import { PostgresReadinessProbe } from '../../adapters/postgres/readiness-probe.
 import { PostgresSessionBootstrapRepository } from '../../adapters/postgres/session-bootstrap-repository.ts';
 import { PostgresTransactionRunner } from '../../adapters/postgres/transaction-runner.ts';
 import { ResendInvitationEmailSender } from '../../adapters/resend/invitation-email-sender.ts';
+import { ResendNotificationEmailSender } from '../../adapters/resend/notification-email-sender.ts';
 import { ResendPasswordResetEmailSender } from '../../adapters/resend/password-reset-email-sender.ts';
 import { ResendStorefrontActivationEmailSender } from '../../adapters/resend/storefront-activation-email-sender.ts';
 import { ResendStorefrontPasswordRecoveryEmailSender } from '../../adapters/resend/storefront-password-recovery-email-sender.ts';
@@ -85,6 +89,7 @@ import { S3CommercialLineFileStorage } from '../../adapters/s3/commercial-line-f
 import { S3ProjectCommercialFileStorage } from '../../adapters/s3/project-commercial-file-storage.ts';
 import { S3ShopAssetStorage } from '../../adapters/s3/shop-asset-storage.ts';
 import { SmtpInvitationEmailSender } from '../../adapters/smtp/invitation-email-sender.ts';
+import { SmtpNotificationEmailSender } from '../../adapters/smtp/notification-email-sender.ts';
 import { SmtpPasswordResetEmailSender } from '../../adapters/smtp/password-reset-email-sender.ts';
 import { SmtpStorefrontActivationEmailSender } from '../../adapters/smtp/storefront-activation-email-sender.ts';
 import { SmtpStorefrontPasswordRecoveryEmailSender } from '../../adapters/smtp/storefront-password-recovery-email-sender.ts';
@@ -104,6 +109,7 @@ import { InvitationsService } from '../../modules/invitations/application/invita
 import { LibrariesService } from '../../modules/libraries/application/libraries-service.ts';
 import { LibraryProductsService } from '../../modules/libraries/application/library-products-service.ts';
 import { MembersService } from '../../modules/members/application/members-service.ts';
+import { OrdersService } from '../../modules/orders/application/orders-service.ts';
 import { CustomersRepositoryDocumentDataGateway } from '../../modules/quote-documents/application/customer-document-data-gateway.ts';
 import { QuoteDocumentsService } from '../../modules/quote-documents/application/quote-documents-service.ts';
 import { QuoteTemplatesService } from '../../modules/quote-templates/application/quote-templates-service.ts';
@@ -150,6 +156,9 @@ const invitationEmailSender = smtpTransport === null
 const passwordResetEmailSender = smtpTransport === null
   ? new ResendPasswordResetEmailSender(process.env['RESEND_API_KEY'] ?? null, fromEmail)
   : new SmtpPasswordResetEmailSender(smtpTransport, fromEmail);
+const notificationEmailSender = smtpTransport === null
+  ? new ResendNotificationEmailSender(process.env['RESEND_API_KEY'] ?? null, fromEmail)
+  : new SmtpNotificationEmailSender(smtpTransport, fromEmail);
 const localAuthentication = localAuthenticationConfiguration === null
   ? null
   : createLocalAuthentication(postgresPool, localAuthenticationConfiguration, passwordResetEmailSender);
@@ -407,6 +416,17 @@ const storefrontSessions = new StorefrontSessionService(storefrontAuthentication
 const storefrontCookiePolicy = storefrontSessionCookiePolicy(
   (process.env['APP_BASE_URL'] ?? '').startsWith('https://') || process.env['NODE_ENV'] === 'production',
 );
+const ordersRoutes = createOrdersRoutes(
+  new OrdersService(new PostgresOrdersRepository(
+    new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+    new PostgresOrdersNotificationGateway(
+      new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+      notificationEmailSender,
+    ),
+  )),
+  storefrontSessions,
+  storefrontCookiePolicy,
+);
 const clariprintRoutes = createClariprintRoutes(clariprintService, {
   isMember: (userId) => clariprintMembership.isMember(userId),
   storefrontSessions,
@@ -516,6 +536,7 @@ const apiHandler = createApiV1Application({
     ...librariesRoutes,
     ...libraryProductsRoutes,
     ...membersRoutes,
+    ...ordersRoutes,
     ...rolesRoutes,
     ...quoteTemplatesRoutes,
     ...catalogRoutes,
@@ -562,6 +583,7 @@ const handler = createTransitionalApiHandler({
     || (sessionEnabled && isInvitationRequest(request.method, url.pathname))
     || (actorResolver !== undefined && isLibrariesPath(url.pathname))
     || (actorResolver !== undefined && isMembersPath(url.pathname))
+    || isOrdersPath(url.pathname)
     || (actorResolver !== undefined && isRolesPath(url.pathname))
     || (actorResolver !== undefined && isQuoteTemplatesPath(url.pathname))
     || (actorResolver !== undefined && isShopAdministrationPath(url.pathname))
@@ -600,6 +622,7 @@ server.listen(port, host, () => {
       ...(librariesRoutes.length === 0 ? [] : ['libraries']),
       ...(libraryProductsRoutes.length === 0 ? [] : ['library-products']),
       ...(actorResolver === undefined ? [] : ['members']),
+      'orders',
       ...(actorResolver === undefined ? [] : ['roles']),
       ...(quoteTemplatesRoutes.length === 0 ? [] : ['quote-templates']),
       ...(actorResolver === undefined ? [] : ['catalog']),
@@ -754,6 +777,13 @@ function isInvitationRequest(method: string, pathname: string): boolean {
 
 function isMembersPath(pathname: string): boolean {
   return /^\/api\/v1\/tenants\/[^/]+\/members(?:\/[^/]+(?:\/(?:role|access))?)?\/?$/.test(pathname);
+}
+
+function isOrdersPath(pathname: string): boolean {
+  return pathname === '/api/v1/orders'
+    || pathname === '/api/v1/orders/'
+    || /^\/api\/v1\/orders\/[^/]+\/(?:draft|roles|audit|transitions)\/?$/.test(pathname)
+    || /^\/api\/v1\/(?:tenants|shops)\/[^/]+\/orders\/?$/.test(pathname);
 }
 
 function isRolesPath(pathname: string): boolean {

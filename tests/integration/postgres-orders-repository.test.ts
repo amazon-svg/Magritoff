@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Pool } from 'pg';
 import { createPostgresPool } from '../../src/adapters/postgres/pool.ts';
+import { PostgresOrdersNotificationGateway } from '../../src/adapters/postgres/orders-notification-gateway.ts';
 import {
   PostgresOrdersRepository,
   type OrdersNotificationGateway,
@@ -9,6 +10,7 @@ import {
 import { storefrontTokenHash } from '../../src/adapters/postgres/storefront-authentication-gateway.ts';
 import { PostgresTransactionRunner } from '../../src/adapters/postgres/transaction-runner.ts';
 import type { TenantId, UserId } from '../../src/kernel/ids/index.ts';
+import type { RenderedNotification } from '../../src/modules/notifications/application/notification-channel-adapter.ts';
 
 const describeIntegration = process.env['MAGRIT_POSTGRES_INTEGRATION'] === '1' ? describe : describe.skip;
 const notifications: OrdersNotificationGateway = {
@@ -20,6 +22,7 @@ describeIntegration('PostgresOrdersRepository — PostgreSQL reel', () => {
   let pool: Pool;
   let repository: PostgresOrdersRepository;
   const ownerId = randomUUID() as UserId;
+  const reviewerId = randomUUID() as UserId;
   const outsiderId = randomUUID() as UserId;
   const tenantId = randomUUID() as TenantId;
   const outsiderTenantId = randomUUID() as TenantId;
@@ -39,10 +42,11 @@ describeIntegration('PostgresOrdersRepository — PostgreSQL reel', () => {
       notifications,
     );
     await pool.query(
-      'insert into public.app_users(id,email_normalized) values($1,$2),($3,$4)',
+      'insert into public.app_users(id,email_normalized) values($1,$2),($3,$4),($5,$6)',
       [
         ownerId, `orders-owner-${ownerId}@example.invalid`,
         outsiderId, `orders-outsider-${outsiderId}@example.invalid`,
+        reviewerId, `orders-reviewer-${reviewerId}@example.invalid`,
       ],
     );
     await pool.query(
@@ -50,8 +54,8 @@ describeIntegration('PostgresOrdersRepository — PostgreSQL reel', () => {
       [tenantId, `orders-repository-${tenantId}`, outsiderTenantId, `orders-outsider-${outsiderTenantId}`],
     );
     await pool.query(
-      "insert into public.tenant_members(tenant_id,user_id,role) values($1,$2,'owner'),($3,$4,'owner')",
-      [tenantId, ownerId, outsiderTenantId, outsiderId],
+      "insert into public.tenant_members(tenant_id,user_id,role) values($1,$2,'owner'),($1,$3,'member'),($4,$5,'owner')",
+      [tenantId, ownerId, reviewerId, outsiderTenantId, outsiderId],
     );
     await pool.query(
       "insert into public.shops(id,tenant_id,owner_user_id,slug,name,access_mode,library_ids) values($1,$2,$3,$4,'Orders shop','self_signup',$5)",
@@ -85,7 +89,7 @@ describeIntegration('PostgresOrdersRepository — PostgreSQL reel', () => {
     if (pool === undefined) return;
     await pool.query('delete from public.tenant_orders where tenant_id=any($1::uuid[])', [[tenantId, outsiderTenantId]]);
     await pool.query('delete from public.tenants where id=any($1::uuid[])', [[tenantId, outsiderTenantId]]);
-    await pool.query('delete from public.app_users where id=any($1::uuid[])', [[ownerId, outsiderId]]);
+    await pool.query('delete from public.app_users where id=any($1::uuid[])', [[ownerId, reviewerId, outsiderId]]);
     await pool.end();
   });
 
@@ -256,5 +260,58 @@ describeIntegration('PostgresOrdersRepository — PostgreSQL reel', () => {
         actorId: ownerId,
       }),
     ]);
+  });
+
+  it('resout localement les destinataires des notifications de creation et de workflow', async () => {
+    const sent: RenderedNotification[] = [];
+    const gateway = new PostgresOrdersNotificationGateway(
+      new PostgresTransactionRunner(pool, 'magrit_api'),
+      {
+        channel: 'email',
+        async send(message) {
+          sent.push(message);
+          return { sent: true };
+        },
+      },
+    );
+    const created = await repository.createOrder({
+      shopId,
+      currency: 'EUR',
+      notes: '',
+      items: [{
+        productId,
+        productLabel: 'Flyer A5',
+        clariprintOptions: null,
+        quantity: 1,
+        expectedUnitPriceHt: '12.50',
+      }],
+      idempotencyKey: `notify-order-${randomUUID()}`,
+    }, { kind: 'magrit_user', userId: ownerId });
+    await gateway.created(created, 'https://magrit.example/');
+    expect(sent).toEqual([
+      expect.objectContaining({
+        to: `orders-owner-${ownerId}@example.invalid`,
+        subject: expect.stringContaining('Nouvelle commande'),
+      }),
+    ]);
+
+    const role = await pool.query<{ id: string }>(`
+      select id from public.tenant_role_definitions
+       where tenant_id=$1 and system_key='option_orders'
+    `, [tenantId]);
+    await pool.query(`
+      insert into public.tenant_order_roles(order_id,role_definition_id,user_id,assigned_by)
+      values($1,$2,$3,$4)
+    `, [created.orderId, role.rows[0]!.id, reviewerId, ownerId]);
+    await gateway.transition({
+      orderId: created.orderId,
+      fromStatus: 'draft',
+      toStatus: 'validated',
+      replayed: false,
+    }, ownerId, 'https://magrit.example/');
+    expect(sent[1]).toMatchObject({
+      to: `orders-reviewer-${reviewerId}@example.invalid`,
+      subject: expect.stringContaining('validée'),
+    });
   });
 });
