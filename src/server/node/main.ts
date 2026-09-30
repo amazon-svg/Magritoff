@@ -1,6 +1,7 @@
 import { createApiV1Application } from '../api/composition.ts';
 import { createCommercialSettingsRoutes } from '../api/commercial-settings-routes.ts';
 import { createCommercialLineFilesRoutes } from '../api/commercial-line-files-routes.ts';
+import { createCatalogRoutes } from '../api/catalog-routes.ts';
 import { createGescomApiHandler } from '../api/gescom-middleware.ts';
 import { createConversationsRoutes } from '../api/conversations-routes.ts';
 import { createCustomersRoutes } from '../api/customers-routes.ts';
@@ -18,6 +19,7 @@ import {
 import { OidcJwtVerifier } from '../../adapters/oidc/jwt-verifier.ts';
 import { PostgresCommercialSettingsRepository } from '../../adapters/postgres/commercial-settings-repository.ts';
 import { PostgresCommercialLineFilesRepository } from '../../adapters/postgres/commercial-line-files-repository.ts';
+import { PostgresCatalogRepository } from '../../adapters/postgres/catalog-repository.ts';
 import { PostgresConversationsRepository } from '../../adapters/postgres/conversations-repository.ts';
 import { PostgresCustomersRepository } from '../../adapters/postgres/customers-repository.ts';
 import { PostgresIdempotencyStore } from '../../adapters/postgres/idempotency-store.ts';
@@ -36,6 +38,8 @@ import { S3ProjectCommercialFileStorage } from '../../adapters/s3/project-commer
 import { ConversationsService } from '../../modules/conversations/application/conversations-service.ts';
 import { CommercialSettingsService } from '../../modules/commercial-settings/application/commercial-settings-service.ts';
 import { CommercialLineFilesService } from '../../modules/commercial-line-files/application/commercial-line-files-service.ts';
+import { CatalogService } from '../../modules/catalog/application/catalog-service.ts';
+import { CatalogRejectedError } from '../../modules/catalog/application/catalog-repository.ts';
 import { CustomersService } from '../../modules/customers/application/customers-service.ts';
 import { OutboxPublisher } from '../../modules/_shared/application/index.ts';
 import { ProjectTagsService } from '../../modules/project-tags/application/project-tags-service.ts';
@@ -94,6 +98,18 @@ const sessionRoutes = sessionEnabled
       ...createSessionSubTenantMutationRoutes(sessionService),
     ]
   : [];
+const catalogRoutes = actorResolver === undefined
+  ? []
+  : createCatalogRoutes(new CatalogService(
+      new PostgresCatalogRepository(
+        new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+      ),
+      {
+        async pendingCandidates() { throw catalogAutomationNotMigrated(); },
+        async runIngest() { throw catalogAutomationNotMigrated(); },
+        async generateDefinition() { throw catalogAutomationNotMigrated(); },
+      },
+    ));
 const gescomPrincipalVerifier = oidcJwtVerifier === null && localAuthentication === null
   ? null
   : new LocalApiPrincipalVerifier({
@@ -183,6 +199,7 @@ const apiHandler = createApiV1Application({
     createReadinessRoute(new PostgresReadinessProbe(postgresPool)),
     ...conversationsRoutes,
     ...sessionRoutes,
+    ...catalogRoutes,
   ],
   ...(actorResolver === undefined ? {} : { actorResolver }),
   onUnexpectedError(error, requestId) {
@@ -212,6 +229,7 @@ const handler = createTransitionalApiHandler({
     || (sessionEnabled && isSessionTenantSettingsRequest(request.method, url.pathname))
     || (sessionEnabled && request.method === 'POST' && url.pathname === '/api/v1/tenants')
     || (sessionEnabled && isSubTenantMutationRequest(request.method, url.pathname))
+    || (actorResolver !== undefined && isLocalCatalogRequest(request.method, url.pathname))
     || (gescomHandler !== null && isLocalGescomPath(url.pathname))
   ),
   ...(legacyApiUrl === undefined ? {} : { legacyApiUrl }),
@@ -232,6 +250,7 @@ server.listen(port, host, () => {
       ...(conversationsEnabled ? ['conversations'] : []),
       ...(localAuthentication === null ? [] : ['local-authentication']),
       ...(sessionEnabled ? ['session-bootstrap'] : []),
+      ...(actorResolver === undefined ? [] : ['catalog']),
       ...(gescomHandler === null ? [] : ['commercial-settings']),
       ...(gescomHandler === null ? [] : ['production-steps']),
       ...(gescomHandler === null ? [] : ['customers']),
@@ -266,6 +285,13 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function catalogAutomationNotMigrated(): CatalogRejectedError {
+  return new CatalogRejectedError(
+    'upstream_error',
+    'Cette automatisation PIM reste temporairement servie par l’API historique.',
+  );
+}
+
 function isConversationsPath(pathname: string): boolean {
   return /^\/api\/v1\/tenants\/[^/]+\/conversations(?:\/[^/]+)?\/?$/.test(pathname);
 }
@@ -276,6 +302,23 @@ function isLocalAuthenticationPath(pathname: string): boolean {
 
 function isCommercialSettingsPath(pathname: string): boolean {
   return pathname === '/api/v1/commercial-settings';
+}
+
+function isLocalCatalogRequest(method: string, pathname: string): boolean {
+  if (/^\/api\/v1\/tenants\/[^/]+\/catalog\/gamme-subscriptions\/?$/.test(pathname)) {
+    return method === 'GET' || method === 'PUT';
+  }
+  if (pathname === '/api/v1/catalog/pim' || pathname === '/api/v1/catalog/pim/') {
+    return method === 'GET';
+  }
+  if (/^\/api\/v1\/catalog\/pim\/gammes\/[^/]+\/?$/.test(pathname)) {
+    return method === 'PUT' || method === 'DELETE';
+  }
+  if (pathname === '/api/v1/catalog/pim/definitions' || pathname === '/api/v1/catalog/pim/definitions/') {
+    return method === 'PUT';
+  }
+  return method === 'DELETE'
+    && /^\/api\/v1\/catalog\/pim\/definitions\/[^/]+\/?$/.test(pathname);
 }
 
 function isLocalGescomPath(pathname: string): boolean {

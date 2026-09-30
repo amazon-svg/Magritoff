@@ -262,7 +262,7 @@ describeIntegration('Better Auth local — PostgreSQL reel', () => {
       readonly_can_read_history: false,
       api_can_insert_tenants: false,
       api_can_call_creation: true,
-      api_can_read_gammes: false,
+      api_can_read_gammes: true,
     });
   });
 

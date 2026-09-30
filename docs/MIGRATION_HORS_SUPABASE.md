@@ -12,7 +12,7 @@ Decision formelle : `docs/architecture/decisions/0001-sortie-de-supabase.md`.
 | J0 | ADR et garde-fou contre les nouvelles dependances Supabase livres |
 | J1 | Compose, healthchecks, migrations et buckets livres ; seed et CI restent a faire |
 | J2 | runtime Node, health/readiness et facade de transition livres |
-| J3 | contexte transactionnel, roles, Conversations, session, réglages tenant, réglages commerciaux, étapes de production, clients, projets et étiquettes PostgreSQL livres ; idempotence API et outbox durables livrées |
+| J3 | contexte transactionnel, roles, Conversations, session, réglages tenant, réglages commerciaux, étapes de production, clients, projets, étiquettes et persistance du catalogue PIM PostgreSQL livres ; idempotence API et outbox durables livrées |
 | J4 | adaptateurs S3 des exports et fichiers de lignes projet livres ; autres buckets non bascules |
 | J5 | OIDC, annuaire d'identites et socle Better Auth PostgreSQL livres ; invitations, recovery et bascule UI restent a faire |
 | J6 et suivants | non demarres |
@@ -293,6 +293,16 @@ la façade Gestion commerciale entièrement sorti du runtime Supabase.
 Le référentiel `/production-steps` est également local : les six étapes
 standard sont initialisées pour chaque tenant et les créations, suppressions et
 réordonnancements restent atomiques sous verrou PostgreSQL.
+
+Le catalogue PIM partagé (`product_gammes`, `product_definitions`) et les
+souscriptions de gammes par tenant sont désormais servis directement par
+PostgreSQL. Les mutations du référentiel global restent réservées aux
+administrateurs de plateforme ; les souscriptions sont isolées par tenant et
+modifiables par ses administrateurs. L'ingestion de candidats et la génération
+assistée de définitions restent volontairement relayées vers l'API historique :
+ce sont des traitements asynchrones à extraire séparément, pas des opérations
+du repository catalogue. La copie des gammes et définitions existantes doit
+précéder l'activation de ces routes sur un environnement contenant des données.
 
 Le seed local est idempotent. Il cree par defaut
 `developer@magrit.local`, le tenant `magrit-development` et une identite OIDC
