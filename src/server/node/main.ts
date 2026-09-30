@@ -3,6 +3,7 @@ import { createCommercialSettingsRoutes } from '../api/commercial-settings-route
 import { createCommercialLineFilesRoutes } from '../api/commercial-line-files-routes.ts';
 import { createCommercialQuotesRoutes } from '../api/commercial-quotes-routes.ts';
 import { createCatalogRoutes } from '../api/catalog-routes.ts';
+import { createClariprintRoutes } from '../api/clariprint-routes.ts';
 import { createGescomApiHandler } from '../api/gescom-middleware.ts';
 import { createConversationsRoutes } from '../api/conversations-routes.ts';
 import { createCustomersRoutes } from '../api/customers-routes.ts';
@@ -40,6 +41,9 @@ import { OidcJwtVerifier } from '../../adapters/oidc/jwt-verifier.ts';
 import { ConfiguredAiCompletionGateway } from '../../adapters/ai/configured-ai-completion-gateway.ts';
 import { ConfiguredAiDiagnosticsGateway, aiProviderConfigurationFromEnvironment } from '../../adapters/ai/configured-ai-diagnostics-gateway.ts';
 import { HttpClariprintDiagnosticsGateway } from '../../adapters/clariprint/clariprint-diagnostics-gateway.ts';
+import { HttpClariprintQuoteGateway } from '../../adapters/clariprint/http-clariprint-quote-gateway.ts';
+import { PostgresClariprintQuoteBudgetRepository } from '../../adapters/postgres/clariprint-quote-budget-repository.ts';
+import { PostgresClariprintQuoteMembershipGateway } from '../../adapters/postgres/clariprint-quote-membership-gateway.ts';
 import { PostgresCommercialSettingsRepository } from '../../adapters/postgres/commercial-settings-repository.ts';
 import { PostgresCommercialLineFilesRepository } from '../../adapters/postgres/commercial-line-files-repository.ts';
 import { PostgresCommercialQuotesRepository } from '../../adapters/postgres/commercial-quotes-repository.ts';
@@ -91,6 +95,7 @@ import { CommercialLineFilesService } from '../../modules/commercial-line-files/
 import { CommercialQuotesService } from '../../modules/commercial-quotes/application/commercial-quotes-service.ts';
 import { CatalogService } from '../../modules/catalog/application/catalog-service.ts';
 import { CatalogRejectedError } from '../../modules/catalog/application/catalog-repository.ts';
+import { ClariprintService } from '../../modules/clariprint/application/clariprint-service.ts';
 import { CustomersService } from '../../modules/customers/application/customers-service.ts';
 import { DocumentTemplatesService } from '../../modules/document-templates/application/document-templates-service.ts';
 import { DiagnosticsService } from '../../modules/diagnostics/application/diagnostics-service.ts';
@@ -177,6 +182,19 @@ const diagnosticsRoutes = actorResolver === undefined ? [] : createDiagnosticsRo
 const assistantService = new AssistantService(
   new ConfiguredAiCompletionGateway(aiConfiguration),
   diagnosticsAccess,
+);
+const clariprintMembership = new PostgresClariprintQuoteMembershipGateway(
+  new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+);
+const clariprintService = new ClariprintService(
+  new HttpClariprintQuoteGateway(
+    process.env['CLARIPRINT_HOST'] ?? 'https://lrdp.clariprint.com',
+    process.env['CLARIPRINT_LOGIN'] ?? null,
+    process.env['CLARIPRINT_PASSWORD'] ?? null,
+  ),
+  new PostgresClariprintQuoteBudgetRepository(
+    new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+  ),
 );
 const conversationsEnabled = actorResolver !== undefined;
 const conversationsRoutes = conversationsEnabled
@@ -389,6 +407,24 @@ const storefrontSessions = new StorefrontSessionService(storefrontAuthentication
 const storefrontCookiePolicy = storefrontSessionCookiePolicy(
   (process.env['APP_BASE_URL'] ?? '').startsWith('https://') || process.env['NODE_ENV'] === 'production',
 );
+const clariprintRoutes = createClariprintRoutes(clariprintService, {
+  isMember: (userId) => clariprintMembership.isMember(userId),
+  storefrontSessions,
+  storefrontCookiePolicy,
+  ipHmacSecret: process.env['MAGRIT_RATE_LIMIT_IP_HMAC_SECRET'] ?? null,
+  onRateLimitEvent: (event) => {
+    console.warn(JSON.stringify({
+      level: 'warn',
+      event: 'clariprint.rate_limit',
+      rateLimitEvent: event.event,
+      ...('requestId' in event ? { requestId: event.requestId } : {}),
+      ...('scope' in event ? { scope: event.scope } : {}),
+      ...('callerKind' in event ? { callerKind: event.callerKind } : {}),
+      ...('userId' in event ? { userId: event.userId } : {}),
+      ...('reason' in event ? { reason: event.reason } : {}),
+    }));
+  },
+});
 const storefrontSessionRoutes = createStorefrontSessionRoutes(
   new StorefrontAuthenticationService(storefrontAuthenticationGateway),
   new StorefrontRegistrationService(storefrontAuthenticationGateway),
@@ -474,6 +510,7 @@ const apiHandler = createApiV1Application({
     ...conversationsRoutes,
     ...diagnosticsRoutes,
     ...assistantRoutes,
+    ...clariprintRoutes,
     ...sessionRoutes,
     ...invitationsRoutes,
     ...librariesRoutes,
@@ -516,6 +553,7 @@ const handler = createTransitionalApiHandler({
     (conversationsEnabled && isConversationsPath(url.pathname))
     || (actorResolver !== undefined && isDiagnosticsPath(url.pathname))
     || isAssistantPath(url.pathname)
+    || isClariprintPath(url.pathname)
     || (localAuthentication !== null && isLocalAuthenticationPath(url.pathname))
     || (sessionEnabled && isSessionPreferencesRequest(request.method, url.pathname))
     || (sessionEnabled && isSessionTenantSettingsRequest(request.method, url.pathname))
@@ -555,6 +593,7 @@ server.listen(port, host, () => {
       ...(conversationsEnabled ? ['conversations'] : []),
       ...(diagnosticsRoutes.length === 0 ? [] : ['diagnostics']),
       'assistant',
+      'clariprint',
       ...(localAuthentication === null ? [] : ['local-authentication']),
       ...(sessionEnabled ? ['session-bootstrap'] : []),
       ...(actorResolver === undefined ? [] : ['invitations']),
@@ -628,6 +667,10 @@ function isDiagnosticsPath(pathname: string): boolean {
 
 function isAssistantPath(pathname: string): boolean {
   return /^\/api\/v1\/(?:tenants\/[^/]+|public\/shops\/[^/]+)\/assistant\/category-editorial\/?$/.test(pathname);
+}
+
+function isClariprintPath(pathname: string): boolean {
+  return pathname === '/api/v1/clariprint/quote';
 }
 
 function isLocalAuthenticationPath(pathname: string): boolean {
