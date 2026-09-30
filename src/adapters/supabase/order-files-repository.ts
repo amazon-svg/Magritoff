@@ -274,8 +274,10 @@ export class SupabaseOrderFilesRepository implements OrderFilesRepository {
     tenantId: TenantId,
     orderId: string,
     fileId: string,
+    actor: UserId,
     command: UpdateOrderFileCommand,
   ): Promise<OrderFileDto> {
+    void actor;
     const { data, error } = await this.client.rpc('api_update_order_file_visibility', {
       p_tenant_id: tenantId,
       p_order_id: orderId,

@@ -10,6 +10,10 @@ export function createS3Client(environment: NodeJS.ProcessEnv = process.env): S3
   }
   return new S3Client({
     region: optional(environment['S3_REGION']) ?? 'us-east-1',
+    // Les PUT presignes ne connaissent pas encore leur corps. Le mode par
+    // defaut WHEN_SUPPORTED signerait le checksum du corps vide et ferait
+    // ensuite rejeter le fichier reel par S3/MinIO avec BadDigest.
+    requestChecksumCalculation: 'WHEN_REQUIRED',
     ...(endpoint === null ? {} : { endpoint }),
     forcePathStyle: environment['S3_FORCE_PATH_STYLE'] === 'true',
     ...(accessKeyId === null ? {} : { credentials: { accessKeyId, secretAccessKey: secretAccessKey! } }),

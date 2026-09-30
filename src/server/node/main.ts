@@ -16,6 +16,7 @@ import { createLibrariesRoutes } from '../api/libraries-routes.ts';
 import { createLibraryProductsRoutes } from '../api/library-products-routes.ts';
 import { createMembersRoutes } from '../api/members-routes.ts';
 import { createOrdersRoutes } from '../api/orders-routes.ts';
+import { createOrderFilesRoutes } from '../api/order-files-routes.ts';
 import { createNotificationLogsRoutes } from '../api/notification-logs-routes.ts';
 import { createNotificationTemplatesRoutes } from '../api/notification-templates-routes.ts';
 import { createProjectTagsRoutes } from '../api/project-tags-routes.ts';
@@ -67,6 +68,7 @@ import { PostgresOutboxRepository } from '../../adapters/postgres/outbox-reposit
 import { PostgresOrdersNotificationGateway } from '../../adapters/postgres/orders-notification-gateway.ts';
 import { PostgresOrdersRepository } from '../../adapters/postgres/orders-repository.ts';
 import { PostgresOrderDocumentsRepository } from '../../adapters/postgres/order-documents-repository.ts';
+import { PostgresOrderFilesRepository } from '../../adapters/postgres/order-files-repository.ts';
 import { PostgresNotificationLogsRepository } from '../../adapters/postgres/notification-logs-repository.ts';
 import { PostgresNotificationTemplatesRepository } from '../../adapters/postgres/notification-templates-repository.ts';
 import { PostgresPriceRulesRepository } from '../../adapters/postgres/price-rules-repository.ts';
@@ -118,6 +120,7 @@ import { LibrariesService } from '../../modules/libraries/application/libraries-
 import { LibraryProductsService } from '../../modules/libraries/application/library-products-service.ts';
 import { MembersService } from '../../modules/members/application/members-service.ts';
 import { OrdersService } from '../../modules/orders/application/orders-service.ts';
+import { OrderFilesService } from '../../modules/order-files/application/order-files-service.ts';
 import { NotificationLogsService } from '../../modules/notifications/application/notification-logs-service.ts';
 import { NotificationTemplatesService } from '../../modules/notifications/application/notification-templates-service.ts';
 import { OrderDocumentsService } from '../../modules/order-documents/application/order-documents-service.ts';
@@ -438,6 +441,14 @@ const commercialOrdersRoutes = commercialOrdersService === null || commercialQuo
       commercialQuotesService,
       productionStepsService,
     );
+const orderFilesRoutes = s3Client === null
+  ? []
+  : createOrderFilesRoutes(new OrderFilesService({
+      repository: new PostgresOrderFilesRepository(
+        new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+        s3Client,
+      ),
+    }));
 const quoteDocumentsRoutes = commercialQuotesService === null || quoteDocumentsService === null
   ? []
   : createQuoteDocumentsRoutes(quoteDocumentsService, commercialQuotesService);
@@ -562,6 +573,7 @@ const gescomHandler = gescomPrincipalVerifier === null
         ...documentTemplatesRoutes,
         ...commercialQuotesRoutes,
         ...commercialOrdersRoutes,
+        ...orderFilesRoutes,
         ...quoteDocumentsRoutes,
       ],
       principalVerifier: gescomPrincipalVerifier,

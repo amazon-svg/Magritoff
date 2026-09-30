@@ -78,9 +78,10 @@ export class OrderFilesService {
     tenantId: TenantId,
     orderId: string,
     fileId: string,
+    actor: UserId,
     command: UpdateOrderFileCommand,
   ): Promise<OrderFileDto> {
-    return this.repository.updateVisibility(tenantId, orderId, fileId, command);
+    return this.repository.updateVisibility(tenantId, orderId, fileId, actor, command);
   }
 
   /** `deleteOrderFile`. Octets detruits, ligne conservee comme trace. */

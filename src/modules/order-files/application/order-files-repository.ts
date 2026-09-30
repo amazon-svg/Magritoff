@@ -144,6 +144,7 @@ export interface OrderFilesRepository {
     tenantId: TenantId,
     orderId: string,
     fileId: string,
+    actor: UserId,
     command: UpdateOrderFileCommand,
   ): Promise<OrderFileDto>;
 
