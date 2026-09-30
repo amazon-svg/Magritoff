@@ -1,6 +1,7 @@
 import { createApiV1Application } from '../api/composition.ts';
 import { createCommercialSettingsRoutes } from '../api/commercial-settings-routes.ts';
 import { createCommercialLineFilesRoutes } from '../api/commercial-line-files-routes.ts';
+import { createCommercialOrdersRoutes } from '../api/commercial-orders-routes.ts';
 import { createCommercialQuotesRoutes } from '../api/commercial-quotes-routes.ts';
 import { createCatalogRoutes } from '../api/catalog-routes.ts';
 import { createClariprintRoutes } from '../api/clariprint-routes.ts';
@@ -49,6 +50,7 @@ import { PostgresClariprintQuoteBudgetRepository } from '../../adapters/postgres
 import { PostgresClariprintQuoteMembershipGateway } from '../../adapters/postgres/clariprint-quote-membership-gateway.ts';
 import { PostgresCommercialSettingsRepository } from '../../adapters/postgres/commercial-settings-repository.ts';
 import { PostgresCommercialLineFilesRepository } from '../../adapters/postgres/commercial-line-files-repository.ts';
+import { PostgresCommercialOrdersRepository } from '../../adapters/postgres/commercial-orders-repository.ts';
 import { PostgresCommercialQuotesRepository } from '../../adapters/postgres/commercial-quotes-repository.ts';
 import { PostgresCatalogRepository } from '../../adapters/postgres/catalog-repository.ts';
 import { PostgresConversationsRepository } from '../../adapters/postgres/conversations-repository.ts';
@@ -64,6 +66,7 @@ import { PostgresOidcIdentityDirectory } from '../../adapters/postgres/oidc-iden
 import { PostgresOutboxRepository } from '../../adapters/postgres/outbox-repository.ts';
 import { PostgresOrdersNotificationGateway } from '../../adapters/postgres/orders-notification-gateway.ts';
 import { PostgresOrdersRepository } from '../../adapters/postgres/orders-repository.ts';
+import { PostgresOrderDocumentsRepository } from '../../adapters/postgres/order-documents-repository.ts';
 import { PostgresNotificationLogsRepository } from '../../adapters/postgres/notification-logs-repository.ts';
 import { PostgresNotificationTemplatesRepository } from '../../adapters/postgres/notification-templates-repository.ts';
 import { PostgresPriceRulesRepository } from '../../adapters/postgres/price-rules-repository.ts';
@@ -101,6 +104,7 @@ import { readSmtpConfiguration, SmtpTransport } from '../../adapters/smtp/transp
 import { ConversationsService } from '../../modules/conversations/application/conversations-service.ts';
 import { CommercialSettingsService } from '../../modules/commercial-settings/application/commercial-settings-service.ts';
 import { CommercialLineFilesService } from '../../modules/commercial-line-files/application/commercial-line-files-service.ts';
+import { CommercialOrdersService } from '../../modules/commercial-orders/application/commercial-orders-service.ts';
 import { CommercialQuotesService } from '../../modules/commercial-quotes/application/commercial-quotes-service.ts';
 import { CatalogService } from '../../modules/catalog/application/catalog-service.ts';
 import { CatalogRejectedError } from '../../modules/catalog/application/catalog-repository.ts';
@@ -116,6 +120,7 @@ import { MembersService } from '../../modules/members/application/members-servic
 import { OrdersService } from '../../modules/orders/application/orders-service.ts';
 import { NotificationLogsService } from '../../modules/notifications/application/notification-logs-service.ts';
 import { NotificationTemplatesService } from '../../modules/notifications/application/notification-templates-service.ts';
+import { OrderDocumentsService } from '../../modules/order-documents/application/order-documents-service.ts';
 import { CustomersRepositoryDocumentDataGateway } from '../../modules/quote-documents/application/customer-document-data-gateway.ts';
 import { QuoteDocumentsService } from '../../modules/quote-documents/application/quote-documents-service.ts';
 import { QuoteTemplatesService } from '../../modules/quote-templates/application/quote-templates-service.ts';
@@ -347,6 +352,26 @@ const commercialQuotesService = projectsRepository === null || quoteDocumentsSer
       pricingEngine: createPricingEngine(),
       documents: quoteDocumentsService,
     });
+const orderDocumentsService = s3Client === null || documentTemplatesRepository === null
+  ? null
+  : new OrderDocumentsService({
+      templates: documentTemplatesRepository,
+      customers: new CustomersRepositoryDocumentDataGateway(customersRepository),
+      repository: new PostgresOrderDocumentsRepository(
+        new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+        s3Client,
+      ),
+    });
+const commercialOrdersService = commercialQuotesService === null || orderDocumentsService === null
+  ? null
+  : new CommercialOrdersService({
+      repository: new PostgresCommercialOrdersRepository(
+        new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+      ),
+      outbox: outboxPublisher,
+      quotes: commercialQuotesService,
+      documents: orderDocumentsService,
+    });
 const commercialSettingsRoutes = gescomPrincipalVerifier === null
   ? []
   : createCommercialSettingsRoutes(new CommercialSettingsService({
@@ -354,13 +379,14 @@ const commercialSettingsRoutes = gescomPrincipalVerifier === null
         new PostgresTransactionRunner(postgresPool, 'magrit_api'),
       ),
     }));
+const productionStepsService = new ProductionStepsService({
+  repository: new PostgresProductionStepsRepository(
+    new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+  ),
+});
 const productionStepsRoutes = gescomPrincipalVerifier === null
   ? []
-  : createProductionStepsRoutes(new ProductionStepsService({
-      repository: new PostgresProductionStepsRepository(
-        new PostgresTransactionRunner(postgresPool, 'magrit_api'),
-      ),
-    }));
+  : createProductionStepsRoutes(productionStepsService);
 const notificationTemplatesRoutes = gescomPrincipalVerifier === null ? [] : createNotificationTemplatesRoutes(
   new NotificationTemplatesService({repository:new PostgresNotificationTemplatesRepository(new PostgresTransactionRunner(postgresPool,'magrit_api'))}),
 );
@@ -405,6 +431,13 @@ const documentTemplatesRoutes = gescomPrincipalVerifier === null
 const commercialQuotesRoutes = commercialQuotesService === null
   ? []
   : createCommercialQuotesRoutes(commercialQuotesService);
+const commercialOrdersRoutes = commercialOrdersService === null || commercialQuotesService === null
+  ? []
+  : createCommercialOrdersRoutes(
+      commercialOrdersService,
+      commercialQuotesService,
+      productionStepsService,
+    );
 const quoteDocumentsRoutes = commercialQuotesService === null || quoteDocumentsService === null
   ? []
   : createQuoteDocumentsRoutes(quoteDocumentsService, commercialQuotesService);
@@ -528,6 +561,7 @@ const gescomHandler = gescomPrincipalVerifier === null
         ...commercialLineFilesRoutes,
         ...documentTemplatesRoutes,
         ...commercialQuotesRoutes,
+        ...commercialOrdersRoutes,
         ...quoteDocumentsRoutes,
       ],
       principalVerifier: gescomPrincipalVerifier,
@@ -761,6 +795,8 @@ function isLocalGescomPath(pathname: string): boolean {
     || /^\/api\/v1\/document-pdf-templates(?:\/[^/]+(?:\/(?:upload-urls|uploads|fields))?)?\/?$/.test(pathname)
     || pathname === '/api/v1/quotes'
     || pathname.startsWith('/api/v1/quotes/')
+    || pathname === '/api/v1/commercial-orders'
+    || pathname.startsWith('/api/v1/commercial-orders/')
     || /^\/api\/v1\/customers(?:\/[^/]+(?:\/contacts(?:\/[^/]+)?|\/siret-verifications)?)?\/?$/.test(pathname);
 }
 
