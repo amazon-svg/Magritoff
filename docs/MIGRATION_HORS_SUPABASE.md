@@ -12,7 +12,7 @@ Decision formelle : `docs/architecture/decisions/0001-sortie-de-supabase.md`.
 | J0 | ADR et garde-fou contre les nouvelles dependances Supabase livres |
 | J1 | Compose, healthchecks, migrations et buckets livres ; seed et CI restent a faire |
 | J2 | runtime Node, health/readiness et facade de transition livres |
-| J3 | contexte transactionnel, roles, Conversations, session, réglages tenant, membres, rôles et invitations, réglages commerciaux, étapes de production, clients, projets, étiquettes, catalogue PIM et public, bibliothèques produits, règles tarifaires, devis, gabarits HTML et PDF, administration et invitations des comptes clients boutique PostgreSQL livrés ; socle PostgreSQL des commandes, rôles, transitions, audit et reçus idempotents livré, adaptateur et routes encore relayés ; rapport de migration legacy encore relayé ; idempotence API et outbox durables livrées |
+| J3 | contexte transactionnel, roles, Conversations, session, réglages tenant, membres, rôles et invitations, réglages commerciaux, étapes de production, clients, projets, étiquettes, catalogue PIM et public, bibliothèques produits, règles tarifaires, devis, gabarits HTML et PDF, administration et invitations des comptes clients boutique PostgreSQL livrés ; commandes boutique, rôles, transitions, audit, idempotence, notifications et routes Node livrés ; reprise des anciennes `shop_orders` et rapport de migration legacy encore à réaliser ; idempotence API et outbox durables livrées |
 | J4 | adaptateurs S3 des exports, fichiers de lignes projet, gabarits PDF, documents de devis et visuels de boutiques livres ; autres buckets non bascules |
 | J5 | OIDC, annuaire d'identites, socle Better Auth PostgreSQL, invitations Magrit, récupération de mot de passe, authentification directe storefront, activation, recovery et délégation storefront livres ; bascule UI globale reste a faire |
 | J6 et suivants | diagnostics IA/Clariprint, assistant éditorial et chiffrage Clariprint avec quotas PostgreSQL servis par Node ; worker et autres jobs restent à migrer |
@@ -32,8 +32,10 @@ La cible conserve les briques standards utiles :
 - un processus worker pour l'outbox, les notifications, les exports et les
   purges.
 
-Supabase reste temporairement la source de verite pendant la migration. Aucun
-nouveau code ne doit accroitre la dependance a Supabase.
+Supabase reste temporairement la source de vérité des seuls domaines qui ne
+sont pas encore basculés. Les domaines activés dans le runtime Node utilisent
+PostgreSQL/S3 comme source de vérité. Aucun nouveau code ne doit accroître la
+dépendance à Supabase.
 
 ## 2. Constats mesures
 
@@ -342,6 +344,20 @@ filigranés restent remplaçables. La lecture portail client continue d'être
 relayée vers l'API historique : elle ne basculera qu'avec les comptes et
 sessions boutique, afin de conserver un contrôle d'accès complet plutôt qu'un
 mode dégradé.
+
+Le cycle des commandes boutique est désormais servi localement par Node et
+PostgreSQL : création Magrit ou storefront, lecture atelier et portail,
+édition du brouillon, revalorisation serveur, transitions, rôles, audit et
+reçus idempotents. La configuration Clariprint est comparée en JSONB avant de
+qualifier un prix de `catalog`; une configuration divergente reste
+`client_unverified`. Les notifications de création et de changement d'étape
+utilisent SMTP en développement ou Resend en hébergement, avec résolution des
+destinataires et de `notify_policy` dans PostgreSQL ; les Edge Functions
+`send-order-notification` et `order-workflow-step` ne sont plus appelées par le
+runtime Node. La bascule d'un environnement existant exige encore une reprise
+contrôlée de `shop_orders` vers `tenant_orders` : l'adaptateur portable ne lit
+volontairement pas la table historique et ne doit donc être activé qu'après ce
+cutover.
 
 L'administration des membres du tenant est également locale. Les lectures
 s'appuient sur `app_users`, les rôles historiques `owner` et `admin` sont
