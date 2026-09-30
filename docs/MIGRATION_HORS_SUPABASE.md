@@ -352,6 +352,11 @@ pour le destinataire après succès. L'envoi utilise encore l'adaptateur Resend 
 si sa clé n'est pas configurée, l'API restitue le lien et signale explicitement
 que le courriel n'a pas été envoyé. Le branchement SMTP vers Mailpit reste à
 faire avec le lot récupération de mot de passe et vérification d'adresse.
+Pour une adresse encore inconnue, le même jeton autorise une seule création de
+compte Better Auth : le serveur impose l'adresse portée par l'invitation, un
+mot de passe d'au moins 12 caractères et des identifiants UUID. Un trigger
+transactionnel provisionne alors `app_users` et l'identité
+`urn:magrit:local` ; l'inscription Better Auth sans invitation reste refusée.
 
 Le seed local est idempotent. Il cree par defaut
 `developer@magrit.local`, le tenant `magrit-development` et une identite OIDC

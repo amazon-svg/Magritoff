@@ -10,7 +10,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null; session: Session | null }>;
-  signUp: (email: string, password: string, fullName?: string, company?: string) => Promise<{ error: Error | null; session: Session | null }>;
+  signUp: (email: string, password: string, fullName?: string, company?: string, invitationToken?: string) => Promise<{ error: Error | null; session: Session | null }>;
   refreshSession: () => Promise<{ error: Error | null; session: Session | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
@@ -77,8 +77,12 @@ export function AuthProvider({
     return auth.signIn(email, password);
   };
 
-  const signUp = async (email: string, password: string, fullName?: string, company?: string) => {
-    return auth.signUp(email, password, { fullName: fullName ?? '', ...(company ? { company } : {}) });
+  const signUp = async (email: string, password: string, fullName?: string, company?: string, invitationToken?: string) => {
+    return auth.signUp(email, password, {
+      fullName: fullName ?? '',
+      ...(company ? { company } : {}),
+      ...(invitationToken ? { invitationToken } : {}),
+    });
   };
 
   const refreshSession = async () => {

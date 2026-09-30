@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
 import {
   developmentSeedConfiguration,
@@ -144,10 +144,108 @@ describeIntegration('Better Auth local — PostgreSQL reel', () => {
         }),
       },
     ));
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(403);
     await expect(response.json()).resolves.toMatchObject({
-      code: 'EMAIL_PASSWORD_SIGN_UP_DISABLED',
+      code: 'INVITATION_REQUIRED',
     });
+  });
+
+  it('provisionne un compte local uniquement depuis une invitation valide', async () => {
+    const authentication = createLocalAuthentication(pool, configuration);
+    const token = `${randomUUID()}${randomUUID()}`.replaceAll('-', '');
+    const email = `invited-${randomUUID()}@example.invalid`;
+    const invitationId = randomUUID();
+    let userId: string | null = null;
+    await pool.query(`
+      insert into public.tenant_invitations (
+        id,tenant_id,email,role,token_hash,expires_at,invited_by
+      ) values ($1,$2,$3,'member',$4,clock_timestamp()+interval '1 day',$5)
+    `, [
+      invitationId, seed.tenantId, email,
+      createHash('sha256').update(token, 'utf8').digest('hex'), seed.userId,
+    ]);
+    try {
+      const wrongEmail = await authentication.handler(new Request(
+        `${configuration.baseUrl}/api/v1/auth/sign-up/email`,
+        {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            origin: configuration.baseUrl,
+            'x-forwarded-for': '127.0.0.1',
+          },
+          body: JSON.stringify({
+            name: 'Mauvais compte', email: 'wrong@example.invalid',
+            password: 'mot-de-passe-invite', invitationToken: token,
+          }),
+        },
+      ));
+      expect(wrongEmail.status).toBe(403);
+
+      const signUp = await authentication.handler(new Request(
+        `${configuration.baseUrl}/api/v1/auth/sign-up/email`,
+        {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            origin: configuration.baseUrl,
+            'x-forwarded-for': '127.0.0.1',
+          },
+          body: JSON.stringify({
+            name: 'Compte invité', email, password: 'mot-de-passe-invite', invitationToken: token,
+          }),
+        },
+      ));
+      expect(signUp.status).toBe(200);
+      const provisioned = await pool.query<{
+        user_id: string;
+        email_verified: boolean;
+        identity_count: string;
+      }>(`
+        select auth_user.id as user_id,auth_user."emailVerified" as email_verified,
+               count(identity.id)::text as identity_count
+          from authn."user" auth_user
+          join public.app_users app_user on app_user.id::text=auth_user.id
+          left join public.user_identities identity
+            on identity.app_user_id=app_user.id
+           and identity.issuer='urn:magrit:local'
+           and identity.subject=auth_user.id
+         where auth_user.email=$1
+         group by auth_user.id,auth_user."emailVerified"
+      `, [email]);
+      userId = provisioned.rows[0]?.user_id ?? null;
+      expect(provisioned.rows[0]).toMatchObject({ email_verified: true, identity_count: '1' });
+      expect(userId).toMatch(/^[0-9a-f-]{36}$/);
+
+      const signIn = await authentication.handler(new Request(
+        `${configuration.baseUrl}/api/v1/auth/sign-in/email`,
+        {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            origin: configuration.baseUrl,
+            'x-forwarded-for': '127.0.0.1',
+          },
+          body: JSON.stringify({ email, password: 'mot-de-passe-invite' }),
+        },
+      ));
+      expect(signIn.status).toBe(200);
+      expect(signIn.headers.get('set-cookie')).toContain('magrit.session_token=');
+
+      const sessions = new PostgresSessionBootstrapRepository(
+        new PostgresTransactionRunner(pool, 'magrit_api'),
+      );
+      await expect(sessions.acceptInvitation(userId as never, token)).resolves.toBe(seed.tenantId);
+      const directory = new PostgresOidcIdentityDirectory(pool);
+      await expect(directory.resolve({ issuer: 'urn:magrit:local', subject: userId! }, seed.tenantId))
+        .resolves.toEqual({ userId, tenantId: seed.tenantId });
+    } finally {
+      if (userId !== null) {
+        await pool.query('delete from authn."user" where id=$1', [userId]);
+        await pool.query('delete from public.app_users where id=$1', [userId]);
+      }
+      await pool.query('delete from public.tenant_invitations where id=$1', [invitationId]);
+    }
   });
 
   it('ne choisit aucun tenant arbitraire pour un utilisateur multi-tenant', async () => {

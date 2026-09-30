@@ -1,4 +1,6 @@
-import { betterAuth } from 'better-auth';
+import { createHash, randomUUID } from 'node:crypto';
+import { APIError, betterAuth } from 'better-auth';
+import { createAuthMiddleware } from 'better-auth/api';
 import { PostgresDialect } from 'kysely';
 import type { Pool } from 'pg';
 
@@ -53,7 +55,7 @@ export function createLocalAuthentication(
     },
     emailAndPassword: {
       enabled: true,
-      disableSignUp: true,
+      disableSignUp: false,
       requireEmailVerification: true,
       minPasswordLength: 12,
       maxPasswordLength: 128,
@@ -67,12 +69,46 @@ export function createLocalAuthentication(
       enabled: true,
       storage: 'database',
     },
+    hooks: {
+      before: createAuthMiddleware(async (context) => {
+        if (context.path !== '/sign-up/email') return;
+        const body = context.body as Record<string, unknown> | undefined;
+        const invitationToken = typeof body?.['invitationToken'] === 'string'
+          ? body['invitationToken']
+          : '';
+        const email = typeof body?.['email'] === 'string' ? body['email'].toLowerCase().trim() : '';
+        const allowed = invitationToken.length >= 32
+          && await isValidInvitationRegistration(pool, invitationToken, email);
+        if (!allowed) {
+          throw new APIError('FORBIDDEN', {
+            code: 'INVITATION_REQUIRED',
+            message: 'Une invitation Magrit valide est requise pour créer ce compte.',
+          });
+        }
+        delete body!['invitationToken'];
+      }),
+    },
     advanced: {
       cookiePrefix: 'magrit',
       useSecureCookies: baseUrl.protocol === 'https:',
-      database: { joins: true },
+      database: { joins: true, generateId: () => randomUUID() },
     },
   });
+}
+
+async function isValidInvitationRegistration(
+  pool: Pool,
+  token: string,
+  email: string,
+): Promise<boolean> {
+  const result = await pool.query<{ allowed: boolean }>(`
+    select exists (
+      select 1 from public.tenant_invitations
+       where token_hash=$1 and email=$2
+         and accepted_at is null and expires_at > clock_timestamp()
+    ) as allowed
+  `, [createHash('sha256').update(token, 'utf8').digest('hex'), email]);
+  return result.rows[0]?.allowed === true;
 }
 
 function nonEmpty(value: string | undefined): string | null {

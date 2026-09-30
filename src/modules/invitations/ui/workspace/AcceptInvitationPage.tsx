@@ -63,8 +63,8 @@ export function AcceptInvitation() {
       setActivationError('Indiquez votre nom complet.');
       return;
     }
-    if (!activation.accountExists && password.length < 8) {
-      setActivationError('Le mot de passe doit contenir au moins 8 caractères.');
+    if (!activation.accountExists && password.length < 12) {
+      setActivationError('Le mot de passe doit contenir au moins 12 caractères.');
       return;
     }
     if (!activation.accountExists && password !== confirmation) {
@@ -74,7 +74,7 @@ export function AcceptInvitation() {
     setSubmitting(true);
     const result = activation.accountExists
       ? await signIn(activation.email, password)
-      : await signUp(activation.email, password, fullName.trim());
+      : await signUp(activation.email, password, fullName.trim(), undefined, token);
     setSubmitting(false);
     if (result.error) {
       setActivationError(activation.accountExists
@@ -137,7 +137,7 @@ export function AcceptInvitation() {
                     Mot de passe
                     <input
                       required
-                      minLength={activation.accountExists ? 1 : 8}
+                      minLength={activation.accountExists ? 1 : 12}
                       type="password"
                       autoComplete={activation.accountExists ? 'current-password' : 'new-password'}
                       value={password}
@@ -150,7 +150,7 @@ export function AcceptInvitation() {
                       Confirmer le mot de passe
                       <input
                         required
-                        minLength={8}
+                        minLength={12}
                         type="password"
                         autoComplete="new-password"
                         value={confirmation}

@@ -47,6 +47,26 @@ describe('BetterAuthBrowserAuthenticationGateway', () => {
     expect(result.error?.message).toMatch(/invitation/);
   });
 
+  it('cree puis connecte un compte portant un jeton d invitation', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({ token: null, user }))
+      .mockResolvedValueOnce(Response.json({ token: null, user }))
+      .mockResolvedValueOnce(Response.json({ user, session: { id: 'session-1' } }));
+    const gateway = new BetterAuthBrowserAuthenticationGateway(fetchMock);
+
+    await expect(gateway.signUp('new@example.test', 'mot-de-passe-solide', {
+      fullName: 'New', invitationToken: 'invitation-token',
+    })).resolves.toMatchObject({ error: null, session: { user: { id: 'user-1' } } });
+    expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/v1/auth/sign-up/email', expect.objectContaining({
+      body: JSON.stringify({
+        email: 'new@example.test',
+        password: 'mot-de-passe-solide',
+        name: 'New',
+        invitationToken: 'invitation-token',
+      }),
+    }));
+  });
+
   it('retourne une erreur serveur stable sans perdre le message utile', async () => {
     const gateway = new BetterAuthBrowserAuthenticationGateway(vi.fn().mockResolvedValue(
       Response.json({ message: 'Invalid email or password' }, { status: 401 }),

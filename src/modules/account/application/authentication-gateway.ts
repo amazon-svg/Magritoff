@@ -18,7 +18,7 @@ export interface AuthenticationGateway {
   clearLocalSession(): Promise<void>;
   subscribe(listener: (state: AuthenticationState) => void): () => void;
   signIn(email: string, password: string): Promise<AuthenticationResult>;
-  signUp(email: string, password: string, metadata: { fullName: string; company?: string }): Promise<AuthenticationResult>;
+  signUp(email: string, password: string, metadata: { fullName: string; company?: string; invitationToken?: string }): Promise<AuthenticationResult>;
   refreshSession(): Promise<AuthenticationResult>;
   signOut(): Promise<void>;
   resetPassword(email: string, redirectTo: string): Promise<{ error: Error | null }>;
