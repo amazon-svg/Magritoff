@@ -133,9 +133,11 @@ export class SupabaseDocumentTemplatesRepository implements DocumentTemplatesRep
 
   async update(
     tenantId: TenantId,
+    actor: UserId,
     templateId: string,
     command: UpdateDocumentPdfTemplateCommand,
   ): Promise<DocumentPdfTemplateDetailDto> {
+    void actor;
     const { data, error } = await this.client.rpc('api_update_document_pdf_template', {
       p_tenant_id: tenantId,
       p_template_id: templateId,
@@ -150,7 +152,8 @@ export class SupabaseDocumentTemplatesRepository implements DocumentTemplatesRep
     return this.toDetailDto(tenantId, data);
   }
 
-  async remove(tenantId: TenantId, templateId: string): Promise<void> {
+  async remove(tenantId: TenantId, actor: UserId, templateId: string): Promise<void> {
+    void actor;
     // L EXISTENCE est verifiee AVANT l appel RPC (la ligne n existe plus une
     // fois la suppression reussie) — mais le CHEMIN de stockage n est JAMAIS
     // lu depuis la ligne (`row.storage_path`) : il est RECALCULE depuis
@@ -173,7 +176,12 @@ export class SupabaseDocumentTemplatesRepository implements DocumentTemplatesRep
     }
   }
 
-  async issueUploadUrl(tenantId: TenantId, templateId: string): Promise<DocumentPdfTemplateUploadTicketDto> {
+  async issueUploadUrl(
+    tenantId: TenantId,
+    actor: UserId,
+    templateId: string,
+  ): Promise<DocumentPdfTemplateUploadTicketDto> {
+    void actor;
     const row = await this.selectRow(tenantId, templateId);
     if (!row) throw new DocumentPdfTemplateNotFoundError();
     return this.issueTicket(tenantId, templateId);
@@ -181,9 +189,11 @@ export class SupabaseDocumentTemplatesRepository implements DocumentTemplatesRep
 
   async confirmUpload(
     tenantId: TenantId,
+    actor: UserId,
     templateId: string,
     command: ConfirmDocumentPdfTemplateUploadCommand,
   ): Promise<DocumentPdfTemplateDetailDto> {
+    void actor;
     const row = await this.selectRow(tenantId, templateId);
     if (!row) throw new DocumentPdfTemplateNotFoundError();
 
@@ -254,9 +264,11 @@ export class SupabaseDocumentTemplatesRepository implements DocumentTemplatesRep
    */
   async replaceFields(
     tenantId: TenantId,
+    actor: UserId,
     templateId: string,
     command: ReplaceDocumentPdfTemplateFieldsCommand,
   ): Promise<DocumentPdfTemplateFieldMapDto> {
+    void actor;
     const { error } = await this.client.rpc('api_replace_document_pdf_template_fields', {
       p_tenant_id: tenantId,
       p_template_id: templateId,

@@ -12,8 +12,8 @@ Decision formelle : `docs/architecture/decisions/0001-sortie-de-supabase.md`.
 | J0 | ADR et garde-fou contre les nouvelles dependances Supabase livres |
 | J1 | Compose, healthchecks, migrations et buckets livres ; seed et CI restent a faire |
 | J2 | runtime Node, health/readiness et facade de transition livres |
-| J3 | contexte transactionnel, roles, Conversations, session, réglages tenant, réglages commerciaux, étapes de production, clients, projets, étiquettes, catalogue PIM et règles tarifaires PostgreSQL livres ; idempotence API et outbox durables livrées |
-| J4 | adaptateurs S3 des exports et fichiers de lignes projet livres ; autres buckets non bascules |
+| J3 | contexte transactionnel, roles, Conversations, session, réglages tenant, réglages commerciaux, étapes de production, clients, projets, étiquettes, catalogue PIM, règles tarifaires, devis et gabarits PDF PostgreSQL livres ; idempotence API et outbox durables livrées |
+| J4 | adaptateurs S3 des exports, fichiers de lignes projet et gabarits PDF livres ; autres buckets non bascules |
 | J5 | OIDC, annuaire d'identites et socle Better Auth PostgreSQL livres ; invitations, recovery et bascule UI restent a faire |
 | J6 et suivants | non demarres |
 
@@ -321,6 +321,16 @@ routes Devis ne sont pas encore activées dans le serveur Node : leur service
 dépend toujours du lot Documents de devis, à extraire avant cette bascule. Les
 données existantes devront être copiées et contrôlées avant l'activation de ces
 routes en environnement partagé.
+
+Les gabarits PDF de devis et de commandes sont maintenant servis par la façade
+Node avec PostgreSQL et le bucket S3 `document-pdf-templates`. Le dépôt reste
+direct vers S3 par URL signée, puis l'API relit et inspecte le PDF avant de le
+publier. La géométrie et la carte de champs sont isolées par tenant ; un
+remplacement conserve le statut par défaut et refuse un changement de
+géométrie tant que la carte n'est pas explicitement réinitialisée. La table
+append-only des documents de devis est également posée, mais son adaptateur et
+le bucket `quote-documents` restent le prochain lot avant l'activation des
+routes Devis.
 
 Le seed local est idempotent. Il cree par defaut
 `developer@magrit.local`, le tenant `magrit-development` et une identite OIDC

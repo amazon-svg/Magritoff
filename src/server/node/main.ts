@@ -5,6 +5,7 @@ import { createCatalogRoutes } from '../api/catalog-routes.ts';
 import { createGescomApiHandler } from '../api/gescom-middleware.ts';
 import { createConversationsRoutes } from '../api/conversations-routes.ts';
 import { createCustomersRoutes } from '../api/customers-routes.ts';
+import { createDocumentTemplatesRoutes } from '../api/document-templates-routes.ts';
 import { createProjectTagsRoutes } from '../api/project-tags-routes.ts';
 import { createPriceRulesRoutes } from '../api/price-rules-routes.ts';
 import { createProjectsRoutes } from '../api/projects-routes.ts';
@@ -23,6 +24,7 @@ import { PostgresCommercialLineFilesRepository } from '../../adapters/postgres/c
 import { PostgresCatalogRepository } from '../../adapters/postgres/catalog-repository.ts';
 import { PostgresConversationsRepository } from '../../adapters/postgres/conversations-repository.ts';
 import { PostgresCustomersRepository } from '../../adapters/postgres/customers-repository.ts';
+import { PostgresDocumentTemplatesRepository } from '../../adapters/postgres/document-templates-repository.ts';
 import { PostgresIdempotencyStore } from '../../adapters/postgres/idempotency-store.ts';
 import { PostgresOidcIdentityDirectory } from '../../adapters/postgres/oidc-identity-directory.ts';
 import { PostgresOutboxRepository } from '../../adapters/postgres/outbox-repository.ts';
@@ -43,6 +45,7 @@ import { CommercialLineFilesService } from '../../modules/commercial-line-files/
 import { CatalogService } from '../../modules/catalog/application/catalog-service.ts';
 import { CatalogRejectedError } from '../../modules/catalog/application/catalog-repository.ts';
 import { CustomersService } from '../../modules/customers/application/customers-service.ts';
+import { DocumentTemplatesService } from '../../modules/document-templates/application/document-templates-service.ts';
 import { OutboxPublisher } from '../../modules/_shared/application/index.ts';
 import { ProjectTagsService } from '../../modules/project-tags/application/project-tags-service.ts';
 import { PriceRulesService } from '../../modules/pricing/application/price-rules-service.ts';
@@ -187,6 +190,14 @@ const commercialLineFilesRoutes = gescomPrincipalVerifier === null
         new S3CommercialLineFileStorage(s3Client!),
       ),
     ));
+const documentTemplatesRoutes = gescomPrincipalVerifier === null
+  ? []
+  : createDocumentTemplatesRoutes(new DocumentTemplatesService({
+      repository: new PostgresDocumentTemplatesRepository(
+        new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+        s3Client!,
+      ),
+    }));
 const gescomHandler = gescomPrincipalVerifier === null
   ? null
   : createGescomApiHandler({
@@ -198,6 +209,7 @@ const gescomHandler = gescomPrincipalVerifier === null
         ...priceRulesRoutes,
         ...projectsRoutes,
         ...commercialLineFilesRoutes,
+        ...documentTemplatesRoutes,
       ],
       principalVerifier: gescomPrincipalVerifier,
       idempotencyStore: new PostgresIdempotencyStore(
@@ -271,6 +283,7 @@ server.listen(port, host, () => {
       ...(gescomHandler === null ? [] : ['price-rules']),
       ...(gescomHandler === null ? [] : ['projects']),
       ...(gescomHandler === null ? [] : ['commercial-line-files:project-item']),
+      ...(gescomHandler === null ? [] : ['document-pdf-templates']),
     ],
   }));
 });
@@ -344,6 +357,7 @@ function isLocalGescomPath(pathname: string): boolean {
     || /^\/api\/v1\/product-ranges\/[^/]+\/default-margins\/?$/.test(pathname)
     || /^\/api\/v1\/projects(?:\/[^/]+(?:\/(?:items(?:\/[^/]+)?|hopstudio-items|tags))?)?\/?$/.test(pathname)
     || /^\/api\/v1\/commercial-line-files\/project_item\/[^/]+(?:\/[^/]+)?\/?$/.test(pathname)
+    || /^\/api\/v1\/document-pdf-templates(?:\/[^/]+(?:\/(?:upload-urls|uploads|fields))?)?\/?$/.test(pathname)
     || /^\/api\/v1\/customers(?:\/[^/]+(?:\/contacts(?:\/[^/]+)?|\/siret-verifications)?)?\/?$/.test(pathname);
 }
 
