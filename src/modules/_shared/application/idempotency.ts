@@ -37,9 +37,8 @@ export type IdempotencyRequest = Readonly<{
 }>;
 
 /**
- * Port de stockage des cles. L implementation durable (table
- * `api_idempotency_keys`) vit dans src/adapters/supabase/ ; le socle n en
- * connait que le contrat.
+ * Port de stockage des cles. Les implementations durables vivent dans les
+ * adaptateurs d infrastructure ; le socle n en connait que le contrat.
  */
 export interface IdempotencyStore {
   /** Reserve la cle ou renvoie l issue deja enregistree. */
@@ -204,8 +203,7 @@ export function idempotencyInProgress(key: string) {
 }
 
 /**
- * Implementation en memoire, destinee aux tests et au developpement local.
- * La persistance de production passe par l adaptateur Supabase.
+ * Implementation en memoire, destinee aux tests unitaires.
  */
 export class InMemoryIdempotencyStore implements IdempotencyStore {
   private readonly entries = new Map<

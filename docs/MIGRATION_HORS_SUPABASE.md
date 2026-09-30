@@ -7,12 +7,12 @@
 
 Decision formelle : `docs/architecture/decisions/0001-sortie-de-supabase.md`.
 
-| Jalon | Etat au 29 septembre 2026 |
+| Jalon | Etat au 30 septembre 2026 |
 |---|---|
 | J0 | ADR et garde-fou contre les nouvelles dependances Supabase livres |
 | J1 | Compose, healthchecks, migrations et buckets livres ; seed et CI restent a faire |
 | J2 | runtime Node, health/readiness et facade de transition livres |
-| J3 | contexte transactionnel, roles, Conversations, session et réglages tenant PostgreSQL livres |
+| J3 | contexte transactionnel, roles, Conversations, session, réglages tenant et réglages commerciaux PostgreSQL livres ; idempotence API durable livrée |
 | J4 | adaptateur S3 des exports et buckets locaux livres ; bascule non activee |
 | J5 | OIDC, annuaire d'identites et socle Better Auth PostgreSQL livres ; invitations, recovery et bascule UI restent a faire |
 | J6 et suivants | non demarres |
@@ -176,6 +176,9 @@ HTTP sont portes par le reverse proxy ou le CDN et les caches purement
 techniques peuvent rester locaux au processus. Ce composant ne sera ajoute que
 si des mesures en production montrent un besoin de coordination entre
 plusieurs instances ou une pression de latence que PostgreSQL ne couvre pas.
+Les clés `Idempotency-Key` de la façade métier sont elles aussi persistées dans
+PostgreSQL : elles survivent aux redémarrages du processus et un bail abandonné
+peut être repris, sans serveur de cache distribué.
 
 ## 6. Environnement de developpement cible
 
@@ -283,6 +286,9 @@ tenant racine, son SIREN et ses gammes d'onboarding sont désormais atomiques
 dans PostgreSQL. La résolution des
 anciens slugs et `PATCH /tenants/{tenantId}` sont également locales ; les slugs
 restent réservés aux super-administrateurs et historisés 90 jours.
+`GET/PATCH /commercial-settings` passe également par la façade Node et
+PostgreSQL, avec ETag, capacités applicatives et RLS. C'est le premier module de
+la façade Gestion commerciale entièrement sorti du runtime Supabase.
 
 Le seed local est idempotent. Il cree par defaut
 `developer@magrit.local`, le tenant `magrit-development` et une identite OIDC

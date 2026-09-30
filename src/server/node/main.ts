@@ -13,6 +13,7 @@ import {
 import { OidcJwtVerifier } from '../../adapters/oidc/jwt-verifier.ts';
 import { PostgresCommercialSettingsRepository } from '../../adapters/postgres/commercial-settings-repository.ts';
 import { PostgresConversationsRepository } from '../../adapters/postgres/conversations-repository.ts';
+import { PostgresIdempotencyStore } from '../../adapters/postgres/idempotency-store.ts';
 import { PostgresOidcIdentityDirectory } from '../../adapters/postgres/oidc-identity-directory.ts';
 import { createPostgresPool } from '../../adapters/postgres/pool.ts';
 import { PostgresReadinessProbe } from '../../adapters/postgres/readiness-probe.ts';
@@ -20,7 +21,6 @@ import { PostgresSessionBootstrapRepository } from '../../adapters/postgres/sess
 import { PostgresTransactionRunner } from '../../adapters/postgres/transaction-runner.ts';
 import { ConversationsService } from '../../modules/conversations/application/conversations-service.ts';
 import { CommercialSettingsService } from '../../modules/commercial-settings/application/commercial-settings-service.ts';
-import { InMemoryIdempotencyStore } from '../../modules/_shared/application/index.ts';
 import { SessionSubTenantMutationService } from '../../modules/session/application/session-service.ts';
 import { createLocalAuthentication, readLocalAuthenticationConfiguration } from '../auth/local-authentication.ts';
 import { CredentialActorResolver, LocalSessionActorResolver } from '../auth/local-session-actor-resolver.ts';
@@ -93,7 +93,9 @@ const commercialSettingsHandler = gescomPrincipalVerifier === null
   : createGescomApiHandler({
       routes: commercialSettingsRoutes,
       principalVerifier: gescomPrincipalVerifier,
-      idempotencyStore: new InMemoryIdempotencyStore(),
+      idempotencyStore: new PostgresIdempotencyStore(
+        new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+      ),
       onUnexpectedError(error, requestId) {
         console.error(JSON.stringify({ level: 'error', event: 'gescom.unexpected_error', requestId, error: errorMessage(error) }));
       },
