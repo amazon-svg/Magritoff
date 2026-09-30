@@ -14,6 +14,7 @@ import { createProjectsRoutes } from '../api/projects-routes.ts';
 import { createProductionStepsRoutes } from '../api/production-steps-routes.ts';
 import { createQuoteDocumentsRoutes } from '../api/quote-documents-routes.ts';
 import { createReadinessRoute } from '../api/readiness-route.ts';
+import { createRolesRoutes } from '../api/roles-routes.ts';
 import {
   createSessionBootstrapRoute,
   createSessionPreferencesRoutes,
@@ -37,6 +38,7 @@ import { PostgresPriceRulesRepository } from '../../adapters/postgres/price-rule
 import { PostgresProjectTagsRepository } from '../../adapters/postgres/project-tags-repository.ts';
 import { PostgresProjectsRepository } from '../../adapters/postgres/projects-repository.ts';
 import { PostgresQuoteDocumentsRepository } from '../../adapters/postgres/quote-documents-repository.ts';
+import { PostgresRolesRepository } from '../../adapters/postgres/roles-repository.ts';
 import { createPostgresPool } from '../../adapters/postgres/pool.ts';
 import { PostgresProductionStepsRepository } from '../../adapters/postgres/production-steps-repository.ts';
 import { PostgresReadinessProbe } from '../../adapters/postgres/readiness-probe.ts';
@@ -56,6 +58,7 @@ import { DocumentTemplatesService } from '../../modules/document-templates/appli
 import { MembersService } from '../../modules/members/application/members-service.ts';
 import { CustomersRepositoryDocumentDataGateway } from '../../modules/quote-documents/application/customer-document-data-gateway.ts';
 import { QuoteDocumentsService } from '../../modules/quote-documents/application/quote-documents-service.ts';
+import { RolesService } from '../../modules/roles/application/roles-service.ts';
 import { OutboxPublisher } from '../../modules/_shared/application/index.ts';
 import { ProjectTagsService } from '../../modules/project-tags/application/project-tags-service.ts';
 import { PriceRulesService } from '../../modules/pricing/application/price-rules-service.ts';
@@ -119,6 +122,13 @@ const membersRoutes = actorResolver === undefined
   ? []
   : createMembersRoutes(new MembersService(
       new PostgresMembersRepository(
+        new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+      ),
+    ));
+const rolesRoutes = actorResolver === undefined
+  ? []
+  : createRolesRoutes(new RolesService(
+      new PostgresRolesRepository(
         new PostgresTransactionRunner(postgresPool, 'magrit_api'),
       ),
     ));
@@ -280,6 +290,7 @@ const apiHandler = createApiV1Application({
     ...conversationsRoutes,
     ...sessionRoutes,
     ...membersRoutes,
+    ...rolesRoutes,
     ...catalogRoutes,
   ],
   ...(actorResolver === undefined ? {} : { actorResolver }),
@@ -311,6 +322,7 @@ const handler = createTransitionalApiHandler({
     || (sessionEnabled && request.method === 'POST' && url.pathname === '/api/v1/tenants')
     || (sessionEnabled && isSubTenantMutationRequest(request.method, url.pathname))
     || (actorResolver !== undefined && isMembersPath(url.pathname))
+    || (actorResolver !== undefined && isRolesPath(url.pathname))
     || (actorResolver !== undefined && isLocalCatalogRequest(request.method, url.pathname))
     || (gescomHandler !== null && isLocalGescomPath(url.pathname))
   ),
@@ -333,6 +345,7 @@ server.listen(port, host, () => {
       ...(localAuthentication === null ? [] : ['local-authentication']),
       ...(sessionEnabled ? ['session-bootstrap'] : []),
       ...(actorResolver === undefined ? [] : ['members']),
+      ...(actorResolver === undefined ? [] : ['roles']),
       ...(actorResolver === undefined ? [] : ['catalog']),
       ...(gescomHandler === null ? [] : ['commercial-settings']),
       ...(gescomHandler === null ? [] : ['production-steps']),
@@ -442,4 +455,8 @@ function isSubTenantMutationRequest(method: string, pathname: string): boolean {
 
 function isMembersPath(pathname: string): boolean {
   return /^\/api\/v1\/tenants\/[^/]+\/members(?:\/[^/]+(?:\/(?:role|access))?)?\/?$/.test(pathname);
+}
+
+function isRolesPath(pathname: string): boolean {
+  return /^\/api\/v1\/tenants\/[^/]+\/(?:capabilities\/[^/]+|access-profile|roles-overview|roles-catalog|roles(?:\/[^/]+)?|roles-order|members\/[^/]+\/roles-detail|members\/[^/]+\/roles\/[^/]+)\/?$/.test(pathname);
 }

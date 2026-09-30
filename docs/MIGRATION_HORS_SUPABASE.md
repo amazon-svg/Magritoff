@@ -12,7 +12,7 @@ Decision formelle : `docs/architecture/decisions/0001-sortie-de-supabase.md`.
 | J0 | ADR et garde-fou contre les nouvelles dependances Supabase livres |
 | J1 | Compose, healthchecks, migrations et buckets livres ; seed et CI restent a faire |
 | J2 | runtime Node, health/readiness et facade de transition livres |
-| J3 | contexte transactionnel, roles, Conversations, session, réglages tenant, membres, réglages commerciaux, étapes de production, clients, projets, étiquettes, catalogue PIM, règles tarifaires, devis et gabarits PDF PostgreSQL livres ; idempotence API et outbox durables livrées |
+| J3 | contexte transactionnel, roles, Conversations, session, réglages tenant, membres et rôles, réglages commerciaux, étapes de production, clients, projets, étiquettes, catalogue PIM, règles tarifaires, devis et gabarits PDF PostgreSQL livres ; idempotence API et outbox durables livrées |
 | J4 | adaptateurs S3 des exports, fichiers de lignes projet, gabarits PDF et documents de devis livres ; autres buckets non bascules |
 | J5 | OIDC, annuaire d'identites et socle Better Auth PostgreSQL livres ; invitations, recovery et bascule UI restent a faire |
 | J6 et suivants | non demarres |
@@ -339,7 +339,10 @@ s'appuient sur `app_users`, les rôles historiques `owner` et `admin` sont
 présentés comme administrateurs par le contrat public, et chaque changement de
 rôle, d'accès ou suppression est atomique avec son journal. Une garde sous
 verrou empêche de rétrograder ou retirer le dernier administrateur. Les rôles
-personnalisés et les invitations restent à extraire dans les lots suivants.
+personnalisés sont désormais eux aussi locaux : définitions, portées boutique,
+affectations, capacités, ordre et archivage sont tenus par PostgreSQL. Les deux
+options produit sont initialisées automatiquement pour chaque tenant. Les
+invitations restent à extraire dans le lot suivant.
 
 Le seed local est idempotent. Il cree par defaut
 `developer@magrit.local`, le tenant `magrit-development` et une identite OIDC
