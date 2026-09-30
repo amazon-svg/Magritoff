@@ -4,6 +4,7 @@ import { createGescomApiHandler } from '../api/gescom-middleware.ts';
 import { createConversationsRoutes } from '../api/conversations-routes.ts';
 import { createCustomersRoutes } from '../api/customers-routes.ts';
 import { createProjectTagsRoutes } from '../api/project-tags-routes.ts';
+import { createProjectsRoutes } from '../api/projects-routes.ts';
 import { createProductionStepsRoutes } from '../api/production-steps-routes.ts';
 import { createReadinessRoute } from '../api/readiness-route.ts';
 import {
@@ -21,16 +22,20 @@ import { PostgresIdempotencyStore } from '../../adapters/postgres/idempotency-st
 import { PostgresOidcIdentityDirectory } from '../../adapters/postgres/oidc-identity-directory.ts';
 import { PostgresOutboxRepository } from '../../adapters/postgres/outbox-repository.ts';
 import { PostgresProjectTagsRepository } from '../../adapters/postgres/project-tags-repository.ts';
+import { PostgresProjectsRepository } from '../../adapters/postgres/projects-repository.ts';
 import { createPostgresPool } from '../../adapters/postgres/pool.ts';
 import { PostgresProductionStepsRepository } from '../../adapters/postgres/production-steps-repository.ts';
 import { PostgresReadinessProbe } from '../../adapters/postgres/readiness-probe.ts';
 import { PostgresSessionBootstrapRepository } from '../../adapters/postgres/session-bootstrap-repository.ts';
 import { PostgresTransactionRunner } from '../../adapters/postgres/transaction-runner.ts';
+import { createS3Client } from '../../adapters/s3/client.ts';
+import { S3ProjectCommercialFileStorage } from '../../adapters/s3/project-commercial-file-storage.ts';
 import { ConversationsService } from '../../modules/conversations/application/conversations-service.ts';
 import { CommercialSettingsService } from '../../modules/commercial-settings/application/commercial-settings-service.ts';
 import { CustomersService } from '../../modules/customers/application/customers-service.ts';
 import { OutboxPublisher } from '../../modules/_shared/application/index.ts';
 import { ProjectTagsService } from '../../modules/project-tags/application/project-tags-service.ts';
+import { ProjectsService } from '../../modules/projects/application/projects-service.ts';
 import { ProductionStepsService } from '../../modules/production-steps/application/production-steps-service.ts';
 import { SessionSubTenantMutationService } from '../../modules/session/application/session-service.ts';
 import { createLocalAuthentication, readLocalAuthenticationConfiguration } from '../auth/local-authentication.ts';
@@ -92,6 +97,19 @@ const gescomPrincipalVerifier = oidcJwtVerifier === null && localAuthentication 
       ...(oidcJwtVerifier === null ? {} : { oidc: oidcJwtVerifier }),
       ...(localAuthentication === null ? {} : { sessions: localAuthentication.api }),
     });
+const customersRepository = new PostgresCustomersRepository(
+  new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+);
+const projectTagsRepository = new PostgresProjectTagsRepository(
+  new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+);
+const outboxPublisher = new OutboxPublisher({
+  repository: new PostgresOutboxRepository(
+    new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+  ),
+  now: () => new Date(),
+  newEventId: () => crypto.randomUUID(),
+});
 const commercialSettingsRoutes = gescomPrincipalVerifier === null
   ? []
   : createCommercialSettingsRoutes(new CommercialSettingsService({
@@ -109,23 +127,24 @@ const productionStepsRoutes = gescomPrincipalVerifier === null
 const customersRoutes = gescomPrincipalVerifier === null
   ? []
   : createCustomersRoutes(new CustomersService({
-      repository: new PostgresCustomersRepository(
-        new PostgresTransactionRunner(postgresPool, 'magrit_api'),
-      ),
-      outbox: new OutboxPublisher({
-        repository: new PostgresOutboxRepository(
-          new PostgresTransactionRunner(postgresPool, 'magrit_api'),
-        ),
-        now: () => new Date(),
-        newEventId: () => crypto.randomUUID(),
-      }),
+      repository: customersRepository,
+      outbox: outboxPublisher,
     }));
 const projectTagsRoutes = gescomPrincipalVerifier === null
   ? []
   : createProjectTagsRoutes(new ProjectTagsService({
-      repository: new PostgresProjectTagsRepository(
+      repository: projectTagsRepository,
+    }));
+const projectsRoutes = gescomPrincipalVerifier === null
+  ? []
+  : createProjectsRoutes(new ProjectsService({
+      repository: new PostgresProjectsRepository(
         new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+        new S3ProjectCommercialFileStorage(createS3Client()),
       ),
+      customers: customersRepository,
+      projectTags: projectTagsRepository,
+      outbox: outboxPublisher,
     }));
 const gescomHandler = gescomPrincipalVerifier === null
   ? null
@@ -135,6 +154,7 @@ const gescomHandler = gescomPrincipalVerifier === null
         ...productionStepsRoutes,
         ...customersRoutes,
         ...projectTagsRoutes,
+        ...projectsRoutes,
       ],
       principalVerifier: gescomPrincipalVerifier,
       idempotencyStore: new PostgresIdempotencyStore(
@@ -202,6 +222,7 @@ server.listen(port, host, () => {
       ...(gescomHandler === null ? [] : ['production-steps']),
       ...(gescomHandler === null ? [] : ['customers']),
       ...(gescomHandler === null ? [] : ['project-tags']),
+      ...(gescomHandler === null ? [] : ['projects']),
     ],
   }));
 });
@@ -247,6 +268,7 @@ function isLocalGescomPath(pathname: string): boolean {
     || /^\/api\/v1\/production-steps(?:\/[^/]+)?\/?$/.test(pathname)
     || pathname === '/api/v1/production-step-positions'
     || /^\/api\/v1\/project-tags(?:\/[^/]+)?\/?$/.test(pathname)
+    || /^\/api\/v1\/projects(?:\/[^/]+(?:\/(?:items(?:\/[^/]+)?|hopstudio-items|tags))?)?\/?$/.test(pathname)
     || /^\/api\/v1\/customers(?:\/[^/]+(?:\/contacts(?:\/[^/]+)?|\/siret-verifications)?)?\/?$/.test(pathname);
 }
 

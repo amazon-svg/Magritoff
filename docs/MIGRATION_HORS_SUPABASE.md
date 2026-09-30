@@ -12,7 +12,7 @@ Decision formelle : `docs/architecture/decisions/0001-sortie-de-supabase.md`.
 | J0 | ADR et garde-fou contre les nouvelles dependances Supabase livres |
 | J1 | Compose, healthchecks, migrations et buckets livres ; seed et CI restent a faire |
 | J2 | runtime Node, health/readiness et facade de transition livres |
-| J3 | contexte transactionnel, roles, Conversations, session, réglages tenant, réglages commerciaux, étapes de production, clients et étiquettes de projet PostgreSQL livres ; idempotence API et outbox durables livrées |
+| J3 | contexte transactionnel, roles, Conversations, session, réglages tenant, réglages commerciaux, étapes de production, clients, projets et étiquettes PostgreSQL livres ; idempotence API et outbox durables livrées |
 | J4 | adaptateur S3 des exports et buckets locaux livres ; bascule non activee |
 | J5 | OIDC, annuaire d'identites et socle Better Auth PostgreSQL livres ; invitations, recovery et bascule UI restent a faire |
 | J6 et suivants | non demarres |
@@ -210,6 +210,7 @@ Le mapping logique vers le nom physique S3 est donc explicite et versionne dans
 
 | Bucket logique actuel | Bucket physique S3 | Acces / limite actuelle |
 |---|---|---|
+| `commercial_line_files` | `commercial-line-files` | prive, 15 Mio |
 | `commercial_order_files` | `commercial-order-files` | prive, 50 Mio |
 | `document_pdf_templates` | `document-pdf-templates` | prive, 10 Mio |
 | `order_documents` | `order-documents` | prive |

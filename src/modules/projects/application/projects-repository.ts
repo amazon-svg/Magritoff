@@ -53,6 +53,19 @@ export class ProjectNotFoundError extends Error {
   }
 }
 
+export type ProjectCommercialFileUpload = Readonly<{
+  tenantId: TenantId;
+  fileId: string;
+  bytes: Uint8Array;
+  contentType: string;
+}>;
+
+/** Port objet minimal utilise lors de l import des fichiers HopeStudio. */
+export interface ProjectCommercialFileStorage {
+  upload(file: ProjectCommercialFileUpload): Promise<Readonly<{ storagePath: string }>>;
+  remove(storagePath: string): Promise<void>;
+}
+
 /**
  * Port (interface) du referentiel Projets. L implementation Supabase vit dans
  * src/adapters/supabase/projects-repository.ts ; ce module n en connait que
