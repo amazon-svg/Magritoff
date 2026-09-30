@@ -159,6 +159,7 @@ export class InMemoryPriceRulesRepository implements PriceRulesRepository {
   async update(
     tenantId: TenantId,
     priceRuleId: string,
+    _actor: UserId,
     command: UpdatePriceRuleCommand,
   ): Promise<PriceRuleDto> {
     const current = await this.findById(tenantId, priceRuleId);
@@ -231,7 +232,7 @@ export class InMemoryPriceRulesRepository implements PriceRulesRepository {
     };
   }
 
-  async productRangeExists(productRangeId: string): Promise<boolean> {
+  async productRangeExists(_tenantId: TenantId, productRangeId: string): Promise<boolean> {
     return this.knownProductRanges.has(productRangeId);
   }
 

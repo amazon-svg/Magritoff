@@ -122,6 +122,7 @@ export class SupabasePriceRulesRepository implements PriceRulesRepository {
   async update(
     tenantId: TenantId,
     priceRuleId: string,
+    _actor: UserId,
     command: UpdatePriceRuleCommand,
   ): Promise<PriceRuleDto> {
     const patch: Record<string, unknown> = {};
@@ -185,7 +186,7 @@ export class SupabasePriceRulesRepository implements PriceRulesRepository {
   }
 
   /** `public.product_gammes` : catalogue PARTAGE, sans tenant (CA2). */
-  async productRangeExists(productRangeId: string): Promise<boolean> {
+  async productRangeExists(_tenantId: TenantId, productRangeId: string): Promise<boolean> {
     const { data, error } = await this.client
       .from('product_gammes')
       .select('id')

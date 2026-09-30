@@ -138,6 +138,7 @@ export interface PriceRulesRepository {
   update(
     tenantId: TenantId,
     priceRuleId: string,
+    actor: UserId,
     command: UpdatePriceRuleCommand,
   ): Promise<PriceRuleDto>;
 
@@ -153,9 +154,10 @@ export interface PriceRulesRepository {
 
   /**
    * `public.product_gammes` est un catalogue PARTAGE, sans tenant (CA2) :
-   * l existence d une gamme ne se verifie donc jamais par tenant.
+   * l identifiant tenant ne filtre pas la gamme ; il ne sert qu a porter le
+   * contexte RLS de la requete PostgreSQL directe.
    */
-  productRangeExists(productRangeId: string): Promise<boolean>;
+  productRangeExists(tenantId: TenantId, productRangeId: string): Promise<boolean>;
 
   /**
    * Marge publique standard du tenant sur une gamme (CA4). Rend toujours un

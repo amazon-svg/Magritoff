@@ -12,7 +12,7 @@ Decision formelle : `docs/architecture/decisions/0001-sortie-de-supabase.md`.
 | J0 | ADR et garde-fou contre les nouvelles dependances Supabase livres |
 | J1 | Compose, healthchecks, migrations et buckets livres ; seed et CI restent a faire |
 | J2 | runtime Node, health/readiness et facade de transition livres |
-| J3 | contexte transactionnel, roles, Conversations, session, réglages tenant, réglages commerciaux, étapes de production, clients, projets, étiquettes et persistance du catalogue PIM PostgreSQL livres ; idempotence API et outbox durables livrées |
+| J3 | contexte transactionnel, roles, Conversations, session, réglages tenant, réglages commerciaux, étapes de production, clients, projets, étiquettes, catalogue PIM et règles tarifaires PostgreSQL livres ; idempotence API et outbox durables livrées |
 | J4 | adaptateurs S3 des exports et fichiers de lignes projet livres ; autres buckets non bascules |
 | J5 | OIDC, annuaire d'identites et socle Better Auth PostgreSQL livres ; invitations, recovery et bascule UI restent a faire |
 | J6 et suivants | non demarres |
@@ -303,6 +303,14 @@ assistée de définitions restent volontairement relayées vers l'API historique
 ce sont des traitements asynchrones à extraire séparément, pas des opérations
 du repository catalogue. La copie des gammes et définitions existantes doit
 précéder l'activation de ces routes sur un environnement contenant des données.
+
+Les règles tarifaires et les marges par défaut des gammes sont également
+locales. PostgreSQL assure l'isolation tenant, les contraintes de portée et de
+période, ainsi que le journal append-only portant l'acteur explicite. La
+résolution ne dépend plus d'une RPC PostgREST : une requête SQL directe choisit
+la portée la plus spécifique, puis la règle la plus récente. Cette extraction
+permet au futur adaptateur Devis d'utiliser le moteur Pricing sans rappel vers
+Supabase.
 
 Le seed local est idempotent. Il cree par defaut
 `developer@magrit.local`, le tenant `magrit-development` et une identite OIDC
