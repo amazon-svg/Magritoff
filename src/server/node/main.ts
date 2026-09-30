@@ -1,5 +1,6 @@
 import { createApiV1Application } from '../api/composition.ts';
 import { createCommercialSettingsRoutes } from '../api/commercial-settings-routes.ts';
+import { createCommercialLineFilesRoutes } from '../api/commercial-line-files-routes.ts';
 import { createGescomApiHandler } from '../api/gescom-middleware.ts';
 import { createConversationsRoutes } from '../api/conversations-routes.ts';
 import { createCustomersRoutes } from '../api/customers-routes.ts';
@@ -16,6 +17,7 @@ import {
 } from '../api/session-routes.ts';
 import { OidcJwtVerifier } from '../../adapters/oidc/jwt-verifier.ts';
 import { PostgresCommercialSettingsRepository } from '../../adapters/postgres/commercial-settings-repository.ts';
+import { PostgresCommercialLineFilesRepository } from '../../adapters/postgres/commercial-line-files-repository.ts';
 import { PostgresConversationsRepository } from '../../adapters/postgres/conversations-repository.ts';
 import { PostgresCustomersRepository } from '../../adapters/postgres/customers-repository.ts';
 import { PostgresIdempotencyStore } from '../../adapters/postgres/idempotency-store.ts';
@@ -29,9 +31,11 @@ import { PostgresReadinessProbe } from '../../adapters/postgres/readiness-probe.
 import { PostgresSessionBootstrapRepository } from '../../adapters/postgres/session-bootstrap-repository.ts';
 import { PostgresTransactionRunner } from '../../adapters/postgres/transaction-runner.ts';
 import { createS3Client } from '../../adapters/s3/client.ts';
+import { S3CommercialLineFileStorage } from '../../adapters/s3/commercial-line-file-storage.ts';
 import { S3ProjectCommercialFileStorage } from '../../adapters/s3/project-commercial-file-storage.ts';
 import { ConversationsService } from '../../modules/conversations/application/conversations-service.ts';
 import { CommercialSettingsService } from '../../modules/commercial-settings/application/commercial-settings-service.ts';
+import { CommercialLineFilesService } from '../../modules/commercial-line-files/application/commercial-line-files-service.ts';
 import { CustomersService } from '../../modules/customers/application/customers-service.ts';
 import { OutboxPublisher } from '../../modules/_shared/application/index.ts';
 import { ProjectTagsService } from '../../modules/project-tags/application/project-tags-service.ts';
@@ -110,6 +114,7 @@ const outboxPublisher = new OutboxPublisher({
   now: () => new Date(),
   newEventId: () => crypto.randomUUID(),
 });
+const s3Client = gescomPrincipalVerifier === null ? null : createS3Client();
 const commercialSettingsRoutes = gescomPrincipalVerifier === null
   ? []
   : createCommercialSettingsRoutes(new CommercialSettingsService({
@@ -140,12 +145,20 @@ const projectsRoutes = gescomPrincipalVerifier === null
   : createProjectsRoutes(new ProjectsService({
       repository: new PostgresProjectsRepository(
         new PostgresTransactionRunner(postgresPool, 'magrit_api'),
-        new S3ProjectCommercialFileStorage(createS3Client()),
+        new S3ProjectCommercialFileStorage(s3Client!),
       ),
       customers: customersRepository,
       projectTags: projectTagsRepository,
       outbox: outboxPublisher,
     }));
+const commercialLineFilesRoutes = gescomPrincipalVerifier === null
+  ? []
+  : createCommercialLineFilesRoutes(new CommercialLineFilesService(
+      new PostgresCommercialLineFilesRepository(
+        new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+        new S3CommercialLineFileStorage(s3Client!),
+      ),
+    ));
 const gescomHandler = gescomPrincipalVerifier === null
   ? null
   : createGescomApiHandler({
@@ -155,6 +168,7 @@ const gescomHandler = gescomPrincipalVerifier === null
         ...customersRoutes,
         ...projectTagsRoutes,
         ...projectsRoutes,
+        ...commercialLineFilesRoutes,
       ],
       principalVerifier: gescomPrincipalVerifier,
       idempotencyStore: new PostgresIdempotencyStore(
@@ -223,6 +237,7 @@ server.listen(port, host, () => {
       ...(gescomHandler === null ? [] : ['customers']),
       ...(gescomHandler === null ? [] : ['project-tags']),
       ...(gescomHandler === null ? [] : ['projects']),
+      ...(gescomHandler === null ? [] : ['commercial-line-files:project-item']),
     ],
   }));
 });
@@ -269,6 +284,7 @@ function isLocalGescomPath(pathname: string): boolean {
     || pathname === '/api/v1/production-step-positions'
     || /^\/api\/v1\/project-tags(?:\/[^/]+)?\/?$/.test(pathname)
     || /^\/api\/v1\/projects(?:\/[^/]+(?:\/(?:items(?:\/[^/]+)?|hopstudio-items|tags))?)?\/?$/.test(pathname)
+    || /^\/api\/v1\/commercial-line-files\/project_item\/[^/]+(?:\/[^/]+)?\/?$/.test(pathname)
     || /^\/api\/v1\/customers(?:\/[^/]+(?:\/contacts(?:\/[^/]+)?|\/siret-verifications)?)?\/?$/.test(pathname);
 }
 
