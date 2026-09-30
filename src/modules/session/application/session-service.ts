@@ -13,6 +13,7 @@ import type {
   SessionBootstrapRepository,
   SessionPreferencesRepository,
   SessionRepository,
+  SessionSubTenantMutationRepository,
   SessionTenantCreationRepository,
   SessionTenantSettingsRepository,
 } from './session-repository.ts';
@@ -119,11 +120,24 @@ export class SessionTenantCreationService extends SessionTenantSettingsService {
   }
 }
 
-export class SessionService extends SessionTenantCreationService {
+export class SessionSubTenantMutationService extends SessionTenantCreationService {
+  constructor(protected readonly subTenantRepository: SessionSubTenantMutationRepository) {
+    super(subTenantRepository);
+  }
+
+  async createSubTenant(userId: UserId, parentTenantId: string, command: CreateSubTenant) {
+    return { tenantId: await this.subTenantRepository.createSubTenant(userId, parentTenantId, command) };
+  }
+
+  async removeSubTenant(userId: UserId, parentTenantId: string, subTenantId: string) {
+    await this.subTenantRepository.removeSubTenant(userId, parentTenantId, subTenantId);
+    return { removed: true as const };
+  }
+}
+
+export class SessionService extends SessionSubTenantMutationService {
   constructor(private readonly repository: SessionRepository) { super(repository); }
   subTenantsDashboard(userId: UserId, parentTenantId: string) { return this.repository.subTenantsDashboard(userId, parentTenantId); }
-  async createSubTenant(userId: UserId, parentTenantId: string, command: CreateSubTenant) { return { tenantId: await this.repository.createSubTenant(userId, parentTenantId, command) }; }
-  async removeSubTenant(userId: UserId, parentTenantId: string, subTenantId: string) { await this.repository.removeSubTenant(userId, parentTenantId, subTenantId); return { removed: true as const }; }
   async acceptInvitation(userId: UserId, token: string) { return { tenantId: await this.repository.acceptInvitation(userId, token) }; }
 }
 

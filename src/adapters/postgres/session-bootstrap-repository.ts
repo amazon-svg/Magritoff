@@ -1,13 +1,14 @@
 import type { UserId } from '../../kernel/ids/index.ts';
 import type {
   CreateRootTenant,
+  CreateSubTenant,
   SessionUserPreferences,
   UpdateTenantSettings,
 } from '../../modules/session/api/contracts.ts';
 import {
   SessionTenantMutationError,
   type DirectMembership,
-  type SessionTenantCreationRepository,
+  type SessionSubTenantMutationRepository,
 } from '../../modules/session/application/session-repository.ts';
 import type { PostgresTransactionRunner } from './transaction-runner.ts';
 
@@ -42,7 +43,7 @@ type PreferencesRow = Readonly<{
   last_tenant_id: string | null;
 }>;
 
-export class PostgresSessionBootstrapRepository implements SessionTenantCreationRepository {
+export class PostgresSessionBootstrapRepository implements SessionSubTenantMutationRepository {
   constructor(private readonly transactions: PostgresTransactionRunner) {}
 
   async autoAcceptPendingInvitations(): Promise<void> {
@@ -103,7 +104,7 @@ export class PostgresSessionBootstrapRepository implements SessionTenantCreation
     });
   }
 
-  updatePreferences(userId: UserId, patch: Parameters<SessionTenantCreationRepository['updatePreferences']>[1]) {
+  updatePreferences(userId: UserId, patch: Parameters<SessionSubTenantMutationRepository['updatePreferences']>[1]) {
     return this.transactions.run({ userId }, async (client) => {
       const result = await client.query<PreferencesRow>(`
         insert into public.user_preferences (
@@ -224,6 +225,51 @@ export class PostgresSessionBootstrapRepository implements SessionTenantCreation
       if (error instanceof SessionTenantMutationError) throw error;
       throw mapTenantMutationError(error);
     }
+  }
+
+  async createSubTenant(
+    userId: UserId,
+    parentTenantId: string,
+    command: CreateSubTenant,
+  ): Promise<string> {
+    try {
+      const tenantId = await this.transactions.run({ userId }, async (client) => {
+        const result = await client.query<{ tenant_id: string | null }>(`
+          select magrit.create_subtenant($1, $2, $3)::text as tenant_id
+        `, [parentTenantId, command.slug, command.name]);
+        return result.rows[0]?.tenant_id ?? null;
+      });
+      if (tenantId === null) {
+        throw new SessionTenantMutationError(
+          'permission_denied',
+          'Création du sous-espace interdite.',
+        );
+      }
+      return tenantId;
+    } catch (error) {
+      if (error instanceof SessionTenantMutationError) throw error;
+      throw mapTenantMutationError(error);
+    }
+  }
+
+  async removeSubTenant(
+    userId: UserId,
+    parentTenantId: string,
+    subTenantId: string,
+  ): Promise<void> {
+    const result = await this.transactions.run({ userId }, async (client) => {
+      const query = await client.query<{ result: string }>(`
+        select magrit.remove_subtenant($1, $2) as result
+      `, [parentTenantId, subTenantId]);
+      return query.rows[0]?.result ?? 'permission_denied';
+    });
+    if (result === 'removed') return;
+    throw new SessionTenantMutationError(
+      result === 'not_found' ? 'not_found' : 'permission_denied',
+      result === 'not_found'
+        ? 'Sous-espace introuvable ou déjà supprimé.'
+        : 'Suppression du sous-espace interdite.',
+    );
   }
 }
 

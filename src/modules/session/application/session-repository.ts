@@ -54,9 +54,12 @@ export interface SessionTenantCreationRepository extends SessionTenantSettingsRe
   createRootTenant(userId: UserId, command: CreateRootTenant): Promise<string>;
 }
 
-export interface SessionRepository extends SessionTenantCreationRepository {
-  subTenantsDashboard(userId: UserId, parentTenantId: string): Promise<SubTenantsDashboard>;
+export interface SessionSubTenantMutationRepository extends SessionTenantCreationRepository {
   createSubTenant(userId: UserId, parentTenantId: string, command: CreateSubTenant): Promise<string>;
   removeSubTenant(userId: UserId, parentTenantId: string, subTenantId: string): Promise<void>;
+}
+
+export interface SessionRepository extends SessionSubTenantMutationRepository {
+  subTenantsDashboard(userId: UserId, parentTenantId: string): Promise<SubTenantsDashboard>;
   acceptInvitation(userId: UserId, token: string): Promise<string>;
 }

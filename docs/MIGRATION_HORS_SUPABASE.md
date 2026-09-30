@@ -275,8 +275,10 @@ requêtes same-origin transportent uniquement le cookie `HttpOnly`.
 En developpement, `VITE_API_PROXY_TARGET=http://127.0.0.1:8787` dirige alors
 la SPA vers le serveur Node. `GET /session`, `PATCH /session/preferences` et
 `PUT /session/current-tenant` sont deja traites par PostgreSQL ; le fournisseur
-Supabase reste la valeur par defaut jusqu'a la migration des sous-espaces,
-invitations et autres domaines indispensables au workspace. La création d'un
+Supabase reste la valeur par defaut jusqu'a la migration du tableau de bord KPI
+des sous-espaces, des invitations et des autres domaines indispensables au
+workspace. La création et la suppression des sous-espaces sont locales, avec
+une profondeur limitée à deux niveaux. La création d'un
 tenant racine, son SIREN et ses gammes d'onboarding sont désormais atomiques
 dans PostgreSQL. La résolution des
 anciens slugs et `PATCH /tenants/{tenantId}` sont également locales ; les slugs

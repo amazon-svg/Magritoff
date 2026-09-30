@@ -21,6 +21,7 @@ import {
   type SessionBootstrapService,
   type SessionPreferencesService,
   type SessionService,
+  type SessionSubTenantMutationService,
   type SessionTenantCreationService,
   type SessionTenantSettingsService,
 } from '../../modules/session/application/session-service.ts';
@@ -33,6 +34,7 @@ export function createSessionRoutes(service: SessionService): readonly ApiRoute[
   return [
     ...createSessionTenantSettingsRoutes(service),
     createSessionTenantCreationRoute(service),
+    ...createSessionSubTenantMutationRoutes(service),
     defineJsonRoute({
       method: 'POST', path: `${API_V1_BASE_PATH}/session/invitations/accept`, authentication: 'required', inputSchema: acceptTenantInvitationSchema, outputSchema: acceptTenantInvitationResultSchema,
       async handle(context, { token }) {
@@ -63,34 +65,6 @@ export function createSessionRoutes(service: SessionService): readonly ApiRoute[
       async handle(context) {
         try {
           return { status: 200, body: await service.subTenantsDashboard(requireUserId(context), requireTenantId(context)) };
-        } catch (error) {
-          throwTenantMutation(error);
-        }
-      },
-    }),
-    defineJsonRoute({
-      method: 'POST',
-      path: `${API_V1_BASE_PATH}/tenants/{tenantId}/subtenants`,
-      authentication: 'required',
-      inputSchema: createSubTenantSchema,
-      outputSchema: createSubTenantResultSchema,
-      async handle(context, command) {
-        try {
-          return { status: 201, body: await service.createSubTenant(requireUserId(context), requireTenantId(context), command) };
-        } catch (error) {
-          throwTenantMutation(error);
-        }
-      },
-    }),
-    defineJsonRoute({
-      method: 'DELETE',
-      path: `${API_V1_BASE_PATH}/tenants/{tenantId}/subtenants/{subTenantId}`,
-      authentication: 'required',
-      inputSchema: null,
-      outputSchema: removeSubTenantResultSchema,
-      async handle(context) {
-        try {
-          return { status: 200, body: await service.removeSubTenant(requireUserId(context), requireTenantId(context), requireSubTenantId(context)) };
         } catch (error) {
           throwTenantMutation(error);
         }
@@ -220,6 +194,55 @@ export function createSessionTenantCreationRoute(
       }
     },
   });
+}
+
+export function createSessionSubTenantMutationRoutes(
+  service: Pick<SessionSubTenantMutationService, 'createSubTenant' | 'removeSubTenant'>,
+): readonly ApiRoute[] {
+  return [
+    defineJsonRoute({
+      method: 'POST',
+      path: `${API_V1_BASE_PATH}/tenants/{tenantId}/subtenants`,
+      authentication: 'required',
+      inputSchema: createSubTenantSchema,
+      outputSchema: createSubTenantResultSchema,
+      async handle(context, command) {
+        try {
+          return {
+            status: 201,
+            body: await service.createSubTenant(
+              requireUserId(context),
+              requireTenantId(context),
+              command,
+            ),
+          };
+        } catch (error) {
+          throwTenantMutation(error);
+        }
+      },
+    }),
+    defineJsonRoute({
+      method: 'DELETE',
+      path: `${API_V1_BASE_PATH}/tenants/{tenantId}/subtenants/{subTenantId}`,
+      authentication: 'required',
+      inputSchema: null,
+      outputSchema: removeSubTenantResultSchema,
+      async handle(context) {
+        try {
+          return {
+            status: 200,
+            body: await service.removeSubTenant(
+              requireUserId(context),
+              requireTenantId(context),
+              requireSubTenantId(context),
+            ),
+          };
+        } catch (error) {
+          throwTenantMutation(error);
+        }
+      },
+    }),
+  ];
 }
 
 function throwTenantMutation(error: unknown): never {

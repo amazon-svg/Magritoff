@@ -123,4 +123,35 @@ describe('PostgresSessionBootstrapRepository', () => {
       ['flyers', 'brochures'],
     ]);
   });
+
+  it('cree et supprime un sous-espace via les fonctions bornees', async () => {
+    const query = vi.fn()
+      .mockResolvedValueOnce({ rows: [{ tenant_id: 'subtenant-created' }] })
+      .mockResolvedValueOnce({ rows: [{ result: 'removed' }] });
+    const run = vi.fn(async (_context, operation) => operation({ query }));
+    const repository = new PostgresSessionBootstrapRepository({ run } as never);
+
+    await expect(repository.createSubTenant('user-1' as never, 'tenant-parent', {
+      slug: 'filiale-lyon',
+      name: 'Filiale Lyon',
+    })).resolves.toBe('subtenant-created');
+    await expect(repository.removeSubTenant(
+      'user-1' as never,
+      'tenant-parent',
+      'subtenant-created',
+    )).resolves.toBeUndefined();
+  });
+
+  it('distingue un sous-espace absent pendant la suppression', async () => {
+    const run = vi.fn(async (_context, operation) => operation({
+      query: vi.fn().mockResolvedValue({ rows: [{ result: 'not_found' }] }),
+    }));
+    const repository = new PostgresSessionBootstrapRepository({ run } as never);
+
+    await expect(repository.removeSubTenant(
+      'user-1' as never,
+      'tenant-parent',
+      'subtenant-absent',
+    )).rejects.toMatchObject<Partial<SessionTenantMutationError>>({ code: 'not_found' });
+  });
 });

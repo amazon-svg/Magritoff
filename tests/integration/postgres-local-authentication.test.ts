@@ -341,4 +341,49 @@ describeIntegration('Better Auth local — PostgreSQL reel', () => {
     `, [`invalid-plan-${suffix}`]))
       .rejects.toMatchObject({ code: '23514' });
   });
+
+  it('cree et supprime un sous-espace sans autoriser un troisieme niveau', async () => {
+    const repository = new PostgresSessionBootstrapRepository(
+      new PostgresTransactionRunner(pool, 'magrit_api'),
+    );
+    const suffix = randomUUID().slice(0, 8);
+    let subTenantId: string | null = null;
+
+    try {
+      subTenantId = await repository.createSubTenant(
+        seed.userId as never,
+        seed.tenantId,
+        { slug: `filiale-${suffix}`, name: 'Filiale PostgreSQL' },
+      );
+      const membership = await pool.query(`
+        select t.parent_tenant_id::text, t.plan, m.role
+          from public.tenants t
+          join public.tenant_members m
+            on m.tenant_id = t.id and m.user_id = $2
+         where t.id = $1
+      `, [subTenantId, seed.userId]);
+      expect(membership.rows[0]).toEqual({
+        parent_tenant_id: seed.tenantId,
+        plan: 'freemium',
+        role: 'admin',
+      });
+
+      await expect(repository.createSubTenant(
+        seed.userId as never,
+        subTenantId,
+        { slug: `niveau-trois-${suffix}`, name: 'Niveau trois interdit' },
+      )).rejects.toMatchObject<Partial<SessionTenantMutationError>>({
+        code: 'permission_denied',
+      });
+
+      await repository.removeSubTenant(seed.userId as never, seed.tenantId, subTenantId);
+      await expect(repository.removeSubTenant(seed.userId as never, seed.tenantId, subTenantId))
+        .rejects.toMatchObject<Partial<SessionTenantMutationError>>({ code: 'not_found' });
+      subTenantId = null;
+    } finally {
+      if (subTenantId !== null) {
+        await pool.query('delete from public.tenants where id = $1', [subTenantId]);
+      }
+    }
+  });
 });

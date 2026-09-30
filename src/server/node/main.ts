@@ -4,6 +4,7 @@ import { createReadinessRoute } from '../api/readiness-route.ts';
 import {
   createSessionBootstrapRoute,
   createSessionPreferencesRoutes,
+  createSessionSubTenantMutationRoutes,
   createSessionTenantCreationRoute,
   createSessionTenantSettingsRoutes,
 } from '../api/session-routes.ts';
@@ -15,7 +16,7 @@ import { PostgresReadinessProbe } from '../../adapters/postgres/readiness-probe.
 import { PostgresSessionBootstrapRepository } from '../../adapters/postgres/session-bootstrap-repository.ts';
 import { PostgresTransactionRunner } from '../../adapters/postgres/transaction-runner.ts';
 import { ConversationsService } from '../../modules/conversations/application/conversations-service.ts';
-import { SessionTenantCreationService } from '../../modules/session/application/session-service.ts';
+import { SessionSubTenantMutationService } from '../../modules/session/application/session-service.ts';
 import { createLocalAuthentication, readLocalAuthenticationConfiguration } from '../auth/local-authentication.ts';
 import { CredentialActorResolver, LocalSessionActorResolver } from '../auth/local-session-actor-resolver.ts';
 import { OidcActorResolver } from '../auth/oidc-actor-resolver.ts';
@@ -54,13 +55,14 @@ const sessionEnabled = actorResolver !== undefined;
 const sessionRepository = new PostgresSessionBootstrapRepository(
   new PostgresTransactionRunner(postgresPool, 'magrit_api'),
 );
-const sessionService = new SessionTenantCreationService(sessionRepository);
+const sessionService = new SessionSubTenantMutationService(sessionRepository);
 const sessionRoutes = sessionEnabled
   ? [
       createSessionBootstrapRoute(sessionService),
       ...createSessionPreferencesRoutes(sessionService),
       ...createSessionTenantSettingsRoutes(sessionService),
       createSessionTenantCreationRoute(sessionService),
+      ...createSessionSubTenantMutationRoutes(sessionService),
     ]
   : [];
 const apiHandler = createApiV1Application({
@@ -89,6 +91,7 @@ const handler = createTransitionalApiHandler({
     || (sessionEnabled && isSessionPreferencesRequest(request.method, url.pathname))
     || (sessionEnabled && isSessionTenantSettingsRequest(request.method, url.pathname))
     || (sessionEnabled && request.method === 'POST' && url.pathname === '/api/v1/tenants')
+    || (sessionEnabled && isSubTenantMutationRequest(request.method, url.pathname))
   ),
   ...(legacyApiUrl === undefined ? {} : { legacyApiUrl }),
 });
@@ -153,4 +156,10 @@ function isSessionPreferencesRequest(method: string, pathname: string): boolean 
 function isSessionTenantSettingsRequest(method: string, pathname: string): boolean {
   return (method === 'GET' && /^\/api\/v1\/tenant-slugs\/[^/]+\/?$/.test(pathname))
     || (method === 'PATCH' && /^\/api\/v1\/tenants\/[^/]+\/?$/.test(pathname));
+}
+
+function isSubTenantMutationRequest(method: string, pathname: string): boolean {
+  return (method === 'POST' && /^\/api\/v1\/tenants\/[^/]+\/subtenants\/?$/.test(pathname))
+    || (method === 'DELETE'
+      && /^\/api\/v1\/tenants\/[^/]+\/subtenants\/[^/]+\/?$/.test(pathname));
 }
