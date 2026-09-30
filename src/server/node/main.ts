@@ -7,6 +7,7 @@ import { createGescomApiHandler } from '../api/gescom-middleware.ts';
 import { createConversationsRoutes } from '../api/conversations-routes.ts';
 import { createCustomersRoutes } from '../api/customers-routes.ts';
 import { createDocumentTemplatesRoutes } from '../api/document-templates-routes.ts';
+import { createMembersRoutes } from '../api/members-routes.ts';
 import { createProjectTagsRoutes } from '../api/project-tags-routes.ts';
 import { createPriceRulesRoutes } from '../api/price-rules-routes.ts';
 import { createProjectsRoutes } from '../api/projects-routes.ts';
@@ -29,6 +30,7 @@ import { PostgresConversationsRepository } from '../../adapters/postgres/convers
 import { PostgresCustomersRepository } from '../../adapters/postgres/customers-repository.ts';
 import { PostgresDocumentTemplatesRepository } from '../../adapters/postgres/document-templates-repository.ts';
 import { PostgresIdempotencyStore } from '../../adapters/postgres/idempotency-store.ts';
+import { PostgresMembersRepository } from '../../adapters/postgres/members-repository.ts';
 import { PostgresOidcIdentityDirectory } from '../../adapters/postgres/oidc-identity-directory.ts';
 import { PostgresOutboxRepository } from '../../adapters/postgres/outbox-repository.ts';
 import { PostgresPriceRulesRepository } from '../../adapters/postgres/price-rules-repository.ts';
@@ -51,6 +53,7 @@ import { CatalogService } from '../../modules/catalog/application/catalog-servic
 import { CatalogRejectedError } from '../../modules/catalog/application/catalog-repository.ts';
 import { CustomersService } from '../../modules/customers/application/customers-service.ts';
 import { DocumentTemplatesService } from '../../modules/document-templates/application/document-templates-service.ts';
+import { MembersService } from '../../modules/members/application/members-service.ts';
 import { CustomersRepositoryDocumentDataGateway } from '../../modules/quote-documents/application/customer-document-data-gateway.ts';
 import { QuoteDocumentsService } from '../../modules/quote-documents/application/quote-documents-service.ts';
 import { OutboxPublisher } from '../../modules/_shared/application/index.ts';
@@ -112,6 +115,13 @@ const sessionRoutes = sessionEnabled
       ...createSessionSubTenantMutationRoutes(sessionService),
     ]
   : [];
+const membersRoutes = actorResolver === undefined
+  ? []
+  : createMembersRoutes(new MembersService(
+      new PostgresMembersRepository(
+        new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+      ),
+    ));
 const catalogRoutes = actorResolver === undefined
   ? []
   : createCatalogRoutes(new CatalogService(
@@ -269,6 +279,7 @@ const apiHandler = createApiV1Application({
     createReadinessRoute(new PostgresReadinessProbe(postgresPool)),
     ...conversationsRoutes,
     ...sessionRoutes,
+    ...membersRoutes,
     ...catalogRoutes,
   ],
   ...(actorResolver === undefined ? {} : { actorResolver }),
@@ -299,6 +310,7 @@ const handler = createTransitionalApiHandler({
     || (sessionEnabled && isSessionTenantSettingsRequest(request.method, url.pathname))
     || (sessionEnabled && request.method === 'POST' && url.pathname === '/api/v1/tenants')
     || (sessionEnabled && isSubTenantMutationRequest(request.method, url.pathname))
+    || (actorResolver !== undefined && isMembersPath(url.pathname))
     || (actorResolver !== undefined && isLocalCatalogRequest(request.method, url.pathname))
     || (gescomHandler !== null && isLocalGescomPath(url.pathname))
   ),
@@ -320,6 +332,7 @@ server.listen(port, host, () => {
       ...(conversationsEnabled ? ['conversations'] : []),
       ...(localAuthentication === null ? [] : ['local-authentication']),
       ...(sessionEnabled ? ['session-bootstrap'] : []),
+      ...(actorResolver === undefined ? [] : ['members']),
       ...(actorResolver === undefined ? [] : ['catalog']),
       ...(gescomHandler === null ? [] : ['commercial-settings']),
       ...(gescomHandler === null ? [] : ['production-steps']),
@@ -425,4 +438,8 @@ function isSubTenantMutationRequest(method: string, pathname: string): boolean {
   return (method === 'POST' && /^\/api\/v1\/tenants\/[^/]+\/subtenants\/?$/.test(pathname))
     || (method === 'DELETE'
       && /^\/api\/v1\/tenants\/[^/]+\/subtenants\/[^/]+\/?$/.test(pathname));
+}
+
+function isMembersPath(pathname: string): boolean {
+  return /^\/api\/v1\/tenants\/[^/]+\/members(?:\/[^/]+(?:\/(?:role|access))?)?\/?$/.test(pathname);
 }
