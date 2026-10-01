@@ -2,7 +2,7 @@
  * Test E2E flux invitation (Sprint 5 closure, 2026-06-01).
  *
  * Couvre le parcours complet cote DB :
- *   1. Insert tenant_invitations (simule l'edge invite-member, sans Resend)
+ *   1. Insert tenant_invitations (fixture SQL sans envoi SMTP/Resend)
  *      avec pending_role_ids[] = [validateur.id] et access_scope magrit_full
  *   2. EMAIL_MISMATCH : un user authentifie avec un autre email se voit
  *      refuser l'acceptation (fix faille 27/05, migration accept_invitation_email_guard)
@@ -11,7 +11,7 @@
  *      -> tenant_invitations.accepted_at non null
  *   4. Idempotence : un replay de accept echoue (deja acceptee)
  *
- * L'edge function invite-member est testee separement (insert + Resend + rollback).
+ * Les routes Node et le repository PostgreSQL sont couverts separement.
  * Ce test focus sur la chaine DB qui est consommee a l'acceptation.
  */
 

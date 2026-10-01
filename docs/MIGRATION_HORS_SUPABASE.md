@@ -284,6 +284,12 @@ session en cookie n'est pas active afin qu'une revocation prenne effet sans
 attendre l'expiration d'un cache. L'inscription publique est desactivee ; les
 comptes de production devront provenir du flux d'invitation Magrit.
 
+La creation, la relance, la revocation et l'activation des invitations passent
+par les routes Node et `PostgresInvitationsRepository`. Les capacites, roles et
+doublons sont controles sous le role RLS `magrit_api`, les jetons ne sont
+conserves que sous forme de hash et l'envoi utilise SMTP ou Resend cote serveur.
+L'ancienne Edge Function `invite-member` et ses tests Supabase ont ete retires.
+
 Le navigateur utilise exclusivement l'adaptateur Better Auth local. Le fallback
 Supabase Auth et `VITE_AUTH_PROVIDER` ont été retirés. L'adaptateur local
 n'expose aucun token au JavaScript ; les
