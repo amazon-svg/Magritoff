@@ -10,11 +10,13 @@ import {
   type PrincipalVerifier,
 } from '../../modules/_shared/application/index.ts';
 import { LOCAL_AUTH_ISSUER, type LocalSessionReader } from './local-session-actor-resolver.ts';
+import type { OrderUploadLinksRepository } from '../../modules/order-upload-links/application/order-upload-links-repository.ts';
 
 type LocalApiPrincipalVerifierOptions = Readonly<{
   identities: OidcIdentityDirectory;
   oidc?: Pick<OidcJwtVerifier, 'verify'>;
   sessions?: LocalSessionReader;
+  uploadLinks?: Pick<OrderUploadLinksRepository, 'resolvePrincipal'>;
 }>;
 
 /**
@@ -45,8 +47,16 @@ export class LocalApiPrincipalVerifier implements PrincipalVerifier {
       );
     }
 
-    // Les cles de service, sessions boutique et liens de depot seront branches
-    // module par module. Ils restent fermes par defaut dans le runtime local.
+    if (credential.kind === 'upload_link') {
+      if (this.options.uploadLinks === undefined) return null;
+      const resolved = await this.options.uploadLinks.resolvePrincipal(credential.token);
+      return resolved === null
+        ? null
+        : Object.freeze({ kind: 'upload_link' as const, ...resolved, token: credential.token });
+    }
+
+    // Les cles de service et sessions boutique restent fermees ici ; leurs
+    // compositions dediees les branchent module par module.
     return null;
   }
 

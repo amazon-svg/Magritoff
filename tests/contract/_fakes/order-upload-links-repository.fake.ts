@@ -208,6 +208,13 @@ export class InMemoryOrderUploadLinksRepository implements OrderUploadLinksRepos
     return { linkId: row.id, orderId: row.order_id, tenantId: order.tenantId };
   }
 
+  async resolvePrincipal(
+    token: string,
+  ): Promise<Readonly<{ linkId: string; orderId: string; tenantId: TenantId }> | null> {
+    const resolved = this.resolvePrincipalForTest(token);
+    return resolved === null ? null : { ...resolved, tenantId: resolved.tenantId as TenantId };
+  }
+
   async getContext(token: string): Promise<OrderUploadLinkContextDto | null> {
     const linkId = this.linksByToken.get(token);
     if (!linkId) return null;

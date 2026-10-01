@@ -167,7 +167,7 @@ export class SupabaseOrderUploadLinksRepository implements OrderUploadLinksRepos
    * VERROU a la confirmation.
    */
   async issueFileUploadUrl(token: string): Promise<OrderFileUploadTicketDto> {
-    const resolved = await this.resolveLinkForDeposit(token);
+    const resolved = await this.resolvePrincipal(token);
     if (!resolved) throw new OrderUploadLinkNotFoundError();
 
     const [fileCount, linkBudget] = await Promise.all([
@@ -247,7 +247,7 @@ export class SupabaseOrderUploadLinksRepository implements OrderUploadLinksRepos
     token: string,
     command: ConfirmOrderUploadLinkFileCommand,
   ): Promise<ConfirmOrderUploadLinkFileResult> {
-    const resolved = await this.resolveLinkForDeposit(token);
+    const resolved = await this.resolvePrincipal(token);
     if (!resolved) throw new OrderUploadLinkNotFoundError();
 
     const storagePath = storagePathFor(resolved.tenantId as TenantId, resolved.orderId, command.file_id);
@@ -322,16 +322,16 @@ export class SupabaseOrderUploadLinksRepository implements OrderUploadLinksRepos
    * chemin de stockage sans jamais faire confiance a un `orderId`/`tenantId`
    * de principal deja resolu transmis en clair.
    */
-  private async resolveLinkForDeposit(
+  async resolvePrincipal(
     token: string,
-  ): Promise<Readonly<{ linkId: string; orderId: string; tenantId: string }> | null> {
+  ): Promise<Readonly<{ linkId: string; orderId: string; tenantId: TenantId }> | null> {
     const { data, error } = await this.anonClient.rpc('api_resolve_order_upload_link_principal', {
       p_token: token,
     });
     if (error) return null;
     const row = Array.isArray(data) ? data[0] : data;
     if (!row) return null;
-    return { linkId: row.link_id, orderId: row.order_id, tenantId: row.tenant_id };
+    return { linkId: row.link_id, orderId: row.order_id, tenantId: row.tenant_id as TenantId };
   }
 
   private async orderExists(tenantId: TenantId, orderId: string): Promise<boolean> {

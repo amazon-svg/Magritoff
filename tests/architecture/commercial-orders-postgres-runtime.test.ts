@@ -16,13 +16,18 @@ describe('architecture — runtime des commandes commerciales portable', () => {
     expect(main).toContain(
       "import { PostgresOrderFilesRepository } from '../../adapters/postgres/order-files-repository.ts'",
     );
+    expect(main).toContain(
+      "import { PostgresOrderUploadLinksRepository } from '../../adapters/postgres/order-upload-links-repository.ts'",
+    );
     expect(main).toContain('const commercialOrdersRoutes =');
     expect(main).toContain('...commercialOrdersRoutes');
     expect(main).toContain('...orderFilesRoutes');
+    expect(main).toContain('...orderUploadLinksRoutes');
     expect(main).toContain("pathname.startsWith('/api/v1/commercial-orders/')");
     expect(main).not.toContain('SupabaseCommercialOrdersRepository');
     expect(main).not.toContain('SupabaseOrderDocumentsRepository');
     expect(main).not.toContain('SupabaseOrderFilesRepository');
+    expect(main).not.toContain('SupabaseOrderUploadLinksRepository');
   });
 
   it('ne dépend pas du SDK Supabase dans les adaptateurs locaux', () => {
@@ -30,6 +35,7 @@ describe('architecture — runtime des commandes commerciales portable', () => {
       'src/adapters/postgres/commercial-orders-repository.ts',
       'src/adapters/postgres/order-documents-repository.ts',
       'src/adapters/postgres/order-files-repository.ts',
+      'src/adapters/postgres/order-upload-links-repository.ts',
     ]) {
       const source = read(path);
       expect(source).not.toContain('@supabase/supabase-js');
