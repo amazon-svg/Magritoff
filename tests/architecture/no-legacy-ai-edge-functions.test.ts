@@ -6,9 +6,11 @@ const root = process.cwd();
 
 describe('retrait des proxies IA Supabase', () => {
   it.each([
+    'supabase/functions/magrit-api/index.ts',
     'supabase/functions/claude-proxy/index.ts',
     'supabase/functions/make-server-e3db71a4/index.ts',
     'supabase/functions/_shared/anthropicClient.ts',
+    'src/server/node/transitional-api-handler.ts',
   ])('ne réintroduit pas %s', (path) => {
     expect(existsSync(resolve(root, path))).toBe(false);
   });

@@ -244,7 +244,7 @@ pnpm infra:dev:logs     # logs des services locaux
 pnpm infra:dev:reset    # destruction explicite des seules donnees locales
 pnpm db:migrate         # applique les migrations PostgreSQL Magrit
 pnpm db:seed            # identite, tenant et appartenance de developpement
-pnpm dev                # API, worker et Vite, ou orchestrateur equivalent
+pnpm dev:local          # services locaux, API Node et Vite
 ```
 
 `infra:dev:reset` doit afficher une confirmation et ne doit jamais accepter un
@@ -677,9 +677,10 @@ d'un controle de cache et de politique CORS separe.
 
 ### 11.1 Extraction de l'API
 
-La facade `magrit-api` devient un point d'entree Node standard. Le handler
-actuel base sur `Request`/`Response` et les routes sous `src/server/api`
-doivent rester reutilisables. Le runtime Node fournit seulement :
+La facade API est désormais un point d'entree Node standard. L'ancienne Edge
+Function `magrit-api` et son proxy de transition ont été supprimés après le
+portage des dernières routes (sous-espaces, rapport comptes boutique, groupes
+clients et règles commerciales). Le runtime Node fournit :
 
 - serveur HTTP ;
 - configuration ;

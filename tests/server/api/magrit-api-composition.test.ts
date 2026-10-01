@@ -10,10 +10,8 @@
  * endpoints n etaient composes dans aucun serveur. Un test qui monte la vraie
  * composition attrape le jour ou quelqu un retire le module du registre.
  *
- * LIMITE : ceci verifie la COMPOSITION, pas le DEPLOIEMENT. L edge function
- * `supabase/functions/magrit-api/index.ts` n est ni typecheckee (absente des
- * tsconfig) ni executable ici (Deno + Docker absents). Voir
- * docs/api/CONVENTIONS.md §8.1.
+ * LIMITE : ceci verifie la composition des routes et non le déploiement du
+ * serveur Node ni ses dépendances PostgreSQL/S3.
  */
 import { z } from 'zod';
 import { describe, expect, it, vi } from 'vitest';
@@ -71,17 +69,9 @@ function buildApplication() {
         }),
       }),
       // qa-review E10.10b-1 round 1 (B3) — `commercialSettings` a ete oublie
-      // au cablage REEL de l edge function (supabase/functions/magrit-api/
-      // index.ts), un manque invisible en local puisque ce fichier est hors
-      // tsconfig et jamais execute ici (§8.2 M1). Cablee ICI pour que CETTE
-      // composition (bouchonnee) prouve que le service repond une fois
-      // branche. Ce test NE PROUVE PAS que index.ts est lui-meme cable —
-      // il recompose sa propre `gescomServices`, il resterait vert meme si
-      // le cablage reel etait a nouveau oublie (qa-review round 2, reserve
-      // R2). La garde contre cet oubli precis est
-      // tests/architecture/local-supabase-runtime.test.ts (« cable chaque
-      // service GescomServices dans l edge function reelle »), qui lit le
-      // fichier deploye.
+      // au cablage historique. Cablee ici pour que cette composition
+      // bouchonnee prouve que le service repond une fois branche ; le point
+      // d'entree Node possède ses propres tests d'architecture.
       commercialSettings: new CommercialSettingsService({
         repository: new InMemoryCommercialSettingsRepository(),
       }),

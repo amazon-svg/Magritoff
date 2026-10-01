@@ -11,7 +11,8 @@ describe('architecture — runtime Orders portable', () => {
     expect(main).toContain("import { PostgresOrdersNotificationGateway } from '../../adapters/postgres/orders-notification-gateway.ts'");
     expect(main).toContain('const ordersRoutes = createOrdersRoutes(');
     expect(main).toContain('...ordersRoutes');
-    expect(main).toContain('isOrdersPath(url.pathname)');
+    expect(main).toContain('createNodeHttpServer(localHandler');
+    expect(main).not.toContain('createTransitionalApiHandler');
     expect(main).not.toContain('SupabaseOrdersRepository');
   });
 

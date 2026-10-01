@@ -171,7 +171,6 @@ import { LocalApiPrincipalVerifier } from '../auth/local-api-principal-verifier.
 import { OidcActorResolver } from '../auth/oidc-actor-resolver.ts';
 import { createNodeHttpServer } from './http-server.ts';
 import { readOidcConfiguration } from './oidc-configuration.ts';
-import { createTransitionalApiHandler } from './transitional-api-handler.ts';
 import { readStorefrontSessionCookie, storefrontSessionCookiePolicy } from '../storefront/session-cookie.ts';
 import { handleHopeStudioWorkflow, isHopeStudioWorkflowRequest } from '../hopstudio/workflow-handler.ts';
 import type { RequestId } from '../../kernel/ids/index.ts';
@@ -769,46 +768,7 @@ const localHandler = localAuthentication === null
       }
       return apiHandler(request);
     };
-const legacyApiUrl = process.env['MAGRIT_LEGACY_API_URL'];
-const handler = createTransitionalApiHandler({
-  localHandler,
-  localPaths: new Set(['/api/v1/health', '/api/v1/readiness']),
-  isLocalRequest: (request, url) => (
-    (conversationsEnabled && isConversationsPath(url.pathname))
-    || isAssistantChatRequest(request)
-    || isHopeStudioPath(url.pathname)
-    || (actorResolver !== undefined && isDiagnosticsPath(url.pathname))
-    || isAssistantPath(url.pathname)
-    || (actorResolver !== undefined && isCommercialPath(url.pathname))
-    || isClariprintPath(url.pathname)
-    || (mockupHandler !== null && isMockupRequest(url.pathname))
-    || isShopSitemapRequest(url.pathname)
-    || (localAuthentication !== null && isLocalAuthenticationPath(url.pathname))
-    || (sessionEnabled && isSessionPreferencesRequest(request.method, url.pathname))
-    || (sessionEnabled && isSessionTenantSettingsRequest(request.method, url.pathname))
-    || (sessionEnabled && request.method === 'POST' && url.pathname === '/api/v1/tenants')
-    || (sessionEnabled && isSubTenantRequest(request.method, url.pathname))
-    || (sessionEnabled && isInvitationRequest(request.method, url.pathname))
-    || (actorResolver !== undefined && isLibrariesPath(url.pathname))
-    || (actorResolver !== undefined && isMembersPath(url.pathname))
-    || isOrdersPath(url.pathname)
-    || (actorResolver !== undefined && isRolesPath(url.pathname))
-    || (actorResolver !== undefined && isQuoteTemplatesPath(url.pathname))
-    || (actorResolver !== undefined && isShopAdministrationPath(url.pathname))
-    || isPublicShopPath(url.pathname)
-    || (actorResolver !== undefined && isShopCustomerAdministrationPath(url.pathname))
-    || (actorResolver !== undefined && isShopCustomerMigrationReportPath(url.pathname))
-    || isStorefrontSessionRequest(request.method, url.pathname)
-    || (actorResolver !== undefined && isShopCustomerDelegationRequest(request.method, url.pathname))
-    || (actorResolver !== undefined && isStorefrontActivationRequest(request.method, url.pathname))
-    || (actorResolver !== undefined && isShopCustomerInvitationRequest(request.method, url.pathname))
-    || isStorefrontPasswordRecoveryRequest(request.method, url.pathname)
-    || (actorResolver !== undefined && isLocalCatalogRequest(request.method, url.pathname))
-    || (gescomHandler !== null && isLocalGescomPath(url.pathname))
-  ),
-  ...(legacyApiUrl === undefined ? {} : { legacyApiUrl }),
-});
-const server = createNodeHttpServer(handler, {
+const server = createNodeHttpServer(localHandler, {
   onUnhandledError(error) {
     console.error(JSON.stringify({ level: 'error', event: 'api.transport_error', error: errorMessage(error) }));
   },
@@ -819,7 +779,7 @@ server.listen(port, host, () => {
     level: 'info',
     event: 'api.started',
     address: `http://${host}:${port}`,
-    mode: legacyApiUrl === undefined ? 'health-only' : 'transitional-proxy',
+    mode: 'node',
     modules: [
       ...(conversationsEnabled ? ['conversations'] : []),
       ...(diagnosticsRoutes.length === 0 ? [] : ['diagnostics']),
@@ -888,72 +848,12 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function isConversationsPath(pathname: string): boolean {
-  return /^\/api\/v1\/tenants\/[^/]+\/conversations(?:\/[^/]+)?\/?$/.test(pathname);
-}
-
-function isDiagnosticsPath(pathname: string): boolean {
-  return pathname === '/api/v1/diagnostics/ai'
-    || pathname === '/api/v1/diagnostics/clariprint';
-}
-
-function isAssistantPath(pathname: string): boolean {
-  return /^\/api\/v1\/(?:tenants\/[^/]+|public\/shops\/[^/]+)\/assistant\/category-editorial\/?$/.test(pathname);
-}
-
-function isHopeStudioPath(pathname: string): boolean {
-  return /^\/api\/v1\/tenants\/[^/]+\/integrations\/hopstudio(?:\/workflow)?\/?$/.test(pathname);
-}
-
-function isCommercialPath(pathname: string): boolean {
-  return /^\/api\/v1\/tenants\/[^/]+\/commercial(?:\/(?:groups|rules)(?:\/[^/]+(?:\/members(?:\/[^/]+)?)?)?)?\/?$/.test(pathname);
-}
-
-function isClariprintPath(pathname: string): boolean {
-  return pathname === '/api/v1/clariprint/quote';
-}
-
 function isLocalAuthenticationPath(pathname: string): boolean {
   return pathname === '/api/v1/auth' || pathname.startsWith('/api/v1/auth/');
 }
 
-function isLibrariesPath(pathname:string):boolean{
-  return /^\/api\/v1\/tenants\/[^/]+\/(?:libraries|library-products)(?:\/[^/]+)?\/?$/.test(pathname);
-}
-
-function isQuoteTemplatesPath(pathname:string):boolean{
-  return /^\/api\/v1\/tenants\/[^/]+\/quote-templates(?:\/[^/]+)?\/?$/.test(pathname);
-}
-
-function isShopCustomerDelegationRequest(method:string,pathname:string):boolean{
-  return method==='POST'&&/^\/api\/v1\/tenants\/[^/]+\/shops\/[^/]+\/customers\/self-delegation\/?$/.test(pathname);
-}
-
 function isCommercialSettingsPath(pathname: string): boolean {
   return pathname === '/api/v1/commercial-settings';
-}
-
-function isLocalCatalogRequest(method: string, pathname: string): boolean {
-  if (/^\/api\/v1\/tenants\/[^/]+\/catalog\/gamme-subscriptions\/?$/.test(pathname)) {
-    return method === 'GET' || method === 'PUT';
-  }
-  if (pathname === '/api/v1/catalog/pim' || pathname === '/api/v1/catalog/pim/') {
-    return method === 'GET';
-  }
-  if (/^\/api\/v1\/catalog\/pim\/gammes\/[^/]+\/?$/.test(pathname)) {
-    return method === 'PUT' || method === 'DELETE';
-  }
-  if (pathname === '/api/v1/catalog/pim/definitions' || pathname === '/api/v1/catalog/pim/definitions/') {
-    return method === 'PUT';
-  }
-  if (pathname === '/api/v1/catalog/pim/ingestion' || pathname === '/api/v1/catalog/pim/ingestion/') {
-    return method === 'GET' || method === 'POST';
-  }
-  if (pathname === '/api/v1/catalog/pim/generation' || pathname === '/api/v1/catalog/pim/generation/') {
-    return method === 'POST';
-  }
-  return method === 'DELETE'
-    && /^\/api\/v1\/catalog\/pim\/definitions\/[^/]+\/?$/.test(pathname);
 }
 
 function isLocalGescomPath(pathname: string): boolean {
@@ -975,83 +875,4 @@ function isLocalGescomPath(pathname: string): boolean {
     || pathname === '/api/v1/order-upload-links/current'
     || pathname.startsWith('/api/v1/order-upload-links/current/')
     || /^\/api\/v1\/customers(?:\/[^/]+(?:\/contacts(?:\/[^/]+)?|\/siret-verifications)?)?\/?$/.test(pathname);
-}
-
-function isSessionPreferencesRequest(method: string, pathname: string): boolean {
-  return (method === 'GET' && pathname === '/api/v1/session')
-    || (method === 'PATCH' && pathname === '/api/v1/session/preferences')
-    || (method === 'PUT' && pathname === '/api/v1/session/current-tenant');
-}
-
-function isSessionTenantSettingsRequest(method: string, pathname: string): boolean {
-  return (method === 'GET' && /^\/api\/v1\/tenant-slugs\/[^/]+\/?$/.test(pathname))
-    || (method === 'PATCH' && /^\/api\/v1\/tenants\/[^/]+\/?$/.test(pathname));
-}
-
-function isSubTenantRequest(method: string, pathname: string): boolean {
-  return ((method === 'GET' || method === 'POST')
-      && /^\/api\/v1\/tenants\/[^/]+\/subtenants\/?$/.test(pathname))
-    || (method === 'DELETE'
-      && /^\/api\/v1\/tenants\/[^/]+\/subtenants\/[^/]+\/?$/.test(pathname));
-}
-
-function isInvitationRequest(method: string, pathname: string): boolean {
-  if (method === 'POST' && pathname === '/api/v1/session/invitations/accept') return true;
-  if (method === 'POST' && /^\/api\/v1\/invitations\/?$/.test(pathname)) return true;
-  if (method === 'GET' && /^\/api\/v1\/invitations\/[^/]+\/activation\/?$/.test(pathname)) return true;
-  if (/^\/api\/v1\/invitations\/[^/]+\/?$/.test(pathname)) return method === 'DELETE';
-  if (/^\/api\/v1\/invitations\/[^/]+\/resend\/?$/.test(pathname)) return method === 'POST';
-  return method === 'GET'
-    && /^\/api\/v1\/tenants\/[^/]+\/(?:invitations|invitation-options)\/?$/.test(pathname);
-}
-
-function isMembersPath(pathname: string): boolean {
-  return /^\/api\/v1\/tenants\/[^/]+\/members(?:\/[^/]+(?:\/(?:role|access))?)?\/?$/.test(pathname);
-}
-
-function isOrdersPath(pathname: string): boolean {
-  return pathname === '/api/v1/orders'
-    || pathname === '/api/v1/orders/'
-    || /^\/api\/v1\/orders\/[^/]+\/(?:draft|roles|audit|transitions)\/?$/.test(pathname)
-    || /^\/api\/v1\/(?:tenants|shops)\/[^/]+\/orders\/?$/.test(pathname);
-}
-
-function isRolesPath(pathname: string): boolean {
-  return /^\/api\/v1\/tenants\/[^/]+\/(?:capabilities\/[^/]+|access-profile|roles-overview|roles-catalog|roles(?:\/[^/]+)?|roles-order|members\/[^/]+\/roles-detail|members\/[^/]+\/roles\/[^/]+)\/?$/.test(pathname);
-}
-
-function isShopAdministrationPath(pathname: string): boolean {
-  return /^\/api\/v1\/tenants\/[^/]+\/shops(?:\/[^/]+(?:\/(?:pricing(?:\/[^/]+)?|brand-assets|custom-mockups(?:\/[^/]+\/[^/]+)?|ai-products|products(?:\/[^/]+)?))?)?\/?$/.test(pathname);
-}
-
-function isPublicShopPath(pathname:string):boolean{
-  return /^\/api\/v1\/public\/shops\/[^/]+\/(?:probe|catalog)\/?$/.test(pathname);
-}
-
-function isShopCustomerAdministrationPath(pathname: string): boolean {
-  return /^\/api\/v1\/tenants\/[^/]+\/shops\/[^/]+\/customers(?:\/self)?\/?$/.test(pathname);
-}
-
-function isShopCustomerMigrationReportPath(pathname: string): boolean {
-  return /^\/api\/v1\/tenants\/[^/]+\/shop-customer-migration-report\/?$/.test(pathname);
-}
-
-function isStorefrontSessionRequest(method: string, pathname: string): boolean {
-  if (pathname === '/api/v1/storefront/session/current') return method === 'GET' || method === 'DELETE';
-  return method === 'POST' && /^\/api\/v1\/storefront\/[^/]+\/(?:session|registration)\/?$/.test(pathname);
-}
-
-function isStorefrontActivationRequest(method: string, pathname: string): boolean {
-  return method === 'POST' && (pathname === '/api/v1/storefront/activation'
-    || /^\/api\/v1\/tenants\/[^/]+\/shops\/[^/]+\/customers\/[^/]+\/activation\/?$/.test(pathname));
-}
-
-function isShopCustomerInvitationRequest(method: string, pathname: string): boolean {
-  return method === 'POST'
-    && /^\/api\/v1\/tenants\/[^/]+\/shops\/[^/]+\/customers\/invitations\/?$/.test(pathname);
-}
-
-function isStorefrontPasswordRecoveryRequest(method: string, pathname: string): boolean {
-  return method === 'POST' && (pathname === '/api/v1/storefront/password-reset'
-    || /^\/api\/v1\/storefront\/[^/]+\/password-recovery\/?$/.test(pathname));
 }
