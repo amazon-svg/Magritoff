@@ -117,6 +117,7 @@ import { CommercialOrdersService } from '../../modules/commercial-orders/applica
 import { CommercialQuotesService } from '../../modules/commercial-quotes/application/commercial-quotes-service.ts';
 import { CatalogService } from '../../modules/catalog/application/catalog-service.ts';
 import { CatalogRejectedError } from '../../modules/catalog/application/catalog-repository.ts';
+import { AiPimDefinitionGenerator } from '../../modules/catalog/application/ai-pim-definition-generator.ts';
 import { ClariprintService } from '../../modules/clariprint/application/clariprint-service.ts';
 import { CustomersService } from '../../modules/customers/application/customers-service.ts';
 import { DocumentTemplatesService } from '../../modules/document-templates/application/document-templates-service.ts';
@@ -199,6 +200,7 @@ const actorResolver = oidcActorResolver === null && localSessionActorResolver ==
   ? undefined
   : new CredentialActorResolver(oidcActorResolver, localSessionActorResolver);
 const aiConfiguration = aiProviderConfigurationFromEnvironment((name) => process.env[name]);
+const aiCompletionGateway = new ConfiguredAiCompletionGateway(aiConfiguration);
 const diagnosticsAccess = new PostgresDiagnosticsAccessGateway(
   new PostgresTransactionRunner(postgresPool, 'magrit_api'),
 );
@@ -212,9 +214,10 @@ const diagnosticsRoutes = actorResolver === undefined ? [] : createDiagnosticsRo
   diagnosticsAccess,
 ));
 const assistantService = new AssistantService(
-  new ConfiguredAiCompletionGateway(aiConfiguration),
+  aiCompletionGateway,
   diagnosticsAccess,
 );
+const pimDefinitionGenerator = new AiPimDefinitionGenerator(aiCompletionGateway);
 const clariprintMembership = new PostgresClariprintQuoteMembershipGateway(
   new PostgresTransactionRunner(postgresPool, 'magrit_api'),
 );
@@ -296,7 +299,7 @@ const catalogRoutes = actorResolver === undefined
       {
         async pendingCandidates() { throw catalogAutomationNotMigrated(); },
         async runIngest() { throw catalogAutomationNotMigrated(); },
-        async generateDefinition() { throw catalogAutomationNotMigrated(); },
+        generateDefinition(command) { return pimDefinitionGenerator.generateDefinition(command); },
       },
     ));
 const gescomAuthenticationEnabled = oidcJwtVerifier !== null || localAuthentication !== null;

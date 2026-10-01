@@ -704,6 +704,13 @@ l'origine du document vient de `APP_BASE_URL` (ou de la requete en local) :
 l'ancien parametre `base` fourni par le client est volontairement ignore.
 L'Edge Function `shop-sitemap` a donc ete supprimee.
 
+La generation et la relecture des fiches PIM passent egalement par l'API Node.
+Elles reutilisent le fournisseur IA configurable (`MAGRIT_AI_PROVIDER`) deja
+employe par l'assistant et les diagnostics ; aucune cle fournisseur ne rejoint
+le navigateur. L'Edge Function `pim-generate` a ete supprimee. Le pipeline
+d'ingestion des candidats reste un lot distinct, car il implique aussi de
+porter la file `pim_candidates` et son alimentation transactionnelle.
+
 ### 11.3 Planification
 
 Les deux purges SQL actuelles peuvent etre declenchees par :
