@@ -45,7 +45,7 @@ case "${1:-}" in
     echo 'MAGRIT_DEV_TENANT_SLUG=magrit-development'
     echo 'MAGRIT_DEV_OIDC_ISSUER=http://127.0.0.1:5556/dex'
     echo 'MAGRIT_DEV_OIDC_SUBJECT=10000000-0000-4000-8000-000000000001'
-    echo 'APP_BASE_URL=http://127.0.0.1:5176'
+    echo 'APP_BASE_URL=http://localhost:5176'
     echo 'MAGRIT_AUTH_SECRET=magrit-local-auth-secret-change-me-32chars'
     ;;
   reset)

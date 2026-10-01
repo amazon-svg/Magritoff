@@ -15,7 +15,11 @@ unset DATABASE_URL MAGRIT_DATABASE_MIGRATION_URL
 # ancienne DATABASE_URL ou un ancien proxy Supabase exporte dans le terminal
 # ne doit jamais contaminer le demarrage. Les MAGRIT_DEV_* restent configurables
 # et sont les seules entrees destinees a personnaliser compose.dev.yml.
-export APP_BASE_URL="http://127.0.0.1:5176"
+# Vite expose l'application sous localhost. Better Auth valide strictement
+# l'origine et les URL de retour : garder exactement le meme hote evite les
+# refus "Invalid origin/callbackURL" et conserve le cookie de session apres
+# la verification de l'adresse email.
+export APP_BASE_URL="http://localhost:5176"
 export VITE_API_PROXY_TARGET="http://127.0.0.1:8787"
 export MAGRIT_API_HOST="127.0.0.1"
 export MAGRIT_API_PORT="8787"
