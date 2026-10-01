@@ -39,21 +39,30 @@ export function createSessionRoutes(service: SessionService): readonly ApiRoute[
     createSessionInvitationAcceptanceRoute(service),
     createSessionBootstrapRoute(service),
     ...createSessionPreferencesRoutes(service),
-    defineJsonRoute({
-      method: 'GET',
-      path: `${API_V1_BASE_PATH}/tenants/{tenantId}/subtenants`,
-      authentication: 'required',
-      inputSchema: null,
-      outputSchema: subTenantsDashboardSchema,
-      async handle(context) {
-        try {
-          return { status: 200, body: await service.subTenantsDashboard(requireUserId(context), requireTenantId(context)) };
-        } catch (error) {
-          throwTenantMutation(error);
-        }
-      },
-    }),
+    createSessionSubTenantDashboardRoute(service),
   ];
+}
+
+export function createSessionSubTenantDashboardRoute(
+  service: Pick<SessionService, 'subTenantsDashboard'>,
+): ApiRoute {
+  return defineJsonRoute({
+    method: 'GET',
+    path: `${API_V1_BASE_PATH}/tenants/{tenantId}/subtenants`,
+    authentication: 'required',
+    inputSchema: null,
+    outputSchema: subTenantsDashboardSchema,
+    async handle(context) {
+      try {
+        return {
+          status: 200,
+          body: await service.subTenantsDashboard(requireUserId(context), requireTenantId(context)),
+        };
+      } catch (error) {
+        throwTenantMutation(error);
+      }
+    },
+  });
 }
 
 export function createSessionInvitationAcceptanceRoute(

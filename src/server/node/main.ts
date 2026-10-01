@@ -1,5 +1,6 @@
 import { createApiV1Application } from '../api/composition.ts';
 import { createCommercialSettingsRoutes } from '../api/commercial-settings-routes.ts';
+import { createCommercialRoutes } from '../api/commercial-routes.ts';
 import { createCommercialLineFilesRoutes } from '../api/commercial-line-files-routes.ts';
 import { createCommercialOrdersRoutes } from '../api/commercial-orders-routes.ts';
 import { createCommercialQuotesRoutes } from '../api/commercial-quotes-routes.ts';
@@ -34,7 +35,7 @@ import { createQuoteTemplatesRoutes } from '../api/quote-templates-routes.ts';
 import { createReadinessRoute } from '../api/readiness-route.ts';
 import { createRolesRoutes } from '../api/roles-routes.ts';
 import { createPublicShopsRoutes, createShopAdministrationRoutes } from '../api/shops-routes.ts';
-import { createShopCustomerAdministrationRoutes } from '../api/shop-customers-routes.ts';
+import { createShopCustomerAdministrationRoutes, createShopCustomerMigrationReportRoutes } from '../api/shop-customers-routes.ts';
 import { createShopCustomerDelegationRoutes } from '../api/shop-customer-delegation-routes.ts';
 import { createShopCustomerInvitationRoutes } from '../api/shop-customer-invitation-routes.ts';
 import { createStorefrontSessionRoutes } from '../api/storefront-session-routes.ts';
@@ -44,6 +45,7 @@ import {
   createSessionBootstrapRoute,
   createSessionInvitationAcceptanceRoute,
   createSessionPreferencesRoutes,
+  createSessionSubTenantDashboardRoute,
   createSessionSubTenantMutationRoutes,
   createSessionTenantCreationRoute,
   createSessionTenantSettingsRoutes,
@@ -56,6 +58,7 @@ import { HttpClariprintQuoteGateway } from '../../adapters/clariprint/http-clari
 import { PostgresClariprintQuoteBudgetRepository } from '../../adapters/postgres/clariprint-quote-budget-repository.ts';
 import { PostgresClariprintQuoteMembershipGateway } from '../../adapters/postgres/clariprint-quote-membership-gateway.ts';
 import { PostgresCommercialSettingsRepository } from '../../adapters/postgres/commercial-settings-repository.ts';
+import { PostgresCommercialRepository } from '../../adapters/postgres/commercial-repository.ts';
 import { PostgresCommercialLineFilesRepository } from '../../adapters/postgres/commercial-line-files-repository.ts';
 import { PostgresCommercialOrdersRepository } from '../../adapters/postgres/commercial-orders-repository.ts';
 import { PostgresCommercialQuotesRepository } from '../../adapters/postgres/commercial-quotes-repository.ts';
@@ -118,6 +121,7 @@ import { HttpHopeStudioWorkflowGateway } from '../../adapters/hopstudio/http-hop
 import { readSmtpConfiguration, SmtpTransport } from '../../adapters/smtp/transport.ts';
 import { ConversationsService } from '../../modules/conversations/application/conversations-service.ts';
 import { CommercialSettingsService } from '../../modules/commercial-settings/application/commercial-settings-service.ts';
+import { CommercialService } from '../../modules/commercial/application/commercial-service.ts';
 import { CommercialLineFilesService } from '../../modules/commercial-line-files/application/commercial-line-files-service.ts';
 import { CommercialOrdersService } from '../../modules/commercial-orders/application/commercial-orders-service.ts';
 import { CommercialQuotesService } from '../../modules/commercial-quotes/application/commercial-quotes-service.ts';
@@ -160,7 +164,7 @@ import { PriceRulesService } from '../../modules/pricing/application/price-rules
 import { createPricingEngine } from '../../modules/pricing/application/pricing-engine-provider.ts';
 import { ProjectsService } from '../../modules/projects/application/projects-service.ts';
 import { ProductionStepsService } from '../../modules/production-steps/application/production-steps-service.ts';
-import { SessionInvitationAcceptanceService, SessionSubTenantMutationService } from '../../modules/session/application/session-service.ts';
+import { SessionInvitationAcceptanceService, SessionService } from '../../modules/session/application/session-service.ts';
 import { createLocalAuthentication, readLocalAuthenticationConfiguration } from '../auth/local-authentication.ts';
 import { CredentialActorResolver, LocalSessionActorResolver } from '../auth/local-session-actor-resolver.ts';
 import { LocalApiPrincipalVerifier } from '../auth/local-api-principal-verifier.ts';
@@ -250,7 +254,7 @@ const sessionEnabled = actorResolver !== undefined;
 const sessionRepository = new PostgresSessionBootstrapRepository(
   new PostgresTransactionRunner(postgresPool, 'magrit_api'),
 );
-const sessionService = new SessionSubTenantMutationService(sessionRepository);
+const sessionService = new SessionService(sessionRepository);
 const sessionInvitationAcceptanceService = new SessionInvitationAcceptanceService(sessionRepository);
 const sessionRoutes = sessionEnabled
   ? [
@@ -260,6 +264,7 @@ const sessionRoutes = sessionEnabled
       createSessionTenantCreationRoute(sessionService),
       ...createSessionSubTenantMutationRoutes(sessionService),
       createSessionInvitationAcceptanceRoute(sessionInvitationAcceptanceService),
+      createSessionSubTenantDashboardRoute(sessionService),
     ]
   : [];
 const invitationsRoutes = actorResolver === undefined
@@ -415,6 +420,13 @@ const commercialSettingsRoutes = gescomPrincipalVerifier === null
         new PostgresTransactionRunner(postgresPool, 'magrit_api'),
       ),
     }));
+const commercialRoutes = actorResolver === undefined
+  ? []
+  : createCommercialRoutes(new CommercialService(
+      new PostgresCommercialRepository(
+        new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+      ),
+    ));
 const productionStepsService = new ProductionStepsService({
   repository: new PostgresProductionStepsRepository(
     new PostgresTransactionRunner(postgresPool, 'magrit_api'),
@@ -513,6 +525,9 @@ const shopCustomersService = new ShopCustomersService(
 const shopCustomerAdministrationRoutes = actorResolver === undefined
   ? []
   : createShopCustomerAdministrationRoutes(shopCustomersService);
+const shopCustomerMigrationReportRoutes = actorResolver === undefined
+  ? []
+  : createShopCustomerMigrationReportRoutes(shopCustomersService);
 const storefrontAuthenticationGateway = new PostgresStorefrontAuthenticationGateway(
   new PostgresTransactionRunner(postgresPool, 'magrit_api'),
 );
@@ -707,6 +722,7 @@ const apiHandler = createApiV1Application({
     ...diagnosticsRoutes,
     ...assistantRoutes,
     ...hopeStudioSettingsRoutes,
+    ...commercialRoutes,
     ...clariprintRoutes,
     ...sessionRoutes,
     ...invitationsRoutes,
@@ -719,6 +735,7 @@ const apiHandler = createApiV1Application({
     ...catalogRoutes,
     ...shopAdministrationRoutes,
     ...shopCustomerAdministrationRoutes,
+    ...shopCustomerMigrationReportRoutes,
     ...publicShopRoutes,
     ...storefrontSessionRoutes,
     ...shopCustomerDelegationRoutes,
@@ -762,6 +779,7 @@ const handler = createTransitionalApiHandler({
     || isHopeStudioPath(url.pathname)
     || (actorResolver !== undefined && isDiagnosticsPath(url.pathname))
     || isAssistantPath(url.pathname)
+    || (actorResolver !== undefined && isCommercialPath(url.pathname))
     || isClariprintPath(url.pathname)
     || (mockupHandler !== null && isMockupRequest(url.pathname))
     || isShopSitemapRequest(url.pathname)
@@ -769,7 +787,7 @@ const handler = createTransitionalApiHandler({
     || (sessionEnabled && isSessionPreferencesRequest(request.method, url.pathname))
     || (sessionEnabled && isSessionTenantSettingsRequest(request.method, url.pathname))
     || (sessionEnabled && request.method === 'POST' && url.pathname === '/api/v1/tenants')
-    || (sessionEnabled && isSubTenantMutationRequest(request.method, url.pathname))
+    || (sessionEnabled && isSubTenantRequest(request.method, url.pathname))
     || (sessionEnabled && isInvitationRequest(request.method, url.pathname))
     || (actorResolver !== undefined && isLibrariesPath(url.pathname))
     || (actorResolver !== undefined && isMembersPath(url.pathname))
@@ -779,6 +797,7 @@ const handler = createTransitionalApiHandler({
     || (actorResolver !== undefined && isShopAdministrationPath(url.pathname))
     || isPublicShopPath(url.pathname)
     || (actorResolver !== undefined && isShopCustomerAdministrationPath(url.pathname))
+    || (actorResolver !== undefined && isShopCustomerMigrationReportPath(url.pathname))
     || isStorefrontSessionRequest(request.method, url.pathname)
     || (actorResolver !== undefined && isShopCustomerDelegationRequest(request.method, url.pathname))
     || (actorResolver !== undefined && isStorefrontActivationRequest(request.method, url.pathname))
@@ -806,6 +825,7 @@ server.listen(port, host, () => {
       ...(diagnosticsRoutes.length === 0 ? [] : ['diagnostics']),
       'assistant',
       ...(hopeStudioSettingsRoutes.length === 0 ? [] : ['hopstudio']),
+      ...(commercialRoutes.length === 0 ? [] : ['commercial']),
       'clariprint',
       ...(mockupHandler === null ? [] : ['mockups']),
       'shop-sitemap',
@@ -885,6 +905,10 @@ function isHopeStudioPath(pathname: string): boolean {
   return /^\/api\/v1\/tenants\/[^/]+\/integrations\/hopstudio(?:\/workflow)?\/?$/.test(pathname);
 }
 
+function isCommercialPath(pathname: string): boolean {
+  return /^\/api\/v1\/tenants\/[^/]+\/commercial(?:\/(?:groups|rules)(?:\/[^/]+(?:\/members(?:\/[^/]+)?)?)?)?\/?$/.test(pathname);
+}
+
 function isClariprintPath(pathname: string): boolean {
   return pathname === '/api/v1/clariprint/quote';
 }
@@ -922,6 +946,12 @@ function isLocalCatalogRequest(method: string, pathname: string): boolean {
   if (pathname === '/api/v1/catalog/pim/definitions' || pathname === '/api/v1/catalog/pim/definitions/') {
     return method === 'PUT';
   }
+  if (pathname === '/api/v1/catalog/pim/ingestion' || pathname === '/api/v1/catalog/pim/ingestion/') {
+    return method === 'GET' || method === 'POST';
+  }
+  if (pathname === '/api/v1/catalog/pim/generation' || pathname === '/api/v1/catalog/pim/generation/') {
+    return method === 'POST';
+  }
   return method === 'DELETE'
     && /^\/api\/v1\/catalog\/pim\/definitions\/[^/]+\/?$/.test(pathname);
 }
@@ -958,8 +988,9 @@ function isSessionTenantSettingsRequest(method: string, pathname: string): boole
     || (method === 'PATCH' && /^\/api\/v1\/tenants\/[^/]+\/?$/.test(pathname));
 }
 
-function isSubTenantMutationRequest(method: string, pathname: string): boolean {
-  return (method === 'POST' && /^\/api\/v1\/tenants\/[^/]+\/subtenants\/?$/.test(pathname))
+function isSubTenantRequest(method: string, pathname: string): boolean {
+  return ((method === 'GET' || method === 'POST')
+      && /^\/api\/v1\/tenants\/[^/]+\/subtenants\/?$/.test(pathname))
     || (method === 'DELETE'
       && /^\/api\/v1\/tenants\/[^/]+\/subtenants\/[^/]+\/?$/.test(pathname));
 }
@@ -999,6 +1030,10 @@ function isPublicShopPath(pathname:string):boolean{
 
 function isShopCustomerAdministrationPath(pathname: string): boolean {
   return /^\/api\/v1\/tenants\/[^/]+\/shops\/[^/]+\/customers(?:\/self)?\/?$/.test(pathname);
+}
+
+function isShopCustomerMigrationReportPath(pathname: string): boolean {
+  return /^\/api\/v1\/tenants\/[^/]+\/shop-customer-migration-report\/?$/.test(pathname);
 }
 
 function isStorefrontSessionRequest(method: string, pathname: string): boolean {

@@ -142,6 +142,44 @@ describe('PostgresSessionBootstrapRepository', () => {
     )).resolves.toBeUndefined();
   });
 
+  it('retourne le tableau consolide des sous-espaces', async () => {
+    const createdAt = new Date('2026-10-01T08:00:00.000Z');
+    const query = vi.fn().mockResolvedValue({ rows: [{
+      tenant_id: 'tenant-child',
+      tenant_name: 'Agence Lyon',
+      tenant_slug: 'agence-lyon',
+      created_at: createdAt,
+      member_count: '3',
+      month_order_count: '7',
+      month_ca_ht: '1250.40',
+    }] });
+    const run = vi.fn(async (_context, operation) => operation({ query }));
+    const repository = new PostgresSessionBootstrapRepository({ run } as never);
+
+    await expect(repository.subTenantsDashboard('user-1' as never, 'tenant-parent'))
+      .resolves.toEqual({
+        subTenants: [{
+          id: 'tenant-child',
+          slug: 'agence-lyon',
+          name: 'Agence Lyon',
+          createdAt: createdAt.toISOString(),
+        }],
+        kpis: [{
+          tenantId: 'tenant-child',
+          tenantName: 'Agence Lyon',
+          tenantSlug: 'agence-lyon',
+          createdAt: createdAt.toISOString(),
+          memberCount: 3,
+          monthOrderCount: 7,
+          monthCaHt: 1250.4,
+        }],
+      });
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('magrit.get_subtenant_dashboard'),
+      ['tenant-parent'],
+    );
+  });
+
   it('distingue un sous-espace absent pendant la suppression', async () => {
     const run = vi.fn(async (_context, operation) => operation({
       query: vi.fn().mockResolvedValue({ rows: [{ result: 'not_found' }] }),

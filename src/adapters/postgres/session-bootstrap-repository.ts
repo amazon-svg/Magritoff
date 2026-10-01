@@ -4,6 +4,7 @@ import type {
   CreateRootTenant,
   CreateSubTenant,
   SessionUserPreferences,
+  SubTenantsDashboard,
   UpdateTenantSettings,
 } from '../../modules/session/api/contracts.ts';
 import {
@@ -11,7 +12,7 @@ import {
   SessionInvitationAcceptanceError,
   type SessionInvitationAcceptanceRepository,
   type DirectMembership,
-  type SessionSubTenantMutationRepository,
+  type SessionRepository,
 } from '../../modules/session/application/session-repository.ts';
 import type { PostgresTransactionRunner } from './transaction-runner.ts';
 
@@ -46,7 +47,17 @@ type PreferencesRow = Readonly<{
   last_tenant_id: string | null;
 }>;
 
-export class PostgresSessionBootstrapRepository implements SessionSubTenantMutationRepository, SessionInvitationAcceptanceRepository {
+type SubTenantDashboardRow = Readonly<{
+  tenant_id: string;
+  tenant_name: string;
+  tenant_slug: string;
+  created_at: Date;
+  member_count: string | number;
+  month_order_count: string | number;
+  month_ca_ht: string | number;
+}>;
+
+export class PostgresSessionBootstrapRepository implements SessionRepository, SessionInvitationAcceptanceRepository {
   constructor(private readonly transactions: PostgresTransactionRunner) {}
 
   async autoAcceptPendingInvitations(): Promise<void> {
@@ -107,7 +118,7 @@ export class PostgresSessionBootstrapRepository implements SessionSubTenantMutat
     });
   }
 
-  updatePreferences(userId: UserId, patch: Parameters<SessionSubTenantMutationRepository['updatePreferences']>[1]) {
+  updatePreferences(userId: UserId, patch: Parameters<SessionRepository['updatePreferences']>[1]) {
     return this.transactions.run({ userId }, async (client) => {
       const result = await client.query<PreferencesRow>(`
         insert into public.user_preferences (
@@ -273,6 +284,41 @@ export class PostgresSessionBootstrapRepository implements SessionSubTenantMutat
         ? 'Sous-espace introuvable ou déjà supprimé.'
         : 'Suppression du sous-espace interdite.',
     );
+  }
+
+  async subTenantsDashboard(
+    userId: UserId,
+    parentTenantId: string,
+  ): Promise<SubTenantsDashboard> {
+    try {
+      return await this.transactions.run({ userId }, async (client) => {
+        const result = await client.query<SubTenantDashboardRow>(`
+          select tenant_id::text,tenant_name,tenant_slug,created_at,
+                 member_count,month_order_count,month_ca_ht
+            from magrit.get_subtenant_dashboard($1)
+        `, [parentTenantId]);
+        return {
+          subTenants: result.rows.map((row) => ({
+            id: row.tenant_id,
+            slug: row.tenant_slug,
+            name: row.tenant_name,
+            createdAt: row.created_at.toISOString(),
+          })),
+          kpis: result.rows.map((row) => ({
+            tenantId: row.tenant_id,
+            tenantName: row.tenant_name,
+            tenantSlug: row.tenant_slug,
+            createdAt: row.created_at.toISOString(),
+            memberCount: Number(row.member_count),
+            monthOrderCount: Number(row.month_order_count),
+            monthCaHt: Number(row.month_ca_ht),
+          })),
+        };
+      });
+    } catch (error) {
+      if (error instanceof SessionTenantMutationError) throw error;
+      throw mapTenantMutationError(error);
+    }
   }
 
   async acceptInvitation(userId: UserId, token: string): Promise<string> {
