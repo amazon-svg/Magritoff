@@ -57,11 +57,22 @@ function openapiDocsPlugin() {
 
 const enableBundleAnalysis = process.env.ANALYZE === '1'
 
+function apiProxyTargetFromEnvironment(environment: Record<string, string>) {
+  const target = environment.VITE_API_PROXY_TARGET || 'http://127.0.0.1:8787'
+
+  if (target.includes('/functions/v1/') || target.includes('supabase.co')) {
+    throw new Error(
+      'VITE_API_PROXY_TARGET pointe encore vers Supabase. ' +
+      'Utilisez http://127.0.0.1:8787 pour le serveur Node local.',
+    )
+  }
+
+  return target
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const apiProxyTarget =
-    env.VITE_API_PROXY_TARGET ||
-    'http://127.0.0.1:8787'
+  const apiProxyTarget = apiProxyTargetFromEnvironment(env)
 
   return {
   plugins: [
