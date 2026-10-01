@@ -49,6 +49,37 @@ describe('serveur HTTP Node', () => {
     await expect(response.json()).resolves.toEqual({ method: 'POST', body: 'bonjour' });
   });
 
+  it('ecrase l adresse interne fournie par le client avec celle du pair TCP', async () => {
+    const server = createNodeHttpServer(async (request) => Response.json({
+      clientIp: request.headers.get('x-magrit-trusted-client-ip'),
+    }));
+    servers.push(server);
+    await listen(server);
+
+    const response = await fetch(`${origin(server)}/client-ip`, {
+      headers: {
+        'x-forwarded-for': '203.0.113.40',
+        'x-magrit-trusted-client-ip': '198.51.100.25',
+      },
+    });
+
+    await expect(response.json()).resolves.toEqual({ clientIp: '127.0.0.1' });
+  });
+
+  it('accepte la chaine X-Forwarded-For uniquement depuis un proxy approuve', async () => {
+    const server = createNodeHttpServer(async (request) => Response.json({
+      clientIp: request.headers.get('x-magrit-trusted-client-ip'),
+    }), { trustedProxyRanges: ['127.0.0.1'] });
+    servers.push(server);
+    await listen(server);
+
+    const response = await fetch(`${origin(server)}/client-ip`, {
+      headers: { 'x-forwarded-for': '192.0.2.99, 10.0.0.8' },
+    });
+
+    await expect(response.json()).resolves.toEqual({ clientIp: '10.0.0.8' });
+  });
+
   it('convertit une panne du transport en probleme HTTP sans exposer son detail', async () => {
     const errors: unknown[] = [];
     const server = createNodeHttpServer(

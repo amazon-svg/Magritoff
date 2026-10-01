@@ -1,11 +1,14 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
+import { TRUSTED_CLIENT_IP_HEADER } from '../auth/client-ip.ts';
+import { resolveTrustedClientIp } from './proxy-trust.ts';
 
 export type FetchHandler = (request: Request) => Promise<Response>;
 
 export type NodeHttpServerOptions = Readonly<{
   onUnhandledError?: (error: unknown) => void;
+  trustedProxyRanges?: readonly string[];
 }>;
 
 /**
@@ -19,7 +22,7 @@ export function createNodeHttpServer(
 ): Server {
   const server = createServer(async (incoming, outgoing) => {
     try {
-      const request = toWebRequest(incoming);
+      const request = toWebRequest(incoming, options.trustedProxyRanges ?? []);
       const response = await handler(request);
       await writeWebResponse(response, outgoing);
     } catch (error) {
@@ -45,13 +48,20 @@ export function createNodeHttpServer(
   return server;
 }
 
-function toWebRequest(incoming: IncomingMessage): Request {
+function toWebRequest(incoming: IncomingMessage, trustedProxyRanges: readonly string[]): Request {
   const headers = new Headers();
   for (let index = 0; index < incoming.rawHeaders.length; index += 2) {
     const name = incoming.rawHeaders[index];
     const value = incoming.rawHeaders[index + 1];
     if (name !== undefined && value !== undefined) headers.append(name, value);
   }
+  const clientIp = resolveTrustedClientIp(
+    incoming.socket.remoteAddress,
+    headers.get('x-forwarded-for'),
+    trustedProxyRanges,
+  );
+  headers.delete(TRUSTED_CLIENT_IP_HEADER);
+  if (clientIp !== null) headers.set(TRUSTED_CLIENT_IP_HEADER, clientIp);
 
   const host = headers.get('host') ?? '127.0.0.1';
   const encrypted = 'encrypted' in incoming.socket && incoming.socket.encrypted === true;

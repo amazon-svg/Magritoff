@@ -170,6 +170,7 @@ import { CredentialActorResolver, LocalSessionActorResolver } from '../auth/loca
 import { LocalApiPrincipalVerifier } from '../auth/local-api-principal-verifier.ts';
 import { OidcActorResolver } from '../auth/oidc-actor-resolver.ts';
 import { createNodeHttpServer } from './http-server.ts';
+import { readTrustedProxyRanges } from './proxy-trust.ts';
 import { readOidcConfiguration } from './oidc-configuration.ts';
 import { readStorefrontSessionCookie, storefrontSessionCookiePolicy } from '../storefront/session-cookie.ts';
 import { handleHopeStudioWorkflow, isHopeStudioWorkflowRequest } from '../hopstudio/workflow-handler.ts';
@@ -177,6 +178,7 @@ import type { RequestId } from '../../kernel/ids/index.ts';
 
 const host = process.env['MAGRIT_API_HOST'] ?? '127.0.0.1';
 const port = parsePort(process.env['MAGRIT_API_PORT'] ?? '8787');
+const trustedProxyRanges = readTrustedProxyRanges();
 const postgresPool = createPostgresPool();
 postgresPool.on('error', (error) => {
   console.error(JSON.stringify({ level: 'error', event: 'postgres.pool_error', error: error.message }));
@@ -769,6 +771,7 @@ const localHandler = localAuthentication === null
       return apiHandler(request);
     };
 const server = createNodeHttpServer(localHandler, {
+  trustedProxyRanges,
   onUnhandledError(error) {
     console.error(JSON.stringify({ level: 'error', event: 'api.transport_error', error: errorMessage(error) }));
   },

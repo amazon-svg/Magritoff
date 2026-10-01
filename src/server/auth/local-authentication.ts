@@ -4,6 +4,7 @@ import { createAuthMiddleware } from 'better-auth/api';
 import { PostgresDialect } from 'kysely';
 import type { Pool } from 'pg';
 import type { PasswordResetEmailSender } from '../../modules/account/application/password-reset-email-sender.ts';
+import { TRUSTED_CLIENT_IP_HEADER } from './client-ip.ts';
 
 export type LocalAuthenticationConfiguration = Readonly<{
   baseUrl: string;
@@ -103,6 +104,7 @@ export function createLocalAuthentication(
     advanced: {
       cookiePrefix: 'magrit',
       useSecureCookies: baseUrl.protocol === 'https:',
+      ipAddress: { ipAddressHeaders: [TRUSTED_CLIENT_IP_HEADER] },
       database: { joins: true, generateId: () => randomUUID() },
     },
   });

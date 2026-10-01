@@ -30,6 +30,15 @@ autorisée par le reverse proxy et le serveur Node. Les URL d'objets sont
 construites côté serveur à partir de `S3_PUBLIC_BASE_URL` ou sous forme d'URL
 signée S3.
 
+L'API utilise l'adresse cliente pour limiter les tentatives d'authentification.
+Sans proxy, elle prend exclusivement l'adresse du pair TCP et ignore les
+en-têtes fournis par le navigateur. Derrière un proxy, définir
+`MAGRIT_TRUSTED_PROXIES` avec la liste séparée par des virgules des seules IP ou
+plages CIDR autorisées à joindre directement l'API (par exemple
+`10.20.0.0/24`). Le proxy doit ajouter l'adresse observée à droite de
+`X-Forwarded-For`. Ne jamais renseigner une plage couvrant des clients ni
+exposer directement l'origine en parallèle du proxy.
+
 ## Rollback
 
 Conserver l'image API précédente et rendre les migrations additives. En cas de
