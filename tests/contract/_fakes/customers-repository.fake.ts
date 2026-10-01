@@ -24,13 +24,13 @@ import type {
   UpdateCustomerCommand,
   UpdateCustomerContactCommand,
 } from '@/modules/customers/api/contracts';
-// qa-review E10.2 : reutilise la MEME normalisation que l adaptateur reel
-// (`sanitizeSearchTerm`), plutot qu un `includes` naif sur le texte brut —
+// qa-review E10.2 : reutilise la MEME normalisation que l adaptateur reel,
+// plutot qu un `includes` naif sur le texte brut —
 // sinon le faux valide un scenario ("Martin, Paris" matche "Martin, Paris &
 // Fils") que l adaptateur reel rejette silencieusement (espaces multiples
 // non compactes avant le fix qa-review), et inversement un futur ecart entre
 // les deux passerait le typecheck sans etre detecte.
-import { sanitizeSearchTerm } from '@/adapters/supabase/customers-repository';
+import { sanitizeSearchTerm } from './search-term.fake';
 
 let sequence = 0;
 export function fakeUuid(): string {

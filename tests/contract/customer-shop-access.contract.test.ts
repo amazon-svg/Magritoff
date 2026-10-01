@@ -60,7 +60,7 @@ const verifier: PrincipalVerifier = {
  * Etend le faux Clients (E10.4) pour REFLETER la relation inverse
  * `shop_customer_accounts.customer_contact_id`, exactement comme le fait
  * l embed PostgREST de l adaptateur Supabase reel
- * (`SHOP_ACCESS_EMBED` dans `src/adapters/supabase/customers-repository.ts`).
+ * (jointure `shop_customer_accounts` du repository PostgreSQL clients).
  */
 class CustomersRepositoryWithShopAccess extends InMemoryCustomersRepository {
   constructor(private readonly shopAccounts: Map<string, ShopCustomerAccount>) {

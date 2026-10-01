@@ -11,7 +11,7 @@
  * exactement le raisonnement qui a justifie `gescom-routes.ts` pour CA1 (une
  * route enregistree sans entree au contrat).
  *
- * Portee : les adaptateurs Supabase des modules E10 qui exposent un DTO via
+ * Portee : les adaptateurs PostgreSQL des modules E10 qui exposent un DTO via
  * la facade gescom. Ajouter tout nouvel adaptateur E10 a la liste ci-dessous.
  */
 import { readFileSync } from 'node:fs';
@@ -21,11 +21,11 @@ import { describe, expect, it } from 'vitest';
 const root = process.cwd();
 
 const GESCOM_ADAPTERS = [
-  'src/adapters/supabase/customers-repository.ts',
-  'src/adapters/supabase/projects-repository.ts',
-  'src/adapters/supabase/project-tags-repository.ts',
-  'src/adapters/supabase/commercial-quotes-repository.ts',
-  'src/adapters/supabase/price-rules-repository.ts',
+  'src/adapters/postgres/customers-repository.ts',
+  'src/adapters/postgres/projects-repository.ts',
+  'src/adapters/postgres/project-tags-repository.ts',
+  'src/adapters/postgres/commercial-quotes-repository.ts',
+  'src/adapters/postgres/price-rules-repository.ts',
 ] as const;
 
 function read(path: string): string {

@@ -1,12 +1,8 @@
 /**
  * Port du repository Exports de commandes (story E10.18c).
  *
- * L implementation Supabase (`src/adapters/supabase/order-exports-repository.ts`)
- * distingue DEUX clients — meme discipline que `SupabaseOrderDocumentsRepository`
- * (E10.19b) : le client `authenticated` (jeton de l acteur, RLS active, seul
- * habilite a appeler `api_request_order_export` qui resout `auth.uid()`) et
- * le client `service_role` (bucket prive `order_exports`, jamais atteint par
- * `authenticated` — aucune policy `storage.objects`).
+ * L implementation PostgreSQL/S3 vit dans
+ * `src/adapters/postgres/order-exports-repository.ts`.
  */
 import type { TenantId, UserId } from '../../../kernel/ids/index.ts';
 import type {
@@ -42,8 +38,7 @@ export class OrderExportNotFoundError extends Error {
  * porte NI le code technique (`order_export.pending_limit_reached`) NI aucun
  * caractere `_`, et NOMME le nombre (« trois ») en clair, conformement au
  * contrat (§8.24 point 8 : « le "trois" vient du serveur, via `detail` »).
- * `mapRequestOrderExportError()` (`src/adapters/supabase/order-exports-
- * repository.ts`) NE DOIT JAMAIS passer le message SQL brut a ce
+ * Le repository NE DOIT JAMAIS passer le message SQL brut a ce
  * constructeur — avant ce correctif, il le faisait, et l ecran affichait
  * litteralement « order_export.pending_limit_reached: trois demandes non
  * terminees deja en file pour cet acteur ».

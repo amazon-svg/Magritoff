@@ -7,7 +7,7 @@
  *
  * Deux preuves complémentaires, pas une seule :
  *   1. STATIQUE — aucun fichier du chemin de code (migration SQL, adaptateur
- *      Supabase, service applicatif, routes) ne référence Clariprint ni un
+ *      PostgreSQL, service applicatif, routes) ne référence Clariprint ni un
  *      mécanisme d appel HTTP sortant (`pg_net`, `net.http_*`, `fetch`,
  *      `FetchApiClient`, `ClariprintAdapter`). Un test serveur seul ne
  *      prouverait que le câblage (leçon m5, §8.3) — la preuve SQL est ici
@@ -64,8 +64,8 @@ describe('Q17-a — zéro appel Clariprint sur le chemin du recalcul serveur', (
     }
   });
 
-  it('l adaptateur Supabase Orders ne référence ni Clariprint ni un client HTTP', () => {
-    const adapter = withoutLegitimateFieldNames(read('src/adapters/supabase/orders-repository.ts'));
+  it('l adaptateur PostgreSQL Orders ne référence ni Clariprint ni un client HTTP', () => {
+    const adapter = withoutLegitimateFieldNames(read('src/adapters/postgres/orders-repository.ts'));
     for (const token of FORBIDDEN_TOKENS) {
       expect(adapter, `orders-repository.ts (adapter) contient "${token}"`).not.toContain(token);
     }

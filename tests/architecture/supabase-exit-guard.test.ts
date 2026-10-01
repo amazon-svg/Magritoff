@@ -3,8 +3,7 @@ import { relative, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const root = process.cwd();
-const scannedRoots = ['src', 'utils', 'supabase/functions'];
-const transitionalSupabaseFileLimit = 70;
+const scannedRoots = ['src', 'utils'];
 const supabaseClientPattern = /(?:from\s+|import\s*\()['"](?:npm:)?@supabase\/supabase-js|\bcreateClient\s*\(/;
 
 function sourceFiles(directory: string): string[] {
@@ -25,19 +24,8 @@ function supabaseFiles(): string[] {
     .sort();
 }
 
-describe('sortie Supabase — baseline decroissante', () => {
-  it('interdit toute nouvelle dependance Supabase hors des frontieres de transition', () => {
-    const violations = supabaseFiles().filter((file) => !(
-      file.startsWith('src/adapters/supabase/')
-      || /^src\/server\/api\/[a-z0-9-]+-composition\.ts$/.test(file)
-      || file.startsWith('supabase/functions/')
-      || file.startsWith('utils/supabase/')
-    ));
-
-    expect(violations).toEqual([]);
-  });
-
-  it('fige un compteur qui ne peut que diminuer', () => {
-    expect(supabaseFiles().length).toBeLessThanOrEqual(transitionalSupabaseFileLimit);
+describe('sortie Supabase — runtime applicatif', () => {
+  it('interdit toute dependance au client Supabase dans src et utils', () => {
+    expect(supabaseFiles()).toEqual([]);
   });
 });

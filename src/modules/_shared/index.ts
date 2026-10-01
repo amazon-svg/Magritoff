@@ -8,7 +8,7 @@
  *
  * Il suit la convention de dossiers du depot (`api/` + `application/`),
  * comme les 10 modules deja en place. Les implementations de ses ports vont
- * dans src/adapters/supabase/, le branchement HTTP dans
+ * dans src/adapters/postgres/, le branchement HTTP dans
  * src/server/api/gescom-middleware.ts.
  *
  * Contrat de reference : openapi/magrit-core.v1.yaml

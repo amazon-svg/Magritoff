@@ -8,6 +8,7 @@ cd "$MAGRIT_PROJECT_ROOT"
 
 # Valeurs locales non sensibles, alignees sur compose.dev.yml et le seed.
 export APP_BASE_URL="${APP_BASE_URL:-http://127.0.0.1:5176}"
+export VITE_API_PROXY_TARGET="${VITE_API_PROXY_TARGET:-http://127.0.0.1:8787}"
 export MAGRIT_AUTH_SECRET="${MAGRIT_AUTH_SECRET:-magrit-local-auth-secret-change-me-32chars}"
 export S3_ENDPOINT="${S3_ENDPOINT:-http://127.0.0.1:58333}"
 export S3_PUBLIC_BASE_URL="${S3_PUBLIC_BASE_URL:-http://127.0.0.1:58333}"

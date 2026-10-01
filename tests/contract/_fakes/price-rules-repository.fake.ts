@@ -1,7 +1,7 @@
 /**
  * Faux repository Pricing (E10.6), utilise par `price-rules.contract.test.ts`.
  *
- * Reimplemente le TRI et le CURSEUR de `SupabasePriceRulesRepository.list()`
+ * Reimplemente le TRI et le CURSEUR du repository PostgreSQL
  * a l identique (meme champ, meme sens de comparaison) : un fake qui se
  * contenterait de filtrer par tenant passerait le typecheck sans jamais
  * exercer la pagination reelle — piege deja rencontre deux fois ce sprint
@@ -24,7 +24,7 @@ import type {
   ProductRangeDefaultMarginDto,
   UpdatePriceRuleCommand,
 } from '@/modules/pricing/api/contracts';
-import { sanitizeSearchTerm } from '@/adapters/supabase/price-rules-repository';
+import { sanitizePriceRuleSearchTerm } from './search-term.fake';
 
 /**
  * Rang de specificite (E10.7 Dev Notes) : `global` < `range` < `customer` <
@@ -91,7 +91,7 @@ export class InMemoryPriceRulesRepository implements PriceRulesRepository {
       rows = rows.filter((rule) => rule.is_active === wantActive);
     }
     if (params.q) {
-      const term = sanitizeSearchTerm(params.q).toLowerCase();
+      const term = sanitizePriceRuleSearchTerm(params.q).toLowerCase();
       if (term.length > 0) rows = rows.filter((rule) => rule.name.toLowerCase().includes(term));
     }
     // Egalite stricte, fidele au comportement reel (adaptateur Supabase) :

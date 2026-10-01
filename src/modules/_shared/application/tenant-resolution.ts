@@ -164,8 +164,8 @@ export type ApiCredential =
 export type PrincipalVerificationContext = Readonly<{ request: Request }>;
 
 /**
- * Port de verification des jetons. L implementation Supabase vit dans
- * src/adapters/supabase/ ; le socle n en connait que le contrat.
+ * Port de verification des identites. L implementation Node locale vit dans
+ * src/server/auth/ ; le socle n en connait que le contrat.
  */
 export interface PrincipalVerifier {
   /** Retourne l acteur porte par la credential, ou null si elle est invalide. */
