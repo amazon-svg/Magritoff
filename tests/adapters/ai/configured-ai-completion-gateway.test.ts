@@ -17,7 +17,8 @@ describe('ConfiguredAiCompletionGateway', () => {
     const result = await new ConfiguredAiCompletionGateway({ provider: 'openai', apiKey: 'o-key', model: 'gpt-test' }, fetchMock as unknown as typeof fetch).complete(request);
     expect(result.text).toBe('{"intro":"B"}');
     expect(fetchMock).toHaveBeenCalledWith('https://api.openai.com/v1/responses', expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer o-key' }) }));
-    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    const [, init] = fetchMock.mock.calls[0] as unknown as [RequestInfo, RequestInit];
+    const body = JSON.parse(String(init.body));
     expect(body.store).toBe(false);
   });
 
@@ -34,7 +35,8 @@ describe('ConfiguredAiCompletionGateway', () => {
         schema: { type: 'object', properties: { products: { type: 'array' } } },
       },
     });
-    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    const [, init] = fetchMock.mock.calls[0] as unknown as [RequestInfo, RequestInit];
+    const body = JSON.parse(String(init.body));
     expect(body.text.format).toEqual(expect.objectContaining({
       type: 'json_schema',
       name: 'catalog',

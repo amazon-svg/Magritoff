@@ -302,7 +302,7 @@ Roadmap qualité-first post Sprint 4 ([roadmap-v1.1-qualite-first-2026-05-21.md]
 
 1. **Plafond 3-5 stories par sprint**, jamais plus (lesson Arnaud 2026-05-17 — vault `_CONTEXT_FOR_AI/lessons.md`).
 2. **Checkpoint récap toutes les 3 stories** avec mini-doc visuel "ce qui a changé concrètement + ce que tu peux tester en 30 secondes" (lesson 2026-05-17). Pas de batch de stories silencieux.
-3. **Smoke E2E parcours acheteur AI** obligatoire avant clôture sprint qui touche shop / orders / Magrit / claude-proxy / pim-*. Login `/shop/<slug>` → askMagrit → ajout panier → submitCart → vérif insert `tenant_orders` + redirect `PortalThankYou`. Joué par Claude Code ou Arnaud. Référence : `feedback_dod_smoke_e2e_acheteur.md` (mémoire projet).
+3. **Smoke E2E parcours acheteur AI** obligatoire avant clôture sprint qui touche shop / orders / Magrit / assistant / pim-*. Login `/shop/<slug>` → askMagrit → ajout panier → submitCart → vérif insert `tenant_orders` + redirect `PortalThankYou`. Joué par un navigateur automatisé ou Arnaud. Référence : `feedback_dod_smoke_e2e_acheteur.md` (mémoire projet).
 4. **Audit prod systématique avant toute heuristique numérique** (seuils cm/mm, confidence thresholds, magic numbers). 5 minutes Supabase SQL Editor avant écrire le code. Référence : `feedback_audit_prod_avant_heuristique.md` (mémoire projet).
 5. **Sally UX consult systématique** sur tout composant user-facing nouveau ou modifié (wireframes / mockup / microcopy). Pas de UI livrée sans passage Sally.
 6. **ADR formalisée pour toute décision architecturale** (nouveau pattern, choix de modèle DB, contrat d'interface entre modules). Section dédiée dans `_bmad-output/planning-artifacts/architecture.md` numérotée §4.X.

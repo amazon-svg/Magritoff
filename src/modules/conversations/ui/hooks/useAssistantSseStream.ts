@@ -5,7 +5,7 @@ import {
   type AssistantStreamPayload,
 } from '@/modules/diagnostics';
 
-export { AssistantStreamError as ClaudeSseStreamError };
+export { AssistantStreamError as AssistantSseStreamError };
 
 /** Limite NFR43 du contexte transmis au fournisseur IA. */
 export const MAX_CONTEXT_MESSAGES = 25;
@@ -35,7 +35,7 @@ export function truncateMessages<T>(
  * Le protocole HTTP/SSE, son endpoint et la classification des erreurs sont
  * volontairement confinés dans AssistantGateway.
  */
-export function useClaudeSseStream(assistant: AssistantGateway) {
+export function useAssistantSseStream(assistant: AssistantGateway) {
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => () => abortRef.current?.abort(), []);
@@ -71,3 +71,10 @@ export function useClaudeSseStream(assistant: AssistantGateway) {
 
   return { send, abort };
 }
+/**
+ * Tests vitest pour `useAssistantSseStream` (R2 Phase A).
+ *
+ * On teste la troncature UI et l'heuristique billing de l'adaptateur SSE.
+ * + le contrat AssistantSseStreamError. Le hook React lui-meme n'est pas teste
+ * (vitest tourne en environment node, pas de @testing-library/react).
+ */

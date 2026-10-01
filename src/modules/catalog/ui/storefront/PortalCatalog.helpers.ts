@@ -2,7 +2,7 @@
  * Helpers purs PortalCatalog (Stories S-CONSO-4 + S-CONSO-5, Sprint 4 Phase 2).
  *
  *  - filterProductsByTextQuery : filter case-insensitive substring sur name +
- *    description + gamme.name. Sert de fallback automatique quand claude-proxy
+ *    description + gamme.name. Sert de fallback automatique quand le fournisseur IA
  *    timeout (S-CONSO-4).
  *  - sortProductsBy : tri grille catalogue par 'display_order' | 'price_asc' |
  *    'price_desc' | 'newest' (S-CONSO-5, design Sally Select shadcn).

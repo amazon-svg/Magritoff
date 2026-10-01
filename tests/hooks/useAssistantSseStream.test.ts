@@ -1,17 +1,9 @@
-/**
- * Tests vitest pour `useClaudeSseStream` (R2 Phase A).
- *
- * On teste la troncature UI et l'heuristique billing de l'adaptateur SSE.
- * + le contrat ClaudeSseStreamError. Le hook React lui-meme n'est pas teste
- * (vitest tourne en environment node, pas de @testing-library/react).
- */
-
 import { describe, it, expect } from 'vitest';
 import {
-  ClaudeSseStreamError,
+  AssistantSseStreamError,
   MAX_CONTEXT_MESSAGES,
   truncateMessages,
-} from '@/modules/conversations/ui/hooks/useClaudeSseStream';
+} from '@/modules/conversations/ui/hooks/useAssistantSseStream';
 import { detectAssistantBillingError } from '@/adapters/http/browser-assistant-gateway';
 
 describe('truncateMessages - troncage 25 messages (E5 fix)', () => {
@@ -91,9 +83,9 @@ describe('detectAssistantBillingError - heuristique billing (E4 fix)', () => {
   });
 });
 
-describe('ClaudeSseStreamError - typage discrimine', () => {
+describe('AssistantSseStreamError - typage discrimine', () => {
   it('13. Instance d Error + kind preserve', () => {
-    const err = new ClaudeSseStreamError('billing', 'test', 402);
+    const err = new AssistantSseStreamError('billing', 'test', 402);
     expect(err).toBeInstanceOf(Error);
     expect(err.kind).toBe('billing');
     expect(err.status).toBe(402);
@@ -102,7 +94,7 @@ describe('ClaudeSseStreamError - typage discrimine', () => {
   it('14. 4 kinds supportes (billing/network/aborted/protocol)', () => {
     const kinds = ['billing', 'network', 'aborted', 'protocol'] as const;
     for (const k of kinds) {
-      const e = new ClaudeSseStreamError(k, '');
+      const e = new AssistantSseStreamError(k, '');
       expect(e.kind).toBe(k);
     }
   });

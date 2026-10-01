@@ -40,7 +40,7 @@ import { logLevelForOutcome } from '../../../src/modules/clariprint/application/
 import { SupabaseClariprintQuoteBudgetRepository } from '../../../src/adapters/supabase/clariprint-quote-budget-repository.ts';
 import { SupabaseClariprintQuoteMembershipGateway } from '../../../src/adapters/supabase/clariprint-quote-membership-gateway.ts';
 import { isMockupBinaryRequest, proxyMockupBinary } from '../../../src/adapters/supabase/mockup-binary-proxy.ts';
-import { isAssistantChatRequest, proxyAssistantChat } from '../../../src/server/api/assistant-stream-proxy.ts';
+import { isAssistantChatRequest } from '../../../src/server/api/assistant-chat-handler.ts';
 import { ShopCustomersService } from '../../../src/modules/shop-customers/application/shop-customers-service.ts';
 import { SupabaseShopCustomersRepository } from '../../../src/adapters/supabase/shop-customers-repository.ts';
 import { StorefrontAuthenticationService } from '../../../src/modules/shop-customers/application/storefront-authentication-service.ts';
@@ -284,34 +284,26 @@ export async function handleRequest(request: Request): Promise<Response> {
             }));
           }
         }
-        return withCors(await proxyAssistantChat(request, {
-          legacyBaseUrl: `${supabaseUrl}/functions/v1/make-server-e3db71a4`,
-          authorization,
-          userId: data.user.id,
-          authorizeTenant: (tenantId) => accessGateway.isTenantMember(actorId.value, tenantId),
-        }));
+        return withCors(Response.json({
+          type: 'about:blank',
+          title: 'Assistant déplacé vers l API Node',
+          status: 410,
+          code: 'assistant.edge_route_retired',
+          requestId: crypto.randomUUID(),
+        }, { status: 410, headers: { 'Content-Type': 'application/problem+json; charset=utf-8' } }));
       }
     }
 
     const opaqueToken = readStorefrontSessionCookie(request.headers.get('cookie'), storefrontCookiePolicy);
     const storefrontSession = opaqueToken ? await storefrontSessionService.current(opaqueToken) : null;
     if (!storefrontSession) return withCors(Response.json({ type: 'about:blank', title: 'Session boutique requise', status: 401, code: 'storefront.session_required', requestId: crypto.randomUUID() }, { status: 401, headers: { 'Content-Type': 'application/problem+json; charset=utf-8' } }));
-    return withCors(await proxyAssistantChat(request, {
-      legacyBaseUrl: `${supabaseUrl}/functions/v1/make-server-e3db71a4`,
-      authorization: `Bearer ${anonKey}`,
-      authorizeShop: async (shopSlug) => {
-        try {
-          const probe = await storefrontShopsRepository.publicProbe(shopSlug);
-          if (probe.id !== storefrontSession.identity.shopId) return null;
-          return {
-            userId: storefrontSession.identity.shopCustomerAccountId,
-            tenantId: probe.tenantId,
-          };
-        } catch {
-          return null;
-        }
-      },
-    }));
+    return withCors(Response.json({
+      type: 'about:blank',
+      title: 'Assistant déplacé vers l API Node',
+      status: 410,
+      code: 'assistant.edge_route_retired',
+      requestId: crypto.randomUUID(),
+    }, { status: 410, headers: { 'Content-Type': 'application/problem+json; charset=utf-8' } }));
   }
   const repository = new SupabaseSessionRepository(client);
   const service = new SessionService(repository);
