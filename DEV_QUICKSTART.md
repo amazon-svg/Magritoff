@@ -59,6 +59,7 @@ séparés :
 ```bash
 pnpm worker:outbox
 pnpm worker:notifications
+pnpm worker:order-exports
 pnpm worker:order-file-purge
 ```
 
@@ -68,6 +69,11 @@ défaut. Son intervalle se règle avec
 `pnpm worker:order-file-purge:once` effectue réellement les suppressions
 éligibles dans PostgreSQL/S3 ; elle ne doit donc pas servir de simple smoke
 test sur un environnement contenant des données utiles.
+
+Le worker `worker:order-exports` traite une demande par minute par défaut et
+produit les CSV/XLSX dans le bucket S3 `order-exports`. La variante `:once`
+est sûre pour le drain de génération, mais peut consommer une demande réelle
+en attente ; elle est destinée aux vérifications contrôlées.
 
 Pour faire du serveur Node le point d'entrée pendant la migration, définir
 temporairement l'URL interne complète de l'ancienne fonction. Le navigateur ne

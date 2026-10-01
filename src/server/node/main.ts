@@ -17,6 +17,7 @@ import { createLibraryProductsRoutes } from '../api/library-products-routes.ts';
 import { createMembersRoutes } from '../api/members-routes.ts';
 import { createOrdersRoutes } from '../api/orders-routes.ts';
 import { createOrderFilesRoutes } from '../api/order-files-routes.ts';
+import { createOrderExportsRoutes } from '../api/order-exports-routes.ts';
 import { createOrderUploadLinksRoutes } from '../api/order-upload-links-routes.ts';
 import { createNotificationLogsRoutes } from '../api/notification-logs-routes.ts';
 import { createNotificationTemplatesRoutes } from '../api/notification-templates-routes.ts';
@@ -70,6 +71,7 @@ import { PostgresOrdersNotificationGateway } from '../../adapters/postgres/order
 import { PostgresOrdersRepository } from '../../adapters/postgres/orders-repository.ts';
 import { PostgresOrderDocumentsRepository } from '../../adapters/postgres/order-documents-repository.ts';
 import { PostgresOrderFilesRepository } from '../../adapters/postgres/order-files-repository.ts';
+import { PostgresOrderExportsRepository } from '../../adapters/postgres/order-exports-repository.ts';
 import { PostgresOrderUploadLinksRepository } from '../../adapters/postgres/order-upload-links-repository.ts';
 import { PostgresNotificationLogsRepository } from '../../adapters/postgres/notification-logs-repository.ts';
 import { PostgresNotificationTemplatesRepository } from '../../adapters/postgres/notification-templates-repository.ts';
@@ -123,6 +125,7 @@ import { LibraryProductsService } from '../../modules/libraries/application/libr
 import { MembersService } from '../../modules/members/application/members-service.ts';
 import { OrdersService } from '../../modules/orders/application/orders-service.ts';
 import { OrderFilesService } from '../../modules/order-files/application/order-files-service.ts';
+import { OrderExportsService } from '../../modules/order-exports/application/order-exports-service.ts';
 import { OrderUploadLinksService } from '../../modules/order-upload-links/application/order-upload-links-service.ts';
 import { NotificationLogsService } from '../../modules/notifications/application/notification-logs-service.ts';
 import { NotificationTemplatesService } from '../../modules/notifications/application/notification-templates-service.ts';
@@ -407,12 +410,13 @@ const notificationTemplatesRoutes = gescomPrincipalVerifier === null ? [] : crea
 const notificationLogsRoutes = gescomPrincipalVerifier === null ? [] : createNotificationLogsRoutes(
   new NotificationLogsService({repository:new PostgresNotificationLogsRepository(new PostgresTransactionRunner(postgresPool,'magrit_api'))}),
 );
+const customersService = new CustomersService({
+  repository: customersRepository,
+  outbox: outboxPublisher,
+});
 const customersRoutes = gescomPrincipalVerifier === null
   ? []
-  : createCustomersRoutes(new CustomersService({
-      repository: customersRepository,
-      outbox: outboxPublisher,
-    }));
+  : createCustomersRoutes(customersService);
 const projectTagsRoutes = gescomPrincipalVerifier === null
   ? []
   : createProjectTagsRoutes(new ProjectTagsService({
@@ -460,6 +464,14 @@ const orderFilesRoutes = s3Client === null
         s3Client,
       ),
     }));
+const orderExportsRoutes = s3Client === null || commercialQuotesService === null
+  ? []
+  : createOrderExportsRoutes(new OrderExportsService({
+      repository: new PostgresOrderExportsRepository(
+        new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+        s3Client,
+      ),
+    }), customersService, commercialQuotesService, productionStepsService);
 const orderUploadLinksRoutes = orderUploadLinksRepository === null
   ? []
   : createOrderUploadLinksRoutes(new OrderUploadLinksService({
@@ -591,6 +603,7 @@ const gescomHandler = gescomPrincipalVerifier === null
         ...commercialQuotesRoutes,
         ...commercialOrdersRoutes,
         ...orderFilesRoutes,
+        ...orderExportsRoutes,
         ...orderUploadLinksRoutes,
         ...quoteDocumentsRoutes,
       ],
@@ -724,6 +737,7 @@ server.listen(port, host, () => {
       ...(gescomHandler === null ? [] : ['document-pdf-templates']),
       ...(commercialQuotesService === null ? [] : ['commercial-quotes']),
       ...(quoteDocumentsService === null ? [] : ['quote-documents:backoffice']),
+      ...(orderExportsRoutes.length === 0 ? [] : ['commercial-order-exports']),
     ],
   }));
 });
@@ -827,6 +841,8 @@ function isLocalGescomPath(pathname: string): boolean {
     || pathname.startsWith('/api/v1/quotes/')
     || pathname === '/api/v1/commercial-orders'
     || pathname.startsWith('/api/v1/commercial-orders/')
+    || pathname === '/api/v1/commercial-order-exports'
+    || pathname.startsWith('/api/v1/commercial-order-exports/')
     || pathname === '/api/v1/order-upload-links/current'
     || pathname.startsWith('/api/v1/order-upload-links/current/')
     || /^\/api\/v1\/customers(?:\/[^/]+(?:\/contacts(?:\/[^/]+)?|\/siret-verifications)?)?\/?$/.test(pathname);

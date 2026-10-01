@@ -20,6 +20,12 @@
  * `supabase/functions/magrit-order-file-purge/index.ts`.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { S3Client } from '@aws-sdk/client-s3';
+import {
+  PostgresOrderExportOrphanRepository,
+  PostgresOrderExportPurgeRepository,
+} from '../../adapters/postgres/order-exports-repository.ts';
+import type { PostgresTransactionRunner } from '../../adapters/postgres/transaction-runner.ts';
 import {
   SupabaseOrderExportOrphanRepository,
   SupabaseOrderExportPurgeRepository,
@@ -44,6 +50,23 @@ export function createOrderExportPurgeApplication(
   const service = new OrderExportPurgeService({
     purge,
     orphans,
+    ...(dependencies.settings === undefined ? {} : { settings: dependencies.settings }),
+  });
+  return Object.freeze({ runOnce: () => service.runOnce() });
+}
+
+export type PostgresOrderExportPurgeDependencies = Readonly<{
+  transactions: PostgresTransactionRunner;
+  storage: S3Client;
+  settings?: OrderExportPurgeSettings;
+}>;
+
+export function createPostgresOrderExportPurgeApplication(
+  dependencies: PostgresOrderExportPurgeDependencies,
+): Readonly<{ runOnce: () => Promise<OrderExportPurgeReport> }> {
+  const service = new OrderExportPurgeService({
+    purge: new PostgresOrderExportPurgeRepository(dependencies.transactions, dependencies.storage),
+    orphans: new PostgresOrderExportOrphanRepository(dependencies.transactions, dependencies.storage),
     ...(dependencies.settings === undefined ? {} : { settings: dependencies.settings }),
   });
   return Object.freeze({ runOnce: () => service.runOnce() });

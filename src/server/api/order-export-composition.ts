@@ -10,6 +10,10 @@
  * testable par vitest.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { S3Client } from '@aws-sdk/client-s3';
+import { PostgresOrderExportRunRepository } from '../../adapters/postgres/order-exports-repository.ts';
+import type { PostgresTransactionRunner } from '../../adapters/postgres/transaction-runner.ts';
+import { S3OrderExportStorage } from '../../adapters/s3/order-exports-storage.ts';
 import {
   SupabaseOrderExportRunRepository,
 } from '../../adapters/supabase/order-exports-repository.ts';
@@ -54,5 +58,27 @@ export function createOrderExportRunApplication(
     ...(dependencies.onUnhandledError === undefined ? {} : { onUnhandledError: dependencies.onUnhandledError }),
   });
 
+  return Object.freeze({ runOnce: () => service.runOnce() });
+}
+
+export type PostgresOrderExportRunApplicationDependencies = Readonly<{
+  transactions: PostgresTransactionRunner;
+  storage: S3Client;
+  settings?: OrderExportRunSettings;
+  onUnhandledError?: (error: unknown, exportId: string) => void;
+}>;
+
+export function createPostgresOrderExportRunApplication(
+  dependencies: PostgresOrderExportRunApplicationDependencies,
+): Readonly<{ runOnce: () => Promise<OrderExportGenerationReport> }> {
+  const service = new OrderExportGenerationService({
+    repository: new PostgresOrderExportRunRepository(dependencies.transactions),
+    storage: new S3OrderExportStorage(dependencies.storage),
+    renderers: { csv: csvOrderExportRenderer, xlsx: xlsxOrderExportRenderer },
+    settings: dependencies.settings ?? DEFAULT_ORDER_EXPORT_RUN_SETTINGS,
+    ...(dependencies.onUnhandledError === undefined
+      ? {}
+      : { onUnhandledError: dependencies.onUnhandledError }),
+  });
   return Object.freeze({ runOnce: () => service.runOnce() });
 }
