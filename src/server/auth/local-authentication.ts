@@ -3,6 +3,7 @@ import { APIError, betterAuth } from 'better-auth';
 import { createAuthMiddleware } from 'better-auth/api';
 import { PostgresDialect } from 'kysely';
 import type { Pool } from 'pg';
+import type { EmailVerificationSender } from '../../modules/account/application/email-verification-sender.ts';
 import type { PasswordResetEmailSender } from '../../modules/account/application/password-reset-email-sender.ts';
 import { TRUSTED_CLIENT_IP_HEADER } from './client-ip.ts';
 
@@ -35,13 +36,15 @@ export function readLocalAuthenticationConfiguration(
 /**
  * Frontiere Better Auth. Les tables de la bibliotheque restent dans `authn` ;
  * aucun module metier ne doit importer Better Auth ou referencer ce schema.
- * L'inscription publique reste fermee : les comptes seront crees depuis le
- * flux d'invitation Magrit.
+ * L'inscription publique cree une identite sans appartenance. L'utilisateur
+ * verifie ensuite son adresse puis cree son premier espace. Un jeton
+ * d'invitation valide permet en plus de rejoindre un espace existant.
  */
 export function createLocalAuthentication(
   pool: Pool,
   configuration: LocalAuthenticationConfiguration,
   passwordResetEmailSender: PasswordResetEmailSender = disabledPasswordResetEmailSender,
+  emailVerificationSender: EmailVerificationSender = disabledEmailVerificationSender,
 ) {
   const baseUrl = new URL(configuration.baseUrl);
   return betterAuth({
@@ -74,6 +77,21 @@ export function createLocalAuthentication(
         }
       },
     },
+    emailVerification: {
+      sendOnSignUp: true,
+      sendOnSignIn: true,
+      autoSignInAfterVerification: true,
+      async sendVerificationEmail({ user, url }) {
+        const delivery = await emailVerificationSender.send({
+          to: user.email,
+          displayName: user.name,
+          link: url,
+        });
+        if (!delivery.sent) {
+          throw new Error(delivery.reason ?? 'Envoi du courriel de vérification impossible.');
+        }
+      },
+    },
     session: {
       expiresIn: 60 * 60 * 24 * 7,
       updateAge: 60 * 60 * 24,
@@ -89,13 +107,14 @@ export function createLocalAuthentication(
         const invitationToken = typeof body?.['invitationToken'] === 'string'
           ? body['invitationToken']
           : '';
+        if (invitationToken.length === 0) return;
         const email = typeof body?.['email'] === 'string' ? body['email'].toLowerCase().trim() : '';
         const allowed = invitationToken.length >= 32
           && await isValidInvitationRegistration(pool, invitationToken, email);
         if (!allowed) {
           throw new APIError('FORBIDDEN', {
-            code: 'INVITATION_REQUIRED',
-            message: 'Une invitation Magrit valide est requise pour créer ce compte.',
+            code: 'INVALID_INVITATION',
+            message: 'Cette invitation Magrit est invalide, expirée ou destinée à une autre adresse.',
           });
         }
         delete body!['invitationToken'];
@@ -111,6 +130,10 @@ export function createLocalAuthentication(
 }
 
 const disabledPasswordResetEmailSender: PasswordResetEmailSender = Object.freeze({
+  async send() { return { sent: false, reason: 'Aucun transport email configuré' }; },
+});
+
+const disabledEmailVerificationSender: EmailVerificationSender = Object.freeze({
   async send() { return { sent: false, reason: 'Aucun transport email configuré' }; },
 });
 

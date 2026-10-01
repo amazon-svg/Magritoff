@@ -82,6 +82,9 @@ export function AuthProvider({
       fullName: fullName ?? '',
       ...(company ? { company } : {}),
       ...(invitationToken ? { invitationToken } : {}),
+      callbackURL: invitationToken
+        ? `${window.location.origin}/invitations/${encodeURIComponent(invitationToken)}`
+        : `${window.location.origin}/tenants/new`,
     });
   };
 

@@ -282,8 +282,10 @@ L'authentification locale est activee uniquement lorsque `APP_BASE_URL` et
 caracteres. Better Auth utilise le schema PostgreSQL isole `authn`, garde les
 sessions opaques en base et expose ses routes sous `/api/v1/auth`. Le cache de
 session en cookie n'est pas active afin qu'une revocation prenne effet sans
-attendre l'expiration d'un cache. L'inscription publique est desactivee ; les
-comptes de production devront provenir du flux d'invitation Magrit.
+attendre l'expiration d'un cache. L'inscription publique est ouverte : chaque
+adresse doit etre confirmee par le lien envoye via SMTP ou Resend, puis
+l'utilisateur peut creer son premier espace racine. Une invitation reste le
+seul moyen de rejoindre un espace existant sans en creer un nouveau.
 
 La creation, la relance, la revocation et l'activation des invitations passent
 par les routes Node et `PostgresInvitationsRepository`. Les capacites, roles et

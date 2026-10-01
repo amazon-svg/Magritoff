@@ -13,11 +13,12 @@ export interface OidcIdentityDirectory {
   ): Promise<ResolvedOidcActor | null>;
 }
 
-type IdentityRow = Readonly<{ user_id: string; tenant_id: string }>;
+type IdentityRow = Readonly<{ user_id: string; tenant_id: string | null }>;
 
 /**
- * Annuaire strictement serveur. Un jeton valide n'accorde aucun acces tant que
- * son sujet n'est pas lie a un utilisateur actif et a un tenant autorise.
+ * Annuaire strictement serveur. Une identite active peut etre resolue sans
+ * tenant pour les routes d onboarding (`POST /tenants`). Des qu un tenant est
+ * demande, une appartenance explicite reste obligatoire.
  */
 export class PostgresOidcIdentityDirectory implements OidcIdentityDirectory {
   constructor(private readonly database: Pick<Pool, 'connect'>) {}
@@ -38,7 +39,7 @@ export class PostgresOidcIdentityDirectory implements OidcIdentityDirectory {
         select u.id::text as user_id, tm.tenant_id::text as tenant_id
         from public.user_identities i
         join public.app_users u on u.id = i.app_user_id and u.status = 'active'
-        join public.tenant_members tm on tm.user_id = u.id
+        left join public.tenant_members tm on tm.user_id = u.id
         where i.issuer = $1
           and i.subject = $2
           and ($3::uuid is null or tm.tenant_id = $3::uuid)
@@ -61,7 +62,7 @@ export class PostgresOidcIdentityDirectory implements OidcIdentityDirectory {
       userId: parseRequiredId(row.user_id) as UserId,
       // Sans tenant demande, ne jamais choisir arbitrairement parmi plusieurs
       // appartenances. Les routes comme GET /session n'ont besoin que du user.
-      ...(requestedTenantId !== undefined || rows.length === 1
+      ...(row.tenant_id !== null && (requestedTenantId !== undefined || rows.length === 1)
         ? { tenantId: parseRequiredId(row.tenant_id) as TenantId }
         : {}),
     });

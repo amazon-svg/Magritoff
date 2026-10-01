@@ -1,0 +1,40 @@
+create or replace function magrit.provision_local_auth_identity()
+returns trigger
+language plpgsql
+security definer
+set search_path = pg_catalog, public, authn, magrit
+as $$
+declare
+  app_user_id uuid;
+begin
+  select id into app_user_id
+    from public.app_users
+   where email_normalized=lower(btrim(new.email))
+   for update;
+
+  if app_user_id is null then
+    begin
+      app_user_id := new.id::uuid;
+    exception when invalid_text_representation then
+      raise exception using errcode='22023',message='local_auth_user_id_must_be_uuid';
+    end;
+    insert into public.app_users (id,email_normalized,display_name)
+    values (app_user_id,lower(btrim(new.email)),new.name);
+  else
+    new.id := app_user_id::text;
+  end if;
+
+  -- Better Auth conserve l adresse non verifiee jusqu au clic sur le lien
+  -- envoye par SMTP ou Resend. Une invitation ne remplace pas cette preuve.
+  insert into public.user_identities (
+    app_user_id,provider_type,provider_id,issuer,subject
+  ) values (
+    app_user_id,'local','better-auth','urn:magrit:local',new.id
+  ) on conflict (issuer,subject) do nothing;
+
+  return new;
+end
+$$;
+
+comment on function magrit.provision_local_auth_identity() is
+  'Provisionne atomiquement app_users et l identite locale pour une inscription publique ou invitee.';

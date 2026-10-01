@@ -36,6 +36,7 @@ export function AcceptInvitation() {
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [activationNotice, setActivationNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token) {
@@ -59,6 +60,7 @@ export function AcceptInvitation() {
     event.preventDefault();
     if (!activation || submitting) return;
     setActivationError(null);
+    setActivationNotice(null);
     if (!activation.accountExists && !fullName.trim()) {
       setActivationError('Indiquez votre nom complet.');
       return;
@@ -81,11 +83,9 @@ export function AcceptInvitation() {
         ? 'Mot de passe incorrect.'
         : result.error.message);
     } else if (!result.session) {
-      if (token) {
-        const refreshed = await api.activation(token).catch(() => null);
-        if (refreshed) setActivation(refreshed);
-      }
-      setActivationError('Un compte existe déjà pour cette adresse. Saisissez son mot de passe pour continuer.');
+      setActivationNotice(
+        'Compte créé. Consultez votre messagerie et confirmez votre adresse pour rejoindre cet espace.',
+      );
     }
   };
 
@@ -160,6 +160,7 @@ export function AcceptInvitation() {
                     </label>
                   )}
                   {activationError && <p role="alert" className="rounded-md bg-err-bg px-3 py-2 text-xs text-err-fg">{activationError}</p>}
+                  {activationNotice && <p role="status" className="rounded-md bg-ok-bg px-3 py-2 text-xs text-ok-fg">{activationNotice}</p>}
                   <button
                     type="submit"
                     disabled={submitting}

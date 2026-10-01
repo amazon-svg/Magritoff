@@ -126,38 +126,101 @@ describeIntegration('Better Auth local — PostgreSQL reel', () => {
     await expect(currentTenant.json()).resolves.toMatchObject({ last_tenant_id: seed.tenantId });
   });
 
-  it('maintient l inscription publique fermee', async () => {
-    const authentication = createLocalAuthentication(pool, configuration);
-    const response = await authentication.handler(new Request(
-      `${configuration.baseUrl}/api/v1/auth/sign-up/email`,
-      {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          origin: configuration.baseUrl,
-          'x-forwarded-for': '127.0.0.1',
+  it('ouvre l inscription publique avec verification email', async () => {
+    const email = `public-${randomUUID()}@example.invalid`;
+    let verificationLink: string | null = null;
+    let userId: string | null = null;
+    let tenantId: string | null = null;
+    const authentication = createLocalAuthentication(
+      pool,
+      configuration,
+      { async send() { return { sent: true }; } },
+      { async send(message) { verificationLink = message.link; return { sent: true }; } },
+    );
+    try {
+      const response = await authentication.handler(new Request(
+        `${configuration.baseUrl}/api/v1/auth/sign-up/email`,
+        {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            origin: configuration.baseUrl,
+            'x-forwarded-for': '127.0.0.1',
+          },
+          body: JSON.stringify({
+            name: 'Inscription publique',
+            email,
+            password: 'mot-de-passe-public',
+            callbackURL: `${configuration.baseUrl}/tenants/new`,
+          }),
         },
-        body: JSON.stringify({
-          name: 'Inscription interdite',
-          email: 'public-signup@example.invalid',
-          password: 'mot-de-passe-interdit',
-        }),
-      },
-    ));
-    expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toMatchObject({
-      code: 'INVITATION_REQUIRED',
-    });
+      ));
+      expect(response.status).toBe(200);
+      expect(response.headers.get('set-cookie')).toBeNull();
+      expect(verificationLink).toContain('/api/v1/auth/verify-email?token=');
+
+      const provisioned = await pool.query<{ id: string; email_verified: boolean }>(`
+        select id,"emailVerified" as email_verified from authn."user" where email=$1
+      `, [email]);
+      userId = provisioned.rows[0]?.id ?? null;
+      expect(provisioned.rows[0]).toMatchObject({ email_verified: false });
+
+      const verification = await authentication.handler(new Request(verificationLink!));
+      expect(verification.status).toBe(302);
+      expect(verification.headers.get('location')).toBe(`${configuration.baseUrl}/tenants/new`);
+      expect(verification.headers.get('set-cookie')).toContain('magrit.session_token=');
+      const verified = await pool.query<{ email_verified: boolean }>(`
+        select "emailVerified" as email_verified from authn."user" where email=$1
+      `, [email]);
+      expect(verified.rows[0]?.email_verified).toBe(true);
+
+      const directory = new PostgresOidcIdentityDirectory(pool);
+      await expect(directory.resolve({
+        issuer: 'urn:magrit:local',
+        subject: userId!,
+      })).resolves.toEqual({ userId });
+      const sessions = new PostgresSessionBootstrapRepository(
+        new PostgresTransactionRunner(pool, 'magrit_api'),
+      );
+      tenantId = await sessions.createRootTenant(userId as never, {
+        name: 'Premier espace',
+        slug: `public-${randomUUID()}`,
+        gammeSlugs: [],
+      });
+      await sessions.updateTenantSettings(userId as never, tenantId, { plan: 'pro' });
+      const tenant = await pool.query<{ plan: string }>(
+        'select plan from public.tenants where id=$1',
+        [tenantId],
+      );
+      expect(tenant.rows[0]?.plan).toBe('pro');
+    } finally {
+      if (tenantId !== null) await pool.query('delete from public.tenants where id=$1', [tenantId]);
+      if (userId !== null) {
+        await pool.query('delete from authn."user" where id=$1', [userId]);
+        await pool.query('delete from public.app_users where id=$1', [userId]);
+      }
+    }
   });
 
-  it('provisionne un compte local uniquement depuis une invitation valide', async () => {
+  it('valide le jeton lorsqu un compte est cree depuis une invitation', async () => {
     let resetLink: string | null = null;
-    const authentication = createLocalAuthentication(pool, configuration, {
-      async send(message) {
-        resetLink = message.link;
-        return { sent: true };
+    let verificationLink: string | null = null;
+    const authentication = createLocalAuthentication(
+      pool,
+      configuration,
+      {
+        async send(message) {
+          resetLink = message.link;
+          return { sent: true };
+        },
       },
-    });
+      {
+        async send(message) {
+          verificationLink = message.link;
+          return { sent: true };
+        },
+      },
+    );
     const token = `${randomUUID()}${randomUUID()}`.replaceAll('-', '');
     const email = `invited-${randomUUID()}@example.invalid`;
     const invitationId = randomUUID();
@@ -220,8 +283,12 @@ describeIntegration('Better Auth local — PostgreSQL reel', () => {
          group by auth_user.id,auth_user."emailVerified"
       `, [email]);
       userId = provisioned.rows[0]?.user_id ?? null;
-      expect(provisioned.rows[0]).toMatchObject({ email_verified: true, identity_count: '1' });
+      expect(provisioned.rows[0]).toMatchObject({ email_verified: false, identity_count: '1' });
       expect(userId).toMatch(/^[0-9a-f-]{36}$/);
+
+      const verification = await authentication.handler(new Request(verificationLink!));
+      expect(verification.status).toBe(302);
+      expect(verification.headers.get('set-cookie')).toContain('magrit.session_token=');
 
       const signIn = await authentication.handler(new Request(
         `${configuration.baseUrl}/api/v1/auth/sign-in/email`,

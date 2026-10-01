@@ -39,24 +39,34 @@ describe('BetterAuthBrowserAuthenticationGateway', () => {
     expect(listener).toHaveBeenNthCalledWith(2, { session: null, user: null });
   });
 
-  it('maintient la creation de compte sur invitation uniquement', async () => {
-    const gateway = new BetterAuthBrowserAuthenticationGateway(vi.fn());
-    const result = await gateway.signUp('new@example.test', 'mot-de-passe', { fullName: 'New' });
-
-    expect(result.session).toBeNull();
-    expect(result.error?.message).toMatch(/invitation/);
-  });
-
-  it('cree puis connecte un compte portant un jeton d invitation', async () => {
+  it('ouvre la creation de compte publique puis attend la verification email', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(Response.json({ token: null, user }))
+      .mockResolvedValueOnce(Response.json(null));
+    const gateway = new BetterAuthBrowserAuthenticationGateway(fetchMock);
+
+    await expect(gateway.signUp('new@example.test', 'mot-de-passe-solide', {
+      fullName: 'New', callbackURL: 'https://app.example.test/tenants/new',
+    })).resolves.toEqual({ error: null, session: null });
+    expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/v1/auth/sign-up/email', expect.objectContaining({
+      body: JSON.stringify({
+        email: 'new@example.test',
+        password: 'mot-de-passe-solide',
+        name: 'New',
+        callbackURL: 'https://app.example.test/tenants/new',
+      }),
+    }));
+  });
+
+  it('cree un compte invite puis attend aussi la verification email', async () => {
+    const fetchMock = vi.fn()
       .mockResolvedValueOnce(Response.json({ token: null, user }))
-      .mockResolvedValueOnce(Response.json({ user, session: { id: 'session-1' } }));
+      .mockResolvedValueOnce(Response.json(null));
     const gateway = new BetterAuthBrowserAuthenticationGateway(fetchMock);
 
     await expect(gateway.signUp('new@example.test', 'mot-de-passe-solide', {
       fullName: 'New', invitationToken: 'invitation-token',
-    })).resolves.toMatchObject({ error: null, session: { user: { id: 'user-1' } } });
+    })).resolves.toEqual({ error: null, session: null });
     expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/v1/auth/sign-up/email', expect.objectContaining({
       body: JSON.stringify({
         email: 'new@example.test',

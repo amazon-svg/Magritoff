@@ -103,6 +103,7 @@ import { PostgresReadinessProbe } from '../../adapters/postgres/readiness-probe.
 import { PostgresSessionBootstrapRepository } from '../../adapters/postgres/session-bootstrap-repository.ts';
 import { PostgresTransactionRunner } from '../../adapters/postgres/transaction-runner.ts';
 import { ResendInvitationEmailSender } from '../../adapters/resend/invitation-email-sender.ts';
+import { ResendEmailVerificationSender } from '../../adapters/resend/email-verification-sender.ts';
 import { ResendNotificationEmailSender } from '../../adapters/resend/notification-email-sender.ts';
 import { ResendPasswordResetEmailSender } from '../../adapters/resend/password-reset-email-sender.ts';
 import { ResendStorefrontActivationEmailSender } from '../../adapters/resend/storefront-activation-email-sender.ts';
@@ -112,6 +113,7 @@ import { S3CommercialLineFileStorage } from '../../adapters/s3/commercial-line-f
 import { S3ProjectCommercialFileStorage } from '../../adapters/s3/project-commercial-file-storage.ts';
 import { S3ShopAssetStorage } from '../../adapters/s3/shop-asset-storage.ts';
 import { SmtpInvitationEmailSender } from '../../adapters/smtp/invitation-email-sender.ts';
+import { SmtpEmailVerificationSender } from '../../adapters/smtp/email-verification-sender.ts';
 import { SmtpNotificationEmailSender } from '../../adapters/smtp/notification-email-sender.ts';
 import { SmtpPasswordResetEmailSender } from '../../adapters/smtp/password-reset-email-sender.ts';
 import { SmtpStorefrontActivationEmailSender } from '../../adapters/smtp/storefront-activation-email-sender.ts';
@@ -194,12 +196,20 @@ const invitationEmailSender = smtpTransport === null
 const passwordResetEmailSender = smtpTransport === null
   ? new ResendPasswordResetEmailSender(process.env['RESEND_API_KEY'] ?? null, fromEmail)
   : new SmtpPasswordResetEmailSender(smtpTransport, fromEmail);
+const emailVerificationSender = smtpTransport === null
+  ? new ResendEmailVerificationSender(process.env['RESEND_API_KEY'] ?? null, fromEmail)
+  : new SmtpEmailVerificationSender(smtpTransport, fromEmail);
 const notificationEmailSender = smtpTransport === null
   ? new ResendNotificationEmailSender(process.env['RESEND_API_KEY'] ?? null, fromEmail)
   : new SmtpNotificationEmailSender(smtpTransport, fromEmail);
 const localAuthentication = localAuthenticationConfiguration === null
   ? null
-  : createLocalAuthentication(postgresPool, localAuthenticationConfiguration, passwordResetEmailSender);
+  : createLocalAuthentication(
+      postgresPool,
+      localAuthenticationConfiguration,
+      passwordResetEmailSender,
+      emailVerificationSender,
+    );
 const identityDirectory = new PostgresOidcIdentityDirectory(postgresPool);
 const oidcJwtVerifier = oidcConfiguration === null
   ? null

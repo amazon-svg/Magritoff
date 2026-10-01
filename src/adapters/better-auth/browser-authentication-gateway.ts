@@ -61,22 +61,26 @@ export class BetterAuthBrowserAuthenticationGateway implements AuthenticationGat
     }
   }
 
-  async signUp(email: string, password: string, metadata: { fullName: string; invitationToken?: string }) {
-    if (!metadata.invitationToken) {
-      return {
-        error: new Error('La creation de compte est disponible uniquement depuis une invitation.'),
-        session: null,
-      };
-    }
+  async signUp(email: string, password: string, metadata: {
+    fullName: string;
+    invitationToken?: string;
+    callbackURL?: string;
+  }) {
     try {
       const response = await this.post('/sign-up/email', {
-        email, password, name: metadata.fullName, invitationToken: metadata.invitationToken,
+        email,
+        password,
+        name: metadata.fullName,
+        ...(metadata.invitationToken === undefined ? {} : { invitationToken: metadata.invitationToken }),
+        ...(metadata.callbackURL === undefined ? {} : { callbackURL: metadata.callbackURL }),
       });
       if (!response.ok) return { error: await responseError(response), session: null };
-      // Better Auth ne crée volontairement pas de session quand la vérification
-      // email est obligatoire. Le trigger d'identité marque l'adresse vérifiée
-      // après contrôle du lien ; une connexion normale émet alors le cookie.
-      return this.signIn(email, password);
+      // Une inscription publique reste sans session jusqu'au clic sur le lien
+      // de verification. Better Auth connecte alors l'utilisateur et le
+      // redirige vers l'onboarding ou vers l'invitation d'origine.
+      const session = await this.readSession();
+      this.notify(session);
+      return { error: null, session };
     } catch (cause) {
       return { error: asError(cause), session: null };
     }
