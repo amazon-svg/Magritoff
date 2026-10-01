@@ -119,8 +119,8 @@ export function PortalThankYou({ orderId, taxRate, userEmail, onBackToCatalog, o
           {/* BCP-5 (docs/api/CONVENTIONS.md §8.25 point 5.1, decision Arnaud
               suite a l ecart remonte) : le bandeau qui promettait un
               courriel de suivi a l'acheteur est SUPPRIME, pas reformule -
-              send-order-notification n'ecrit qu'aux administrateurs du
-              tenant, jamais a l'acheteur. La regle vaut partout ou cette
+              la notification de creation vise les administrateurs du tenant,
+              jamais l'acheteur. La regle vaut partout ou cette
               promesse apparaissait, pas seulement dans le panier. */}
 
           {/* Recap commande */}

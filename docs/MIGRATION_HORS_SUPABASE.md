@@ -352,9 +352,9 @@ reçus idempotents. La configuration Clariprint est comparée en JSONB avant de
 qualifier un prix de `catalog`; une configuration divergente reste
 `client_unverified`. Les notifications de création et de changement d'étape
 utilisent SMTP en développement ou Resend en hébergement, avec résolution des
-destinataires et de `notify_policy` dans PostgreSQL ; les Edge Functions
-`send-order-notification` et `order-workflow-step` ne sont plus appelées par le
-runtime Node. La bascule d'un environnement existant exige encore une reprise
+destinataires et de `notify_policy` dans PostgreSQL ; les anciennes Edge
+Functions `send-order-notification` et `order-workflow-step` ont ete supprimees.
+La bascule d'un environnement existant exige encore une reprise
 contrôlée de `shop_orders` vers `tenant_orders` : l'adaptateur portable ne lit
 volontairement pas la table historique et ne doit donc être activé qu'après ce
 cutover.

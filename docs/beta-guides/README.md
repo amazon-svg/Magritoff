@@ -45,7 +45,7 @@ Avant de démarrer un compte bêta :
 - **Page admin catalog rôles `/t/:slug/admin/order-roles`** : à venir. Pour l'instant, gestion des assignments via DashboardUsers + matrice Phase A.
 - **Wire-up `<OrderAuditTrailModal>` (S3.5)** : composant prêt, bouton Historique à wirer sur OrderHistoryTable lors refonte UI.
 - **Wire-up `<ProductMultiView>` (V7)** : composant prêt, à wirer dans ProductCard / ProductOverlay quand Arnaud valide la place dans l'UI.
-- **Workflow N+1 chaîné automatique** : pour l'instant, chaque transition est déclenchée manuellement. L'edge `order-workflow-step` notifie les destinataires mais n'enchaîne pas automatiquement vers le N+1.
+- **Workflow N+1 chaîné automatique** : pour l'instant, chaque transition est déclenchée manuellement. Le service Node notifie les destinataires mais n'enchaîne pas automatiquement vers le N+1.
 
 ## Mise à jour
 
