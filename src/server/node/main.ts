@@ -12,6 +12,7 @@ import { createDocumentTemplatesRoutes } from '../api/document-templates-routes.
 import { createDiagnosticsRoutes } from '../api/diagnostics-routes.ts';
 import { createAssistantRoutes } from '../api/assistant-routes.ts';
 import { createAssistantChatHandler, isAssistantChatRequest } from '../api/assistant-chat-handler.ts';
+import { createHopeStudioSettingsRoutes } from '../api/hopstudio-settings-routes.ts';
 import { createInvitationsRoutes } from '../api/invitations-routes.ts';
 import { createLibrariesRoutes } from '../api/libraries-routes.ts';
 import { createLibraryProductsRoutes } from '../api/library-products-routes.ts';
@@ -66,6 +67,7 @@ import { PostgresDocumentTemplatesRepository } from '../../adapters/postgres/doc
 import { PostgresDiagnosticsAccessGateway } from '../../adapters/postgres/diagnostics-access-gateway.ts';
 import { PostgresIdempotencyStore } from '../../adapters/postgres/idempotency-store.ts';
 import { PostgresInvitationsRepository } from '../../adapters/postgres/invitations-repository.ts';
+import { PostgresHopeStudioSettingsAccessGateway, PostgresHopeStudioTenantSettingsRepository } from '../../adapters/postgres/hopstudio-tenant-settings-repository.ts';
 import { PostgresLibrariesRepository } from '../../adapters/postgres/libraries-repository.ts';
 import { PostgresLibraryProductsRepository } from '../../adapters/postgres/library-products-repository.ts';
 import { PostgresMembersRepository } from '../../adapters/postgres/members-repository.ts';
@@ -111,6 +113,8 @@ import { SmtpNotificationEmailSender } from '../../adapters/smtp/notification-em
 import { SmtpPasswordResetEmailSender } from '../../adapters/smtp/password-reset-email-sender.ts';
 import { SmtpStorefrontActivationEmailSender } from '../../adapters/smtp/storefront-activation-email-sender.ts';
 import { SmtpStorefrontPasswordRecoveryEmailSender } from '../../adapters/smtp/storefront-password-recovery-email-sender.ts';
+import { WebCryptoHopeStudioSecretCipher } from '../../adapters/hopstudio/web-crypto-secret-cipher.ts';
+import { HttpHopeStudioWorkflowGateway } from '../../adapters/hopstudio/http-hopstudio-workflow-gateway.ts';
 import { readSmtpConfiguration, SmtpTransport } from '../../adapters/smtp/transport.ts';
 import { ConversationsService } from '../../modules/conversations/application/conversations-service.ts';
 import { CommercialSettingsService } from '../../modules/commercial-settings/application/commercial-settings-service.ts';
@@ -125,6 +129,7 @@ import { DocumentTemplatesService } from '../../modules/document-templates/appli
 import { DiagnosticsService } from '../../modules/diagnostics/application/diagnostics-service.ts';
 import { AssistantService } from '../../modules/diagnostics/application/assistant-service.ts';
 import { AssistantChatService } from '../../modules/diagnostics/application/assistant-chat-service.ts';
+import { HopeStudioTenantSettingsService } from '../../modules/hopstudio/application/hopstudio-tenant-settings-service.ts';
 import { InvitationsService } from '../../modules/invitations/application/invitations-service.ts';
 import { LibrariesService } from '../../modules/libraries/application/libraries-service.ts';
 import { LibraryProductsService } from '../../modules/libraries/application/library-products-service.ts';
@@ -164,6 +169,8 @@ import { createNodeHttpServer } from './http-server.ts';
 import { readOidcConfiguration } from './oidc-configuration.ts';
 import { createTransitionalApiHandler } from './transitional-api-handler.ts';
 import { readStorefrontSessionCookie, storefrontSessionCookiePolicy } from '../storefront/session-cookie.ts';
+import { handleHopeStudioWorkflow, isHopeStudioWorkflowRequest } from '../hopstudio/workflow-handler.ts';
+import type { RequestId } from '../../kernel/ids/index.ts';
 
 const host = process.env['MAGRIT_API_HOST'] ?? '127.0.0.1';
 const port = parsePort(process.env['MAGRIT_API_PORT'] ?? '8787');
@@ -590,6 +597,48 @@ const assistantChatHandler = createAssistantChatHandler({
     }
   },
 });
+const hopeStudioSettingsRepository = new PostgresHopeStudioTenantSettingsRepository(
+  new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+  new WebCryptoHopeStudioSecretCipher(process.env['HOPSTUDIO_CONFIG_ENCRYPTION_KEY']?.trim() || null),
+);
+const hopeStudioSettingsRoutes = actorResolver === undefined
+  ? []
+  : createHopeStudioSettingsRoutes(new HopeStudioTenantSettingsService(
+      new PostgresHopeStudioSettingsAccessGateway(
+        new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+      ),
+      hopeStudioSettingsRepository,
+    ));
+const hopeStudioWorkflowGateway = new HttpHopeStudioWorkflowGateway(
+  hopeStudioSettingsRepository,
+  globalThis.fetch,
+  (event) => console.info(JSON.stringify({ level: 'info', event: 'hopstudio.workflow', ...event })),
+);
+const hopeStudioWorkflowHandler = async (request: Request): Promise<Response> => {
+  const match = /^\/api\/v1\/tenants\/([^/]+)\/integrations\/hopstudio\/workflow\/?$/.exec(
+    new URL(request.url).pathname,
+  );
+  const tenantId = decodeURIComponent(match?.[1] ?? '');
+  if (!tenantId || actorResolver === undefined) {
+    return Response.json({
+      type: 'about:blank', title: 'Authentification requise', status: 401,
+      code: 'identity.authentication_required', requestId: crypto.randomUUID(),
+    }, { status: 401, headers: { 'Content-Type': 'application/problem+json; charset=utf-8' } });
+  }
+  const requestId = (request.headers.get('x-request-id')?.trim() || crypto.randomUUID()) as RequestId;
+  const actor = await actorResolver.resolve(request, { requestId, params: { tenantId } });
+  if (actor?.kind !== 'user') {
+    return Response.json({
+      type: 'about:blank', title: 'Authentification requise', status: 401,
+      code: 'identity.authentication_required', requestId,
+    }, { status: 401, headers: { 'Content-Type': 'application/problem+json; charset=utf-8' } });
+  }
+  return handleHopeStudioWorkflow(request, {
+    userId: actor.userId,
+    isTenantMember: (requestedTenantId) => diagnosticsAccess.isTenantMember(actor.userId, requestedTenantId),
+    gateway: hopeStudioWorkflowGateway,
+  });
+};
 const shopCustomerDelegationRoutes = actorResolver === undefined ? [] : createShopCustomerDelegationRoutes(
   new ShopCustomerDelegationService(new PostgresShopCustomerDelegationGateway(
     new PostgresTransactionRunner(postgresPool, 'magrit_api'),
@@ -657,6 +706,7 @@ const apiHandler = createApiV1Application({
     ...conversationsRoutes,
     ...diagnosticsRoutes,
     ...assistantRoutes,
+    ...hopeStudioSettingsRoutes,
     ...clariprintRoutes,
     ...sessionRoutes,
     ...invitationsRoutes,
@@ -685,6 +735,7 @@ const localHandler = localAuthentication === null
   ? (request: Request) => {
       const pathname = new URL(request.url).pathname;
       if (isAssistantChatRequest(request)) return assistantChatHandler(request);
+      if (isHopeStudioWorkflowRequest(request)) return hopeStudioWorkflowHandler(request);
       if (isMockupRequest(pathname) && mockupHandler !== null) return mockupHandler(request);
       if (isShopSitemapRequest(pathname)) return shopSitemapHandler(request);
       return isLocalGescomPath(pathname) && gescomHandler !== null ? gescomHandler(request) : apiHandler(request);
@@ -692,6 +743,7 @@ const localHandler = localAuthentication === null
   : (request: Request) => {
       const pathname = new URL(request.url).pathname;
       if (isAssistantChatRequest(request)) return assistantChatHandler(request);
+      if (isHopeStudioWorkflowRequest(request)) return hopeStudioWorkflowHandler(request);
       if (isLocalAuthenticationPath(pathname)) return localAuthentication.handler(request);
       if (isMockupRequest(pathname) && mockupHandler !== null) return mockupHandler(request);
       if (isShopSitemapRequest(pathname)) return shopSitemapHandler(request);
@@ -707,6 +759,7 @@ const handler = createTransitionalApiHandler({
   isLocalRequest: (request, url) => (
     (conversationsEnabled && isConversationsPath(url.pathname))
     || isAssistantChatRequest(request)
+    || isHopeStudioPath(url.pathname)
     || (actorResolver !== undefined && isDiagnosticsPath(url.pathname))
     || isAssistantPath(url.pathname)
     || isClariprintPath(url.pathname)
@@ -752,6 +805,7 @@ server.listen(port, host, () => {
       ...(conversationsEnabled ? ['conversations'] : []),
       ...(diagnosticsRoutes.length === 0 ? [] : ['diagnostics']),
       'assistant',
+      ...(hopeStudioSettingsRoutes.length === 0 ? [] : ['hopstudio']),
       'clariprint',
       ...(mockupHandler === null ? [] : ['mockups']),
       'shop-sitemap',
@@ -825,6 +879,10 @@ function isDiagnosticsPath(pathname: string): boolean {
 
 function isAssistantPath(pathname: string): boolean {
   return /^\/api\/v1\/(?:tenants\/[^/]+|public\/shops\/[^/]+)\/assistant\/category-editorial\/?$/.test(pathname);
+}
+
+function isHopeStudioPath(pathname: string): boolean {
+  return /^\/api\/v1\/tenants\/[^/]+\/integrations\/hopstudio(?:\/workflow)?\/?$/.test(pathname);
 }
 
 function isClariprintPath(pathname: string): boolean {
