@@ -6,7 +6,7 @@ describe('SupabaseCatalogAutomationGateway', () => {
   it('traduit la commande contractuelle vers le payload de génération legacy', async () => {
     const invoke = vi.fn(async () => ({ data: { generated: { name: 'Flyer' } }, error: null }));
     const gateway = new SupabaseCatalogAutomationGateway({ functions: { invoke } } as never);
-    const generated = await gateway.generateDefinition({
+    const generated = await gateway.generateDefinition('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' as never, {
       gammeSlug: 'flyers', gammeName: 'Flyers', gammeMatchingRules: { kind: 'leaflet' },
       locale: 'fr', variationFilter: {}, mode: 'generate',
     });
@@ -19,6 +19,6 @@ describe('SupabaseCatalogAutomationGateway', () => {
 
   it('refuse un rapport d’ingestion non conforme', async () => {
     const gateway = new SupabaseCatalogAutomationGateway({ functions: { invoke: vi.fn(async () => ({ data: {}, error: null })) } } as never);
-    await expect(gateway.runIngest({ dryRun: true })).rejects.toMatchObject<CatalogRejectedError>({ code: 'upstream_error' });
+    await expect(gateway.runIngest('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' as never, { dryRun: true })).rejects.toMatchObject<CatalogRejectedError>({ code: 'upstream_error' });
   });
 });

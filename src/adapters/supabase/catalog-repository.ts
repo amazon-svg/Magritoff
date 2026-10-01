@@ -78,19 +78,19 @@ export class SupabaseCatalogRepository implements CatalogRepository {
 
 export class SupabaseCatalogAutomationGateway implements CatalogAutomationGateway {
   constructor(private readonly client: SupabaseClient<Database>) {}
-  async pendingCandidates(): Promise<number> {
+  async pendingCandidates(_actor: UserId): Promise<number> {
     const { count, error } = await this.client.from('pim_candidates').select('id', { count: 'exact', head: true }).eq('status', 'pending');
     if (error) throw new CatalogRejectedError('upstream_error', error.message || 'Lecture de la file PIM impossible.');
     return count ?? 0;
   }
-  async runIngest(command: RunPimIngestCommand): Promise<PimIngestReport> {
+  async runIngest(_actor: UserId, command: RunPimIngestCommand): Promise<PimIngestReport> {
     const { data, error } = await this.client.functions.invoke<unknown>('pim-ingest', { body: command });
     if (error) throw new CatalogRejectedError('upstream_error', error.message || 'Ingestion PIM impossible.');
     const parsed = pimIngestReportSchema.safeParse(data);
     if (!parsed.success) throw new CatalogRejectedError('upstream_error', 'Rapport d’ingestion PIM invalide.');
     return parsed.data;
   }
-  async generateDefinition(command: GeneratePimDefinitionCommand): Promise<Record<string, unknown>> {
+  async generateDefinition(_actor: UserId, command: GeneratePimDefinitionCommand): Promise<Record<string, unknown>> {
     const { data, error } = await this.client.functions.invoke<{ generated?: unknown }>('pim-generate', { body: {
       gamme_slug: command.gammeSlug, gamme_name: command.gammeName, gamme_matching_rules: command.gammeMatchingRules,
       locale: command.locale, variation_filter: command.variationFilter, mode: command.mode, existing: command.existing,

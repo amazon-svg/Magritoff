@@ -58,6 +58,7 @@ import { PostgresCommercialLineFilesRepository } from '../../adapters/postgres/c
 import { PostgresCommercialOrdersRepository } from '../../adapters/postgres/commercial-orders-repository.ts';
 import { PostgresCommercialQuotesRepository } from '../../adapters/postgres/commercial-quotes-repository.ts';
 import { PostgresCatalogRepository } from '../../adapters/postgres/catalog-repository.ts';
+import { PostgresCatalogAutomationGateway } from '../../adapters/postgres/catalog-automation-gateway.ts';
 import { PostgresConversationsRepository } from '../../adapters/postgres/conversations-repository.ts';
 import { PostgresCustomersRepository } from '../../adapters/postgres/customers-repository.ts';
 import { PostgresDocumentTemplatesRepository } from '../../adapters/postgres/document-templates-repository.ts';
@@ -116,7 +117,6 @@ import { CommercialLineFilesService } from '../../modules/commercial-line-files/
 import { CommercialOrdersService } from '../../modules/commercial-orders/application/commercial-orders-service.ts';
 import { CommercialQuotesService } from '../../modules/commercial-quotes/application/commercial-quotes-service.ts';
 import { CatalogService } from '../../modules/catalog/application/catalog-service.ts';
-import { CatalogRejectedError } from '../../modules/catalog/application/catalog-repository.ts';
 import { AiPimDefinitionGenerator } from '../../modules/catalog/application/ai-pim-definition-generator.ts';
 import { ClariprintService } from '../../modules/clariprint/application/clariprint-service.ts';
 import { CustomersService } from '../../modules/customers/application/customers-service.ts';
@@ -296,11 +296,10 @@ const catalogRoutes = actorResolver === undefined
       new PostgresCatalogRepository(
         new PostgresTransactionRunner(postgresPool, 'magrit_api'),
       ),
-      {
-        async pendingCandidates() { throw catalogAutomationNotMigrated(); },
-        async runIngest() { throw catalogAutomationNotMigrated(); },
-        generateDefinition(command) { return pimDefinitionGenerator.generateDefinition(command); },
-      },
+      new PostgresCatalogAutomationGateway(
+        new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+        pimDefinitionGenerator,
+      ),
     ));
 const gescomAuthenticationEnabled = oidcJwtVerifier !== null || localAuthentication !== null;
 const s3Client = gescomAuthenticationEnabled ? createS3Client() : null;
@@ -784,13 +783,6 @@ function parsePort(value: string): number {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
-}
-
-function catalogAutomationNotMigrated(): CatalogRejectedError {
-  return new CatalogRejectedError(
-    'upstream_error',
-    'Cette automatisation PIM reste temporairement servie par l’API historique.',
-  );
 }
 
 function isConversationsPath(pathname: string): boolean {

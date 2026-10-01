@@ -19,7 +19,7 @@ export interface CatalogRepository {
 }
 
 export interface CatalogAutomationGateway {
-  pendingCandidates(): Promise<number>;
-  runIngest(command: RunPimIngestCommand): Promise<PimIngestReport>;
-  generateDefinition(command: GeneratePimDefinitionCommand): Promise<Record<string, unknown>>;
+  pendingCandidates(actor: UserId): Promise<number>;
+  runIngest(actor: UserId, command: RunPimIngestCommand): Promise<PimIngestReport>;
+  generateDefinition(actor: UserId, command: GeneratePimDefinitionCommand): Promise<Record<string, unknown>>;
 }

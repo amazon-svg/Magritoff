@@ -11,7 +11,7 @@ export class CatalogService {
   deletePimGamme(actor: UserId, slug: string) { return this.repository.deletePimGamme(actor, slug); }
   upsertPimDefinition(actor: UserId, command: UpsertPimDefinitionCommand) { return this.repository.upsertPimDefinition(actor, command); }
   deletePimDefinition(actor: UserId, id: string) { return this.repository.deletePimDefinition(actor, id); }
-  async pimPendingCandidates(actor: UserId) { await this.repository.assertPimAdmin(actor); return { pendingCount: await this.automation.pendingCandidates() }; }
-  async runPimIngest(actor: UserId, command: RunPimIngestCommand) { await this.repository.assertPimAdmin(actor); return this.automation.runIngest(command); }
-  async generatePimDefinition(actor: UserId, command: GeneratePimDefinitionCommand) { await this.repository.assertPimAdmin(actor); return { generated: await this.automation.generateDefinition(command) }; }
+  async pimPendingCandidates(actor: UserId) { await this.repository.assertPimAdmin(actor); return { pendingCount: await this.automation.pendingCandidates(actor) }; }
+  async runPimIngest(actor: UserId, command: RunPimIngestCommand) { await this.repository.assertPimAdmin(actor); return this.automation.runIngest(actor, command); }
+  async generatePimDefinition(actor: UserId, command: GeneratePimDefinitionCommand) { await this.repository.assertPimAdmin(actor); return { generated: await this.automation.generateDefinition(actor, command) }; }
 }

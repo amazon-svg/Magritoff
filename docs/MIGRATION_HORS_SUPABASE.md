@@ -707,9 +707,15 @@ L'Edge Function `shop-sitemap` a donc ete supprimee.
 La generation et la relecture des fiches PIM passent egalement par l'API Node.
 Elles reutilisent le fournisseur IA configurable (`MAGRIT_AI_PROVIDER`) deja
 employe par l'assistant et les diagnostics ; aucune cle fournisseur ne rejoint
-le navigateur. L'Edge Function `pim-generate` a ete supprimee. Le pipeline
-d'ingestion des candidats reste un lot distinct, car il implique aussi de
-porter la file `pim_candidates` et son alimentation transactionnelle.
+le navigateur. L'Edge Function `pim-generate` a ete supprimee.
+
+La file `pim_candidates` est maintenant dans la baseline PostgreSQL portable.
+Des triggers transactionnels l'alimentent depuis les lignes de commandes
+boutique et atelier. L'ingestion Node traite au plus 100 candidats par appel,
+rejette les configurations insuffisantes, resout la gamme, deduplique par
+signature technique, puis enrichit et fusionne la definition via le fournisseur
+IA configurable. Les verrous de ligne evitent qu'un candidat soit fusionne deux
+fois si deux appels se chevauchent. L'Edge Function `pim-ingest` a ete supprimee.
 
 ### 11.3 Planification
 
