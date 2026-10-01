@@ -14,8 +14,7 @@
  * donc ca survit a tous les tests de developpement et tombe en production.
  *
  * PRECAUTION 2 — la version est EPINGLEE EXACTEMENT (jamais un intervalle
- * semver) dans `package.json` ET dans l import-map Deno de l Edge Function
- * `magrit-order-export-runner`, POUR LES DEUX PAQUETS `write-excel-file`
+ * semver) dans `package.json`, POUR LES DEUX PAQUETS `write-excel-file`
  * ET `fflate` (complete le 2026-09-13, treizieme entree du bandeau §8.24,
  * point (ii)) : l entree `/node` de `write-excel-file` n evite le Worker
  * que grace a une CONSTANTE INTERNE NON EXPORTEE
@@ -92,20 +91,12 @@ import { describe, expect, it } from 'vitest';
 
 const projectRoot = process.cwd();
 const RENDERER_PATH = 'src/modules/order-exports/application/renderers/xlsx-renderer.ts';
-const DENO_JSON_PATH = 'supabase/functions/magrit-order-export-runner/deno.json';
 
 function readPackageJsonDependencies(): Record<string, string> {
   const packageJson = JSON.parse(readFileSync(resolve(projectRoot, 'package.json'), 'utf8')) as {
     dependencies?: Record<string, string>;
   };
   return packageJson.dependencies ?? {};
-}
-
-function readDenoImportMap(): Record<string, string> {
-  const denoJson = JSON.parse(readFileSync(resolve(projectRoot, DENO_JSON_PATH), 'utf8')) as {
-    imports?: Record<string, string>;
-  };
-  return denoJson.imports ?? {};
 }
 
 function parseTypeScriptFile(relativePath: string): ts.SourceFile {
@@ -287,34 +278,20 @@ describe('bibliotheque XLSX — write-excel-file/universal jamais IMPORTE (contr
  * cas echeant) doit suivre la version dans la valeur `npm:...`.
  */
 const PINNED_PACKAGES = [
-  { packageName: 'write-excel-file', importMapKey: 'write-excel-file/node', importMapSubpath: '/node' },
-  { packageName: 'fflate', importMapKey: 'fflate', importMapSubpath: '' },
+  { packageName: 'write-excel-file' },
+  { packageName: 'fflate' },
 ] as const;
 
 const EXACT_SEMVER_PATTERN = /^\d+\.\d+\.\d+$/;
 
 describe.each(PINNED_PACKAGES)(
-  'bibliotheque XLSX — $packageName : version EPINGLEE exactement, IDENTIQUE entre package.json et l import-map Deno (contrat §8.24 point 7, precaution 2)',
-  ({ packageName, importMapKey, importMapSubpath }) => {
+  'bibliotheque XLSX — $packageName : version EPINGLEE exactement dans le runtime Node (contrat §8.24 point 7, precaution 2)',
+  ({ packageName }) => {
     it(`package.json declare ${packageName} en version EXACTE (jamais un intervalle semver : ni ^ ni ~)`, () => {
       const dependencies = readPackageJsonDependencies();
       const declared = dependencies[packageName];
       expect(declared, `${packageName} devrait etre declare dans package.json > dependencies`).toBeDefined();
       expect(declared).toMatch(EXACT_SEMVER_PATTERN);
-    });
-
-    it(`l import-map Deno du runner porte "${importMapKey}" a EXACTEMENT la meme version que package.json`, () => {
-      const dependencies = readPackageJsonDependencies();
-      const importMap = readDenoImportMap();
-      const declaredVersion = dependencies[packageName];
-      const importMapValue = importMap[importMapKey];
-
-      expect(declaredVersion, `${packageName} devrait etre declare dans package.json > dependencies`).toBeDefined();
-      expect(importMapValue, `l import-map devrait porter une entree "${importMapKey}"`).toBeDefined();
-      // Egalite STRICTE, DERIVEE de package.json (jamais deux constantes
-      // recopiees independamment) : une version qui diverge d un seul cote
-      // fait tomber CE test, quel que soit le sens de la divergence.
-      expect(importMapValue).toBe(`npm:${packageName}@${declaredVersion}${importMapSubpath}`);
     });
   },
 );

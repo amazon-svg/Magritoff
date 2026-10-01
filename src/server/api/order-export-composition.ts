@@ -4,7 +4,7 @@
  *
  * Meme contre-mesure que `createNotificationSendApplication()`/
  * `createOutboxDispatchApplication()` pour la dette M1 (§8.2) : l Edge
- * Function `magrit-order-export-runner` ne fait qu instancier les
+ * Le processus Node `worker:order-exports` ne fait qu instancier les
  * adaptateurs et appeler cette fonction — la vraie composition (quel
  * renderer pour quel format) vit ici, dans un fichier typechecke et
  * testable par vitest.

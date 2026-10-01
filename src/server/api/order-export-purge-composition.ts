@@ -17,7 +17,7 @@
  * RESSOURCES distinctes (fichiers de commande vs. fichiers d export), qui ne
  * partagent ni bucket ni table, seulement le meme DECLENCHEUR quotidien.
  * L Edge Function appelle les deux applications l une apres l autre — voir
- * `supabase/functions/magrit-order-file-purge/index.ts`.
+ * `src/server/node/order-file-purge-worker-main.ts`.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { S3Client } from '@aws-sdk/client-s3';

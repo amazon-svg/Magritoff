@@ -728,6 +728,15 @@ Le choix ne doit pas exiger `pg_cron`. En developpement, les commandes de purge
 restent invocables manuellement et le scheduler peut etre active avec une
 cadence acceleree dans les tests.
 
+Les quatre drains historiques sont maintenant des processus Node independants :
+`worker:outbox`, `worker:notifications`, `worker:order-exports` et
+`worker:order-file-purge` (ce dernier purge aussi les exports expires). Ils
+utilisent le role PostgreSQL `magrit_worker`, des reclamations atomiques avec
+`skip locked` et S3 directement. Les quatre Edge Functions correspondantes et
+leurs blocs `supabase/config.toml` ont ete retires ; la planification appartient
+desormais au fournisseur de calcul, sans `pg_cron`, `pg_net`, Vault ni secret
+HTTP intermediaire.
+
 ## 12. Deroulement par jalons
 
 ### J0 - Decision et gel de la dette

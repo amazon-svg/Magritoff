@@ -10,7 +10,7 @@
  * `OutboxDispatcher` ne connait pas), et la file est `notification_logs`,
  * pas `outbox_events`.
  *
- * Invoque par l Edge Function `magrit-notification-sender`, son PROPRE
+ * Invoque par le processus Node `worker:notifications`, son PROPRE
  * `pg_cron` a la minute (§8.23 §3(c) : « pas dans le tour du drain outbox,
  * qui ferait attendre la publication des faits metier derriere vingt-cinq
  * appels reseau »).
