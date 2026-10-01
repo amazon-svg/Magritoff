@@ -16,11 +16,16 @@ type BetterAuthSessionPayload = Readonly<{
 /** Adaptateur navigateur cookie-only : aucun token de session n'est lisible en JS. */
 export class BetterAuthBrowserAuthenticationGateway implements AuthenticationGateway {
   private readonly listeners = new Set<(state: AuthenticationState) => void>();
+  private readonly fetchImplementation: typeof fetch;
+  private readonly basePath: string;
 
   constructor(
-    private readonly fetchImplementation: typeof fetch = globalThis.fetch,
-    private readonly basePath = '/api/v1/auth',
-  ) {}
+    fetchImplementation: typeof fetch = globalThis.fetch,
+    basePath = '/api/v1/auth',
+  ) {
+    this.fetchImplementation = fetchImplementation.bind(globalThis);
+    this.basePath = basePath;
+  }
 
   async persistedSession(): Promise<AuthenticationSession | null> {
     return this.readSession();
