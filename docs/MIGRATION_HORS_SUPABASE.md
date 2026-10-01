@@ -695,6 +695,15 @@ Les quatre traitements de type worker identifies sont regroupes dans le
 worker Magrit. Les fonctions PIM, mockup, assistant et sitemap sont classees
 selon leur duree : route API si courte, commande asynchrone sinon.
 
+Le sitemap est desormais servi directement par Node sur
+`GET /api/v1/public/shops/{slug}/sitemap.xml`. Une fonction PostgreSQL
+`security definer`, executable uniquement par `magrit_api`, ne retourne que le
+slug d'une boutique active en inscription ouverte et ses slugs de gammes. Le
+chemin transitoire `GET /api/v1/shop-sitemap?slug=...` reste disponible, mais
+l'origine du document vient de `APP_BASE_URL` (ou de la requete en local) :
+l'ancien parametre `base` fourni par le client est volontairement ignore.
+L'Edge Function `shop-sitemap` a donc ete supprimee.
+
 ### 11.3 Planification
 
 Les deux purges SQL actuelles peuvent etre declenchees par :

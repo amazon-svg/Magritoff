@@ -16,6 +16,7 @@ import { createLibrariesRoutes } from '../api/libraries-routes.ts';
 import { createLibraryProductsRoutes } from '../api/library-products-routes.ts';
 import { createMembersRoutes } from '../api/members-routes.ts';
 import { createMockupHandler, isMockupRequest } from '../api/mockup-routes.ts';
+import { createShopSitemapHandler, isShopSitemapRequest } from '../api/shop-sitemap-route.ts';
 import { createOrdersRoutes } from '../api/orders-routes.ts';
 import { createOrderFilesRoutes } from '../api/order-files-routes.ts';
 import { createOrderExportsRoutes } from '../api/order-exports-routes.ts';
@@ -84,6 +85,7 @@ import { PostgresQuoteTemplatesRepository } from '../../adapters/postgres/quote-
 import { PostgresRolesRepository } from '../../adapters/postgres/roles-repository.ts';
 import { PostgresShopsRepository } from '../../adapters/postgres/shops-repository.ts';
 import { PostgresShopCustomersRepository } from '../../adapters/postgres/shop-customers-repository.ts';
+import { PostgresShopSitemapRepository } from '../../adapters/postgres/shop-sitemap-repository.ts';
 import { PostgresShopCustomerDelegationGateway } from '../../adapters/postgres/shop-customer-delegation-gateway.ts';
 import { PostgresStorefrontAuthenticationGateway } from '../../adapters/postgres/storefront-authentication-gateway.ts';
 import { PostgresStorefrontActivationGateway } from '../../adapters/postgres/storefront-activation-gateway.ts';
@@ -300,6 +302,10 @@ const catalogRoutes = actorResolver === undefined
 const gescomAuthenticationEnabled = oidcJwtVerifier !== null || localAuthentication !== null;
 const s3Client = gescomAuthenticationEnabled ? createS3Client() : null;
 const mockupHandler = s3Client === null ? null : createMockupHandler(s3Client);
+const shopSitemapHandler = createShopSitemapHandler(
+  new PostgresShopSitemapRepository(new PostgresTransactionRunner(postgresPool, 'magrit_api')),
+  process.env['APP_BASE_URL']?.trim() || undefined,
+);
 const orderUploadLinksRepository = s3Client === null
   ? null
   : new PostgresOrderUploadLinksRepository(
@@ -651,12 +657,14 @@ const localHandler = localAuthentication === null
   ? (request: Request) => {
       const pathname = new URL(request.url).pathname;
       if (isMockupRequest(pathname) && mockupHandler !== null) return mockupHandler(request);
+      if (isShopSitemapRequest(pathname)) return shopSitemapHandler(request);
       return isLocalGescomPath(pathname) && gescomHandler !== null ? gescomHandler(request) : apiHandler(request);
     }
   : (request: Request) => {
       const pathname = new URL(request.url).pathname;
       if (isLocalAuthenticationPath(pathname)) return localAuthentication.handler(request);
       if (isMockupRequest(pathname) && mockupHandler !== null) return mockupHandler(request);
+      if (isShopSitemapRequest(pathname)) return shopSitemapHandler(request);
       if (isLocalGescomPath(pathname) && gescomHandler !== null) {
         return gescomHandler(request);
       }
@@ -672,6 +680,7 @@ const handler = createTransitionalApiHandler({
     || isAssistantPath(url.pathname)
     || isClariprintPath(url.pathname)
     || (mockupHandler !== null && isMockupRequest(url.pathname))
+    || isShopSitemapRequest(url.pathname)
     || (localAuthentication !== null && isLocalAuthenticationPath(url.pathname))
     || (sessionEnabled && isSessionPreferencesRequest(request.method, url.pathname))
     || (sessionEnabled && isSessionTenantSettingsRequest(request.method, url.pathname))
@@ -714,6 +723,7 @@ server.listen(port, host, () => {
       'assistant',
       'clariprint',
       ...(mockupHandler === null ? [] : ['mockups']),
+      'shop-sitemap',
       ...(localAuthentication === null ? [] : ['local-authentication']),
       ...(sessionEnabled ? ['session-bootstrap'] : []),
       ...(actorResolver === undefined ? [] : ['invitations']),
