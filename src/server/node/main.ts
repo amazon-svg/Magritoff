@@ -11,6 +11,7 @@ import { createCustomersRoutes } from '../api/customers-routes.ts';
 import { createDocumentTemplatesRoutes } from '../api/document-templates-routes.ts';
 import { createDiagnosticsRoutes } from '../api/diagnostics-routes.ts';
 import { createAssistantRoutes } from '../api/assistant-routes.ts';
+import { createAssistantChatHandler, isAssistantChatRequest } from '../api/assistant-chat-handler.ts';
 import { createInvitationsRoutes } from '../api/invitations-routes.ts';
 import { createLibrariesRoutes } from '../api/libraries-routes.ts';
 import { createLibraryProductsRoutes } from '../api/library-products-routes.ts';
@@ -123,6 +124,7 @@ import { CustomersService } from '../../modules/customers/application/customers-
 import { DocumentTemplatesService } from '../../modules/document-templates/application/document-templates-service.ts';
 import { DiagnosticsService } from '../../modules/diagnostics/application/diagnostics-service.ts';
 import { AssistantService } from '../../modules/diagnostics/application/assistant-service.ts';
+import { AssistantChatService } from '../../modules/diagnostics/application/assistant-chat-service.ts';
 import { InvitationsService } from '../../modules/invitations/application/invitations-service.ts';
 import { LibrariesService } from '../../modules/libraries/application/libraries-service.ts';
 import { LibraryProductsService } from '../../modules/libraries/application/library-products-service.ts';
@@ -564,6 +566,30 @@ const assistantRoutes = createAssistantRoutes(assistantService, async (request, 
     return null;
   }
 });
+const assistantChatHandler = createAssistantChatHandler({
+  service: new AssistantChatService(aiCompletionGateway),
+  ...(actorResolver === undefined ? {} : { actorResolver }),
+  authorizeTenant: (actor, tenantId) => diagnosticsAccess.isTenantMember(actor, tenantId),
+  async authorizeShop(request, shopSlug) {
+    if (shopsService === null) return null;
+    const token = readStorefrontSessionCookie(
+      request.headers.get('cookie'),
+      storefrontCookiePolicy,
+    );
+    const session = token ? await storefrontSessions.current(token) : null;
+    if (session === null) return null;
+    try {
+      const shop = await shopsService.publicProbe(shopSlug);
+      if (shop.id !== session.identity.shopId) return null;
+      return {
+        userId: session.identity.shopCustomerAccountId,
+        tenantId: shop.tenantId,
+      };
+    } catch {
+      return null;
+    }
+  },
+});
 const shopCustomerDelegationRoutes = actorResolver === undefined ? [] : createShopCustomerDelegationRoutes(
   new ShopCustomerDelegationService(new PostgresShopCustomerDelegationGateway(
     new PostgresTransactionRunner(postgresPool, 'magrit_api'),
@@ -658,12 +684,14 @@ const apiHandler = createApiV1Application({
 const localHandler = localAuthentication === null
   ? (request: Request) => {
       const pathname = new URL(request.url).pathname;
+      if (isAssistantChatRequest(request)) return assistantChatHandler(request);
       if (isMockupRequest(pathname) && mockupHandler !== null) return mockupHandler(request);
       if (isShopSitemapRequest(pathname)) return shopSitemapHandler(request);
       return isLocalGescomPath(pathname) && gescomHandler !== null ? gescomHandler(request) : apiHandler(request);
     }
   : (request: Request) => {
       const pathname = new URL(request.url).pathname;
+      if (isAssistantChatRequest(request)) return assistantChatHandler(request);
       if (isLocalAuthenticationPath(pathname)) return localAuthentication.handler(request);
       if (isMockupRequest(pathname) && mockupHandler !== null) return mockupHandler(request);
       if (isShopSitemapRequest(pathname)) return shopSitemapHandler(request);
@@ -678,6 +706,7 @@ const handler = createTransitionalApiHandler({
   localPaths: new Set(['/api/v1/health', '/api/v1/readiness']),
   isLocalRequest: (request, url) => (
     (conversationsEnabled && isConversationsPath(url.pathname))
+    || isAssistantChatRequest(request)
     || (actorResolver !== undefined && isDiagnosticsPath(url.pathname))
     || isAssistantPath(url.pathname)
     || isClariprintPath(url.pathname)

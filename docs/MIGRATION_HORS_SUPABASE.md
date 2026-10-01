@@ -715,6 +715,14 @@ Elles reutilisent le fournisseur IA configurable (`MAGRIT_AI_PROVIDER`) deja
 employe par l'assistant et les diagnostics ; aucune cle fournisseur ne rejoint
 le navigateur. L'Edge Function `pim-generate` a ete supprimee.
 
+Le chat du configurateur et les suggestions de produits de la boutique passent
+desormais par `POST /api/v1/assistant/chat` servi directement par Node. Le
+contrat navigateur reste fournisseur-neutre (`delta` puis `done` en SSE), tandis
+que le serveur utilise `MAGRIT_AI_PROVIDER`. L'adaptateur OpenAI appelle
+Responses API avec `store: false` et peut demander une sortie JSON conforme au
+schema catalogue. Cette etape permet de retirer les proxies Claude Edge sans
+lier React ni le domaine metier a un fournisseur IA.
+
 La file `pim_candidates` est maintenant dans la baseline PostgreSQL portable.
 Des triggers transactionnels l'alimentent depuis les lignes de commandes
 boutique et atelier. L'ingestion Node traite au plus 100 candidats par appel,
