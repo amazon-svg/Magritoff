@@ -5,7 +5,6 @@ import {
   normalizeShopCustomerEmail,
   type CreateShopCustomerCommand,
   type EnsureSelfShopCustomerResult,
-  type LegacyShopCustomerMigrationReportRow,
   type ShopCustomerAccount,
 } from '../api/contracts.ts';
 import {
@@ -15,10 +14,6 @@ import {
 
 export class ShopCustomersService {
   constructor(private readonly repository: ShopCustomersRepository) {}
-
-  migrationReport(actor: UserId, tenantId: string): Promise<LegacyShopCustomerMigrationReportRow[]> {
-    return this.repository.migrationReport(actor, tenantId);
-  }
 
   list(actor: UserId, tenantId: string, shopId: string): Promise<ShopCustomerAccount[]> {
     return this.repository.list(actor, tenantId, shopId);

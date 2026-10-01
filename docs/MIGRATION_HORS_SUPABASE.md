@@ -12,11 +12,11 @@ Decision formelle : `docs/architecture/decisions/0001-sortie-de-supabase.md`.
 | J0 | termine : ADR et garde-fous runtime, dependances, CLI et CI livres |
 | J1 | termine pour le code : Compose PostgreSQL/S3/Mailpit, migrations, buckets, seed et CI d'integration livres |
 | J2 | termine : API et workers Node, health/readiness, aucun runtime Edge requis |
-| J3 | termine pour le runtime : tous les domaines utilisent PostgreSQL directement et les adaptateurs Supabase ont ete retires ; reprise des donnees a repeter en J7 |
-| J4 | termine pour le runtime : les parcours de stockage utilisent S3 ; copie et controle des objets de chaque environnement a executer en J7 |
-| J5 | termine pour le runtime : Better Auth, annuaire Magrit, UI locale et OIDC externe sont livres ; strategie de reprise/reset des comptes a exercer en J7 |
+| J3 | termine : tous les domaines utilisent PostgreSQL directement et les adaptateurs Supabase ont ete retires ; aucune donnee historique ne sera reprise |
+| J4 | termine : les parcours de stockage utilisent S3 ; aucun objet Supabase ne sera copie |
+| J5 | authentification locale Better Auth et validation de jetons OIDC livrees ; federation OIDC interactive par boutique reste a implementer lorsqu'un premier client la demande |
 | J6 | termine pour le runtime : traitements synchrones et asynchrones portes dans Node, anciennes fonctions Edge retirees |
-| J7 | a faire : repetitions d'export/import, restauration, controle des objets, recette securite/performance, runbook de bascule et rollback |
+| J7 | a faire avant production : restauration de la nouvelle stack, recette securite/performance et runbook de deploiement/rollback |
 
 ## 1. Decision proposee
 
@@ -33,11 +33,10 @@ La cible conserve les briques standards utiles :
 - un processus worker pour l'outbox, les notifications, les exports et les
   purges.
 
-Le runtime applicatif n'utilise plus Supabase. Le repertoire `supabase/` et les
-tests SQL historiques sont conserves temporairement comme sources d'audit et
-de reprise jusqu'a la validation de J7 ; ils ne sont ni executes ni deployes
-par le developpement local ou la CI. Aucun nouveau code ne doit réintroduire
-la dépendance.
+Le runtime applicatif n'utilise plus Supabase. La decision du 1er octobre 2026
+est de ne reprendre ni les donnees ni les objets historiques : le repertoire
+`supabase/`, ses migrations et ses tests SQL ont donc ete retires. Aucun
+nouveau code ne doit réintroduire la dépendance.
 
 ## 2. Constats mesures
 
@@ -318,10 +317,8 @@ souscriptions de gammes par tenant sont désormais servis directement par
 PostgreSQL. Les mutations du référentiel global restent réservées aux
 administrateurs de plateforme ; les souscriptions sont isolées par tenant et
 modifiables par ses administrateurs. L'ingestion de candidats et la génération
-assistée de définitions restent volontairement relayées vers l'API historique :
-ce sont des traitements asynchrones à extraire séparément, pas des opérations
-du repository catalogue. La copie des gammes et définitions existantes doit
-précéder l'activation de ces routes sur un environnement contenant des données.
+assistée de définitions sont servies par l'API Node. Le nouveau référentiel est
+initialisé directement dans PostgreSQL, sans copie d'un catalogue historique.
 
 Les règles tarifaires et les marges par défaut des gammes sont également
 locales. PostgreSQL assure l'isolation tenant, les contraintes de portée et de
@@ -337,8 +334,8 @@ journaux append-only. L'adaptateur PostgreSQL direct couvre aussi les lectures,
 la création tarifée, les mutations, l'envoi et la duplication transactionnels ;
 les auteurs d'audit sont désormais transmis explicitement par le port. Les
 routes Devis et Documents de devis sont désormais activées dans le serveur Node
-pour le back-office. Les données existantes devront être copiées et contrôlées
-avant l'activation de ces routes en environnement partagé.
+pour le back-office. La nouvelle base demarre sans reprise des donnees
+historiques.
 
 Les gabarits PDF de devis et de commandes sont maintenant servis par la façade
 Node avec PostgreSQL et le bucket S3 `document-pdf-templates`. Le dépôt reste
@@ -348,10 +345,8 @@ remplacement conserve le statut par défaut et refuse un changement de
 géométrie tant que la carte n'est pas explicitement réinitialisée. La table
 append-only des documents de devis est également servie par un adaptateur
 PostgreSQL/S3. Le dépôt définitif est protégé contre l'écrasement et les aperçus
-filigranés restent remplaçables. La lecture portail client continue d'être
-relayée vers l'API historique : elle ne basculera qu'avec les comptes et
-sessions boutique, afin de conserver un contrôle d'accès complet plutôt qu'un
-mode dégradé.
+filigranés restent remplaçables. La lecture portail client utilise elle aussi
+l'API Node et ses sessions boutique locales.
 
 Le cycle des commandes boutique est désormais servi localement par Node et
 PostgreSQL : création Magrit ou storefront, lecture atelier et portail,
@@ -362,53 +357,10 @@ qualifier un prix de `catalog`; une configuration divergente reste
 utilisent SMTP en développement ou Resend en hébergement, avec résolution des
 destinataires et de `notify_policy` dans PostgreSQL ; les anciennes Edge
 Functions `send-order-notification` et `order-workflow-step` ont ete supprimees.
-La bascule d'un environnement existant exige encore une reprise
-contrôlée de `shop_orders` vers `tenant_orders` : l'adaptateur portable ne lit
-volontairement pas la table historique et ne doit donc être activé qu'après ce
-cutover.
-
-La reprise est fournie par `pnpm db:import:legacy-orders`. Elle exige une URL
-PostgreSQL directe vers la source historique dans
-`MAGRIT_LEGACY_SOURCE_DATABASE_URL` et utilise
-`MAGRIT_DATABASE_MIGRATION_URL` (ou `DATABASE_URL`) comme cible. Sans option,
-la commande importe et vérifie toute la cohorte dans une transaction puis fait
-un `ROLLBACK` : c'est le mode de répétition obligatoire avant la bascule.
-L'écriture nécessite explicitement `--apply` :
-
-```text
-MAGRIT_LEGACY_SOURCE_DATABASE_URL=postgresql://... \
-MAGRIT_DATABASE_MIGRATION_URL=postgresql://... \
-pnpm db:import:legacy-orders
-
-# après contrôle du bilan JSON et gel des écritures sur la source
-MAGRIT_LEGACY_SOURCE_DATABASE_URL=postgresql://... \
-MAGRIT_DATABASE_MIGRATION_URL=postgresql://... \
-pnpm db:import:legacy-orders -- --apply
-```
-
-Les boutiques doivent déjà exister dans la cible. L'outil conserve l'UUID, la
-date, les montants, le statut traduit et le snapshot source intégral. Il crée
-ou réutilise le compte client de la boutique, marque les lignes `legacy` et ne
-conserve un `product_id` que si le produit appartient au même tenant. La table
-`legacy_shop_order_imports` porte le SHA-256 du snapshot : une deuxième passe
-identique est un replay, tandis qu'une source modifiée après import fait
-échouer la transaction. La fonction de cutover est révoquée au rôle
-`magrit_api` et reste réservée au compte de migration.
-
-Le rapport de contrôle des anciens membres `shop_only` est copié séparément,
-avant l'arrêt de la source, car sa vue historique dépend encore de
-`auth.users`. `pnpm db:import:legacy-shop-customer-report` suit la même
-discipline : simulation transactionnelle par défaut, puis `--apply` après
-contrôle. Le snapshot cible est isolé par tenant, lisible seulement avec
-`can_manage_shop_customers`, et son import est inaccessible au rôle API :
-
-```text
-MAGRIT_LEGACY_SOURCE_DATABASE_URL=postgresql://... \
-MAGRIT_DATABASE_MIGRATION_URL=postgresql://... \
-pnpm db:import:legacy-shop-customer-report
-
-pnpm db:import:legacy-shop-customer-report -- --apply
-```
+Les outils d'import de `shop_orders` et des anciens membres `shop_only` ont ete
+retires : aucune URL ni aucun acces a la base Supabase ne fait partie de la
+mise en production. Les comptes, boutiques et commandes seront crees dans la
+nouvelle stack.
 
 L'administration des membres du tenant est également locale. Les lectures
 s'appuient sur `app_users`, les rôles historiques `owner` et `admin` sont
@@ -514,9 +466,8 @@ Les tables gerees par la bibliotheque d'authentification vivent dans un schema
 dedie, par exemple `authn`. Les tables metier referencent seulement
 `app_users.id`.
 
-Pour minimiser la migration, les `app_users.id` importes conservent les UUID
-actuels de `auth.users`. Les 60 cles etrangeres peuvent alors etre repointees
-transactionnellement sans reecrire les valeurs.
+Les nouveaux `app_users.id` sont generes par Magrit et ne dependent d'aucun
+identifiant d'un ancien fournisseur.
 
 ### 7.3 Authentification locale
 
@@ -525,16 +476,9 @@ PostgreSQL. La validation doit couvrir : inscription, invitation, verification
 d'email, connexion, session cookie `HttpOnly`, deconnexion, revocation,
 changement et recuperation du mot de passe.
 
-Supabase utilise des hachages bcrypt, tandis que Better Auth utilise scrypt par
-defaut. Deux strategies doivent etre prototypees puis tranchees :
-
-1. imposer une recuperation de mot de passe a la bascule, acceptable si le
-   nombre de comptes reels est faible ;
-2. verifier temporairement les hashes bcrypt importes, puis produire un hash
-   moderne lors de la premiere connexion reussie.
-
-La deuxieme option n'est retenue qu'apres un test de migration et de
-rehashage atomique.
+Comme aucun compte Supabase n'est repris, aucun hash historique n'est importe.
+Les comptes sont crees par invitation et Better Auth produit directement leur
+hash moderne.
 
 ### 7.4 OpenID Connect par boutique
 
@@ -670,10 +614,8 @@ Introduire un contrat unique couvrant :
 Les references metier stockent uniquement : bucket logique, cle d'objet,
 version ou ETag, taille et type MIME. Aucune URL fournisseur n'est persistee.
 
-La migration des objets se fait bucket par bucket : inventaire source,
-copie, verification taille/checksum, double lecture temporaire, bascule des
-ecritures, puis arret de l'ancien bucket. Les buckets publics font l'objet
-d'un controle de cache et de politique CORS separe.
+Les buckets S3 demarrent vides : aucun objet Supabase n'est copie. Les buckets
+publics font l'objet d'un controle de cache et de politique CORS separe.
 
 ## 11. API, fonctions Edge et worker
 
@@ -812,8 +754,8 @@ Livrables :
 - contrat Storage unique ;
 - adaptateur S3 et SeaweedFS ;
 - huit buckets et leurs controles ;
-- outil de copie et de verification ;
-- double lecture temporaire et procedure de rollback.
+- initialisation idempotente de buckets vides ;
+- tests de depot, lecture, signature et suppression.
 
 Sortie : aucun parcours applicatif ne depend de `storage.objects` ou d'une URL
 Supabase.
@@ -824,10 +766,9 @@ Livrables :
 
 - `app_users` et `user_identities` ;
 - bibliotheque d'authentification locale ;
-- migration ou reinitialisation controlee des mots de passe ;
-- repointage des 60 cles etrangeres ;
-- remplacement des 66 usages SQL de `auth.uid()` ;
-- adaptateur OIDC configurable par boutique ;
+- creation des nouveaux comptes par invitation ;
+- validation OIDC standard pour les integrations serveur ;
+- federation interactive configurable par boutique a livrer sur besoin client ;
 - tests d'invitation, recovery, session et revocation.
 
 Sortie : aucun parcours ne depend de Supabase Auth.
@@ -858,37 +799,32 @@ L'ancien proxy vers `mockup-generator` a été supprimé.
 
 Sortie : aucun runtime Edge Supabase n'est requis.
 
-### J7 - Repetition et bascule
+### J7 - Validation avant production
 
 Livrables :
 
-- export de production/recette ;
-- restauration PostgreSQL sur une instance vierge ;
-- copie S3 avec checksums ;
-- comparaison des volumes et invariants metier ;
+- restauration PostgreSQL/S3 de la nouvelle stack sur une instance vierge ;
 - tests multi-tenant, securite et performance ;
-- procedure de bascule et de rollback chronometree ;
-- sauvegarde finale immuable de la source Supabase.
+- procedure de deploiement et de rollback chronometree ;
+- verification que l'environnement ne contient aucun secret Supabase.
 
-Sortie : deux repetitions completes reussies, dont une avec le volume cible
-estime, avant la bascule definitive.
+Sortie : une restauration et une recette completes de la nouvelle stack sont
+reussies avant l'ouverture de la production.
 
-## 13. Strategie de bascule
+## 13. Strategie de mise en production
 
-Tant que le projet n'est pas en production, privilegier une bascule courte :
+Il n'y a pas de bascule de donnees depuis Supabase. La mise en production part
+d'une base PostgreSQL et de buckets S3 vides :
 
-1. geler temporairement les ecritures ;
-2. effectuer l'export final PostgreSQL ;
-3. importer et verifier les donnees ;
-4. copier puis verifier les objets ;
-5. basculer les secrets et la destination de l'API ;
-6. executer les smokes authentifies et multi-tenant ;
-7. rouvrir les ecritures ;
-8. conserver Supabase en lecture seule pendant la periode de securite.
+1. creer PostgreSQL et les buckets S3 ;
+2. appliquer les migrations portables et initialiser les buckets ;
+3. creer le premier compte administrateur par le flux controle ;
+4. deployer l'API, les workers et le front ;
+5. executer les smokes authentifies et multi-tenant ;
+6. ouvrir les acces utilisateurs.
 
-Le rollback remet l'ancienne API en service tant qu'aucune ecriture n'a ete
-acceptee sur la nouvelle cible. Apres reouverture des ecritures, un rollback
-exige une procedure de reconciliation explicite ; il ne doit pas etre improvise.
+Le rollback concerne uniquement les versions de l'application et les
+migrations additives de la nouvelle base. Il ne revient jamais vers Supabase.
 
 ## 14. Validation obligatoire
 
@@ -931,10 +867,8 @@ La migration est terminee lorsque :
 |---|---|
 | regression d'autorisation pendant la reduction RLS | matrice d'acces, tests multi-tenant, role runtime non proprietaire |
 | perte de contexte avec le pool PostgreSQL | transaction obligatoire et `set_config(..., true)` |
-| comptes inutilisables apres migration | prototype bcrypt, campagne de reset et support explicite |
 | association OIDC au mauvais compte | cle `(issuer, subject)`, invitation prealable, pas de confiance email seule |
-| objet manquant apres copie | inventaire, taille, checksum et double lecture |
-| divergence pendant la bascule | gel des ecritures ou synchronisation explicitement concue |
+| objet manquant | sauvegarde/versionnement S3 et controle des references metier |
 | nouvelle dependance a une bibliotheque Auth | `app_users` independant et port d'authentification Magrit |
 | environnement local trop lourd | seulement PostgreSQL, SeaweedFS et Mailpit ; API/worker executes par `pnpm` |
 

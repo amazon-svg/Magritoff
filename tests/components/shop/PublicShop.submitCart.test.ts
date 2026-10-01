@@ -51,14 +51,18 @@ describe('AF5.2a — submitCart() delegue la creation atomique a Orders', () => 
     expect(layout).toContain('setCartOpen(false)');
   });
 
-  it("la commande SQL atomique impose explicitement le statut initial 'draft'", () => {
-    const sql = readFileSync(
-      resolve(__dirname, '../../../supabase/migrations/20260811000400_api_create_order_atomic.sql'),
+  it("le schema portable impose le statut initial 'draft'", () => {
+    const schema = readFileSync(
+      resolve(__dirname, '../../../infra/postgres/migrations/0049_orders_foundation.sql'),
+      'utf-8',
+    );
+    const repository = readFileSync(
+      resolve(__dirname, '../../../src/adapters/postgres/orders-repository.ts'),
       'utf-8',
     );
 
-    expect(sql).toMatch(/insert\s+into\s+public\.tenant_orders/i);
-    expect(sql).toMatch(/values\s*\([\s\S]*?'draft'/i);
-    expect(sql).toMatch(/insert\s+into\s+public\.tenant_order_items/i);
+    expect(schema).toMatch(/status public\.tenant_order_status not null default 'draft'/i);
+    expect(repository).toMatch(/insert\s+into\s+public\.tenant_orders/i);
+    expect(repository).toMatch(/insert\s+into\s+public\.tenant_order_items/i);
   });
 });

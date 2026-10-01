@@ -51,5 +51,4 @@
   - [Contrôle d’accès des boutiques](docs/SHOP_ACCESS_CONTROL.md)
   - [Règles d’architecture](docs/REGLES_ARCHITECTURE.md)
   - [Plan de migration hors Supabase](docs/MIGRATION_HORS_SUPABASE.md)
-  - [Archive du workflow des migrations Supabase](docs/SUPABASE_MIGRATIONS_WORKFLOW.md)
   - [Guides bêta](docs/beta-guides/README.md)

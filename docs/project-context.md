@@ -130,10 +130,6 @@
 - `useLegacyTenantSlugResolution` porte la résolution réseau et reconstruit la
   route d'un ancien slug en conservant sous-chemin, query string et ancre ; la
   vue `LegacySlugRedirect` ne connaît plus le client Session.
-- `useLegacyShopCustomerMigrationReport` porte le chargement, l'invalidation et
-  la synthèse du rapport privé de migration des comptes boutique. La surface
-  Utilisateurs masque l'audit sur refus ou indisponibilité et ne pilote plus le
-  client ShopCustomers.
 - `useShopCustomerAccountManagement` porte la liste, la création, l'activation
   et le démarrage de délégation des comptes propres à une boutique. Les réponses
   tardives sont ignorées après un changement de boutique ; la vue conserve

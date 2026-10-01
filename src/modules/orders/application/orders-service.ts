@@ -110,7 +110,7 @@ export class OrdersService {
   /**
    * QUATRIÈME CHEMIN DE FUITE ACHETEUR (qa-review round 5), corrigé —
    * `GET /orders/{orderId}/audit`, branche `storefront_session`
-   * (`api_get_order_audit_for_identity`, `supabase/migrations/20260817000500_storefront_order_audit.sql`),
+   * (projection PostgreSQL de l audit storefront),
    * rend `tenant_order_status_events.metadata` VERBATIM dans `payload`. Q17-a
    * y écrit, sur toute transition qui quitte un `draft` marqué,
    * `acknowledged_unverified_prices` et surtout `acknowledged_line_labels` —

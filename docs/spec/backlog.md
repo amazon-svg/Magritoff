@@ -351,7 +351,7 @@ Chantier majeur (AF0→AF32, ~120 stories) : migration de toutes les lectures/é
 | `story-AF30-4-magrit-invitation-orchestration` | AF30.4 — Isoler l'acceptation des invitations Magrit | ✅ done |
 | `story-AF30-5-retire-legacy-shop-only-redirect` | AF30.5 — Retirer la redirection automatique `shop_only` | ✅ done |
 | `story-AF30-6-legacy-slug-orchestration` | AF30.6 — Isoler la résolution des anciens slugs tenant | ✅ done |
-| `story-AF30-7-legacy-shop-customer-report-orchestration` | AF30.7 — Isoler le rapport de migration des comptes boutique | ✅ done |
+| `story-AF30-7-legacy-shop-customer-report-orchestration` | AF30.7 — Isoler le rapport de migration des comptes boutique | retiré — aucune reprise Supabase |
 | `story-AF30-8-shop-customer-management-orchestration` | AF30.8 — Isoler la gestion des comptes clients boutique | ✅ done |
 | `story-AF30-9-shop-custom-mockups-orchestration` | AF30.9 — Isoler la gestion des mockups boutique | ✅ done |
 | `story-AF31-1-shop-editor-operations-orchestration` | AF31.1 — Isoler les opérations de l’éditeur boutique | ✅ done |
@@ -444,9 +444,9 @@ Séparation stricte comptes Magrit / comptes clients boutique (identités, sessi
 | `story-UM6-6-storefront-checkout-identity` | UM6.6 — Connecter le checkout avec le compte boutique | ✅ done |
 | `story-UM6-7-resilient-session-bootstrap` | UM6.7 — Ne pas confondre panne API et absence d'espace | ✅ done |
 | `story-UM6-8-delegated-checkout-runtime` | UM6.8 — Stabiliser le checkout en mode délégué | ✅ done |
-| `story-UM7-1-legacy-shop-only-customer-migration` | UM7.1 — Migrer les anciens utilisateurs `shop_only` | ✅ done |
-| `story-UM7-2-legacy-migration-report-api` | UM7.2 — Exposer le rapport de migration via l’API Magrit | ✅ done |
-| `story-UM7-3-legacy-migration-control-surface` | UM7.3 — Surface de contrôle de la migration legacy | ✅ done |
+| `story-UM7-1-legacy-shop-only-customer-migration` | UM7.1 — Migrer les anciens utilisateurs `shop_only` | retiré — aucune reprise Supabase |
+| `story-UM7-2-legacy-migration-report-api` | UM7.2 — Exposer le rapport de migration via l’API Magrit | retiré — aucune reprise Supabase |
+| `story-UM7-3-legacy-migration-control-surface` | UM7.3 — Surface de contrôle de la migration legacy | retiré — aucune reprise Supabase |
 | `story-UM8-1-freeze-legacy-shop-only-writes` | UM8.1 — Geler les écritures `shop_only` | ✅ done-code |
 | `story-UM8-2-identity-documentation` | UM8.2 — Aligner la documentation sur les identités séparées | ✅ done |
 | `story-UM8-3-separate-magrit-role-catalog` | UM8.3 — Séparer le catalogue de rôles Magrit | ✅ done-code |

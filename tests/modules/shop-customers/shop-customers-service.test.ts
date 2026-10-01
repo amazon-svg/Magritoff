@@ -17,14 +17,6 @@ const TENANT = '22222222-2222-4222-8222-222222222222';
 const CUSTOMER = '33333333-3333-4333-8333-333333333333';
 
 describe('ShopCustomersService', () => {
-  it('expose le rapport de migration legacy sans logique Supabase dans le service', async () => {
-    const repository = repositoryStub();
-    const service = new ShopCustomersService(repository);
-
-    await expect(service.migrationReport(actor(), 'tenant-1')).resolves.toEqual([]);
-    expect(repository.migrationReport).toHaveBeenCalledWith(actor(), 'tenant-1');
-  });
-
   it('normalise l email avant de rechercher et créer le compte', async () => {
     const repository = repositoryStub();
     const service = new ShopCustomersService(repository);
@@ -154,7 +146,6 @@ describe('ShopCustomerInvitationService', () => {
 
 function repositoryStub(): ShopCustomersRepository {
   return {
-    migrationReport: vi.fn(async () => []),
     list: vi.fn(async () => []),
     findByNormalizedEmail: vi.fn(async () => null),
     create: vi.fn(async (_actor, _tenantId, shopId, record) => account({

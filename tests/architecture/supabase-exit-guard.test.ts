@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 
 const root = process.cwd();
@@ -44,6 +45,14 @@ function activeAutomationFiles(): string[] {
 }
 
 describe('sortie Supabase — runtime applicatif', () => {
+  it('ne versionne plus de socle Supabase historique', () => {
+    const tracked = execFileSync('git', ['ls-files', 'supabase', 'tests/sql'], {
+      cwd: root,
+      encoding: 'utf8',
+    }).split('\n').filter(Boolean).filter((file) => existsSync(resolve(root, file)));
+    expect(tracked).toEqual([]);
+  });
+
   it('interdit toute dependance au client Supabase dans src et utils', () => {
     expect(supabaseFiles()).toEqual([]);
   });

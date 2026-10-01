@@ -98,10 +98,6 @@ class InMemoryShopCustomersRepository implements ShopCustomersRepository {
     private readonly shopTenants: ReadonlyMap<string, string>,
   ) {}
 
-  async migrationReport() {
-    return [];
-  }
-
   async list() {
     return [];
   }

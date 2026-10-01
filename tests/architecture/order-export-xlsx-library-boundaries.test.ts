@@ -192,7 +192,7 @@ const UNIVERSAL_SPECIFIER_PATTERN = /^(npm:)?write-excel-file(@[^'"/]+)?\/univer
 /**
  * Meme motif que ci-dessus mais SUR LE TEXTE BRUT, guillemets droits
  * compris — sert UNIQUEMENT a `git grep` pour trouver des CANDIDATS dans
- * TOUT `src/`/`supabase/` (JSON compris, ex. `deno.json`) en un seul
+ * TOUT `src/` (JSON compris) en un seul
  * appel rapide. Les candidats `.ts`/`.tsx` sont ENSUITE reverifies par
  * l AST (voir `filesReallyImportingUniversalEntry`) : `git grep` seul ne
  * distingue pas un import d une citation en commentaire ou d un bloc
@@ -206,7 +206,7 @@ const UNIVERSAL_SPECIFIER_PATTERN = /^(npm:)?write-excel-file(@[^'"/]+)?\/univer
 const UNIVERSAL_IMPORT_GREP_PATTERN = '[\'"`](npm:)?write-excel-file(@[^\'"`/]+)?/universal[\'"`]';
 
 function candidateFilesMentioningUniversal(): string[] {
-  // `git grep` : rapide, couvre `src/` ET `supabase/` d un seul appel —
+  // `git grep` : rapide, couvre tout `src/` d un seul appel —
   // exactement le perimetre que la precaution 1 doit couvrir (contrat :
   // « nulle part dans le depot »). `--untracked` est OBLIGATOIRE : sans
   // lui, `git grep` ignore silencieusement un fichier cree mais pas encore
@@ -220,7 +220,7 @@ function candidateFilesMentioningUniversal(): string[] {
   // declencherait sinon une substitution de commande si le motif etait
   // interpole dans une chaine executee par `/bin/sh -c`.
   try {
-    const output = execFileSync('git', ['grep', '-l', '-E', '--untracked', UNIVERSAL_IMPORT_GREP_PATTERN, '--', 'src', 'supabase'], {
+    const output = execFileSync('git', ['grep', '-l', '-E', '--untracked', UNIVERSAL_IMPORT_GREP_PATTERN, '--', 'src'], {
       cwd: projectRoot,
       encoding: 'utf8',
     });
@@ -255,7 +255,7 @@ function filesReallyImportingUniversalEntry(): string[] {
 }
 
 describe('bibliotheque XLSX — write-excel-file/universal jamais IMPORTE (contrat §8.24 point 7, precaution 1)', () => {
-  it('aucun fichier de src/ ou supabase/ ne l importe (imports REELS, AST pour le .ts, grep pour le JSON — pas les commentaires qui l expliquent)', () => {
+  it('aucun fichier de src/ ne l importe (imports REELS, AST pour le .ts, grep pour le JSON — pas les commentaires qui l expliquent)', () => {
     const offenders = filesReallyImportingUniversalEntry();
     expect(offenders).toEqual([]);
   });

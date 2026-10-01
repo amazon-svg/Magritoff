@@ -48,18 +48,4 @@ describeIntegration('PostgresShopCustomersRepository — PostgreSQL reel', () =>
     expect(await service.findForContact(ownerId,tenantId,shopId,contactId)).toBeNull();
     expect((await service.findByEmail(ownerId,tenantId,shopId,'client@example.test'))).toMatchObject({status:'suspended',customerContactId:null});
   });
-
-  it('sert le snapshot portable du rapport de migration legacy',async()=>{
-    const legacyUserId=randomUUID(),targetAccountId=randomUUID(),attemptedAt='2026-08-17T12:30:00.000Z';
-    await pool.query(`select magrit.import_legacy_shop_customer_migration_report(
-      $1,$2,$3,$4,$5,$6,$7,$8,$9
-    )`,[tenantId,legacyUserId,shopId,'legacy@example.test','matched_existing',targetAccountId,'matched_existing',3,attemptedAt]);
-    await expect(service.migrationReport(ownerId,tenantId)).resolves.toEqual([{
-      legacyUserId,shopId,normalizedEmail:'legacy@example.test',proposedAction:'matched_existing',
-      targetAccountId,migrationOutcome:'matched_existing',ordersLinkedCount:3,lastAttemptAt:attemptedAt,
-    }]);
-    await expect(service.migrationReport(memberId,tenantId)).rejects.toMatchObject({code:'permission_denied'});
-    const runtime=new PostgresTransactionRunner(pool,'magrit_api');
-    await expect(runtime.run({tenantId,userId:ownerId},client=>client.query(`select magrit.import_legacy_shop_customer_migration_report($1,$2,null,null,'skipped_no_shop',null,'skipped_no_shop',0,null)`,[tenantId,randomUUID()]))).rejects.toMatchObject({code:'42501'});
-  });
 });

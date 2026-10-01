@@ -94,39 +94,6 @@ export const inviteShopCustomerResultSchema = z.object({
   activation: z.lazy(() => issueStorefrontActivationResultSchema),
 }).strict();
 
-export const legacyShopCustomerMigrationActionSchema = z.enum([
-  'create_delegated',
-  'matched_existing',
-  'skipped_no_shop',
-  'skipped_invalid_shop',
-  'skipped_missing_email',
-  'skipped_invalid_email',
-]);
-
-export const legacyShopCustomerMigrationOutcomeSchema = z.enum([
-  'created',
-  'matched_existing',
-  'skipped_no_shop',
-  'skipped_invalid_shop',
-  'skipped_missing_email',
-  'skipped_invalid_email',
-]);
-
-export const legacyShopCustomerMigrationReportRowSchema = z.object({
-  legacyUserId: z.string().uuid(),
-  shopId: z.string().uuid().nullable(),
-  normalizedEmail: z.string().nullable(),
-  proposedAction: legacyShopCustomerMigrationActionSchema,
-  targetAccountId: z.string().uuid().nullable(),
-  migrationOutcome: legacyShopCustomerMigrationOutcomeSchema.nullable(),
-  ordersLinkedCount: z.number().int().nonnegative(),
-  lastAttemptAt: z.iso.datetime({ offset: true }).nullable(),
-}).strict();
-
-export const legacyShopCustomerMigrationReportSchema = z.array(
-  legacyShopCustomerMigrationReportRowSchema,
-);
-
 export const directShopCustomerSessionSchema = z.object({
   kind: z.literal('shop_customer'),
   shopId: z.string().uuid(),
@@ -267,7 +234,6 @@ export type EnsureSelfShopCustomerResult = z.infer<typeof ensureSelfShopCustomer
 export type CreateShopCustomerCommand = z.input<typeof createShopCustomerCommandSchema>;
 export type InviteShopCustomerCommand = z.input<typeof inviteShopCustomerCommandSchema>;
 export type InviteShopCustomerResult = z.infer<typeof inviteShopCustomerResultSchema>;
-export type LegacyShopCustomerMigrationReportRow = z.infer<typeof legacyShopCustomerMigrationReportRowSchema>;
 export type DirectShopCustomerSession = z.infer<typeof directShopCustomerSessionSchema>;
 export type DelegatedShopCustomerSession = z.infer<typeof delegatedShopCustomerSessionSchema>;
 export type StorefrontIdentity = z.infer<typeof storefrontIdentitySchema>;

@@ -35,7 +35,7 @@ import { createQuoteTemplatesRoutes } from '../api/quote-templates-routes.ts';
 import { createReadinessRoute } from '../api/readiness-route.ts';
 import { createRolesRoutes } from '../api/roles-routes.ts';
 import { createPublicShopsRoutes, createShopAdministrationRoutes } from '../api/shops-routes.ts';
-import { createShopCustomerAdministrationRoutes, createShopCustomerMigrationReportRoutes } from '../api/shop-customers-routes.ts';
+import { createShopCustomerAdministrationRoutes } from '../api/shop-customers-routes.ts';
 import { createShopCustomerDelegationRoutes } from '../api/shop-customer-delegation-routes.ts';
 import { createShopCustomerInvitationRoutes } from '../api/shop-customer-invitation-routes.ts';
 import { createStorefrontSessionRoutes } from '../api/storefront-session-routes.ts';
@@ -526,9 +526,6 @@ const shopCustomersService = new ShopCustomersService(
 const shopCustomerAdministrationRoutes = actorResolver === undefined
   ? []
   : createShopCustomerAdministrationRoutes(shopCustomersService);
-const shopCustomerMigrationReportRoutes = actorResolver === undefined
-  ? []
-  : createShopCustomerMigrationReportRoutes(shopCustomersService);
 const storefrontAuthenticationGateway = new PostgresStorefrontAuthenticationGateway(
   new PostgresTransactionRunner(postgresPool, 'magrit_api'),
 );
@@ -736,7 +733,6 @@ const apiHandler = createApiV1Application({
     ...catalogRoutes,
     ...shopAdministrationRoutes,
     ...shopCustomerAdministrationRoutes,
-    ...shopCustomerMigrationReportRoutes,
     ...publicShopRoutes,
     ...storefrontSessionRoutes,
     ...shopCustomerDelegationRoutes,

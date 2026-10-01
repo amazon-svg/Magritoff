@@ -11,8 +11,7 @@ dist/
 .env.hopstudio.test.local
 .env.hopstudio.test.local.*
 .vite/
-supabase/.temp/
-supabase/migrations/20260417000000_local_b4_baseline.sql
+/supabase/
 test-results/
 playwright-report/
 coverage/
