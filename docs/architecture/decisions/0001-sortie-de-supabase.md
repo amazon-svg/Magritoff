@@ -24,10 +24,11 @@ substituables :
 - OpenID Connect configurable par boutique pour les identites clientes ;
 - fournisseur d'email transactionnel derriere un adaptateur.
 
-Les UUID metier existants sont conserves. La migration se fait par adaptateur,
-avec coexistence temporaire des chemins Supabase et standards. Aucun nouveau
-code ne doit introduire une dependance Supabase hors des frontieres de
-transition inventoriees.
+Les UUID metier existants sont conserves. La migration se fait par adaptateur.
+La coexistence temporaire des chemins Supabase et standards a pris fin dans le
+runtime applicatif le 1er octobre 2026 : les anciennes migrations SQL restent
+une archive de reprise jusqu'aux repetitions de bascule. Aucun nouveau code,
+outil actif ou workflow CI ne doit réintroduire une dependance Supabase.
 
 Redis, ou un service compatible, ne fait pas partie du socle initial. Les
 sessions, outbox, files de travaux et verrous restent dans PostgreSQL ; les
@@ -42,8 +43,8 @@ de stockage, d'identite et de calcul. En contrepartie, Magrit devient
 responsable de l'API, des migrations, de l'authentification, des sauvegardes,
 de la supervision et des procedures de reprise.
 
-Pendant la transition, deux infrastructures coexistent. Chaque bascule doit
-donc etre testee, observable et reversible tant que des ecritures ne sont pas
+La transition restante concerne les donnees et l'exploitation. Chaque reprise
+doit etre testee, observable et reversible tant que des ecritures ne sont pas
 acceptees exclusivement par la nouvelle cible.
 
 ## Mise en oeuvre

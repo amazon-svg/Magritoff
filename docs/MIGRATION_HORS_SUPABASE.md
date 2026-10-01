@@ -9,13 +9,14 @@ Decision formelle : `docs/architecture/decisions/0001-sortie-de-supabase.md`.
 
 | Jalon | Etat au 1er octobre 2026 |
 |---|---|
-| J0 | ADR et garde-fou contre les nouvelles dependances Supabase livres |
-| J1 | Compose, healthchecks, migrations et buckets livres ; seed et CI restent a faire |
-| J2 | runtime Node, health/readiness et facade de transition livres |
-| J3 | contexte transactionnel, roles, Conversations, session, réglages tenant, membres, rôles et invitations, réglages commerciaux, étapes de production, clients, projets, étiquettes, catalogue PIM et public, bibliothèques produits, règles tarifaires, devis, gabarits HTML et PDF, administration et invitations des comptes clients boutique PostgreSQL livrés ; commandes boutique, rôles, transitions, audit, idempotence, notifications et routes Node livrés ; commandes commerciales, conversion des devis, transitions d'étape, documents et routes Node PostgreSQL/S3 livrés ; outils idempotents de reprise des anciennes `shop_orders` et du rapport clients legacy livrés, exécution à faire sur chaque environnement ; idempotence API, outbox durable et réservation worker portable livrées |
-| J4 | adaptateurs S3 des exports, fichiers de lignes projet, fichiers de commande atelier et liens publics de dépôt, gabarits PDF, documents de devis, bons de commande et visuels de boutiques livres ; autres buckets non bascules |
-| J5 | OIDC, annuaire d'identites, socle Better Auth PostgreSQL, invitations Magrit, récupération de mot de passe, authentification directe storefront, activation, recovery et délégation storefront livres ; bascule UI globale reste a faire |
-| J6 et suivants | diagnostics IA/Clariprint, assistant éditorial, chat/génération catalogue et intégration HopeStudio servis par Node ; chiffrage Clariprint avec quotas PostgreSQL ; drains d'outbox et de notifications livrés ; rappels et purge des fichiers de commande livrés ; registre, API, génération CSV/XLSX, téléchargement signé, rétention et rattrapage S3 des exports de commandes livrés ; rendu PNG et cache S3 des mockups servis par Node ; autres jobs restent à migrer |
+| J0 | termine : ADR et garde-fous runtime, dependances, CLI et CI livres |
+| J1 | termine pour le code : Compose PostgreSQL/S3/Mailpit, migrations, buckets, seed et CI d'integration livres |
+| J2 | termine : API et workers Node, health/readiness, aucun runtime Edge requis |
+| J3 | termine pour le runtime : tous les domaines utilisent PostgreSQL directement et les adaptateurs Supabase ont ete retires ; reprise des donnees a repeter en J7 |
+| J4 | termine pour le runtime : les parcours de stockage utilisent S3 ; copie et controle des objets de chaque environnement a executer en J7 |
+| J5 | termine pour le runtime : Better Auth, annuaire Magrit, UI locale et OIDC externe sont livres ; strategie de reprise/reset des comptes a exercer en J7 |
+| J6 | termine pour le runtime : traitements synchrones et asynchrones portes dans Node, anciennes fonctions Edge retirees |
+| J7 | a faire : repetitions d'export/import, restauration, controle des objets, recette securite/performance, runbook de bascule et rollback |
 
 ## 1. Decision proposee
 
@@ -32,10 +33,11 @@ La cible conserve les briques standards utiles :
 - un processus worker pour l'outbox, les notifications, les exports et les
   purges.
 
-Supabase reste temporairement la source de vérité des seuls domaines qui ne
-sont pas encore basculés. Les domaines activés dans le runtime Node utilisent
-PostgreSQL/S3 comme source de vérité. Aucun nouveau code ne doit accroître la
-dépendance à Supabase.
+Le runtime applicatif n'utilise plus Supabase. Le repertoire `supabase/` et les
+tests SQL historiques sont conserves temporairement comme sources d'audit et
+de reprise jusqu'a la validation de J7 ; ils ne sont ni executes ni deployes
+par le developpement local ou la CI. Aucun nouveau code ne doit réintroduire
+la dépendance.
 
 ## 2. Constats mesures
 
@@ -844,8 +846,9 @@ génération des exports et de purge quotidienne sont disponibles. Le registre
 d'exports, l'API, les rendus CSV/XLSX, les téléchargements S3 signés et la
 rétention des objets sont portables. La purge marque d'abord les lignes
 éligibles, supprime ensuite les objets S3 et rattrape les objets résiduels.
-Les autres tâches Edge restent à migrer avant de satisfaire la sortie du
-jalon.
+Les traitements auparavant appeles a la demande (diagnostics, assistant,
+catalogue, HopeStudio, sitemap et mockups) sont eux aussi servis par Node. Les
+sources des fonctions Edge et leur configuration ont ete retirees.
 
 Le moteur de mockups est également sorti de l'Edge Runtime : les sept
 templates SVG vivent dans le module portable, le serveur Node effectue le
