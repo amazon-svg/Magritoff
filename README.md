@@ -14,7 +14,7 @@
 
   Cette commande démarre PostgreSQL 17, SeaweedFS (API S3), Mailpit, applique
   les migrations et le seed, puis lance l'API Node sur `127.0.0.1:8787` et
-  Vite sur `127.0.0.1:5176`.
+  Vite sur `localhost:5176`.
 
   Commandes utiles :
 
@@ -22,6 +22,7 @@
   pnpm infra:dev:status
   pnpm infra:dev:logs
   pnpm infra:dev:down
+  pnpm db:seed:ux       # fixtures UX : clients, devis et commandes
   pnpm typecheck
   curl http://127.0.0.1:8787/api/v1/health
   ```
@@ -30,6 +31,15 @@
   confirmation. Après un changement important de branche, relancez
   `pnpm install --frozen-lockfile`, puis `pnpm dev:local` : les migrations
   PostgreSQL manquantes sont appliquées automatiquement.
+
+  `pnpm db:seed:ux` crée par défaut trois espaces de démonstration contenant
+  chacun 100 clients, 150 devis, 200 commandes boutique et les commandes
+  atelier associées aux devis convertis. La commande est idempotente.
+  Pour un seul espace et des volumes précis :
+
+  ```bash
+  pnpm db:seed:ux atelier-test 250 400 300
+  ```
 
   ## Documentation
 

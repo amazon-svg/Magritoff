@@ -245,8 +245,15 @@ pnpm infra:dev:logs     # logs des services locaux
 pnpm infra:dev:reset    # destruction explicite des seules donnees locales
 pnpm db:migrate         # applique les migrations PostgreSQL Magrit
 pnpm db:seed            # identite, tenant et appartenance de developpement
+pnpm db:seed:ux         # donnees UX volumiques (clients, devis, commandes)
 pnpm dev:local          # services locaux, API Node et Vite
 ```
+
+Le seed UX est idempotent et reserve par defaut a PostgreSQL local. Sans
+argument, il alimente trois espaces de demonstration avec 100 clients,
+150 devis, 200 commandes boutique et les commandes atelier issues des devis
+convertis. Il accepte aussi un espace et trois volumes explicites :
+`pnpm db:seed:ux atelier-test 250 400 300`.
 
 `infra:dev:reset` doit afficher une confirmation et ne doit jamais accepter un
 chemin ou un nom de volume fourni librement par l'utilisateur.
