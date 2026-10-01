@@ -203,7 +203,13 @@ select pg_temp.ux_uuid(fixture.quote_id::text || ':line:' || line.number), fixtu
   (65 + (fixture.number % 20) * 3)::numeric(12,2), 0.3500,
   (65 + (fixture.number % 20) * 3)::numeric(12,2), 0.3000,
   case when fixture.number % 3 = 0 then 0.0500 end, 0.0000,
-  jsonb_build_array(jsonb_build_object('label','Impression','amount',40 + (fixture.number % 20) * 2)),
+  jsonb_build_array(jsonb_build_object(
+    'post', 'printing',
+    'cost', ((40 + (fixture.number % 20) * 2)::numeric(12,2))::text,
+    'margin_rate', '0.3500',
+    'price', ((65 + (fixture.number % 20) * 3)::numeric(12,2))::text,
+    'source', 'prix_marche'
+  )),
   fixture.fixture_created_at
 from ux_seed_quotes fixture
 cross join lateral generate_series(1, 1 + fixture.number % 3) line(number)

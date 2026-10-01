@@ -38,6 +38,7 @@ export async function seedUxVolume(client, configuration, identityConfiguration 
     await setLocal(client, 'ux.seed.order_count', String(configuration.orderCount));
     await setLocal(client, 'ux.seed.quote_count', String(configuration.quoteCount));
     await setLocal(client, 'ux.seed.actor_email', identityConfiguration.email);
+    await client.query(await readFile(resolve(scriptDirectory, 'repair-ux-order-breakdown.sql'), 'utf8'));
     const queryResult = await client.query(sql);
     await client.query('commit');
     const results = Array.isArray(queryResult) ? queryResult : [queryResult];
