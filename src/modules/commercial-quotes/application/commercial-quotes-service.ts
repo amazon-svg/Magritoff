@@ -31,8 +31,10 @@ import type { ProjectsRepository } from '../../projects/application/projects-rep
 import type { PriceRulesService } from '../../pricing/application/price-rules-service.ts';
 import type { PricingEngine } from '../../pricing/application/pricing-engine.ts';
 import type {
+  QuoteDocumentDto,
   QuoteDocumentPreviewDto,
 } from '../../quote-documents/api/contracts.ts';
+import { QuoteDocumentNotFoundError, QuoteDocumentTemplateMissingError } from '../../quote-documents/application/quote-documents-repository.ts';
 import type {
   QuoteDocumentsService,
   QuoteForDocumentGeneration,
@@ -272,6 +274,35 @@ export class CommercialQuotesService {
     };
 
     return this.documents.createDraftPreview(tenantId, previewInput, this.now().toISOString());
+  }
+
+  /** Genere une seule fois un PDF manquant pour un devis sorti du brouillon. */
+  async getOrCreateDocument(tenantId: TenantId, quoteId: string, actor: UserId | null = null): Promise<QuoteDocumentDto> {
+    const detail = await this.getDetail(tenantId, quoteId);
+    try {
+      return await this.documents.getForQuote(tenantId, quoteId);
+    } catch (error) {
+      if (!(error instanceof QuoteDocumentNotFoundError)) throw error;
+    }
+    if (detail.status === 'draft') throw new QuoteDocumentNotFoundError();
+    const rendered = await this.documents.renderForFirstSend(tenantId, {
+      id: detail.id, customerId: detail.customer_id, number: detail.number,
+      validUntil: detail.valid_until,
+      totals: {
+        linesSubtotal: detail.show_discounts ? detail.totals.lines_subtotal : null,
+        globalDiscount: detail.show_discounts ? detail.totals.global_discount : null,
+        netTotal: detail.totals.net_total, vatRate: detail.totals.vat_rate,
+        vatAmount: detail.totals.vat_amount, totalInclTax: detail.totals.total_incl_tax,
+      },
+      lines: detail.lines.map((line) => ({
+        position: line.position, label: line.label, descriptionHtml: line.description_html,
+        productConfig: line.product_config, quantity: line.quantity,
+        priceBeforeDiscount: detail.show_discounts ? line.customer_price : null,
+        discountRate: detail.show_discounts ? line.discount_rate : null, price: line.sale_price,
+      })),
+    }, this.now().toISOString());
+    if (!rendered) throw new QuoteDocumentTemplateMissingError();
+    return this.documents.persistRendered(tenantId, actor, quoteId, rendered);
   }
 
   /**

@@ -5,7 +5,6 @@ import {
   type S3Client,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import type { PoolClient } from 'pg';
 import storageBuckets from '../../../config/storage-buckets.json';
 import type { TenantId, UserId } from '../../kernel/ids/index.ts';
 import { toIsoTimestamp } from '../../modules/_shared/application/index.ts';
@@ -62,17 +61,21 @@ export class PostgresQuoteDocumentsRepository implements QuoteDocumentsRepositor
 
   async store(
     tenantId: TenantId,
-    actor: UserId,
+    actor: UserId | null,
     params: StoreQuoteDocumentParams,
   ): Promise<QuoteDocumentDto> {
     const storagePath = finalStoragePath(tenantId, params.quoteId);
     let uploaded = false;
     try {
-      const row = await this.transactions.run({ tenantId, userId: actor }, async (client) => {
+      const row = await this.transactions.run({ tenantId, ...(actor ? { userId: actor } : {}) }, async (client) => {
         await client.query('select pg_advisory_xact_lock(hashtextextended($1,0))', [
           `quote-document:${tenantId}:${params.quoteId}`,
         ]);
-        await this.assertNotStored(client, tenantId, params.quoteId);
+        const existing = await client.query<DocumentRow>(`
+          select quote_id,template_id,generated_at,byte_size,sha256,content_type,page_count,storage_path
+          from public.quote_documents where tenant_id=$1 and quote_id=$2
+        `, [tenantId, params.quoteId]);
+        if (existing.rows[0]) return existing.rows[0];
         await this.storage.send(new PutObjectCommand({
           Bucket: this.bucket,
           Key: storagePath,
@@ -124,14 +127,6 @@ export class PostgresQuoteDocumentsRepository implements QuoteDocumentsRepositor
       download_url: signed.url,
       download_url_expires_at: signed.expiresAt,
     };
-  }
-
-  private async assertNotStored(client: PoolClient, tenantId: TenantId, quoteId: string): Promise<void> {
-    const existing = await client.query(
-      'select 1 from public.quote_documents where tenant_id=$1 and quote_id=$2',
-      [tenantId, quoteId],
-    );
-    if (existing.rowCount !== 0) throw new Error('Un document definitif existe deja pour ce devis.');
   }
 
   private async toDto(row: DocumentRow): Promise<QuoteDocumentDto> {

@@ -151,8 +151,10 @@ beforeEach(() => {
     repository,
   });
 
+  const commercialQuotes = fakeCommercialQuotesService([QUOTE_WITH_DOC, QUOTE_WITHOUT_DOC]);
+  commercialQuotes.getOrCreateDocument = async (tenantId, quoteId) => service.getForQuote(tenantId, quoteId);
   handler = createGescomApiHandler({
-    routes: createQuoteDocumentsRoutes(service, fakeCommercialQuotesService([QUOTE_WITH_DOC, QUOTE_WITHOUT_DOC])),
+    routes: createQuoteDocumentsRoutes(service, commercialQuotes),
     principalVerifier: verifier,
     idempotencyStore: new InMemoryIdempotencyStore(),
     requestIdFactory: () => 'req-e10-10b-4c',

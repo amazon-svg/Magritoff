@@ -2007,7 +2007,7 @@ export interface paths {
          *
          *     PLURIEL PUREMENT FORMEL : `checkResourcePath` impose le pluriel en position de ressource, mais un devis n a qu UN document. Le dire plutot que de laisser croire a une collection.
          *
-         *     AUCUNE GENERATION ICI. Le document est produit par `sendQuote`, une seule fois, et jamais recalcule : le gabarit du tenant est librement modifiable, un re-rendu produirait donc un papier a en-tete d aujourd hui sur un devis envoye il y a trois semaines. C est le constat (e) de §8.13septies, que le changement de moteur n a pas adouci — il l a aggrave, le fond etant desormais un fichier que l imprimeur remplace quand il veut.
+         *     Si le PDF manque sur un devis sorti du brouillon, cette operation le genere avec les lignes et totaux figes et le gabarit actuellement configure. generated_at indique la date reelle de cette generation, pas la date historique d envoi. Un PDF deja stocke est toujours reutilise, sans re-rendu. Des demandes concurrentes conservent une seule piece. Les brouillons utilisent document-previews.
          */
         get: operations["getQuoteDocument"];
         put?: never;
@@ -8426,7 +8426,7 @@ export interface components {
         };
         /**
          * QuoteDocument
-         * @description Le PDF d un devis : une piece produite UNE FOIS, a l envoi, stockee et jamais regeneree.
+         * @description Le PDF d un devis : une piece produite UNE FOIS, a l envoi ou a sa premiere consultation si elle manque, stockee et jamais regeneree.
          *
          *     POURQUOI PAS DE RE-RENDU, redit ici parce que c est la propriete la plus contre-intuitive du contrat : le fond et la carte de champs appartiennent au tenant et changent quand il veut ; les lignes du devis, elles, sont figees des `sent`. Un re-rendu produirait donc un document au papier a en-tete d aujourd hui pour un envoi d il y a trois semaines. Le PDF stocke EST le document de reference — il n en existe pas de seconde description.
          *
@@ -15039,11 +15039,7 @@ export interface operations {
              *
              *     DEUX CODES DISTINCTS, ici et pas cote client : l appelant est un membre de l espace, il n y a aucun oracle d existence a lui refuser, et « ce devis est encore un brouillon » est le cas NOMINAL qu un ecran doit savoir distinguer d un identifiant errone.
              *
-             *     `quote.document_not_generated` EST LE CAS LE PLUS FREQUENT, et une interface qui le traiterait comme une anomalie se tromperait : un tenant qui n a importe aucun gabarit envoie ses devis sans piece jointe (arbitrage Arnaud du 2026-09-09), et TOUS ses devis rendent donc ce code, indefiniment. L ecran affiche « aucun document » et, s il veut etre utile, renvoie vers l import d un gabarit — jamais une erreur.
-             *
-             *     TROISIEME CAUSE, RARE MAIS DEFINITIVE : le document a pu ECHOUER A SE STOCKER apres un envoi par ailleurs reussi. Le devis est alors `sent`, son courriel est parti sans piece jointe, et il n aura JAMAIS de document — aucun rattrapage n existe ni n est prevu (« generation unique, jamais regeneree »). CONSEQUENCE OPPOSABLE pour un integrateur : ne JAMAIS inferer la presence d un document de l existence d un gabarit configure. Les quatre conditions d attachement sont necessaires, elles ne sont pas suffisantes ; la seule facon de savoir est d appeler cette operation. docs/api/CONVENTIONS.md §8.18 #11.
-             *
-             *     `quote.document_not_generated` couvre aussi, et pour toujours, les devis envoyes AVANT la livraison d E10.10b-4 : aucune reprise retroactive n est prevue, en produire une aujourd hui daterait d aujourd hui une piece remise il y a des semaines.
+             *     Pour un brouillon sans document, utiliser document-previews. Pour les autres statuts, le PDF manquant est genere a la demande.
              */
             404: {
                 headers: {
@@ -15053,6 +15049,16 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            /** @description Aucun gabarit PDF de devis eligible (`quote.document_template_missing`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            500: components["responses"]["InternalError"];
         };
     };
     getStorefrontQuoteDocument: {

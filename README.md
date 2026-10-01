@@ -35,6 +35,9 @@
   `pnpm db:seed:ux` crée par défaut trois espaces de démonstration contenant
   chacun 100 clients, 150 devis, 200 commandes boutique et les commandes
   atelier associées aux devis convertis. La commande est idempotente.
+  Les espaces UX disposent aussi d'un gabarit PDF de démonstration : le PDF
+  manquant d'un devis envoyé, accepté, refusé ou converti est généré au premier
+  clic sur « Voir le PDF » ou « Télécharger », puis conservé.
   Pour un seul espace et des volumes précis :
 
   ```bash

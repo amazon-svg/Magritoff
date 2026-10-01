@@ -255,6 +255,12 @@ argument, il alimente trois espaces de demonstration avec 100 clients,
 convertis. Il accepte aussi un espace et trois volumes explicites :
 `pnpm db:seed:ux atelier-test 250 400 300`.
 
+Decision du 2026-10-01 : la consultation atelier d'un devis sorti du brouillon
+genere son PDF s'il manque. Le gabarit courant est utilise et `generated_at`
+porte l'instant reel de generation. Les documents existants ne sont pas
+regeneres. Le stockage serialise les demandes concurrentes. Les espaces UX
+recoivent un gabarit de demonstration eligible via `db:seed:ux`.
+
 `infra:dev:reset` doit afficher une confirmation et ne doit jamais accepter un
 chemin ou un nom de volume fourni librement par l'utilisateur.
 

@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { databaseConfiguration } from './migrate.mjs';
+import { seedUxPdfTemplates } from './seed-ux-pdf-templates.mjs';
 import {
   developmentSeedConfiguration,
   seedDevelopmentIdentity,
@@ -57,6 +58,7 @@ async function main() {
   await client.connect();
   try {
     const summaries = await seedUxVolume(client, configuration);
+    await seedUxPdfTemplates(client, summaries.map((summary) => summary.tenant_slug));
     for (const summary of summaries) {
       process.stdout.write(
         `Fixtures UX pretes : ${summary.tenant_slug}, ${summary.ux_customers} clients, `

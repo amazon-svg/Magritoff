@@ -2,9 +2,9 @@
  * Routes HTTP du module Document PDF de devis (story E10.10b-4c), sur la
  * facade Gestion commerciale (`defineGescomRoute`, E10.0).
  *
- * Le POST d apercu est la seule generation publique : reservee a un
- * brouillon, temporaire et filigranee. Les deux GET ne RENDENT qu une piece
- * definitive deja produite par `sendQuote`, ou 404.
+ * Le POST produit un apercu filigrane de brouillon. Le GET atelier genere
+ * a la demande un document manquant pour un devis sorti du brouillon,
+ * puis reutilise toujours la piece stockee. Le portail reste en lecture.
  *
  * Enregistrement obligatoire dans `gescom-routes.ts` (CA1) — sans quoi
  * `tests/architecture/gescom-api-socle-boundaries.test.ts` echoue.
@@ -105,9 +105,14 @@ export function createQuoteDocumentsRoutes(
         }
 
         try {
-          const document = await quoteDocuments.getForQuote(context.tenantId, quoteId);
+          const document = await commercialQuotes.getOrCreateDocument(context.tenantId, quoteId,
+            context.principal.kind === 'user' ? context.principal.userId : null);
           return { status: 200, data: document };
         } catch (error) {
+          if (error instanceof QuoteDocumentTemplateMissingError) {
+            throw problem({ status: 409, title: 'Aucun gabarit PDF',
+              code: 'quote.document_template_missing', detail: error.message });
+          }
           if (error instanceof QuoteDocumentNotFoundError) {
             throw problem({
               status: 404,

@@ -71,9 +71,11 @@ describeIntegration('PostgresQuoteDocumentsRepository — PostgreSQL et S3 reels
     );
     const bytes = new TextEncoder().encode('%PDF-1.7 document definitif');
     const generatedAt = new Date('2026-09-30T12:00:00.000Z').toISOString();
-    const stored = await repository.store(tenantId, actorId, {
+    const [stored, concurrent] = await Promise.all([1, 2].map(() => repository.store(tenantId, actorId, {
       quoteId, templateId, bytes, pageCount: 1, generatedAt,
-    });
+    })));
+    expect(concurrent.sha256).toBe(stored.sha256);
+    expect((await pool.query('select count(*) from public.quote_documents where quote_id=$1', [quoteId])).rows[0].count).toBe('1');
 
     expect(stored).toMatchObject({
       quote_id: quoteId,
@@ -90,7 +92,7 @@ describeIntegration('PostgresQuoteDocumentsRepository — PostgreSQL et S3 reels
     await expect(repository.findForStorefrontSession('not-migrated', quoteId)).resolves.toBeNull();
     await expect(repository.store(tenantId, actorId, {
       quoteId, templateId, bytes: new TextEncoder().encode('replacement'), pageCount: 1, generatedAt,
-    })).rejects.toThrow('existe deja');
+    })).resolves.toMatchObject({sha256:stored.sha256,byte_size:bytes.length});
 
     const object = await storage.send(new GetObjectCommand({ Bucket: bucket, Key: finalPath }));
     await expect(object.Body?.transformToByteArray()).resolves.toEqual(bytes);
