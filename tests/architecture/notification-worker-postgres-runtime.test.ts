@@ -24,5 +24,19 @@ describe('runtime portable du worker de notifications', () => {
     const packageJson = JSON.parse(read('package.json')) as { scripts: Record<string, string> };
     expect(packageJson.scripts['worker:notifications']).toContain('notification-worker-main.ts');
     expect(packageJson.scripts['worker:notifications:once']).toContain('MAGRIT_WORKER_ONCE=true');
+    expect(packageJson.scripts['worker:outbox']).toContain('outbox-worker-main.ts');
+    expect(packageJson.scripts['worker:outbox:once']).toContain('MAGRIT_WORKER_ONCE=true');
+  });
+
+  it('compose le drain outbox Node exclusivement avec PostgreSQL et S3', () => {
+    const main = read('src/server/node/outbox-worker-main.ts');
+    const composition = read('src/server/api/outbox-dispatch-composition.ts');
+    expect(main).toContain('createPostgresOutboxDispatchApplication');
+    expect(main).toContain("new PostgresTransactionRunner(pool, 'magrit_worker')");
+    expect(main).not.toContain('@supabase/supabase-js');
+    expect(composition).toContain('new PostgresOutboxDispatchRepository');
+    expect(composition).toContain('new PostgresNotificationDispatchGateway');
+    expect(composition).toContain('new S3QuoteDocumentAttachmentGateway');
+    expect(composition).toContain('createPostgresOrderFilePurgeNoticeConsumer');
   });
 });

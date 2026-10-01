@@ -14,6 +14,8 @@
     "api:smoke": "tsx src/server/node/main.ts",
     "worker:notifications": "tsx src/server/node/notification-worker-main.ts",
     "worker:notifications:once": "MAGRIT_WORKER_ONCE=true tsx src/server/node/notification-worker-main.ts",
+    "worker:outbox": "tsx src/server/node/outbox-worker-main.ts",
+    "worker:outbox:once": "MAGRIT_WORKER_ONCE=true tsx src/server/node/outbox-worker-main.ts",
     "openapi:docs": "vite --port 5176 --strictPort",
     "dev:local": "pnpm db:local:start && pnpm supabase:use:local && pnpm dev",
     "dev:official": "pnpm supabase:use:official && pnpm dev",

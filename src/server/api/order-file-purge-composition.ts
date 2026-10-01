@@ -29,6 +29,8 @@ import {
   SupabaseOrderFilePurgeSweepRepository,
   SupabaseOrphanObjectRepository,
 } from '../../adapters/supabase/order-file-purge-repository.ts';
+import { PostgresOrderFilePurgeNoticeGateway } from '../../adapters/postgres/order-file-purge-repository.ts';
+import type { PostgresTransactionRunner } from '../../adapters/postgres/transaction-runner.ts';
 import { ResendOrderFilePurgeNoticeEmailSender } from '../../adapters/resend/order-file-purge-notice-email-sender.ts';
 import { ResendEmailDeliveryStatusGateway } from '../../adapters/resend/resend-email-delivery-status-gateway.ts';
 import { PurgeNoticeNotificationConsumer } from '../../modules/order-files/application/purge-notice-notification-consumer.ts';
@@ -92,6 +94,32 @@ export function createOrderFilePurgeNoticeConsumer(
     dependencies.fetchImplementation ?? globalThis.fetch,
   );
 
+  return new PurgeNoticeNotificationConsumer({
+    recipients: gateway,
+    deliveries: gateway,
+    emailSender,
+    publicAppUrl: dependencies.publicAppUrl,
+  });
+}
+
+export type PostgresOrderFilePurgeNoticeConsumerDependencies = Readonly<{
+  transactions: PostgresTransactionRunner;
+  resendApiKey: string | null;
+  fromEmail: string;
+  publicAppUrl: string | null;
+  fetchImplementation?: typeof fetch;
+}>;
+
+/** Consommateur portable destiné au drain outbox Node. */
+export function createPostgresOrderFilePurgeNoticeConsumer(
+  dependencies: PostgresOrderFilePurgeNoticeConsumerDependencies,
+): PurgeNoticeNotificationConsumer {
+  const gateway = new PostgresOrderFilePurgeNoticeGateway(dependencies.transactions);
+  const emailSender = new ResendOrderFilePurgeNoticeEmailSender(
+    dependencies.resendApiKey,
+    dependencies.fromEmail,
+    dependencies.fetchImplementation ?? globalThis.fetch,
+  );
   return new PurgeNoticeNotificationConsumer({
     recipients: gateway,
     deliveries: gateway,

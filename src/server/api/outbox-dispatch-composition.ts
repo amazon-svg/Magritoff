@@ -10,6 +10,7 @@
  * "Ce qui est verifiable localement").
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { S3Client } from '@aws-sdk/client-s3';
 import {
   CompositeOutboxConsumer,
   DEFAULT_OUTBOX_DISPATCH_SETTINGS,
@@ -17,16 +18,23 @@ import {
   type ClaimedOutboxEvent,
   type DispatchReport,
   type OutboxConsumerRegistry,
+  type OutboxDispatchRepository,
   type OutboxDispatchSettings,
 } from '../../modules/_shared/application/index.ts';
 import { SupabaseOutboxDispatchRepository } from '../../adapters/supabase/outbox-dispatch-repository.ts';
 import { SupabaseQuoteNotificationGateway } from '../../adapters/supabase/commercial-quotes-repository.ts';
 import { SupabaseQuoteDocumentAttachmentGateway } from '../../adapters/supabase/quote-document-attachment-gateway.ts';
 import { SupabaseNotificationDispatchGateway } from '../../adapters/supabase/notification-dispatch-repository.ts';
+import { PostgresOutboxDispatchRepository } from '../../adapters/postgres/outbox-dispatch-repository.ts';
+import { PostgresQuoteNotificationGateway } from '../../adapters/postgres/quote-notification-gateway.ts';
+import { PostgresNotificationDispatchGateway } from '../../adapters/postgres/notification-dispatch-gateway.ts';
+import type { PostgresTransactionRunner } from '../../adapters/postgres/transaction-runner.ts';
+import { S3QuoteDocumentAttachmentGateway } from '../../adapters/s3/quote-document-attachment-gateway.ts';
 import { ResendQuoteSentEmailSender } from '../../adapters/resend/quote-sent-email-sender.ts';
 import { QuoteSentNotificationConsumer } from '../../modules/commercial-quotes/application/quote-sent-notification-consumer.ts';
 import { NotificationDispatchConsumer } from '../../modules/notifications/application/notification-dispatch-consumer.ts';
 import { createOrderFilePurgeNoticeConsumer } from './order-file-purge-composition.ts';
+import { createPostgresOrderFilePurgeNoticeConsumer } from './order-file-purge-composition.ts';
 
 export type OutboxDispatchApplicationDependencies = Readonly<{
   /** Client `service_role` — seul role habilite sur la file (`api_claim_outbox_events`, colonnes de suivi). */
@@ -148,5 +156,68 @@ export function createOutboxDispatchApplication(
       : { onUnhandledError: dependencies.onUnhandledError }),
   });
 
+  return Object.freeze({ runOnce: () => dispatcher.runOnce() });
+}
+
+export type PostgresOutboxDispatchApplicationDependencies = Readonly<{
+  transactions: PostgresTransactionRunner;
+  storage: S3Client;
+  repository?: OutboxDispatchRepository;
+  resendApiKey: string | null;
+  fromEmail: string;
+  publicAppUrl: string | null;
+  fetchImplementation?: typeof fetch;
+  settings?: OutboxDispatchSettings;
+  onUnhandledError?: (error: unknown, event: ClaimedOutboxEvent) => void;
+}>;
+
+/** Composition complète du drain Node : PostgreSQL pour les files/projections et S3 pour les PDF. */
+export function createPostgresOutboxDispatchApplication(
+  dependencies: PostgresOutboxDispatchApplicationDependencies,
+): Readonly<{ runOnce: () => Promise<DispatchReport> }> {
+  const quoteGateway = new PostgresQuoteNotificationGateway(dependencies.transactions);
+  const documents = new S3QuoteDocumentAttachmentGateway(dependencies.transactions, dependencies.storage);
+  const emailSender = new ResendQuoteSentEmailSender(
+    dependencies.resendApiKey,
+    dependencies.fromEmail,
+    dependencies.fetchImplementation ?? globalThis.fetch,
+  );
+  const quoteSentConsumer = new QuoteSentNotificationConsumer({
+    gateway: quoteGateway,
+    emailSender,
+    documents,
+    baseUrl: dependencies.publicAppUrl,
+  });
+  const notificationGateway = new PostgresNotificationDispatchGateway(dependencies.transactions);
+  const notificationConsumer = new NotificationDispatchConsumer({
+    gateway: notificationGateway,
+    logs: notificationGateway,
+    baseUrl: dependencies.publicAppUrl,
+  });
+  const purgeNoticeConsumer = createPostgresOrderFilePurgeNoticeConsumer({
+    transactions: dependencies.transactions,
+    resendApiKey: dependencies.resendApiKey,
+    fromEmail: dependencies.fromEmail,
+    publicAppUrl: dependencies.publicAppUrl,
+    ...(dependencies.fetchImplementation === undefined
+      ? {}
+      : { fetchImplementation: dependencies.fetchImplementation }),
+  });
+  const consumers: OutboxConsumerRegistry = {
+    'quote.sent': new CompositeOutboxConsumer([notificationConsumer, quoteSentConsumer]),
+    'order_files.purge_scheduled': new CompositeOutboxConsumer([purgeNoticeConsumer]),
+    'order.step_changed': new CompositeOutboxConsumer([notificationConsumer]),
+    'quote.converted': new CompositeOutboxConsumer([notificationConsumer]),
+    'customer.created': new CompositeOutboxConsumer([notificationConsumer]),
+    'order.files_submitted': new CompositeOutboxConsumer([notificationConsumer]),
+  };
+  const dispatcher = new OutboxDispatcher({
+    repository: dependencies.repository ?? new PostgresOutboxDispatchRepository(dependencies.transactions),
+    consumers,
+    settings: dependencies.settings ?? DEFAULT_OUTBOX_DISPATCH_SETTINGS,
+    ...(dependencies.onUnhandledError === undefined
+      ? {}
+      : { onUnhandledError: dependencies.onUnhandledError }),
+  });
   return Object.freeze({ runOnce: () => dispatcher.runOnce() });
 }
