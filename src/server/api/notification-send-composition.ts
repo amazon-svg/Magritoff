@@ -20,6 +20,8 @@ import {
   type NotificationSendSettings,
 } from '../../modules/notifications/application/notification-sender.ts';
 import { SupabaseNotificationSendRepository } from '../../adapters/supabase/notification-send-repository.ts';
+import { PostgresNotificationSendRepository } from '../../adapters/postgres/notification-send-repository.ts';
+import type { PostgresTransactionRunner } from '../../adapters/postgres/transaction-runner.ts';
 import { ResendNotificationEmailSender } from '../../adapters/resend/notification-email-sender.ts';
 
 export type NotificationSendApplicationDependencies = Readonly<{
@@ -44,23 +46,46 @@ export type NotificationSendApplicationDependencies = Readonly<{
 export function createNotificationSendApplication(
   dependencies: NotificationSendApplicationDependencies,
 ): Readonly<{ runOnce: () => Promise<NotificationSendReport> }> {
-  const repository = new SupabaseNotificationSendRepository(dependencies.serviceRoleClient);
+  return createNotificationSender(
+    new SupabaseNotificationSendRepository(dependencies.serviceRoleClient),
+    dependencies,
+  );
+}
+
+export type PostgresNotificationSendApplicationDependencies = Readonly<{
+  transactions: PostgresTransactionRunner;
+  resendApiKey: string | null;
+  fromEmail: string;
+  fetchImplementation?: typeof fetch;
+  settings?: NotificationSendSettings;
+  onUnhandledError?: (error: unknown, message: ClaimedNotificationMessage) => void;
+}>;
+
+/** Composition portable destinée au worker Node, sans client ni API Supabase. */
+export function createPostgresNotificationSendApplication(
+  dependencies: PostgresNotificationSendApplicationDependencies,
+): Readonly<{ runOnce: () => Promise<NotificationSendReport> }> {
+  return createNotificationSender(
+    new PostgresNotificationSendRepository(dependencies.transactions),
+    dependencies,
+  );
+}
+
+function createNotificationSender(
+  repository: ConstructorParameters<typeof NotificationSender>[0]['repository'],
+  dependencies: Omit<PostgresNotificationSendApplicationDependencies, 'transactions'>,
+): Readonly<{ runOnce: () => Promise<NotificationSendReport> }> {
   const emailSender = new ResendNotificationEmailSender(
     dependencies.resendApiKey,
     dependencies.fromEmail,
     dependencies.fetchImplementation ?? globalThis.fetch,
   );
-
-  const adapters: Partial<Record<NotificationChannel, NotificationChannelAdapter>> = {
-    email: emailSender,
-  };
-
+  const adapters: Partial<Record<NotificationChannel, NotificationChannelAdapter>> = { email: emailSender };
   const sender = new NotificationSender({
     repository,
     adapters,
     settings: dependencies.settings ?? DEFAULT_NOTIFICATION_SEND_SETTINGS,
     ...(dependencies.onUnhandledError === undefined ? {} : { onUnhandledError: dependencies.onUnhandledError }),
   });
-
   return Object.freeze({ runOnce: () => sender.runOnce() });
 }
