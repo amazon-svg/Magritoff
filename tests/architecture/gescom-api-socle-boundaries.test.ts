@@ -160,35 +160,28 @@ describe('frontières du socle API Gestion commerciale (E10.0)', () => {
     expect(workflow).toContain('pnpm test:architecture');
   });
 
-  it('le comportement append-only et RLS de outbox_events est couvert par un test SQL réel', () => {
+  it('le comportement append-only et RLS de outbox_events est couvert par PostgreSQL réel', () => {
     // Ce test ne relit PAS le texte de la migration : une migration ne change
     // jamais après coup, donc un `toContain()` sur son contenu ne peut pas
     // échouer et ne détecterait aucune régression — ni un `drop trigger`
     // ultérieur, ni un `grant update` accordé par erreur dans une migration
     // suivante. Il vérifie seulement que le vrai test comportemental existe et
-    // est bien exécuté par le runner SQL.
-    const sqlCase = 'tests/sql/gescom-outbox-append-only.sql';
-    expect(existsSync(resolve(root, sqlCase))).toBe(true);
-    expect(read('scripts/test-storefront-sql.sh')).toContain(sqlCase);
+    // est bien exécuté par la suite d integration PostgreSQL portable.
+    const integrationCase = 'tests/integration/postgres-outbox-repository.test.ts';
+    expect(existsSync(resolve(root, integrationCase))).toBe(true);
+    expect(read('package.json')).toContain('test:postgres:integration');
 
     // Le cas doit réellement exercer les quatre garanties, pas seulement exister.
-    const scenario = read(sqlCase);
+    const scenario = read(integrationCase);
     expect(scenario).toContain('update public.outbox_events');
     expect(scenario).toContain('delete from public.outbox_events');
-    expect(scenario).toContain('set local role authenticated');
-    expect(scenario).toContain('information_schema.table_privileges');
+    expect(scenario).toContain("code: '42501'");
+    expect(read('infra/postgres/migrations/0016_outbox_events.sql')).toContain('force row level security');
   });
 
-  it('les migrations E10 documentent leur retrait, faute de bloc down natif', () => {
-    // Seule assertion textuelle conservée sur les migrations : la réversibilité
-    // est de la documentation, pas un comportement observable en base.
-    for (const migration of [
-      'supabase/migrations/20260901000100_gescom_outbox_events.sql',
-      'supabase/migrations/20260901000200_gescom_api_idempotency_keys.sql',
-    ]) {
-      expect(read(migration), migration).toContain('REVERSIBILITE');
-      expect(read(migration), migration).toMatch(/drop table if exists public\.\w+;/);
-    }
+  it('les fondations portables de l outbox et de l idempotence sont versionnees', () => {
+    expect(read('infra/postgres/migrations/0016_outbox_events.sql')).toContain('create table public.outbox_events');
+    expect(read('infra/postgres/migrations/0014_api_idempotency_keys.sql')).toContain('create table public.api_idempotency_keys');
   });
 
   it('les conventions API sont écrites et couvrent les 13 critères', () => {

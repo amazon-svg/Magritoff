@@ -73,6 +73,6 @@ pnpm build
 ```
 
 L'ancienne stack locale Supabase et la fonction Edge `magrit-api` ne sont plus
-nécessaires au développement courant. Les migrations et adaptateurs Supabase
-encore présents dans le dépôt servent uniquement à la reprise des données tant
-que la migration des environnements existants n'est pas achevée.
+nécessaires au développement courant. Les anciennes migrations Supabase sont
+conservées comme archive de reprise tant que la migration des environnements
+existants n'est pas achevée.

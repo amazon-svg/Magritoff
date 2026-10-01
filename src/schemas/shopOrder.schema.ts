@@ -1,7 +1,7 @@
 /**
  * Schema zod pour shop_orders (R4 - refacto 2026-05-11).
  *
- * Aligne sur la table `shop_orders` (cf. database.types.ts). Utilise pour
+ * Aligne sur la table PostgreSQL `shop_orders`. Utilise pour
  * valider les inserts cote front avant submitCart (defense-in-depth en sus
  * du trigger UUID defensive applique en migration 20260511_03).
  */
