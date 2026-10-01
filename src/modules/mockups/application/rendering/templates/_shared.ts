@@ -1,5 +1,5 @@
 /**
- * Helpers partages entre les templates SVG mockup (Story S4.2, Epic 4).
+ * Helpers partages entre les templates SVG portables (Story S4.2, Epic 4).
  *
  * P16 (2026-06-16) : ajout de daisyMagrit + extension photoRealisticDefs
  * avec magritPollen + magritTileGrad pour les templates depliant + etiquette

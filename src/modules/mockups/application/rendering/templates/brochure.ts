@@ -1,5 +1,5 @@
 /**
- * Template SVG brochure A4 perspective 3/4 (P17, 2026-06-17) — refonte style Gemini.
+ * Template SVG portable brochure A4 perspective 3/4 (P17, 2026-06-17).
  *
  * Composition 3D legere :
  *   - couverture 540x765 centree (x=242, y=130), skewY(-2.5) pour effet 3D

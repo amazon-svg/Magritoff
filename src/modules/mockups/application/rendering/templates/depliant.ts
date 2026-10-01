@@ -1,5 +1,5 @@
 /**
- * Template SVG depliant 3 volets (P16, 2026-06-16) — refonte visuelle Gemini.
+ * Template SVG portable depliant 3 volets (P16, 2026-06-16).
  *
  * Composition 2D depliee a plat :
  *   - 3 volets cote a cote (840x480 centres dans viewBox 1024)

@@ -1,5 +1,5 @@
 /**
- * Types partages du module mockup engine (Story S4.1b, Epic 4).
+ * Types partages du moteur de mockups portable (Story S4.1b, Epic 4).
  *
  * Le module renderer (renderer.ts) consomme ces types pour generer un PNG
  * paramntrique a partir d'un template SVG, des specs produit et du theming

@@ -1,5 +1,5 @@
 /**
- * Template SVG carteVisite 85x55 (P17, 2026-06-17) — refonte alignee style Gemini.
+ * Template SVG portable carteVisite 85x55 (P17, 2026-06-17).
  *
  * Composition 2D paysage :
  *   - bloc carte 800x515 centre viewBox 1024 (x=112, y=255), shadowDouble

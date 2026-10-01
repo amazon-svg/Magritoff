@@ -29,6 +29,11 @@ Mailpit et `51025` pour SMTP. La commande applique aussi les migrations
 PostgreSQL portables et crée automatiquement les huit buckets attendus par
 Magrit.
 
+Le rendu des mockups est assuré directement par l'API Node. Le premier rendu
+d'un template initialise le moteur natif `resvg`, puis les PNG sont mis en
+cache dans le bucket `product-mockups`; aucune Edge Function Supabase n'est
+requise pour ce parcours.
+
 Les migrations peuvent être rejouées seules avec `pnpm db:migrate`. Elles sont
 transactionnelles, sérialisées par un verrou PostgreSQL et refusent toute
 modification d'un fichier déjà appliqué.

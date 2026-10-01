@@ -15,6 +15,7 @@ import { createInvitationsRoutes } from '../api/invitations-routes.ts';
 import { createLibrariesRoutes } from '../api/libraries-routes.ts';
 import { createLibraryProductsRoutes } from '../api/library-products-routes.ts';
 import { createMembersRoutes } from '../api/members-routes.ts';
+import { createMockupHandler, isMockupRequest } from '../api/mockup-routes.ts';
 import { createOrdersRoutes } from '../api/orders-routes.ts';
 import { createOrderFilesRoutes } from '../api/order-files-routes.ts';
 import { createOrderExportsRoutes } from '../api/order-exports-routes.ts';
@@ -298,6 +299,7 @@ const catalogRoutes = actorResolver === undefined
     ));
 const gescomAuthenticationEnabled = oidcJwtVerifier !== null || localAuthentication !== null;
 const s3Client = gescomAuthenticationEnabled ? createS3Client() : null;
+const mockupHandler = s3Client === null ? null : createMockupHandler(s3Client);
 const orderUploadLinksRepository = s3Client === null
   ? null
   : new PostgresOrderUploadLinksRepository(
@@ -646,12 +648,15 @@ const apiHandler = createApiV1Application({
   },
 });
 const localHandler = localAuthentication === null
-  ? (request: Request) => isLocalGescomPath(new URL(request.url).pathname) && gescomHandler !== null
-      ? gescomHandler(request)
-      : apiHandler(request)
+  ? (request: Request) => {
+      const pathname = new URL(request.url).pathname;
+      if (isMockupRequest(pathname) && mockupHandler !== null) return mockupHandler(request);
+      return isLocalGescomPath(pathname) && gescomHandler !== null ? gescomHandler(request) : apiHandler(request);
+    }
   : (request: Request) => {
       const pathname = new URL(request.url).pathname;
       if (isLocalAuthenticationPath(pathname)) return localAuthentication.handler(request);
+      if (isMockupRequest(pathname) && mockupHandler !== null) return mockupHandler(request);
       if (isLocalGescomPath(pathname) && gescomHandler !== null) {
         return gescomHandler(request);
       }
@@ -666,6 +671,7 @@ const handler = createTransitionalApiHandler({
     || (actorResolver !== undefined && isDiagnosticsPath(url.pathname))
     || isAssistantPath(url.pathname)
     || isClariprintPath(url.pathname)
+    || (mockupHandler !== null && isMockupRequest(url.pathname))
     || (localAuthentication !== null && isLocalAuthenticationPath(url.pathname))
     || (sessionEnabled && isSessionPreferencesRequest(request.method, url.pathname))
     || (sessionEnabled && isSessionTenantSettingsRequest(request.method, url.pathname))
@@ -707,6 +713,7 @@ server.listen(port, host, () => {
       ...(diagnosticsRoutes.length === 0 ? [] : ['diagnostics']),
       'assistant',
       'clariprint',
+      ...(mockupHandler === null ? [] : ['mockups']),
       ...(localAuthentication === null ? [] : ['local-authentication']),
       ...(sessionEnabled ? ['session-bootstrap'] : []),
       ...(actorResolver === undefined ? [] : ['invitations']),

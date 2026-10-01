@@ -1,5 +1,5 @@
 /**
- * Template SVG packaging boite kraft 3D (P17, 2026-06-17) — refonte style Gemini.
+ * Template SVG portable packaging boite kraft 3D (P17, 2026-06-17).
  *
  * Composition 3D perspective 3/4 :
  *   - face avant polygon (x=275 a 725, y=350 a 750)

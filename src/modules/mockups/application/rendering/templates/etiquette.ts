@@ -1,5 +1,5 @@
 /**
- * Template SVG etiquette ronde (P16, 2026-06-16) — refonte visuelle Gemini.
+ * Template SVG portable etiquette ronde (P16, 2026-06-16).
  *
  * Composition 2D etiquette ronde effet sticker decoupe :
  *   - cercle blanc rayon 260 centre dans viewBox 1024

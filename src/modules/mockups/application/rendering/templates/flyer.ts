@@ -1,5 +1,5 @@
 /**
- * Template SVG flyer A5 148x210 (P17, 2026-06-17) — refonte alignee style Gemini.
+ * Template SVG portable flyer A5 148x210 (P17, 2026-06-17).
  *
  * Composition 2D portrait :
  *   - bloc flyer 600x850 centre viewBox 1024 (x=212, y=87), shadowDouble

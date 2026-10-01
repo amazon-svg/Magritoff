@@ -71,7 +71,7 @@ Magrit transverse.
 
 Quand tu navigues le catalogue, chaque produit affiche un **mockup généré dynamiquement** :
 
-- PNG produit transparent généré côté edge (`mockup-generator`, cache CDN 24h)
+- PNG produit transparent généré par l’API Node (`resvg`, cache S3 24h)
 - Fond shop superposé via CSS `background-image` (composition layered V5)
 - 5 templates SVG photo-réalistes (V6) : flyer, carte visite, brochure, étiquette, kakemono
 - Vues recto/verso pour flyer + carte visite (V7 S-PRODUCT-VIEWS-MULTI)

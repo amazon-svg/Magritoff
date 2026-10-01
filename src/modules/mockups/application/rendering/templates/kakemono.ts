@@ -1,5 +1,5 @@
 /**
- * Template SVG kakemono / roll-up 850x2000 (P17, 2026-06-17) — refonte style Gemini.
+ * Template SVG portable kakemono / roll-up 850x2000 (P17, 2026-06-17).
  *
  * Composition 2D vertical etire :
  *   - bloc kakemono 380x900 centre viewBox 1024 (x=322, y=62)
