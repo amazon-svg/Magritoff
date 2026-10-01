@@ -23,13 +23,19 @@
  *    seule trace versionnee, personne ne l ecoute aujourd hui).
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { S3Client } from '@aws-sdk/client-s3';
 import {
   SupabaseOrderFilePurgeExecutionRepository,
   SupabaseOrderFilePurgeNoticeGateway,
   SupabaseOrderFilePurgeSweepRepository,
   SupabaseOrphanObjectRepository,
 } from '../../adapters/supabase/order-file-purge-repository.ts';
-import { PostgresOrderFilePurgeNoticeGateway } from '../../adapters/postgres/order-file-purge-repository.ts';
+import {
+  PostgresOrderFilePurgeExecutionRepository,
+  PostgresOrderFilePurgeNoticeGateway,
+  PostgresOrderFilePurgeSweepRepository,
+  PostgresOrphanOrderFileObjectRepository,
+} from '../../adapters/postgres/order-file-purge-repository.ts';
 import type { PostgresTransactionRunner } from '../../adapters/postgres/transaction-runner.ts';
 import { ResendOrderFilePurgeNoticeEmailSender } from '../../adapters/resend/order-file-purge-notice-email-sender.ts';
 import { ResendEmailDeliveryStatusGateway } from '../../adapters/resend/resend-email-delivery-status-gateway.ts';
@@ -71,6 +77,41 @@ export function createOrderFilePurgeSweepApplication(
     settings: dependencies.settings ?? DEFAULT_PURGE_SWEEP_SETTINGS,
   });
 
+  return Object.freeze({ runOnce: () => service.runOnce() });
+}
+
+export type PostgresOrderFilePurgeSweepDependencies = Readonly<{
+  transactions: PostgresTransactionRunner;
+  storage: S3Client;
+  resendApiKey: string | null;
+  fetchImplementation?: typeof fetch;
+  settings?: PurgeSweepSettings;
+}>;
+
+/** Balayage portable PostgreSQL/S3 destiné au worker Node quotidien. */
+export function createPostgresOrderFilePurgeSweepApplication(
+  dependencies: PostgresOrderFilePurgeSweepDependencies,
+): Readonly<{ runOnce: () => Promise<PurgeSweepReport> }> {
+  const repository = new PostgresOrderFilePurgeSweepRepository(dependencies.transactions);
+  const deliveryStatus = new ResendEmailDeliveryStatusGateway(
+    dependencies.resendApiKey,
+    dependencies.fetchImplementation ?? globalThis.fetch,
+  );
+  const execution = new PostgresOrderFilePurgeExecutionRepository(
+    dependencies.transactions,
+    dependencies.storage,
+  );
+  const orphans = new PostgresOrphanOrderFileObjectRepository(
+    dependencies.transactions,
+    dependencies.storage,
+  );
+  const service = new PurgeSweepService({
+    repository,
+    deliveryStatus,
+    execution,
+    orphans,
+    settings: dependencies.settings ?? DEFAULT_PURGE_SWEEP_SETTINGS,
+  });
   return Object.freeze({ runOnce: () => service.runOnce() });
 }
 

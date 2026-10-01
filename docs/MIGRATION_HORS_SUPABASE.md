@@ -7,7 +7,7 @@
 
 Decision formelle : `docs/architecture/decisions/0001-sortie-de-supabase.md`.
 
-| Jalon | Etat au 30 septembre 2026 |
+| Jalon | Etat au 1er octobre 2026 |
 |---|---|
 | J0 | ADR et garde-fou contre les nouvelles dependances Supabase livres |
 | J1 | Compose, healthchecks, migrations et buckets livres ; seed et CI restent a faire |
@@ -15,7 +15,7 @@ Decision formelle : `docs/architecture/decisions/0001-sortie-de-supabase.md`.
 | J3 | contexte transactionnel, roles, Conversations, session, réglages tenant, membres, rôles et invitations, réglages commerciaux, étapes de production, clients, projets, étiquettes, catalogue PIM et public, bibliothèques produits, règles tarifaires, devis, gabarits HTML et PDF, administration et invitations des comptes clients boutique PostgreSQL livrés ; commandes boutique, rôles, transitions, audit, idempotence, notifications et routes Node livrés ; commandes commerciales, conversion des devis, transitions d'étape, documents et routes Node PostgreSQL/S3 livrés ; outils idempotents de reprise des anciennes `shop_orders` et du rapport clients legacy livrés, exécution à faire sur chaque environnement ; idempotence API, outbox durable et réservation worker portable livrées |
 | J4 | adaptateurs S3 des exports, fichiers de lignes projet, fichiers de commande atelier et liens publics de dépôt, gabarits PDF, documents de devis, bons de commande et visuels de boutiques livres ; autres buckets non bascules |
 | J5 | OIDC, annuaire d'identites, socle Better Auth PostgreSQL, invitations Magrit, récupération de mot de passe, authentification directe storefront, activation, recovery et délégation storefront livres ; bascule UI globale reste a faire |
-| J6 et suivants | diagnostics IA/Clariprint, assistant éditorial et chiffrage Clariprint avec quotas PostgreSQL servis par Node ; drain d'outbox et processus Node PostgreSQL/S3 livrés, y compris notifications configurées, courriel `quote.sent` et rappels de purge ; tables et repositories portables des modèles et journaux de notifications, routes Node, immuabilité, gateway de dispatch/enqueue, drain d'envoi PostgreSQL et processus Node planifié livrés ; exécution de purge, exports et autres jobs restent à migrer |
+| J6 et suivants | diagnostics IA/Clariprint, assistant éditorial et chiffrage Clariprint avec quotas PostgreSQL servis par Node ; drains d'outbox et de notifications livrés ; rappels, exécution réelle de la purge des fichiers de commande, rattrapage des objets S3 orphelins et worker quotidien PostgreSQL/S3 livrés ; exports et autres jobs restent à migrer |
 
 ## 1. Decision proposee
 
@@ -792,6 +792,13 @@ Livrables :
 - scheduler standard ;
 - migration des traitements a la demande ;
 - suppression des fonctions et routes legacy prouvees inutiles.
+
+Etat courant : les processus Node d'outbox, d'envoi des notifications et de
+purge quotidienne des fichiers de commande sont disponibles. Le dernier
+marque d'abord les lignes éligibles sous garde des deux rappels confirmés,
+supprime ensuite les objets S3 en best-effort, émet `order_files.purged` et
+rattrape les objets résiduels. La migration des exports et des autres tâches
+Edge reste à terminer avant de satisfaire la sortie du jalon.
 
 Sortie : aucun runtime Edge Supabase n'est requis.
 

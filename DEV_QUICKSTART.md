@@ -53,6 +53,22 @@ curl http://127.0.0.1:8787/api/v1/health
 curl http://127.0.0.1:8787/api/v1/readiness # vérifie réellement PostgreSQL
 ```
 
+Les trois processus asynchrones déjà portés se lancent dans des terminaux
+séparés :
+
+```bash
+pnpm worker:outbox
+pnpm worker:notifications
+pnpm worker:order-file-purge
+```
+
+Le worker de purge tourne une fois au démarrage puis toutes les 24 heures par
+défaut. Son intervalle se règle avec
+`MAGRIT_ORDER_FILE_PURGE_WORKER_INTERVAL_MS`. La variante
+`pnpm worker:order-file-purge:once` effectue réellement les suppressions
+éligibles dans PostgreSQL/S3 ; elle ne doit donc pas servir de simple smoke
+test sur un environnement contenant des données utiles.
+
 Pour faire du serveur Node le point d'entrée pendant la migration, définir
 temporairement l'URL interne complète de l'ancienne fonction. Le navigateur ne
 connait alors plus cette URL :

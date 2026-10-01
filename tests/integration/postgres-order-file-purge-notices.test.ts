@@ -1,9 +1,12 @@
 import { randomUUID } from 'node:crypto';
+import { GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Pool } from 'pg';
 import { createPostgresPool } from '../../src/adapters/postgres/pool.ts';
 import {
   PostgresOrderFilePurgeNoticeGateway,
+  PostgresOrderFilePurgeExecutionRepository,
+  PostgresOrphanOrderFileObjectRepository,
   PostgresOrderFilePurgeSweepRepository,
 } from '../../src/adapters/postgres/order-file-purge-repository.ts';
 import { PostgresTransactionRunner } from '../../src/adapters/postgres/transaction-runner.ts';
@@ -47,6 +50,18 @@ describeIntegration('rappels de purge PostgreSQL', () => {
        values($1,true) on conflict(tenant_id) do update set order_file_purge_enabled=true`,
       [tenantId],
     );
+    const setupClient = await pool.connect();
+    try {
+      await setupClient.query('begin');
+      await setupClient.query('set local session_replication_role=replica');
+      await setupClient.query(
+        "update public.commercial_settings set order_file_purge_enabled_at=clock_timestamp()-interval '40 days' where tenant_id=$1",
+        [tenantId],
+      );
+      await setupClient.query('commit');
+    } finally {
+      setupClient.release();
+    }
     await pool.query(
       "insert into public.customers(id,tenant_id,type,civility,first_name,last_name) values($1,$2,'individual','mr','Client','Purge')",
       [customerId, tenantId],
@@ -148,6 +163,12 @@ describeIntegration('rappels de purge PostgreSQL', () => {
     await expect(api.run({}, (client) => client.query(
       "select * from magrit.claim_order_file_purge_notices('first',40)",
     ))).rejects.toMatchObject({ code: '42501' });
+    await expect(api.run({}, (client) => client.query(
+      'select * from magrit.claim_order_files_for_purge(1)',
+    ))).rejects.toMatchObject({ code: '42501' });
+    await expect(api.run({}, (client) => client.query(
+      'select * from magrit.order_file_orphan_states($1)', [[fileId]],
+    ))).rejects.toMatchObject({ code: '42501' });
   });
 
   it('remet les événements via la composition outbox Node sans appel externe', async () => {
@@ -219,6 +240,68 @@ describeIntegration('rappels de purge PostgreSQL', () => {
         [tenantId],
       );
       expect(deliveries.rows[0]?.count).toBe(2);
+    } finally {
+      storage.destroy();
+    }
+  });
+
+  it('purge après deux confirmations et rattrape un objet S3 résiduel', async () => {
+    const storage = createS3Client({
+      S3_ENDPOINT: process.env['S3_ENDPOINT'] ?? 'http://127.0.0.1:58333',
+      S3_REGION: 'us-east-1',
+      S3_ACCESS_KEY_ID: process.env['S3_ACCESS_KEY_ID'] ?? 'magrit-local',
+      S3_SECRET_ACCESS_KEY: process.env['S3_SECRET_ACCESS_KEY'] ?? 'magrit-local-secret',
+      S3_FORCE_PATH_STYLE: 'true',
+    });
+    const bucket = 'commercial-order-files';
+    const key = `${tenantId}/${orderId}/${fileId}`;
+    try {
+      const secondDelivery = await pool.query<{ id: string }>(
+        `select delivery.id
+          from public.commercial_order_file_purge_notice_deliveries delivery
+           join public.commercial_order_file_purge_notices notice on notice.id=delivery.notice_id
+          where notice.tenant_id=$1 and notice.stage='second'
+          order by delivery.accepted_at desc nulls last limit 1`,
+        [tenantId],
+      );
+      expect(secondDelivery.rows[0]?.id).toBeDefined();
+      await sweep.recordDeliveryCheck(secondDelivery.rows[0]!.id, 'delivered');
+      await storage.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: 'fixture' }));
+
+      const transactions = new PostgresTransactionRunner(pool, 'magrit_worker');
+      const execution = new PostgresOrderFilePurgeExecutionRepository(transactions, storage, bucket);
+      await expect(execution.purgeEligibleFiles(1)).resolves.toMatchObject([{
+        tenantId,
+        fileCount: 1,
+        orderCount: 1,
+        byteSizeFreed: 123,
+        orderIds: [orderId],
+      }]);
+      const file = await pool.query(
+        'select deleted_at,purged_at,deleted_by_label from public.commercial_order_files where id=$1',
+        [fileId],
+      );
+      expect(file.rows[0]).toMatchObject({ deleted_by_label: 'Purge automatique' });
+      expect(file.rows[0]?.deleted_at).toBeInstanceOf(Date);
+      expect(file.rows[0]?.purged_at).toBeInstanceOf(Date);
+      await expect(storage.send(new GetObjectCommand({ Bucket: bucket, Key: key }))).rejects.toBeDefined();
+
+      const event = await pool.query(
+        "select payload from public.outbox_events where tenant_id=$1 and event_name='order_files.purged'",
+        [tenantId],
+      );
+      expect(event.rows).toHaveLength(1);
+      expect(event.rows[0]?.payload).toMatchObject({
+        file_count: 1,
+        order_count: 1,
+        byte_size_freed: 123,
+        order_ids: [orderId],
+      });
+
+      await storage.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: 'residual-fixture' }));
+      const orphans = new PostgresOrphanOrderFileObjectRepository(transactions, storage, bucket);
+      await expect(orphans.removeOrphanObjects(24, 1)).resolves.toBe(1);
+      await expect(storage.send(new GetObjectCommand({ Bucket: bucket, Key: key }))).rejects.toBeDefined();
     } finally {
       storage.destroy();
     }
