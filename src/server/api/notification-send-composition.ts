@@ -56,6 +56,7 @@ export type PostgresNotificationSendApplicationDependencies = Readonly<{
   transactions: PostgresTransactionRunner;
   resendApiKey: string | null;
   fromEmail: string;
+  emailAdapter?: NotificationChannelAdapter;
   fetchImplementation?: typeof fetch;
   settings?: NotificationSendSettings;
   onUnhandledError?: (error: unknown, message: ClaimedNotificationMessage) => void;
@@ -73,13 +74,16 @@ export function createPostgresNotificationSendApplication(
 
 function createNotificationSender(
   repository: ConstructorParameters<typeof NotificationSender>[0]['repository'],
-  dependencies: Omit<PostgresNotificationSendApplicationDependencies, 'transactions'>,
+  dependencies: Omit<PostgresNotificationSendApplicationDependencies, 'transactions' | 'emailAdapter'> & {
+    emailAdapter?: NotificationChannelAdapter;
+  },
 ): Readonly<{ runOnce: () => Promise<NotificationSendReport> }> {
-  const emailSender = new ResendNotificationEmailSender(
-    dependencies.resendApiKey,
-    dependencies.fromEmail,
-    dependencies.fetchImplementation ?? globalThis.fetch,
-  );
+  const emailSender = dependencies.emailAdapter
+    ?? new ResendNotificationEmailSender(
+      dependencies.resendApiKey,
+      dependencies.fromEmail,
+      dependencies.fetchImplementation ?? globalThis.fetch,
+    );
   const adapters: Partial<Record<NotificationChannel, NotificationChannelAdapter>> = { email: emailSender };
   const sender = new NotificationSender({
     repository,
