@@ -5,10 +5,11 @@
 
 ## Lecture obligatoire avant toute action
 
-1. **[docs/REGLES_ARCHITECTURE.md](docs/REGLES_ARCHITECTURE.md)** — règles R1-R8 de la session RP#070826 (Annexe A), **opposables à tout développement** : API-first, modularité, MCP différé, noyau minimal, souplesse encadrée sur l existant, workflow Git, design charte v2, rapport de fin de tâche.
+1. **[project/README.md](project/README.md)** puis **[project/governance/source-of-truth.md](project/governance/source-of-truth.md)** — organisation produit, hiérarchie des sources et règles de propagation. Git est la source active ; Notion est une archive en cours de migration.
+2. **[docs/REGLES_ARCHITECTURE.md](docs/REGLES_ARCHITECTURE.md)** — règles R1-R8 de la session RP#070826 (Annexe A), **opposables à tout développement** : API-first, modularité, MCP différé, noyau minimal, souplesse encadrée sur l existant, workflow Git, design charte v2, rapport de fin de tâche.
    → **[docs/CONVENTION_GIT.md](docs/CONVENTION_GIT.md)** complète R6 : rôle des branches, cadence de remontée vers `main`, tags de version, séquence de synchronisation avec Expert Solutions.
-2. **[docs/project-context.md](docs/project-context.md)** — persistent facts BMAD (vision, stack, multi-tenancy, conventions, identifiants techniques).
-3. **[SPRINT_HANDOFF.md](SPRINT_HANDOFF.md)** — état dev courant (sprint en cours, stories livrées, edge functions déployées, bugs connus).
+3. **[docs/project-context.md](docs/project-context.md)** — persistent facts BMAD (vision, stack, multi-tenancy, conventions, identifiants techniques).
+4. **[SPRINT_HANDOFF.md](SPRINT_HANDOFF.md)** — état dev historique à confronter au code, aux tests et au sprint courant dans `project/sprints/`.
 
 ## Workflow BMAD strict
 
@@ -27,7 +28,7 @@ Tous les agents reçoivent automatiquement `docs/project-context.md` + `SPRINT_H
 
 **Règle Dev** : produire un story document `_bmad-output/implementation-artifacts/story-{X}.md` à chaque story livrée.
 
-**Règle story document — périmètre fonctionnel d'abord (Arnaud, 17/09/2026, permanente)** : tout story document s'ouvre sur le périmètre fonctionnel de la story tel qu'il est décrit dans Notion (description complète, propriétés, cas de test rattachés), entre les marqueurs `notion-functional`, **avant** toute information d'implémentation. Notion fait foi ; la section ne se modifie jamais à la main, elle est régénérée par l'agent `scribe` avec `scripts/notion/sync_story_functional.py`. Tout intervenant (dev, QA, revue, agent) lit cette section en premier. Détail : [docs/spec/STORY_DOCUMENT_STANDARD.md](docs/spec/STORY_DOCUMENT_STANDARD.md) · correspondance Notion ↔ dépôt : [INDEX-stories-notion.md](_bmad-output/implementation-artifacts/INDEX-stories-notion.md).
+**Règle story document — périmètre fonctionnel d'abord** : la story canonique se trouve dans `project/backlog/stories/`. Le story document d'implémentation la référence avant les informations techniques et les preuves de livraison. Les anciennes sections `notion-functional` sont des instantanés historiques gelés : elles ne font plus foi et ne sont plus synchronisées en routine. Détail : [docs/spec/STORY_DOCUMENT_STANDARD.md](docs/spec/STORY_DOCUMENT_STANDARD.md).
 
 ## ⚠️ Copie de travail de référence — à vérifier en début de session
 
@@ -62,13 +63,12 @@ Chantier actif depuis le 2026-09-01 (WM Xavier Péchoultres). Détail complet de
 - **Données** : montants `numeric(12,2)`, taux `numeric(6,4)`, jamais de flottant sur un prix. Tables d'audit append-only. RLS testée, pas seulement déclarée.
 - **Modularité** : un module = `api/` + `application/` (pattern déjà en place dans le dépôt — ne pas réintroduire une convention de dossiers différente).
 - **Prix** : tout calcul passe par l'interface `PricingEngine` (E10.21) une fois livrée ; `E10.8` reste gelée (spécification seule, pas de code).
-- Agents dédiés : `architecte` (opus, seul habilité à toucher `openapi/`), `dev-story` (sonnet, implémente une story), `qa-review` (opus, revue adversariale distincte de l'auteur), `scribe` (haiku, met à jour Notion — n'écrit jamais de code).
+- Agents dédiés : `architecte` (opus, seul habilité à toucher `openapi/`), `dev-story` (sonnet, implémente une story), `qa-review` (opus, revue adversariale distincte de l'auteur), `scribe` (maintient les documents Git au statut `draft` — n'écrit jamais de code et n'approuve rien).
 - Une story = une branche `feat/gescom-<id-story>-<slug>` depuis `main`, une PR vers `main`, jamais de merge sans `qa-review` distinct.
 
 ## Identifiants techniques essentiels
 
-- **Projet Supabase** : `ightkxebexuzfjdbpsdg` (B4 + B5 partagés, RLS isole).
-- **PAT Supabase** : à régénérer à chaque session — demander à Arnaud avant déploiement edge function.
+- **Socle serveur** : PostgreSQL, stockage compatible S3 et Mailpit en local ; aucune fonction Edge Supabase dans l'architecture adoptée.
 - **Modèle LLM raisonnement** : `claude-sonnet-4-5-20250929`.
 - **Modèle LLM génération rapide** : `claude-haiku-4-5-20251001`.
 
@@ -76,10 +76,11 @@ Chantier actif depuis le 2026-09-01 (WM Xavier Péchoultres). Détail complet de
 
 | Document | Rôle |
 |---|---|
+| [project/](project/) | Source canonique pour gouvernance, PRD, backlog, réunions, décisions et sprints |
 | [docs/project-context.md](docs/project-context.md) | Persistent facts BMAD (synthèse opérationnelle) |
-| [SPRINT_HANDOFF.md](SPRINT_HANDOFF.md) | État dev courant (à jour à chaque sprint) |
-| [_bmad-output/planning-artifacts/](_bmad-output/planning-artifacts/) | PRD, Architecture, Epics, Implementation Readiness |
-| [_bmad-output/implementation-artifacts/](_bmad-output/implementation-artifacts/) | Sprint status + story documents + retrospective |
+| [SPRINT_HANDOFF.md](SPRINT_HANDOFF.md) | État dev historique pendant la migration |
+| [_bmad-output/planning-artifacts/](_bmad-output/planning-artifacts/) | Corpus BMAD historique à rapprocher de `project/` |
+| [_bmad-output/implementation-artifacts/](_bmad-output/implementation-artifacts/) | Preuves et story documents d'implémentation historiques |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Référence technique pré-v1.1 (1206 lignes) |
 | [docs/PRICE_SOURCES.md](docs/PRICE_SOURCES.md) | Audit S0.2 sources de prix |
 

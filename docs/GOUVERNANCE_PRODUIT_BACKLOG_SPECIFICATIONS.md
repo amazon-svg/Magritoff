@@ -1,10 +1,8 @@
 # Gouvernance produit, backlog et spécifications de Magrit
 
-> **Statut : proposition non opposable.** Ce document décrit une organisation cible. Il ne modifie aucune règle en vigueur et n'autorise la création d'aucune arborescence tant que les conditions ci-dessous ne sont pas remplies.
->
-> Aucune nouvelle arborescence canonique ne sera créée avant validation de l'audit de correspondance avec les artefacts existants (`quality/specs`, `docs/spec`, `_bmad-output`, PRD historiques, `REGLES_ARCHITECTURE.md`, `SPRINT_HANDOFF.md`). Cet audit permettra de décider si `project/` est réellement la bonne destination ou si la structure existante doit simplement être normalisée.
+> **Statut : organisation adoptée, déploiement progressif.** L'atelier du 1er octobre 2026 (`MEET-2026-10-01-ATELIER`) a adopté Git comme source unique de gestion du projet et autorisé l'arborescence `project/`. Tout contenu produit par un agent reste néanmoins `draft` jusqu'à approbation humaine.
 
-Un premier audit reproductible est disponible dans `docs/governance-audit/`. Il recommande de normaliser l'existant avant de créer `project/` et propose E10.15 comme micro-pilote. Cet audit reste à valider avant le démarrage du pilote.
+L'audit de correspondance disponible dans `docs/governance-audit/` constitue l'état initial de la migration. Il recense le corpus existant et empêche que `project/` devienne une source concurrente : les anciens artefacts restent historiques jusqu'à leur rapprochement explicite, tandis que toute nouvelle information de pilotage est créée dans `project/`.
 
 ## Objet du document
 
@@ -12,7 +10,7 @@ Ce document définit une organisation cible pour gérer dans Git la vision produ
 
 L'objectif est de supprimer Notion comme source de projet, de réduire les contradictions entre documents et de permettre à des personnes comme à des agents de travailler à partir d'un corpus explicite, versionné et vérifiable.
 
-Cette proposition répond à la situation actuelle, dans laquelle les évolutions de Magrit proviennent de plusieurs modes de travail :
+Cette organisation répond à la situation actuelle, dans laquelle les évolutions de Magrit proviennent de plusieurs modes de travail :
 
 - spécifications saisies dans Notion, regroupées en sprints puis développées ;
 - besoins et décisions décrits directement dans des conversations ;
@@ -139,7 +137,7 @@ tests/
 └── e2e/
 ```
 
-Les noms définitifs et l'emplacement exact pourront être ajustés pendant la migration. La séparation des responsabilités entre les dossiers doit en revanche être conservée.
+Cette arborescence est active. Les sous-dossiers peuvent évoluer par décision enregistrée, mais la séparation de leurs responsabilités doit être conservée.
 
 ## Rôle des artefacts
 
@@ -205,6 +203,8 @@ Une story contient au minimum :
 - les références vers les tests et les preuves d'exécution.
 
 Le format existant dans `quality/specs` constitue une base pertinente. Il possède déjà des identifiants stables, des statuts documentaires, des critères d'acceptation, des méthodes de vérification et un mécanisme de validation automatique. Il devra être rapproché de l'arborescence cible plutôt que remplacé par un format concurrent.
+
+`project/backlog` porte l'intention et le découpage de travail. `quality/specs` porte, lorsqu'elle est nécessaire, une représentation structurée et validable automatiquement. Une spécification de `quality/specs` référence donc la story canonique concernée ; elle n'en crée pas une seconde version fonctionnelle.
 
 ### Comptes rendus de réunion
 
@@ -309,6 +309,8 @@ Chaque décision contient au minimum :
 
 Une décision prise dans un chat ou enregistrée dans un compte rendu doit être reportée dans ce registre avant d'être considérée comme définitivement propagée au produit.
 
+Les règles de ce document complètent `docs/REGLES_ARCHITECTURE.md`. Ce dernier reste opposable aux développements pour les contraintes techniques qu'il couvre. Une décision d'architecture plus récente doit identifier explicitement la règle qu'elle remplace ; en l'absence de cette mention, elle ne l'abroge pas.
+
 ### Sprints
 
 Un sprint est une sélection temporelle de stories existantes. Il ne constitue pas une nouvelle source de spécification.
@@ -357,6 +359,16 @@ La source de vérité dépend de la nature de l'information :
 | Preuve de conformité | Tests et preuves d'exécution |
 | Discussion ou exploration | Chat, sans autorité durable |
 | Document généré automatiquement | Brouillon tant qu'il n'est pas approuvé |
+
+À nature d'information identique, une décision datée et approuvée plus récente remplace la règle antérieure qu'elle désigne. Le fichier antérieur est alors mis à jour ou marqué `superseded` et référence son successeur. On ne se contente pas d'ajouter une note d'invalidation : la source canonique active doit rester lisible sans reconstituer toute la chronologie.
+
+Les décisions A1 à A5 du 1er octobre 2026 précisent cette hiérarchie :
+
+- Git est l'unique source active de gestion de projet ; aucune nouvelle saisie ni synchronisation courante n'est faite dans Notion ;
+- le code livré et les tests exécutés décrivent le comportement actuel ;
+- la décision de séance la plus récente l'emporte sur une story plus ancienne pour l'intention produit, après propagation ;
+- toute nouvelle story recherche et met à jour les stories, spécifications et tests qu'elle remplace ;
+- la cohérence est contrôlée par inventaire, validation et revue ciblée, sans régénération périodique complète du corpus par un LLM.
 
 Un compte rendu approuvé fait foi sur le déroulement et les conclusions de la réunion, mais ne remplace pas les spécifications qu'il demande de modifier. Tant que la propagation n'est pas terminée, l'écart est visible et doit être traité comme une modification en attente.
 
@@ -614,7 +626,7 @@ L'objectif initial n'est pas de déclarer tout le logiciel reproductible. Il est
 
 ## Migration depuis Notion
 
-La suppression de Notion doit intervenir après une migration contrôlée :
+Notion est gelé comme source active. Sa sortie s'effectue par une migration unique et contrôlée :
 
 1. geler les nouvelles saisies dans Notion ;
 2. exporter une archive complète et datée ;
@@ -625,9 +637,11 @@ La suppression de Notion doit intervenir après une migration contrôlée :
 7. détecter les doublons et contradictions ;
 8. faire approuver progressivement les éléments prioritaires ;
 9. conserver l'export final comme archive non active ;
-10. fermer Notion lorsque les éléments critiques ont été repris.
+10. conserver Notion ou son export uniquement comme archive datée non active.
 
 L'import d'une page Notion conserve une information historique. Il ne valide pas automatiquement son contenu.
+
+Le périmètre initial comprend toutes les stories de la base Magrit, dont les 146 stories au statut « Pas commencé ». Leur `deliveryStatus` est déterminé à partir du code et des tests, jamais recopié automatiquement depuis Notion.
 
 ## Migration du dépôt actuel
 
@@ -635,11 +649,11 @@ La restructuration ne doit pas commencer par le déplacement massif des centaine
 
 ### Étape 0 — Auditer la correspondance avec l'existant
 
-Avant toute autre étape, un audit de correspondance doit être produit et validé. Il couvre au minimum `quality/specs`, `docs/spec` (dont `STORY_DOCUMENT_STANDARD.md`), `_bmad-output` (planning, implementation et refacto artifacts), les PRD historiques, `docs/REGLES_ARCHITECTURE.md` et `SPRINT_HANDOFF.md`. Il produit un inventaire automatisé, une synthèse, une matrice de correspondance et un scénario de migration pilote. Les étapes suivantes ne démarrent qu'une fois cet audit validé.
+L'audit de correspondance initial est disponible dans `docs/governance-audit/`. Il couvre `quality/specs`, `docs/spec`, `_bmad-output`, les PRD historiques, `docs/REGLES_ARCHITECTURE.md` et `SPRINT_HANDOFF.md`. Il doit être actualisé lorsque la migration Notion apporte de nouveaux éléments.
 
 ### Étape 1 — Définir les règles
 
-- approuver la présente organisation ;
+- appliquer la présente organisation ;
 - fixer les rôles de décision et de validation ;
 - choisir les conventions d'identifiants ;
 - stabiliser les schémas de fichiers ;
@@ -647,25 +661,32 @@ Avant toute autre étape, un audit de correspondance doit être produit et valid
 
 ### Étape 2 — Créer le squelette
 
-- créer l'arborescence `project` ;
+- maintenir l'arborescence `project` ;
 - ajouter les modèles de PRD, fonctionnalité, story, compte rendu et décision ;
 - mettre en place les contrôles automatiques de structure et de liens.
 
-### Étape 3 — Réaliser un pilote
+### Étape 3 — Migrer le backlog Notion une fois
+
+- exporter l'archive datée ;
+- importer les epics, fonctionnalités et stories au statut `draft` ;
+- produire le rapport de migration et les contradictions ;
+- ne plus effectuer de synchronisation bidirectionnelle ou périodique.
+
+### Étape 4 — Réaliser un pilote
 
 - choisir un parcours critique et limité ;
 - rassembler le PRD, les décisions, fonctionnalités et stories correspondantes ;
 - les relier au code et aux tests ;
 - vérifier que le corpus permet réellement de comprendre et modifier ce parcours.
 
-### Étape 4 — Migrer par domaine
+### Étape 5 — Consolider par domaine
 
 - traiter les domaines par priorité métier et risque ;
 - marquer les contradictions au lieu de les résoudre par supposition ;
 - archiver les documents remplacés ;
 - produire un rapport de couverture documentaire par domaine.
 
-### Étape 5 — Assainir les anciens emplacements
+### Étape 6 — Assainir les anciens emplacements
 
 - supprimer les duplications après validation de la migration ;
 - transformer `_bmad-output` en espace non canonique ;

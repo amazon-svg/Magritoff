@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Transpose le périmètre fonctionnel des stories Notion dans les story documents du dépôt.
+"""Outil historique de migration unique des stories Notion.
 
-Règle : docs/spec/STORY_DOCUMENT_STANDARD.md. Notion fait foi ; ce script ne fait que
-recopier, entre deux marqueurs, ce qui a été extrait de Notion.
+Règle : docs/spec/STORY_DOCUMENT_STANDARD.md. Git fait foi après import. Ce script
+conserve un instantané de provenance et ne doit pas servir à une synchronisation
+récurrente ou bidirectionnelle.
 
 Entrées (produites par l'agent `scribe` via le MCP Notion, format décrit dans
 docs/spec/notion-extraction-format.md) :
@@ -24,7 +25,7 @@ import os
 import re
 import sys
 
-BEGIN = "<!-- notion-functional:begin — section générée depuis Notion, ne pas modifier à la main (docs/spec/STORY_DOCUMENT_STANDARD.md) -->"
+BEGIN = "<!-- notion-functional:begin — instantané historique importé depuis Notion (docs/spec/STORY_DOCUMENT_STANDARD.md) -->"
 END = "<!-- notion-functional:end -->"
 MARK_RE = re.compile(r"<!-- notion-functional:begin.*?-->.*?<!-- notion-functional:end -->\n*", re.S)
 ART = "_bmad-output/implementation-artifacts"
@@ -141,11 +142,11 @@ def tf_table(tf_rows, ids):
 def functional_section(st, tf_rows, date, lot_of=None, tf_ids=None):
     p = st["props"]
     edited = fmt_date(p.get("last_edited"))
-    src = "> **Source qui fait foi : Notion** — [%s](%s) · extrait le %s%s." % (
+    src = "> **Provenance historique : Notion** — [%s](%s) · extrait le %s%s." % (
         cell(p.get("Story")), p["url"], date, (" · page modifiée le %s" % edited) if edited else "")
     out = [BEGIN, "## Périmètre fonctionnel — story Notion", "", src,
-           "> Copie destinée à tout intervenant (développement, QA, revue, agent) : lire ce périmètre avant la partie implémentation. "
-           "En cas d'écart, Notion prévaut. Le statut Notion peut retarder sur la livraison réelle, décrite plus bas."]
+           "> Instantané de migration conservé pour traçabilité. La story canonique dans project/backlog/stories/ prévaut. "
+           "Le statut Notion ne détermine pas l'état de livraison."]
     if lot_of:
         out.append("> Ce story document est un **lot** de la story Notion **%s** : le périmètre ci-dessous est celui de la story entière ; "
                    "la part propre à ce lot est décrite dans la partie implémentation." % lot_of)
@@ -161,7 +162,7 @@ def orphan_section(sid, tf_rows):
     return "\n".join([BEGIN, "## Périmètre fonctionnel — story Notion", "",
                       "> Aucune story du Sprint Board Notion n'est rattachée à ce story document : c'est une story née dans le dépôt "
                       "(refonte technique, lot d'architecture ou correctif). Son périmètre est celui décrit ci-dessous. "
-                      "Si elle relève d'une story Notion, renseigner ce rattachement et régénérer cette section.",
+                      "Si elle relève d'une story importée, renseigner ce rattachement dans le rapport de migration.",
                       "", "### Cas de test fonctionnels rattachés (Notion)", "", tf_table(tf_rows, [sid]), "", "---", "", "_Fin du périmètre fonctionnel. La suite du document porte sur l'implémentation._", END, ""])
 
 
@@ -228,7 +229,17 @@ def main():
     ap.add_argument("--stories", required=True)
     ap.add_argument("--tf", required=True)
     ap.add_argument("--date", required=True)
+    ap.add_argument(
+        "--one-time-migration",
+        action="store_true",
+        help="confirme l'usage exceptionnel pour la migration initiale",
+    )
     a = ap.parse_args()
+    if not a.one_time_migration:
+        ap.error(
+            "outil réservé à la migration unique Notion ; ajouter "
+            "--one-time-migration après lecture de docs/spec/STORY_DOCUMENT_STANDARD.md"
+        )
 
     stories = load_stories(a.stories)
     tf_rows = load_tf(a.tf)
@@ -299,9 +310,9 @@ def main():
         linked[nid].append((fname, nid, None))
         report["crees_ou_regeneres"] += 1
 
-    idx = ["# Index — stories Notion ↔ story documents", "",
+    idx = ["# Index historique — stories Notion ↔ story documents", "",
            "> Généré le %s par `scripts/notion/sync_story_functional.py` (règle : `docs/spec/STORY_DOCUMENT_STANDARD.md`). "
-           "Source : base Notion « 📋 Backlog Magrit — Sprint Board ». Ne pas modifier à la main." % a.date, "",
+           "Provenance : base Notion « 📋 Backlog Magrit — Sprint Board ». Cet index n'est pas une source active." % a.date, "",
            "| ID Notion | Story | Epic | Sprint | Statut Notion | Story documents |", "|---|---|---|---|---|---|"]
     for nid in sorted(stories, key=lambda s: [int(x) if x.isdigit() else x for x in re.split(r"(\d+)", s)]):
         p = stories[nid]["props"]

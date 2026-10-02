@@ -46,6 +46,9 @@
 
   ## Documentation
 
+  - [Gestion de projet, backlog et décisions](project/README.md)
+  - [Gouvernance produit](docs/GOUVERNANCE_PRODUIT_BACKLOG_SPECIFICATIONS.md)
+
    ### Documentation OpenAPI locale
 
    La documentation graphique du contrat est servie directement par Vite en

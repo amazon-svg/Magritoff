@@ -1,0 +1,45 @@
+name: project-governance
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "project/**"
+      - "quality/specs/**"
+      - "docs/spec/STORY_DOCUMENT_STANDARD.md"
+      - "docs/GOUVERNANCE_PRODUIT_BACKLOG_SPECIFICATIONS.md"
+      - "CLAUDE.md"
+      - "scripts/project/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Valider les documents projet
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Installer Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Installer les dépendances
+        run: pnpm install --frozen-lockfile
+
+      - name: Valider la gouvernance
+        run: pnpm project:validate
+
+      - name: Valider les spécifications auditables
+        run: pnpm specs:validate
