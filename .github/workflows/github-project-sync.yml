@@ -1,0 +1,85 @@
+name: github-project-sync
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "project/backlog/**"
+      - "scripts/project/github-project-sync*.mjs"
+      - "tests/project/github-project-sync.test.mjs"
+      - "package.json"
+      - "pnpm-lock.yaml"
+  push:
+    branches: [main]
+    paths:
+      - "project/backlog/**"
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: Appliquer la projection dans GitHub Project
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    name: Vérifier la projection Markdown
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Installer Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Installer les dépendances
+        run: pnpm install --frozen-lockfile
+
+      - name: Tester le projecteur
+        run: pnpm test:project-sync
+
+      - name: Produire le plan local
+        run: pnpm github-project:plan
+
+  sync:
+    name: Projeter vers GitHub Project
+    needs: plan
+    if: >-
+      vars.GH_PROJECT_OWNER != '' &&
+      vars.GH_PROJECT_NUMBER != '' &&
+      (github.event_name == 'push' || inputs.apply == true)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ secrets.PROJECTS_TOKEN }}
+      GH_PROJECT_OWNER: ${{ vars.GH_PROJECT_OWNER }}
+      GH_PROJECT_NUMBER: ${{ vars.GH_PROJECT_NUMBER }}
+      GH_PROJECT_SOURCE_REF: main
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Installer Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Installer les dépendances
+        run: pnpm install --frozen-lockfile
+
+      - name: Projeter le backlog
+        run: pnpm github-project:sync -- --apply

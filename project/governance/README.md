@@ -9,5 +9,6 @@ Ordre de lecture :
 3. [`workflow.md`](workflow.md)
 4. [`definition-of-ready.md`](definition-of-ready.md)
 5. [`definition-of-done.md`](definition-of-done.md)
+6. [`github-project-projection.md`](github-project-projection.md)
 
 Le document de cadrage détaillé reste [`docs/GOUVERNANCE_PRODUIT_BACKLOG_SPECIFICATIONS.md`](../../docs/GOUVERNANCE_PRODUIT_BACKLOG_SPECIFICATIONS.md).
