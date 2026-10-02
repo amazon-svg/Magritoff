@@ -1,5 +1,7 @@
 # PRD — Entités juridiques de facturation des clients boutique
 
+> **Document historique BMAD.** Le cadrage encore utile est recensé dans `project/prd/domains/identites-facturation.md`. Ce fichier reste la provenance détaillée et son contenu demeure à valider avant transformation en backlog actif.
+
 **Statut :** Draft à valider  
 **Date :** 17 août 2026  
 **Périmètre :** Portail client des boutiques B2B et commandes boutique  

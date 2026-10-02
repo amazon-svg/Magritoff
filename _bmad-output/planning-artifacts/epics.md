@@ -25,6 +25,8 @@ total_stories: 30
 
 # Magrit / e-shop v1.1 — Epic Breakdown
 
+> **Catalogue historique BMAD.** Les epics actifs sont désormais enregistrés dans `project/backlog/epics/`. Le tableau de correspondance et les statuts de migration se trouvent dans le README de ce dossier. Ne pas déduire l'état de livraison de ce document seul.
+
 ## Overview
 
 Découpage du PRD (46 FR + 28 NFR) et de l'Architecture v1.1 (15 décisions structurantes) en **7 epics** centrés sur la **valeur utilisateur**, totalisant **30 user stories** sprint-ready avec critères d'acceptance Given/When/Then.

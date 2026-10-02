@@ -140,6 +140,8 @@ language:
   document: French
 ---
 
+> **Document historique BMAD.** La vision, le périmètre et les principes actifs sont consolidés dans `project/prd/`. Ce fichier reste une provenance datée et contient des choix techniques ou des statuts désormais périmés ; il ne doit plus être modifié comme PRD canonique.
+
 # Product Requirements Document — Magrit / e-shop v1.1
 
 **Author:** Arnaud Mazon
