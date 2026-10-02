@@ -187,6 +187,7 @@ export interface DocumentTemplatesRepository {
    */
   update(
     tenantId: TenantId,
+    actor: UserId,
     templateId: string,
     command: UpdateDocumentPdfTemplateCommand,
   ): Promise<DocumentPdfTemplateDetailDto>;
@@ -196,14 +197,18 @@ export interface DocumentTemplatesRepository {
    * l objet de stockage (service_role). Leve
    * `DocumentPdfTemplateNotFoundError`/`DocumentPdfTemplateInUseError`.
    */
-  remove(tenantId: TenantId, templateId: string): Promise<void>;
+  remove(tenantId: TenantId, actor: UserId, templateId: string): Promise<void>;
 
   /**
    * Emet un billet d import a usage unique (`createSignedUploadUrl`,
    * service_role), sur le chemin impose `<tenant_id>/<templateId>.pdf`. Leve
    * `DocumentPdfTemplateNotFoundError`.
    */
-  issueUploadUrl(tenantId: TenantId, templateId: string): Promise<DocumentPdfTemplateUploadTicketDto>;
+  issueUploadUrl(
+    tenantId: TenantId,
+    actor: UserId,
+    templateId: string,
+  ): Promise<DocumentPdfTemplateUploadTicketDto>;
 
   /**
    * TELECHARGE le fichier depose (service_role), l INSPECTE (`pdf-lib`,
@@ -216,6 +221,7 @@ export interface DocumentTemplatesRepository {
    */
   confirmUpload(
     tenantId: TenantId,
+    actor: UserId,
     templateId: string,
     command: ConfirmDocumentPdfTemplateUploadCommand,
   ): Promise<DocumentPdfTemplateDetailDto>;
@@ -246,6 +252,7 @@ export interface DocumentTemplatesRepository {
    */
   replaceFields(
     tenantId: TenantId,
+    actor: UserId,
     templateId: string,
     command: ReplaceDocumentPdfTemplateFieldsCommand,
   ): Promise<DocumentPdfTemplateFieldMapDto>;

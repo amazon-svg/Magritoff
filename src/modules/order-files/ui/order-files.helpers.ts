@@ -17,13 +17,13 @@ import {
   UnsupportedOrderFileExtensionError,
 } from '../api/content-type-map';
 
-/** Contrat §8.19 §3 : 50 Mo = plafond du PROJET (`supabase/config.toml`), meme valeur que le bucket Storage (52428800 = 50 * 1024 * 1024). */
+/** Contrat §8.19 §3 : 50 Mo, aligne sur `MAX_ORDER_FILE_BYTES` côté serveur. */
 export const ORDER_FILE_MAX_BYTE_SIZE = 50 * 1024 * 1024;
 
 /**
  * Reserve (b) du contrat, position posee par Arnaud : 30 fichiers vivants
  * par commande. NE PEUT PAS importer `ORDER_FILE_LIVE_LIMIT`
- * (`adapters/supabase/order-files-repository.ts`, valeur AUTHENTIQUE
+ * (`adapters/postgres/order-files-repository.ts`, valeur AUTHENTIQUE
  * partagee cote serveur avec E10.20b) : une UI de module n a JAMAIS le
  * droit d importer depuis `adapters/` (`.claude/rules/frontend.md`,
  * `tests/architecture/modular-ui-boundaries.test.ts`). Cette copie reste

@@ -78,13 +78,13 @@ describe('frontière fiscale du storefront', () => {
   });
 
   it('expose uniquement le régime de la boutique active via le BFF', () => {
-    const repository = readFileSync(resolve(process.cwd(), 'src/adapters/supabase/shops-repository.ts'), 'utf8');
-    const migration = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260818000600_public_shop_tax_regime.sql'), 'utf8');
+    const repository = readFileSync(resolve(process.cwd(), 'src/adapters/postgres/shops-repository.ts'), 'utf8');
+    const migration = readFileSync(resolve(process.cwd(), 'infra/postgres/migrations/0046_public_shop_catalog.sql'), 'utf8');
 
-    expect(repository).toContain("rpc('api_get_public_shop_tax_regime'");
-    expect(repository).toContain('shopTaxRegimeSchema.parse(taxResult.data)');
-    expect(migration).toContain('join public.tenants t on t.id = s.tenant_id');
-    expect(migration).toContain('and s.active = true');
-    expect(migration).toContain('grant execute on function public.api_get_public_shop_tax_regime(text) to anon, authenticated');
+    expect(repository).toContain('shopTaxRegimeSchema.parse(payload.taxRegime)');
+    expect(repository).toContain('magrit.public_shop_catalog_data');
+    expect(migration).toContain("'taxRegime',tenant.tax_regime");
+    expect(migration).toContain('join public.tenants tenant on tenant.id=shop.tenant_id');
+    expect(migration).toContain('shop.active and shop.deleted_at is null');
   });
 });

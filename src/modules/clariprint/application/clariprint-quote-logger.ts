@@ -4,7 +4,7 @@ import type { ClariprintQuoteOutcome, ClariprintQuoteVerdict } from './clariprin
  * BCP-1a (docs/api/CONVENTIONS.md §8.25 point 2.3) — port de journalisation
  * injecté dans la passerelle. Testable : un test peut fournir un faux
  * `ClariprintQuoteLogger` et espionner ce qu'il reçoit, sans dépendre de
- * `console`. C'est `supabase/functions/magrit-api/index.ts` qui compose la
+ * `console`. C'est le point d'entrée Node `server/node/main.ts` qui compose la
  * version console (§8.25 point 2.3 : « info pour un succès, warn pour un
  * refus, error pour une indisponibilité ou une configuration absente »).
  */

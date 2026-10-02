@@ -13,6 +13,22 @@ export class CommercialLineFileNotFoundError extends Error {
   }
 }
 
+export interface CommercialLineFileObjectStorage {
+  upload(params: Readonly<{
+    tenantId: TenantId;
+    fileId: string;
+    bytes: Uint8Array;
+    contentType: string;
+  }>): Promise<Readonly<{ storagePath: string }>>;
+  remove(storagePath: string): Promise<void>;
+  createReadUrl(params: Readonly<{
+    storagePath: string;
+    filename: string;
+    download: boolean;
+    expiresInSeconds: number;
+  }>): Promise<string>;
+}
+
 export interface CommercialLineFilesRepository {
   list(tenantId: TenantId, lineType: CommercialLineType, lineId: string): Promise<readonly CommercialLineFileDto[]>;
   getForRead(tenantId: TenantId, lineType: CommercialLineType, lineId: string, fileId: string): Promise<CommercialLineFileDetailDto>;

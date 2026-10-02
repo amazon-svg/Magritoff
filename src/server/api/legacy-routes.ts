@@ -1,12 +1,12 @@
 /**
- * Routes de la facade HISTORIQUE, sorties de l edge function.
+ * Definitions des routes applicatives publiees avant la facade Gescom.
  *
  * ------------------------------------------------------------------------
  * POURQUOI CE FICHIER EXISTE
  * ------------------------------------------------------------------------
- * La liste des ~22 fabriques vivait en dur dans
- * `supabase/functions/magrit-api/index.ts`, fichier qui n est ni typecheckee
- * ni testable. Deux consequences :
+ * La liste des fabriques vivait autrefois dans la fonction Edge. Elle reste
+ * centralisee ici pour verifier la couverture OpenAPI et les collisions avec
+ * les routes Gescom, sans participer a la composition du serveur Node.
  *
  * 1. le test de composition ne pouvait exercer `assertNoFacadeCollision` que
  *    sur des routes synthetiques — la seule chose qui compte, le recouvrement

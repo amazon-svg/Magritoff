@@ -122,7 +122,10 @@ export function createOrdersRoutes(
       async handle(context) {
         requireUserId(context);
         try {
-          return { status: 200, body: await service.getRoles(context.params.orderId ?? '') };
+          return {
+            status: 200,
+            body: await service.getRoles(context.params.orderId ?? '', requireUserId(context)),
+          };
         } catch (error) {
           if (error instanceof OrderCommandRejectedError) throw toHttpError(error);
           throw error;
@@ -138,7 +141,14 @@ export function createOrdersRoutes(
       async handle(context) {
         requireUserId(context);
         const shopIds = new URL(context.request.url).searchParams.getAll('shopId').filter(Boolean);
-        return { status: 200, body: await service.listTenantOrders(requireParam(context, 'tenantId'), shopIds) };
+        return {
+          status: 200,
+          body: await service.listTenantOrders(
+            requireUserId(context),
+            requireParam(context, 'tenantId'),
+            shopIds,
+          ),
+        };
       },
     }),
     defineJsonRoute({
@@ -226,7 +236,7 @@ async function orderCreationAuthorization(
       code: 'identity.authentication_required',
     });
   }
-  return { kind: 'magrit_user' as const };
+  return { kind: 'magrit_user' as const, userId: requireUserId(context) };
 }
 
 async function portalOrdersAuthorization(
@@ -267,7 +277,10 @@ async function orderResourceAuthorization(
       code: 'identity.authentication_required',
     });
   }
-  return { storefrontToken };
+  return {
+    storefrontToken,
+    magritUserId: context.actor?.kind === 'user' ? requireUserId(context) : null,
+  };
 }
 
 async function transitionAuthorization(

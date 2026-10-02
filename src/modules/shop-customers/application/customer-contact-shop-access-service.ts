@@ -73,7 +73,7 @@ export class CustomerContactShopAccessService {
     }
 
     if (account && !account.customerContactId) {
-      account = await this.customers.linkContact(actor, account.id, customerContactId);
+      account = await this.customers.linkContact(actor, tenantId, account.id, customerContactId);
     }
 
     if (!account) {

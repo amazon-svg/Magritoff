@@ -29,7 +29,6 @@ describe('routes ShopCustomers API v1', () => {
     );
 
     await expect(client.list(TENANT, SHOP)).resolves.toEqual([]);
-    await expect(client.migrationReport(TENANT)).resolves.toEqual([]);
     await expect(client.create(TENANT, SHOP, {
       email: 'Client.Exemple@Example.com',
     })).resolves.toMatchObject({
@@ -85,32 +84,6 @@ describe('routes ShopCustomers API v1', () => {
     });
   });
 
-  it('expose le rapport de migration via le BFF et son contrat partagé', async () => {
-    const repository = repositoryStub();
-    repository.migrationReport = async () => [{
-      legacyUserId: actor(),
-      shopId: SHOP,
-      normalizedEmail: 'legacy@example.com',
-      proposedAction: 'matched_existing',
-      targetAccountId: CUSTOMER,
-      migrationOutcome: 'created',
-      ordersLinkedCount: 2,
-      lastAttemptAt: '2026-08-17T18:00:00+00:00',
-    }];
-    const client = new ShopCustomersApiClient(
-      new FetchApiClient('https://magrit.test', bridgeTo(application(repository)), () => 'jwt-um7'),
-    );
-
-    await expect(client.migrationReport(TENANT)).resolves.toEqual([
-      expect.objectContaining({
-        legacyUserId: actor(),
-        shopId: SHOP,
-        migrationOutcome: 'created',
-        ordersLinkedCount: 2,
-      }),
-    ]);
-  });
-
   it('expose l invitation email comme une commande HTTP unique', async () => {
     const repository = repositoryStub();
     const handler = createApiV1Application({
@@ -148,7 +121,6 @@ function application(repository: ShopCustomersRepository) {
 
 function repositoryStub(): ShopCustomersRepository {
   return {
-    migrationReport: async () => [],
     list: async () => [],
     findByNormalizedEmail: async () => null,
     create: async (_actor, _tenantId, shopId, record) => account({
@@ -159,6 +131,10 @@ function repositoryStub(): ShopCustomersRepository {
       status: record.status,
     }),
     ensureSelf: async () => ({ customer: account({ status: 'delegated_only' }), created: true }),
+    findByCustomerContactId: async () => null,
+    listByCustomerContactId: async () => [],
+    linkCustomerContact: async () => account(),
+    revokeCustomerContactAccess: async () => undefined,
   };
 }
 

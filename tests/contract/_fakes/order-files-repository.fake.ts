@@ -228,8 +228,10 @@ export class InMemoryOrderFilesRepository implements OrderFilesRepository {
     tenantId: TenantId,
     orderId: string,
     fileId: string,
+    actor: UserId,
     command: UpdateOrderFileCommand,
   ): Promise<OrderFileDto> {
+    void actor;
     void tenantId;
     const row = this.files.get(fileId);
     if (!row || row.order_id !== orderId || row.deleted_at !== null) throw new OrderFileNotFoundError();

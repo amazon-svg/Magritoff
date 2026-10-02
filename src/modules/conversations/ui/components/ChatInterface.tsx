@@ -32,13 +32,13 @@ import {
   SheetTitle,
 } from "@/shared/ui/sheet";
 import {
-  ClaudeSseStreamError,
+  AssistantSseStreamError,
   MAX_CONTEXT_MESSAGES,
   truncateMessages,
-  useClaudeSseStream,
-} from "@/modules/conversations/ui/hooks/useClaudeSseStream";
+  useAssistantSseStream,
+} from "@/modules/conversations/ui/hooks/useAssistantSseStream";
 
-// R2 Phase A : readClaudeSseStream extrait dans useClaudeSseStream.ts
+// Le transport SSE est isolé du composant et du fournisseur IA.
 // (avec AbortController + detection billing error + troncage 25 msg).
 
 interface ChatInterfaceProps {
@@ -109,7 +109,7 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
     requestId?: string;
   } | null>(null);
   const { assistant } = useWorkspaceUiRuntime();
-  const { send: sendSseStream } = useClaudeSseStream(assistant);
+  const { send: sendSseStream } = useAssistantSseStream(assistant);
   // E3.1 — nb de chunks de texte recus pendant un stream en cours.
   // null quand pas de stream actif. Permet l indicateur "Marguerite redige...".
   const [streamingChunks, setStreamingChunks] = useState<number | null>(null);
@@ -213,9 +213,9 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
     let parsedProducts: any[] = [];
 
     try {
-      // R2 Phase A : passe par useClaudeSseStream (extraction + AbortController
+      // Passe par useAssistantSseStream (extraction + AbortController
       // + detection billing). Le payload final reste de meme forme.
-      if (!session?.access_token) throw new ClaudeSseStreamError('network', 'Authentification requise', 401);
+      if (!session?.access_token) throw new AssistantSseStreamError('network', 'Authentification requise', 401);
       const requestBody = {
         messages: contextMessages,
         tenantId: currentTenant?.id ?? null,
@@ -249,9 +249,9 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
       // "quelle difference entre X et Y", "quel papier choisir pour...".
       // S'il est present, c'est ce qu'on affiche dans le message assistant,
       // sinon on fallback sur un texte generique (on n'affiche plus le
-      // JSON brut de Claude qui etait illisible).
+      // JSON brut du fournisseur IA, qui serait illisible).
 
-      // E2.2 — Si mode strict + Claude a demande une clarification, on
+      // E2.2 — Si le mode strict demande une clarification, on
       // l'affiche comme un message assistant et on ne genere pas de produits.
       const clarification: string | null =
         typeof data.clarification === "string" && data.clarification.trim()
@@ -308,7 +308,7 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
       // un banner explicite au lieu de basculer silencieusement en demo.
       // Le user choisit s'il veut malgre tout voir un exemple demo (opt-in).
       const isBilling =
-        error instanceof ClaudeSseStreamError && error.kind === 'billing';
+        error instanceof AssistantSseStreamError && error.kind === 'billing';
       if (isBilling) {
         setBillingError(true);
         assistantMessage =
@@ -318,7 +318,7 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
         return;
       }
 
-      if (error instanceof ClaudeSseStreamError) {
+      if (error instanceof AssistantSseStreamError) {
         setAssistantError({
           message: error.message,
           ...(error.status !== undefined ? { status: error.status } : {}),

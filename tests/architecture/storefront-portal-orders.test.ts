@@ -2,8 +2,6 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const migration = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260817000200_storefront_portal_orders.sql'), 'utf8');
-const customerIdentityReadModel = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260820000100_order_customer_identity_read_model.sql'), 'utf8');
 const service = readFileSync(resolve(process.cwd(), 'src/modules/orders/application/orders-service.ts'), 'utf8');
 const routes = readFileSync(resolve(process.cwd(), 'src/server/api/orders-routes.ts'), 'utf8');
 const portal = readFileSync(resolve(process.cwd(), 'src/modules/orders/ui/storefront/PortalOrders.tsx'), 'utf8');
@@ -25,20 +23,6 @@ const catalog = readFileSync(resolve(process.cwd(), 'src/modules/catalog/ui/stor
 const storefrontEditorial = readFileSync(resolve(process.cwd(), 'src/modules/catalog/ui/hooks/useStorefrontCategoryEditorial.ts'), 'utf8');
 
 describe('portail commandes par compte boutique', () => {
-  it('valide la session et filtre simultanément par compte et boutique', () => {
-    expect(migration).toContain('api_resolve_shop_customer_session(p_opaque_token)');
-    expect(migration).toContain('o.shop_id = p_shop_id');
-    expect(migration).toContain('o.shop_customer_account_id = v_session.account_id');
-  });
-
-  it('expose l identité du compte boutique sans ouvrir la table des clients', () => {
-    expect(customerIdentityReadModel).toContain('api_get_order_customer_identities');
-    expect(customerIdentityReadModel).toContain('current_user_can_access_shop(orders.shop_id)');
-    expect(customerIdentityReadModel).toContain("'customer_name', v_session.full_name");
-    expect(customerIdentityReadModel).toContain("'customer_email', v_session.email");
-    expect(customerIdentityReadModel).not.toContain('grant select on table public.shop_customer_accounts');
-  });
-
   it('ne confère aucun rôle Magrit au compte boutique', () => {
     expect(service).toContain('to_validate: 0, to_approve: 0, to_produce: 0');
     expect(service).toContain('datasets: { mine, to_validate: [], to_approve: [], to_produce: [] }');
@@ -49,7 +33,7 @@ describe('portail commandes par compte boutique', () => {
     expect(routes).toContain("kind: 'storefront_session'");
   });
 
-  it('ne dépend plus exclusivement de Supabase Auth dans l UX', () => {
+  it('ne dépend pas du fournisseur d authentification dans l UX', () => {
     expect(portal).toContain('hasStorefrontSession,');
     expect(storefrontOrderList).toContain('!enabled');
     expect(portal).not.toContain('useAuth');

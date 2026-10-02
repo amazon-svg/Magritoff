@@ -5,11 +5,6 @@
 # remontes en visibilite mais ne font pas echouer le job — engagement WCAG
 # AA reporte V2).
 #
-# Pour activer cette CI, Arnaud doit (action ponctuelle) :
-#   - confirmer que `beta/v5` deploie sans secrets supplementaires
-#   - eventuellement ajouter un secret `VITE_SUPABASE_*` si le build local
-#     en CI necessite l'authentification
-#
 # La CI tourne sur PR vers `beta/v5` + push sur la branche.
 
 name: a11y
@@ -46,12 +41,6 @@ jobs:
 
       - name: Start preview server (background)
         run: pnpm exec vite preview --port 5177 --strictPort &
-        env:
-          # Variables minimales necessaires pour boot l'app. Ajustez selon
-          # SPRINT_HANDOFF.md (les secrets Supabase doivent rester en secrets
-          # GitHub repo-level, pas hardcodes ici).
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
       - name: Wait for server
         run: |

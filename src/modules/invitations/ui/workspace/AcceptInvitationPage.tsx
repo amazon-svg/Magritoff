@@ -36,6 +36,7 @@ export function AcceptInvitation() {
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [activationNotice, setActivationNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token) {
@@ -59,12 +60,13 @@ export function AcceptInvitation() {
     event.preventDefault();
     if (!activation || submitting) return;
     setActivationError(null);
+    setActivationNotice(null);
     if (!activation.accountExists && !fullName.trim()) {
       setActivationError('Indiquez votre nom complet.');
       return;
     }
-    if (!activation.accountExists && password.length < 8) {
-      setActivationError('Le mot de passe doit contenir au moins 8 caractères.');
+    if (!activation.accountExists && password.length < 12) {
+      setActivationError('Le mot de passe doit contenir au moins 12 caractères.');
       return;
     }
     if (!activation.accountExists && password !== confirmation) {
@@ -74,18 +76,16 @@ export function AcceptInvitation() {
     setSubmitting(true);
     const result = activation.accountExists
       ? await signIn(activation.email, password)
-      : await signUp(activation.email, password, fullName.trim());
+      : await signUp(activation.email, password, fullName.trim(), undefined, token);
     setSubmitting(false);
     if (result.error) {
       setActivationError(activation.accountExists
         ? 'Mot de passe incorrect.'
         : result.error.message);
     } else if (!result.session) {
-      if (token) {
-        const refreshed = await api.activation(token).catch(() => null);
-        if (refreshed) setActivation(refreshed);
-      }
-      setActivationError('Un compte existe déjà pour cette adresse. Saisissez son mot de passe pour continuer.');
+      setActivationNotice(
+        'Compte créé. Consultez votre messagerie et confirmez votre adresse pour rejoindre cet espace.',
+      );
     }
   };
 
@@ -137,7 +137,7 @@ export function AcceptInvitation() {
                     Mot de passe
                     <input
                       required
-                      minLength={activation.accountExists ? 1 : 8}
+                      minLength={activation.accountExists ? 1 : 12}
                       type="password"
                       autoComplete={activation.accountExists ? 'current-password' : 'new-password'}
                       value={password}
@@ -150,7 +150,7 @@ export function AcceptInvitation() {
                       Confirmer le mot de passe
                       <input
                         required
-                        minLength={8}
+                        minLength={12}
                         type="password"
                         autoComplete="new-password"
                         value={confirmation}
@@ -160,6 +160,7 @@ export function AcceptInvitation() {
                     </label>
                   )}
                   {activationError && <p role="alert" className="rounded-md bg-err-bg px-3 py-2 text-xs text-err-fg">{activationError}</p>}
+                  {activationNotice && <p role="status" className="rounded-md bg-ok-bg px-3 py-2 text-xs text-ok-fg">{activationNotice}</p>}
                   <button
                     type="submit"
                     disabled={submitting}

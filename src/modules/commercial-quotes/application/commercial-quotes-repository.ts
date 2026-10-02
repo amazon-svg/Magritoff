@@ -264,9 +264,9 @@ export type QuoteHeaderAuditRow = QuoteAuditEntryDto;
 export type ListQuoteHeaderAuditResult = Readonly<{ rows: readonly QuoteHeaderAuditRow[] }>;
 
 /**
- * Port (interface) du referentiel Devis commerciaux. L implementation
- * Supabase vit dans src/adapters/supabase/commercial-quotes-repository.ts ;
- * ce module n en connait que le contrat.
+ * Port (interface) du referentiel Devis commerciaux. Les implementations
+ * PostgreSQL directe et Supabase historique vivent dans `src/adapters/` ; ce
+ * module n en connait que le contrat.
  */
 export interface CommercialQuotesRepository {
   list(tenantId: TenantId, params: ListQuotesParams): Promise<ListQuotesResult>;
@@ -295,7 +295,7 @@ export interface CommercialQuotesRepository {
    * MEME condition d ecriture que `remove()` (le filtre par statut fait
    * partie de l operation elle-meme).
    */
-  update(tenantId: TenantId, quoteId: string, command: UpdateQuoteCommand): Promise<QuoteDto>;
+  update(tenantId: TenantId, quoteId: string, actor: UserId, command: UpdateQuoteCommand): Promise<QuoteDto>;
 
   /** Leve `QuoteDeleteRequiresDraftError` si le devis n est pas a l etat brouillon. */
   remove(tenantId: TenantId, quoteId: string): Promise<void>;
@@ -382,7 +382,12 @@ export interface CommercialQuotesRepository {
    * de devis (`position` = derniere + 1). Leve `QuoteLineQuoteNotDraftError`
    * si le devis n est pas brouillon.
    */
-  addLine(tenantId: TenantId, quoteId: string, line: PricedQuoteLineWrite): Promise<QuoteLineDto>;
+  addLine(
+    tenantId: TenantId,
+    quoteId: string,
+    actor: UserId,
+    line: PricedQuoteLineWrite,
+  ): Promise<QuoteLineDto>;
 
   /**
    * Applique les champs DEJA CALCULES par le service. La concurrence
@@ -395,6 +400,7 @@ export interface CommercialQuotesRepository {
     tenantId: TenantId,
     quoteId: string,
     lineId: string,
+    actor: UserId,
     update: QuoteLineWriteUpdate,
   ): Promise<QuoteLineDto>;
 
@@ -403,14 +409,19 @@ export interface CommercialQuotesRepository {
    * seule transaction cote base (`api_delete_commercial_quote_line`). Leve
    * `QuoteLineNotFoundError` ou `QuoteLineQuoteNotDraftError`.
    */
-  removeLine(tenantId: TenantId, quoteId: string, lineId: string): Promise<void>;
+  removeLine(tenantId: TenantId, quoteId: string, lineId: string, actor: UserId): Promise<void>;
 
   /**
    * Reordonne integralement les lignes du devis
    * (`api_reorder_commercial_quote_lines`). Leve
    * `QuoteLinePositionsMismatchError` ou `QuoteLineQuoteNotDraftError`.
    */
-  reorderLines(tenantId: TenantId, quoteId: string, lineIds: readonly string[]): Promise<QuoteDetailDto>;
+  reorderLines(
+    tenantId: TenantId,
+    quoteId: string,
+    actor: UserId,
+    lineIds: readonly string[],
+  ): Promise<QuoteDetailDto>;
 
   listLineAuditEntries(
     tenantId: TenantId,

@@ -20,10 +20,8 @@
  * necessaire, mais reste a la charge du moteur de generation (4c), jamais de
  * ce module.
  *
- * Import `npm:` : le bare specifier `pdf-lib` est resolu par
- * `supabase/functions/magrit-api/deno.json` (import map, meme patron que
- * `zod`) sous Deno, et par `node_modules/pdf-lib` (package.json) sous
- * Vitest/tsc. Aucune des deux resolutions n est ecrite ici.
+ * Le bare specifier `pdf-lib` est resolu par `node_modules/pdf-lib` depuis le
+ * package Node, sous le serveur comme sous Vitest/tsc.
  */
 import { PDFDocument } from 'pdf-lib';
 import type { DocumentPdfTemplatePageDto } from '../api/contracts.ts';

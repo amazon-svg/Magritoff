@@ -89,7 +89,7 @@ export class ProductionStepsService {
     command: UpdateProductionStepCommand,
   ): Promise<ProductionStepDto> {
     await this.assertCanManageProductionSteps(tenantId, actor);
-    return this.repository.update(tenantId, stepId, command);
+    return this.repository.update(tenantId, actor, stepId, command);
   }
 
   async remove(tenantId: TenantId, actor: UserId, stepId: string): Promise<void> {

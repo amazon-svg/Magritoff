@@ -17,6 +17,31 @@ describe('ConfiguredAiCompletionGateway', () => {
     const result = await new ConfiguredAiCompletionGateway({ provider: 'openai', apiKey: 'o-key', model: 'gpt-test' }, fetchMock as unknown as typeof fetch).complete(request);
     expect(result.text).toBe('{"intro":"B"}');
     expect(fetchMock).toHaveBeenCalledWith('https://api.openai.com/v1/responses', expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer o-key' }) }));
+    const [, init] = fetchMock.mock.calls[0] as unknown as [RequestInfo, RequestInit];
+    const body = JSON.parse(String(init.body));
+    expect(body.store).toBe(false);
+  });
+
+  it('transmet un schéma de sortie au format Responses API', async () => {
+    const fetchMock = vi.fn(async () => Response.json({ model: 'gpt-test', output_text: '{"products":[]}' }));
+    await new ConfiguredAiCompletionGateway(
+      { provider: 'openai', apiKey: 'o-key', model: 'gpt-test' },
+      fetchMock as unknown as typeof fetch,
+    ).complete({
+      ...request,
+      outputSchema: {
+        name: 'catalog',
+        strict: false,
+        schema: { type: 'object', properties: { products: { type: 'array' } } },
+      },
+    });
+    const [, init] = fetchMock.mock.calls[0] as unknown as [RequestInfo, RequestInit];
+    const body = JSON.parse(String(init.body));
+    expect(body.text.format).toEqual(expect.objectContaining({
+      type: 'json_schema',
+      name: 'catalog',
+      strict: false,
+    }));
   });
 
   it('utilise Chat Completions pour Mistral', async () => {

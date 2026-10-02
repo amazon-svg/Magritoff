@@ -2007,7 +2007,7 @@ export interface paths {
          *
          *     PLURIEL PUREMENT FORMEL : `checkResourcePath` impose le pluriel en position de ressource, mais un devis n a qu UN document. Le dire plutot que de laisser croire a une collection.
          *
-         *     AUCUNE GENERATION ICI. Le document est produit par `sendQuote`, une seule fois, et jamais recalcule : le gabarit du tenant est librement modifiable, un re-rendu produirait donc un papier a en-tete d aujourd hui sur un devis envoye il y a trois semaines. C est le constat (e) de §8.13septies, que le changement de moteur n a pas adouci — il l a aggrave, le fond etant desormais un fichier que l imprimeur remplace quand il veut.
+         *     Si le PDF manque sur un devis sorti du brouillon, cette operation le genere avec les lignes et totaux figes et le gabarit actuellement configure. generated_at indique la date reelle de cette generation, pas la date historique d envoi. Un PDF deja stocke est toujours reutilise, sans re-rendu. Des demandes concurrentes conservent une seule piece. Les brouillons utilisent document-previews.
          */
         get: operations["getQuoteDocument"];
         put?: never;
@@ -3932,26 +3932,6 @@ export interface paths {
         post?: never;
         /** Supprime une conversation */
         delete: operations["deleteConversation"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/tenants/{tenantId}/shop-customer-migration-report": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Récupère le rapport de migration des comptes boutique
-         * @description Façade historique réservée à un utilisateur Magrit. Le tenant est transmis par la façade et doit être autorisé par le jeton utilisateur. Le rapport est un instantané non paginé des comptes legacy rencontrés.
-         */
-        get: operations["getShopCustomerMigrationReport"];
-        put?: never;
-        post?: never;
-        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -5924,23 +5904,6 @@ export interface components {
         /** InviteShopCustomerCommand */
         InviteShopCustomerCommand: {
             email: components["schemas"]["ShopCustomerEmail"];
-        };
-        /** LegacyShopCustomerMigrationReportRow */
-        LegacyShopCustomerMigrationReportRow: {
-            legacyUserId: components["schemas"]["Uuid"];
-            /** Format: uuid */
-            shopId: string | null;
-            /** Format: email */
-            normalizedEmail: string | null;
-            /** @enum {string} */
-            proposedAction: "create_delegated" | "matched_existing" | "skipped_no_shop" | "skipped_invalid_shop" | "skipped_missing_email" | "skipped_invalid_email";
-            /** Format: uuid */
-            targetAccountId: string | null;
-            /** @enum {string|null} */
-            migrationOutcome: "created" | "matched_existing" | "skipped_no_shop" | "skipped_invalid_shop" | "skipped_missing_email" | "skipped_invalid_email" | null;
-            ordersLinkedCount: number;
-            /** Format: date-time */
-            lastAttemptAt: string | null;
         };
         /** EnsureSelfShopCustomerResult */
         EnsureSelfShopCustomerResult: {
@@ -8403,7 +8366,7 @@ export interface components {
             /**
              * @description Echeance REELLE du billet, telle que le stockage l a emise.
              *
-             *     SEULE DES TROIS DUREES SIGNEES DU CONTRAT A NE PAS ETRE CHOISIE PAR MAGRIT, et il faut le dire plutot que d annoncer une valeur qu on ne tient pas : `createSignedUploadUrl(path, { upsert })` n accepte AUCUN parametre d expiration dans le `@supabase/storage-js` 2.104.1 installe (verifie sur sa signature). La plateforme emet aujourd hui 7200 s ; ce champ rend ce qu elle a emis, pas un voeu.
+             *     Le serveur choisit cette echeance lors de la signature S3 et rend ici la valeur effectivement appliquee.
              *
              *     POURQUOI CE N EST PAS LA FRONTIERE DE SECURITE, et pourquoi ces 7200 s sont neanmoins acceptables : un billet ne donne que le droit de DEPOSER des octets a un chemin impose, dans un bucket prive, sur un gabarit qui reste `awaiting_upload`. Des octets deposes ne comptent QUE si `confirmDocumentPdfTemplateUpload` les relit — et cette operation re-verifie l authentification ET la capability `can_manage_document_templates`. Un billet perime ou egare ne peut donc modifier aucun etat que Magrit lise.
              *
@@ -8463,7 +8426,7 @@ export interface components {
         };
         /**
          * QuoteDocument
-         * @description Le PDF d un devis : une piece produite UNE FOIS, a l envoi, stockee et jamais regeneree.
+         * @description Le PDF d un devis : une piece produite UNE FOIS, a l envoi ou a sa premiere consultation si elle manque, stockee et jamais regeneree.
          *
          *     POURQUOI PAS DE RE-RENDU, redit ici parce que c est la propriete la plus contre-intuitive du contrat : le fond et la carte de champs appartiennent au tenant et changent quand il veut ; les lignes du devis, elles, sont figees des `sent`. Un re-rendu produirait donc un document au papier a en-tete d aujourd hui pour un envoi d il y a trois semaines. Le PDF stocke EST le document de reference — il n en existe pas de seconde description.
          *
@@ -8682,7 +8645,7 @@ export interface components {
              * @description URL de depot signee. Un `PUT` nu suffit.
              */
             url: string;
-            /** @description Jeton du depot, pour les clients qui passent par le SDK de stockage (`uploadToSignedUrl(path, token, file)`) plutot que par un `PUT` direct sur `url`. La SPA n emprunte PAS ce chemin : importer le SDK Supabase dans une UI de module fait echouer `modular-ui-boundaries.test.ts`, et a juste titre. */
+            /** @description Jeton du depot, pour les clients qui passent par le SDK de stockage Le client navigateur depose directement par `PUT` sur `url`. Ce jeton opaque est conserve pour la compatibilite du contrat et la confirmation serveur du depot. */
             token: string;
             /** @description Chemin impose par le serveur, `<tenant_id>/<order_id>/<file_id>`, SANS extension. Rendu pour que le client puisse le passer au SDK, jamais pour qu il le choisisse. Le nom d origine du fichier n est pas dans le chemin : il est une donnee de la ligne, et l URL de telechargement le repose elle-meme. */
             path: string;
@@ -8702,7 +8665,7 @@ export interface components {
              */
             accepted_content_types: string[];
             /**
-             * @description Echeance REELLE du billet, telle que le stockage l a emise, et non une valeur choisie par Magrit — `createSignedUploadUrl(path, { upsert })` n accepte aucun parametre d expiration dans le `@supabase/storage-js` 2.104.1 installe. Meme situation, meme franchise et meme regle de client que `DocumentPdfTemplateUploadTicket.expires_at` : ne pas conserver un billet au-dela de **600 secondes**, en redemander un sinon.
+             * @description Echeance du billet choisie par le serveur lors de la signature S3. Ne pas conserver un billet au-dela de **600 secondes**, en redemander un sinon.
              *
              *     POURQUOI CE N EST PAS LA FRONTIERE DE SECURITE : un billet ne donne que le droit de DEPOSER des octets a un chemin impose, dans un bucket prive. Des octets deposes ne comptent QUE si `confirmOrderFileUpload` les constate, et cette operation re-verifie l authentification et l appartenance a l espace. Un billet egare ne peut modifier aucun etat que Magrit lise.
              */
@@ -10226,7 +10189,6 @@ export type ShopCustomerAccountStatus = components['schemas']['ShopCustomerAccou
 export type ShopCustomerAccount = components['schemas']['ShopCustomerAccount'];
 export type CreateShopCustomerCommand = components['schemas']['CreateShopCustomerCommand'];
 export type InviteShopCustomerCommand = components['schemas']['InviteShopCustomerCommand'];
-export type LegacyShopCustomerMigrationReportRow = components['schemas']['LegacyShopCustomerMigrationReportRow'];
 export type EnsureSelfShopCustomerResult = components['schemas']['EnsureSelfShopCustomerResult'];
 export type IssueStorefrontActivationResult = components['schemas']['IssueStorefrontActivationResult'];
 export type InviteShopCustomerResult = components['schemas']['InviteShopCustomerResult'];
@@ -14091,7 +14053,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Billet de depot. Le televersement se fait par un `PUT` nu sur `url` (chemin de la SPA, impose par `modular-ui-boundaries.test.ts` qui interdit le SDK Supabase dans une UI de module) ou par `uploadToSignedUrl(path, token, file)` pour un client hors navigateur. Il DOIT etre suivi de `confirmOrderFileUpload` : sans confirmation, les octets deposes sont ignores de bout en bout. */
+            /** @description Billet de depot. Le televersement se fait par un `PUT` nu sur `url` (chemin de la SPA, sans SDK de stockage dans le navigateur). Il DOIT etre suivi de `confirmOrderFileUpload` : sans confirmation, les octets deposes sont ignores de bout en bout. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -15077,11 +15039,7 @@ export interface operations {
              *
              *     DEUX CODES DISTINCTS, ici et pas cote client : l appelant est un membre de l espace, il n y a aucun oracle d existence a lui refuser, et « ce devis est encore un brouillon » est le cas NOMINAL qu un ecran doit savoir distinguer d un identifiant errone.
              *
-             *     `quote.document_not_generated` EST LE CAS LE PLUS FREQUENT, et une interface qui le traiterait comme une anomalie se tromperait : un tenant qui n a importe aucun gabarit envoie ses devis sans piece jointe (arbitrage Arnaud du 2026-09-09), et TOUS ses devis rendent donc ce code, indefiniment. L ecran affiche « aucun document » et, s il veut etre utile, renvoie vers l import d un gabarit — jamais une erreur.
-             *
-             *     TROISIEME CAUSE, RARE MAIS DEFINITIVE : le document a pu ECHOUER A SE STOCKER apres un envoi par ailleurs reussi. Le devis est alors `sent`, son courriel est parti sans piece jointe, et il n aura JAMAIS de document — aucun rattrapage n existe ni n est prevu (« generation unique, jamais regeneree »). CONSEQUENCE OPPOSABLE pour un integrateur : ne JAMAIS inferer la presence d un document de l existence d un gabarit configure. Les quatre conditions d attachement sont necessaires, elles ne sont pas suffisantes ; la seule facon de savoir est d appeler cette operation. docs/api/CONVENTIONS.md §8.18 #11.
-             *
-             *     `quote.document_not_generated` couvre aussi, et pour toujours, les devis envoyes AVANT la livraison d E10.10b-4 : aucune reprise retroactive n est prevue, en produire une aujourd hui daterait d aujourd hui une piece remise il y a des semaines.
+             *     Pour un brouillon sans document, utiliser document-previews. Pour les autres statuts, le PDF manquant est genere a la demande.
              */
             404: {
                 headers: {
@@ -15091,6 +15049,16 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            /** @description Aucun gabarit PDF de devis eligible (`quote.document_template_missing`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            500: components["responses"]["InternalError"];
         };
     };
     getStorefrontQuoteDocument: {
@@ -18660,34 +18628,6 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-        };
-    };
-    getShopCustomerMigrationReport: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Identifiant du tenant transmis par la façade historique. */
-                tenantId: components["parameters"]["LegacyTenantId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Lignes du rapport de migration. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SuccessEnvelope"] & {
-                        data?: components["schemas"]["LegacyShopCustomerMigrationReportRow"][];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["UnprocessableEntity"];
         };
     };
     listShopCustomers: {

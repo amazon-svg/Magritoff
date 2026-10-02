@@ -1,4 +1,4 @@
 export { ChatInterface } from './components/ChatInterface';
-export { ClaudeSseStreamError, useClaudeSseStream } from './hooks/useClaudeSseStream';
+export { AssistantSseStreamError, useAssistantSseStream } from './hooks/useAssistantSseStream';
 export { ConversationProvider, useConversation } from './runtime/ConversationContext';
 export { DashboardHistory } from './workspace/ConversationHistoryPage';

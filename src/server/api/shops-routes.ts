@@ -18,10 +18,26 @@ export function createShopsRoutes(
   storefrontSessions?: StorefrontSessionService,
   storefrontCookiePolicy?: StorefrontSessionCookiePolicy,
 ): readonly ApiRoute[] {
-  const base = `${API_V1_BASE_PATH}/tenants/{tenantId}/shops`;
+  return [
+    ...createPublicShopsRoutes(service, storefrontSessions, storefrontCookiePolicy),
+    ...createShopAdministrationRoutes(service),
+  ];
+}
+
+export function createPublicShopsRoutes(
+  service: ShopsService,
+  storefrontSessions?: StorefrontSessionService,
+  storefrontCookiePolicy?: StorefrontSessionCookiePolicy,
+): readonly ApiRoute[] {
   return [
     defineJsonRoute({ method: 'GET', path: `${API_V1_BASE_PATH}/public/shops/{slug}/probe`, authentication: 'public', inputSchema: null, outputSchema: publicShopProbeSchema, async handle(context) { return execute(async () => ({ status: 200, body: await service.publicProbe(slugParam(context)) })); } }),
     defineJsonRoute({ method: 'GET', path: `${API_V1_BASE_PATH}/public/shops/{slug}/catalog`, authentication: 'public', inputSchema: null, outputSchema: publicShopCatalogSchema, async handle(context) { return execute(async () => ({ status: 200, body: await service.publicCatalog(await publicCatalogAccess(context, storefrontSessions, storefrontCookiePolicy), slugParam(context)) })); } }),
+  ];
+}
+
+export function createShopAdministrationRoutes(service: ShopsService): readonly ApiRoute[] {
+  const base = `${API_V1_BASE_PATH}/tenants/{tenantId}/shops`;
+  return [
     defineJsonRoute({ method: 'GET', path: base, authentication: 'required', inputSchema: null, outputSchema: tenantShopsSchema, async handle(context) { return execute(async () => ({ status: 200, body: await service.list(actor(context), param(context, 'tenantId')) })); } }),
     defineJsonRoute({ method: 'POST', path: base, authentication: 'required', inputSchema: createShopCommandSchema, outputSchema: shopSchema, async handle(context, command) { return execute(async () => ({ status: 201, body: await service.create(actor(context), param(context, 'tenantId'), command) })); } }),
     defineJsonRoute({ method: 'PATCH', path: `${base}/{shopId}`, authentication: 'required', inputSchema: updateShopCommandSchema, outputSchema: shopSchema, async handle(context, command) { return execute(async () => ({ status: 200, body: await service.update(actor(context), param(context, 'tenantId'), param(context, 'shopId'), command) })); } }),

@@ -12,7 +12,7 @@ import { OrdersApiClient } from '@/modules/orders';
  *  - PortalOrders (filtre tabs "À valider", "À approuver", "À produire")
  *  - Composants ligne commande (boutons Valider/Annuler/Modifier/Exporter
  *    conditionnels selon capabilities)
- *  - S-N1-APPROVAL workflow (edge order-workflow-step lit aussi)
+ *  - workflow d'approbation et notifications resolus par l'API Node
  *  - S3.5 audit trail UI (lit notify_policy + capabilities historiques)
  *
  * Refonte UI PortalOrders avec tabs (AC3-AC5 de la spec) tracée comme story

@@ -112,10 +112,9 @@ export function DashboardCommercial() {
           <div className="text-sm text-ink-2 space-y-1">
             <p className="font-medium text-ink">Module à activer côté base de données</p>
             <p>
-              La migration <code className="font-mono text-xs">20260808000100_gescom_price_rules.sql</code>{' '}
-              (dossier <code className="font-mono text-xs">supabase/migrations/</code>) doit être jouée
-              dans l'éditeur SQL Supabase pour créer les tables des règles de prix et des groupes de
-              clients. Recharger la page ensuite.
+              Les migrations PostgreSQL portables doivent être appliquées avec{' '}
+              <code className="font-mono text-xs">pnpm db:migrate</code> pour créer les tables des
+              règles de prix et des groupes de clients. Recharger la page ensuite.
             </p>
           </div>
         </div>

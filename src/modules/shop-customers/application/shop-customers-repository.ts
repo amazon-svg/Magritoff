@@ -1,5 +1,5 @@
 import type { UserId } from '../../../kernel/ids/index.ts';
-import type { EnsureSelfShopCustomerResult, LegacyShopCustomerMigrationReportRow, ShopCustomerAccount, ShopCustomerAccountStatus } from '../api/contracts.ts';
+import type { EnsureSelfShopCustomerResult, ShopCustomerAccount, ShopCustomerAccountStatus } from '../api/contracts.ts';
 
 export type ShopCustomerRejectionCode =
   | 'permission_denied'
@@ -29,7 +29,6 @@ export type CreateShopCustomerRecord = Readonly<{
 }>;
 
 export interface ShopCustomersRepository {
-  migrationReport(actor: UserId, tenantId: string): Promise<LegacyShopCustomerMigrationReportRow[]>;
   list(actor: UserId, tenantId: string, shopId: string): Promise<ShopCustomerAccount[]>;
   findByNormalizedEmail(
     actor: UserId,
@@ -52,10 +51,11 @@ export interface ShopCustomersRepository {
     customerContactId: string,
   ): Promise<ShopCustomerAccount | null>;
   /** E10.5 — tous les acces boutique ouverts pour cet interlocuteur, toutes boutiques du tenant confondues. */
-  listByCustomerContactId(actor: UserId, customerContactId: string): Promise<ShopCustomerAccount[]>;
+  listByCustomerContactId(actor: UserId, tenantId: string, customerContactId: string): Promise<ShopCustomerAccount[]>;
   /** E10.5 — relie un compte boutique existant (email trouve, non lie) a l interlocuteur. */
   linkCustomerContact(
     actor: UserId,
+    tenantId: string,
     accountId: string,
     customerContactId: string,
   ): Promise<ShopCustomerAccount>;

@@ -8,7 +8,16 @@ import type {
   CreateSubTenant,
   CreateRootTenant,
 } from '../api/contracts.ts';
-import type { DirectMembership, SessionRepository } from './session-repository.ts';
+import type {
+  DirectMembership,
+  SessionBootstrapRepository,
+  SessionInvitationAcceptanceRepository,
+  SessionPreferencesRepository,
+  SessionRepository,
+  SessionSubTenantMutationRepository,
+  SessionTenantCreationRepository,
+  SessionTenantSettingsRepository,
+} from './session-repository.ts';
 
 export const DEFAULT_SESSION_PREFERENCES: SessionUserPreferences = Object.freeze({
   theme: 'light',
@@ -26,14 +35,12 @@ const DEFAULT_PERMISSIONS: SessionTenant['permissions'] = Object.freeze({
   can_invite: false,
 });
 
-export class SessionService {
-  constructor(private readonly repository: SessionRepository) {}
-
-  async resolveTenantSlug(userId: UserId, slug: string) { return { slug: await this.repository.resolveTenantSlug(userId, slug) }; }
+export class SessionBootstrapService {
+  constructor(protected readonly bootstrapRepository: SessionBootstrapRepository) {}
 
   async load(userId: UserId): Promise<SessionBootstrap> {
-    await this.repository.autoAcceptPendingInvitations();
-    const directMemberships = await this.repository.listDirectMemberships(userId);
+    await this.bootstrapRepository.autoAcceptPendingInvitations();
+    const directMemberships = await this.bootstrapRepository.listDirectMemberships(userId);
     const inheritable = directMemberships.filter(
       ({ role, accessScope }) =>
         role === 'admin' && accessScope === 'magrit_full',
@@ -41,7 +48,7 @@ export class SessionService {
     const children =
       inheritable.length === 0
         ? []
-        : await this.repository.listChildren(inheritable.map(({ tenant }) => tenant.id));
+        : await this.bootstrapRepository.listChildren(inheritable.map(({ tenant }) => tenant.id));
     const directIds = new Set(directMemberships.map(({ tenant }) => tenant.id));
     const direct = directMemberships.map(toDirectTenant);
     const inherited = children
@@ -57,7 +64,7 @@ export class SessionService {
           inheritedFromParent: true,
         };
       });
-    const preferences = normalizePreferences(await this.repository.getPreferences(userId));
+    const preferences = normalizePreferences(await this.bootstrapRepository.getPreferences(userId));
 
     return {
       user: { id: userId },
@@ -69,9 +76,15 @@ export class SessionService {
       preferences,
     };
   }
+}
+
+export class SessionPreferencesService extends SessionBootstrapService {
+  constructor(protected readonly preferencesRepository: SessionPreferencesRepository) {
+    super(preferencesRepository);
+  }
 
   async updatePreferences(userId: UserId, patch: UpdatePreferences) {
-    return normalizePreferences(await this.repository.updatePreferences(userId, patch));
+    return normalizePreferences(await this.preferencesRepository.updatePreferences(userId, patch));
   }
 
   async updateLastTenant(userId: UserId, tenantId: string) {
@@ -79,17 +92,60 @@ export class SessionService {
     if (!session.tenants.some((tenant) => tenant.id === tenantId)) {
       throw new SessionTenantAccessDeniedError(tenantId);
     }
-    return normalizePreferences(await this.repository.updateLastTenant(userId, tenantId));
+    return normalizePreferences(await this.preferencesRepository.updateLastTenant(userId, tenantId));
+  }
+}
+
+export class SessionTenantSettingsService extends SessionPreferencesService {
+  constructor(protected readonly tenantSettingsRepository: SessionTenantSettingsRepository) {
+    super(tenantSettingsRepository);
+  }
+
+  async resolveTenantSlug(userId: UserId, slug: string) {
+    return { slug: await this.tenantSettingsRepository.resolveTenantSlug(userId, slug) };
   }
 
   async updateTenantSettings(userId: UserId, tenantId: string, patch: UpdateTenantSettings) {
-    await this.repository.updateTenantSettings(userId, tenantId, patch);
+    await this.tenantSettingsRepository.updateTenantSettings(userId, tenantId, patch);
     return { updated: true as const };
   }
+}
+
+export class SessionTenantCreationService extends SessionTenantSettingsService {
+  constructor(protected readonly tenantCreationRepository: SessionTenantCreationRepository) {
+    super(tenantCreationRepository);
+  }
+
+  async createRootTenant(userId: UserId, command: CreateRootTenant) {
+    return { tenantId: await this.tenantCreationRepository.createRootTenant(userId, command) };
+  }
+}
+
+export class SessionSubTenantMutationService extends SessionTenantCreationService {
+  constructor(protected readonly subTenantRepository: SessionSubTenantMutationRepository) {
+    super(subTenantRepository);
+  }
+
+  async createSubTenant(userId: UserId, parentTenantId: string, command: CreateSubTenant) {
+    return { tenantId: await this.subTenantRepository.createSubTenant(userId, parentTenantId, command) };
+  }
+
+  async removeSubTenant(userId: UserId, parentTenantId: string, subTenantId: string) {
+    await this.subTenantRepository.removeSubTenant(userId, parentTenantId, subTenantId);
+    return { removed: true as const };
+  }
+}
+
+export class SessionInvitationAcceptanceService {
+  constructor(private readonly repository: SessionInvitationAcceptanceRepository) {}
+  async acceptInvitation(userId: UserId, token: string) {
+    return { tenantId: await this.repository.acceptInvitation(userId, token) };
+  }
+}
+
+export class SessionService extends SessionSubTenantMutationService {
+  constructor(private readonly repository: SessionRepository) { super(repository); }
   subTenantsDashboard(userId: UserId, parentTenantId: string) { return this.repository.subTenantsDashboard(userId, parentTenantId); }
-  async createSubTenant(userId: UserId, parentTenantId: string, command: CreateSubTenant) { return { tenantId: await this.repository.createSubTenant(userId, parentTenantId, command) }; }
-  async removeSubTenant(userId: UserId, parentTenantId: string, subTenantId: string) { await this.repository.removeSubTenant(userId, parentTenantId, subTenantId); return { removed: true as const }; }
-  async createRootTenant(userId: UserId, command: CreateRootTenant) { return { tenantId: await this.repository.createRootTenant(userId, command) }; }
   async acceptInvitation(userId: UserId, token: string) { return { tenantId: await this.repository.acceptInvitation(userId, token) }; }
 }
 

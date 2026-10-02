@@ -5,12 +5,15 @@ import {
   type OrdersRepository,
 } from '@/modules/orders';
 
+const ACTOR = id('11111111-1111-4111-8111-111111111111');
+const MEMBER_RESOURCE = { storefrontToken: null, magritUserId: ACTOR } as const;
+
 describe('OrdersService', () => {
   it('agrège les cohortes tenant et legacy sans exposer leurs rows', async () => {
     const repository = repositoryStub();
     const service = new OrdersService(repository);
 
-    const result = await service.listTenantOrders('tenant-1', ['shop-1']);
+    const result = await service.listTenantOrders(ACTOR, 'tenant-1', ['shop-1']);
 
     expect(result.orders.map((order) => order.id)).toEqual(['v11-1', 'legacy-1']);
     expect(result.orders[0]).toMatchObject({
@@ -37,7 +40,7 @@ describe('OrdersService', () => {
     }]);
     const service = new OrdersService(repository);
 
-    const result = await service.listTenantOrders('tenant-1', ['shop-1']);
+    const result = await service.listTenantOrders(ACTOR, 'tenant-1', ['shop-1']);
     const v11Order = result.orders.find((order) => order.id === 'v11-2');
     const legacyOrder = result.orders.find((order) => order.id === 'legacy-1');
 
@@ -148,7 +151,7 @@ describe('OrdersService', () => {
     }]);
     const service = new OrdersService(repository);
 
-    const result = await service.listTenantOrders('tenant-1', ['shop-1']);
+    const result = await service.listTenantOrders(ACTOR, 'tenant-1', ['shop-1']);
 
     const order = result.orders.find((candidate) => candidate.id === 'v11-1');
     expect(order?.hasUnverifiedPrices).toBe(true);
@@ -157,7 +160,7 @@ describe('OrdersService', () => {
 
   it('normalise le trail d audit au format HTTP camelCase', async () => {
     const service = new OrdersService(repositoryStub());
-    await expect(service.getAuditTrail('v11-1')).resolves.toEqual({
+    await expect(service.getAuditTrail('v11-1', MEMBER_RESOURCE)).resolves.toEqual({
       events: [{
         eventId: 'event-1', orderId: 'v11-1', kind: 'status', eventType: 'status_transition',
         actorId: 'user-1', actorEmail: 'buyer@magrit.test',
@@ -191,7 +194,9 @@ describe('OrdersService', () => {
     }]);
     const service = new OrdersService(repository);
 
-    const result = await service.getAuditTrail('v11-1', { storefrontToken: 'opaque-storefront-token' });
+    const result = await service.getAuditTrail('v11-1', {
+      storefrontToken: 'opaque-storefront-token', magritUserId: null,
+    });
 
     const metadata = result.events[0]?.payload['metadata'] as Record<string, unknown>;
     expect(metadata['acknowledged_unverified_prices']).toBeUndefined();
@@ -216,7 +221,7 @@ describe('OrdersService', () => {
     }]);
     const service = new OrdersService(repository);
 
-    const result = await service.getAuditTrail('v11-1', { storefrontToken: null });
+    const result = await service.getAuditTrail('v11-1', MEMBER_RESOURCE);
 
     const metadata = result.events[0]?.payload['metadata'] as Record<string, unknown>;
     expect(metadata['acknowledged_unverified_prices']).toBe(true);
@@ -252,7 +257,9 @@ describe('OrdersService', () => {
     // Un cookie de session boutique existe (present sur toute requete de
     // meme origine, path '/'), MEME si l acteur reel qui consulte est un
     // membre de l atelier venu se relire apres avoir acquitte.
-    const result = await service.getAuditTrail('v11-1', { storefrontToken: 'session-boutique-du-meme-navigateur' });
+    const result = await service.getAuditTrail('v11-1', {
+      storefrontToken: 'session-boutique-du-meme-navigateur', magritUserId: ACTOR,
+    });
 
     const metadata = result.events[0]?.payload['metadata'] as Record<string, unknown>;
     expect(metadata['acknowledged_unverified_prices']).toBeUndefined();
@@ -283,7 +290,9 @@ describe('OrdersService', () => {
       }],
     };
 
-    await expect(service.create(command, 'https://magrit.test')).resolves.toMatchObject({
+    await expect(service.create(command, 'https://magrit.test', {
+      kind: 'magrit_user', userId: ACTOR,
+    })).resolves.toMatchObject({
       totalHt: '150.00', replayed: false,
     });
     expect(repository.notifyOrderCreated).toHaveBeenCalledOnce();
@@ -293,7 +302,7 @@ describe('OrdersService', () => {
     const repository = repositoryStub();
     const service = new OrdersService(repository);
 
-    await expect(service.getDraft('22222222-2222-4222-8222-222222222222'))
+    await expect(service.getDraft('22222222-2222-4222-8222-222222222222', MEMBER_RESOURCE))
       .resolves.toMatchObject({ status: 'draft', items: [{ productLabel: 'Flyers' }] });
     await expect(service.updateDraft('22222222-2222-4222-8222-222222222222', {
       items: [{
@@ -301,12 +310,12 @@ describe('OrdersService', () => {
         productLabel: 'Flyers premium', quantity: 3, expectedUnitPriceHt: '60.00',
       }],
       idempotencyKey: 'update-af5-2b',
-    })).resolves.toMatchObject({ totalHt: '180.00', replayed: false });
+    }, MEMBER_RESOURCE)).resolves.toMatchObject({ totalHt: '180.00', replayed: false });
   });
 
   it('expose les capacités Orders calculées par le serveur', async () => {
     const service = new OrdersService(repositoryStub());
-    await expect(service.getRoles('22222222-2222-4222-8222-222222222222'))
+    await expect(service.getRoles('22222222-2222-4222-8222-222222222222', ACTOR))
       .resolves.toMatchObject({ isCreator: true, capabilities: { can_order: true } });
   });
 });

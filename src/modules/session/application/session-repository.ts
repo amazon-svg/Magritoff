@@ -30,21 +30,39 @@ export class SessionInvitationAcceptanceError extends Error {
   constructor(public readonly code: 'email_mismatch' | 'invalid', message: string) { super(message); this.name = 'SessionInvitationAcceptanceError'; }
 }
 
-export interface SessionRepository {
-  resolveTenantSlug(userId: UserId, slug: string): Promise<string | null>;
+export interface SessionBootstrapRepository {
   autoAcceptPendingInvitations(): Promise<void>;
   listDirectMemberships(userId: UserId): Promise<readonly DirectMembership[]>;
   listChildren(parentTenantIds: readonly string[]): Promise<readonly ChildTenant[]>;
   getPreferences(userId: UserId): Promise<Partial<SessionUserPreferences> | null>;
+}
+
+export interface SessionPreferencesRepository extends SessionBootstrapRepository {
   updatePreferences(
     userId: UserId,
     patch: UpdatePreferences,
   ): Promise<Partial<SessionUserPreferences>>;
   updateLastTenant(userId: UserId, tenantId: string): Promise<Partial<SessionUserPreferences>>;
+}
+
+export interface SessionTenantSettingsRepository extends SessionPreferencesRepository {
+  resolveTenantSlug(userId: UserId, slug: string): Promise<string | null>;
   updateTenantSettings(userId: UserId, tenantId: string, patch: UpdateTenantSettings): Promise<void>;
-  subTenantsDashboard(userId: UserId, parentTenantId: string): Promise<SubTenantsDashboard>;
+}
+
+export interface SessionTenantCreationRepository extends SessionTenantSettingsRepository {
+  createRootTenant(userId: UserId, command: CreateRootTenant): Promise<string>;
+}
+
+export interface SessionSubTenantMutationRepository extends SessionTenantCreationRepository {
   createSubTenant(userId: UserId, parentTenantId: string, command: CreateSubTenant): Promise<string>;
   removeSubTenant(userId: UserId, parentTenantId: string, subTenantId: string): Promise<void>;
-  createRootTenant(userId: UserId, command: CreateRootTenant): Promise<string>;
+}
+
+export interface SessionInvitationAcceptanceRepository {
   acceptInvitation(userId: UserId, token: string): Promise<string>;
+}
+
+export interface SessionRepository extends SessionSubTenantMutationRepository, SessionInvitationAcceptanceRepository {
+  subTenantsDashboard(userId: UserId, parentTenantId: string): Promise<SubTenantsDashboard>;
 }

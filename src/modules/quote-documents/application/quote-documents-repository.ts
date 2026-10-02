@@ -39,7 +39,7 @@ export type StoreQuoteDocumentParams = Readonly<{
   templateId: string;
   bytes: Uint8Array;
   pageCount: number;
-  /** Instant de generation, EGAL par construction a l instant d envoi (contrat, `QuoteDocument.generated_at`) — jamais lu d une horloge ici. */
+  /** Instant reel de generation, a l'envoi ou au rattrapage lors d'une consultation. */
   generatedAt: string;
 }>;
 
@@ -64,10 +64,10 @@ export interface QuoteDocumentsRepository {
   /**
    * Stocke le PDF genere (bucket prive `quote_documents`, chemin
    * `<tenant_id>/<quote_id>.pdf`) et insere la ligne `quote_documents` UNE
-   * SEULE FOIS (contrainte d unicite `quote_id`, jamais reappelee pour un
-   * meme devis). Rend l URL de telechargement signee (300 s).
+   * SEULE FOIS (contrainte d unicite `quote_id`). Un appel concurrent ou un
+   * rejeu reutilise le document existant. Rend l URL signee (300 s).
    */
-  store(tenantId: TenantId, actor: UserId, params: StoreQuoteDocumentParams): Promise<QuoteDocumentDto>;
+  store(tenantId: TenantId, actor: UserId | null, params: StoreQuoteDocumentParams): Promise<QuoteDocumentDto>;
 
   /**
    * Remplace l apercu temporaire du brouillon et rend une URL signee. Aucun

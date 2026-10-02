@@ -148,19 +148,31 @@ export type ServiceKeyCredential = Readonly<{ kind: 'service_key'; key: string }
 export type CookieCredential = Readonly<{ kind: 'cookie'; token: string }>;
 /** E10.20a — en-tete `X-Magrit-Upload-Link`, cf. `orderUploadLink` (openapi). */
 export type UploadLinkCredential = Readonly<{ kind: 'upload_link'; token: string }>;
+/** Session back-office portee par les cookies de la requete HTTP. */
+export type RequestSessionCredential = Readonly<{
+  kind: 'request_session';
+  token?: never;
+  key?: never;
+}>;
 export type ApiCredential =
   | BearerCredential
   | ServiceKeyCredential
   | CookieCredential
-  | UploadLinkCredential;
+  | UploadLinkCredential
+  | RequestSessionCredential;
+
+export type PrincipalVerificationContext = Readonly<{ request: Request }>;
 
 /**
- * Port de verification des jetons. L implementation Supabase vit dans
- * src/adapters/supabase/ ; le socle n en connait que le contrat.
+ * Port de verification des identites. L implementation Node locale vit dans
+ * src/server/auth/ ; le socle n en connait que le contrat.
  */
 export interface PrincipalVerifier {
   /** Retourne l acteur porte par la credential, ou null si elle est invalide. */
-  verify(credential: ApiCredential): Promise<ApiPrincipal | null>;
+  verify(
+    credential: ApiCredential,
+    context?: PrincipalVerificationContext,
+  ): Promise<ApiPrincipal | null>;
 }
 
 /** Parametres de requete par lesquels un appelant tenterait d adresser un tenant. */
@@ -304,6 +316,19 @@ export function readCredential(
     });
   }
 
+  // Les sessions du back-office (Better Auth en local, puis tout fournisseur
+  // compatible) utilisent leur propre cookie HttpOnly. Sa valeur n est jamais
+  // extraite ici : seul l adaptateur d authentification recoit les en-tetes
+  // complets et sait le verifier. Un cookie quelconque reste sans privilege si
+  // cet adaptateur ne reconnait aucune session.
+  if (cookieHeader !== null && cookieHeader.trim().length > 0) {
+    return Object.freeze({
+      credential: Object.freeze({ kind: 'request_session' as const }),
+      cookiePresentWithExplicit: false,
+      uploadLinkPresentWithExplicit: false,
+    });
+  }
+
   return Object.freeze({
     credential: null,
     cookiePresentWithExplicit: false,
@@ -428,7 +453,7 @@ export async function resolvePrincipal(
   }
   assertNoTenantSelectionOnTenantBearingCredential(request, credential);
 
-  const principal = await verifier.verify(credential);
+  const principal = await verifier.verify(credential, { request });
   if (principal === null) {
     if (credential.kind === 'upload_link') throw uploadLinkInvalid();
     throw authenticationRequired('Jeton refuse.');

@@ -1,1 +1,1 @@
-export { ClaudeSseStreamError, useClaudeSseStream } from './useClaudeSseStream';
+export { AssistantSseStreamError, useAssistantSseStream } from './useAssistantSseStream';

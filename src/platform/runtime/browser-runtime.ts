@@ -1,4 +1,4 @@
-import { browserAuthenticationGateway } from '../../adapters/supabase/browser-authentication-gateway.ts';
+import { BetterAuthBrowserAuthenticationGateway } from '../../adapters/better-auth/browser-authentication-gateway.ts';
 import type { AuthenticationGateway } from '../../modules/account/index.ts';
 import { ClariprintApiClient, type ClariprintPricingGateway } from '../../modules/clariprint/index.ts';
 import { DiagnosticsApiClient } from '../../modules/diagnostics/index.ts';
@@ -17,7 +17,7 @@ export type BrowserRuntime = Readonly<{
 }>;
 
 export const browserRuntime: BrowserRuntime = Object.freeze({
-  authentication: browserAuthenticationGateway,
+  authentication: new BetterAuthBrowserAuthenticationGateway(),
   assistant: browserAssistantGateway,
   mockups: browserMockupGateway,
   createClariprint: (client) => new ClariprintHttpAdapter(

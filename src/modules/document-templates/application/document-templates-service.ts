@@ -77,12 +77,12 @@ export class DocumentTemplatesService {
     command: UpdateDocumentPdfTemplateCommand,
   ): Promise<DocumentPdfTemplateDetailDto> {
     await this.assertCanManageDocumentTemplates(tenantId, actor);
-    return this.repository.update(tenantId, templateId, command);
+    return this.repository.update(tenantId, actor, templateId, command);
   }
 
   async remove(tenantId: TenantId, actor: UserId, templateId: string): Promise<void> {
     await this.assertCanManageDocumentTemplates(tenantId, actor);
-    await this.repository.remove(tenantId, templateId);
+    await this.repository.remove(tenantId, actor, templateId);
   }
 
   async issueUploadUrl(
@@ -91,7 +91,7 @@ export class DocumentTemplatesService {
     templateId: string,
   ): Promise<DocumentPdfTemplateUploadTicketDto> {
     await this.assertCanManageDocumentTemplates(tenantId, actor);
-    return this.repository.issueUploadUrl(tenantId, templateId);
+    return this.repository.issueUploadUrl(tenantId, actor, templateId);
   }
 
   async confirmUpload(
@@ -101,7 +101,7 @@ export class DocumentTemplatesService {
     command: ConfirmDocumentPdfTemplateUploadCommand,
   ): Promise<DocumentPdfTemplateDetailDto> {
     await this.assertCanManageDocumentTemplates(tenantId, actor);
-    return this.repository.confirmUpload(tenantId, templateId, command);
+    return this.repository.confirmUpload(tenantId, actor, templateId, command);
   }
 
   /**
@@ -149,6 +149,6 @@ export class DocumentTemplatesService {
     const errors = validateDocumentFieldMap(template.pages, command, template.document_type);
     if (errors.length > 0) throw new DocumentPdfTemplateInvalidFieldMapError(errors);
 
-    return this.repository.replaceFields(tenantId, templateId, command);
+    return this.repository.replaceFields(tenantId, actor, templateId, command);
   }
 }

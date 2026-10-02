@@ -11,7 +11,7 @@ dist/
 .env.hopstudio.test.local
 .env.hopstudio.test.local.*
 .vite/
-supabase/.temp/
+/supabase/
 test-results/
 playwright-report/
 coverage/

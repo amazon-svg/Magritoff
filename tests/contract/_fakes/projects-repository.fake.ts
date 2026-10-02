@@ -24,11 +24,11 @@ import type {
 } from '@/modules/projects/api/contracts';
 import type { InMemoryProjectTagsRepository } from './project-tags-repository.fake';
 // qa-review E10.2 : reutilise la MEME normalisation que l adaptateur reel
-// (`sanitizeSearchTerm`) au lieu d un `includes` naif sur le texte brut — le
+// au lieu d un `includes` naif sur le texte brut — le
 // test "virgule" precedent passait pour la MAUVAISE raison (le faux matchait
 // "Dupont, Martin" tel quel contre "Dupont, Martin & Fils", alors que l
 // adaptateur reel, apres sanitisation, ne matchait plus rien).
-import { sanitizeSearchTerm } from '@/adapters/supabase/projects-repository';
+import { sanitizeSearchTerm } from './search-term.fake';
 
 let sequence = 0;
 export function fakeUuid(): string {
@@ -45,7 +45,7 @@ function compareUpdatedAtThenIdDesc(a: ProjectDto, b: ProjectDto): number {
 
 /**
  * Meme condition que le `.or(updated_at.lt.<cursor>,and(updated_at.eq.<cursor>,id.lt.<id>))`
- * de l adaptateur Supabase : la page suivante commence STRICTEMENT apres le
+ * de l adaptateur PostgreSQL : la page suivante commence STRICTEMENT apres le
  * curseur, dans le meme ordre de tri (desc).
  */
 function isStrictlyAfterCursor(
@@ -66,7 +66,7 @@ export class InMemoryProjectsRepository implements ProjectsRepository {
   /**
    * Reference OPTIONNELLE vers le faux repository Tags de projet (E10.2),
    * pour resoudre l embed `tags` d un `ProjectDto` — meme role que la
-   * jointure `project_tag_links(project_tags(...))` de l adaptateur Supabase
+   * jointure `project_tag_links` de l adaptateur PostgreSQL
    * reel. `undefined` pour les tests qui n exercent pas E10.2 : `tags` reste
    * alors toujours `[]`, jamais une erreur.
    */

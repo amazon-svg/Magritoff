@@ -43,23 +43,9 @@ public.
 
 ## Traces du chat depuis l'UX locale
 
-Pour afficher les 30 dernières minutes de traces structurées :
-
-```bash
-pnpm logs:hopstudio:recent
-```
-
-Pour suivre les nouveaux appels en direct :
-
-```bash
-pnpm logs:hopstudio
-```
-
-Pour isoler ensuite un appel à partir du `traceId` affiché dans l'UX :
-
-```bash
-pnpm logs:hopstudio:recent -- --trace VOTRE_TRACE_ID
-```
+Les traces sont désormais écrites par le processus API Node lancé avec
+`pnpm api:dev` ou `pnpm dev:local`. Consultez directement sa sortie et filtrez
+sur le `traceId` affiché dans l'UX.
 
 Chaque appel conserve le même `traceId` de l'UX jusqu'aux requêtes `CallAI` et
 `loadSessionParts`. Les traces indiquent les étapes, statuts, durées et forme

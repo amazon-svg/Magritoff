@@ -260,7 +260,7 @@ const semanticFilePatterns = {
     /^openapi\//,
     /^src\/server\/api\//,
     /^src\/modules\/[^/]+\/(api|application)\//,
-    /^src\/adapters\/supabase\//,
+    /^src\/adapters\/(postgres|s3|better-auth|oidc)\//,
     /^tests\/(contract|sql|server)\//,
     /^docs\/api\//,
   ],

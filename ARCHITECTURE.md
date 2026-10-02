@@ -1,5 +1,12 @@
 # 📘 MAGRIT - Documentation Technique Complète
 
+> **Document historique.** Le remplacement de Supabase est en cours sur la
+> branche de migration. L'état exécutable courant est décrit dans
+> `docs/MIGRATION_HORS_SUPABASE.md` et `docs/project-context.md`. En particulier,
+> le chat et les suggestions catalogue sont maintenant servis par Node via
+> `/api/v1/assistant/chat` et un fournisseur configurable ; les routes
+> `claude-proxy` et `make-server-e3db71a4` décrites ci-dessous ont été retirées.
+
 ## 🎯 Vision du Projet
 
 **Magrit** est un **configurateur d'impression intelligent** avec assistant IA conversationnel, conçu pour **transformer l'expertise métier de l'imprimerie en un service digital accessible**. L'application ne se contente pas de traiter des demandes : elle **capture, structure et valorise la connaissance technique de la production imprimée et du web-to-print**.
@@ -7,7 +14,7 @@
 ### 🌟 Mission Centrale : L'Expertise au Service du Client
 
 **PRINCIPE FONDAMENTAL :**
-> Chaque interaction avec Claude doit **enrichir la base de connaissances métier** et **affiner l'expertise technique** de Magrit dans le domaine de l'impression professionnelle.
+> Chaque interaction avec l'assistant IA doit **enrichir la base de connaissances métier** et **affiner l'expertise technique** de Magrit dans le domaine de l'impression professionnelle.
 
 Les données collectées via les conversations doivent servir à :
 - ✅ **Nourrir l'intelligence du système** : Chaque configuration produit devient une référence

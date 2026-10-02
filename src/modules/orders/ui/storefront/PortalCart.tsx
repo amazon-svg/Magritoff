@@ -455,8 +455,8 @@ export function PortalCart({
         )}
         {/* BCP-5 (docs/api/CONVENTIONS.md §8.25 point 5.1) : "Vous recevrez
             un email de confirmation." est SUPPRIME, pas reformule -
-            send-order-notification n'ecrit qu'aux administrateurs du
-            tenant, jamais a l'acheteur (constat 1(6) du cadrage). */}
+            la notification de creation vise les administrateurs du tenant,
+            jamais l'acheteur (constat 1(6) du cadrage). */}
         {/* S-CONSO-6 (Sprint 4 Phase 2, UX Sally Option A) : microcopy
             transparente sur l absence de workflow d approbation N+1 en v1.1.
             Story future S-N1-APPROVAL pour le backend workflow.

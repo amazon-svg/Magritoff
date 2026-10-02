@@ -11,12 +11,11 @@ import { describe, expect, it } from 'vitest';
  * n a structurellement aucune session Magrit — TenantAwareLayout redirige
  * deja tout visiteur sans `user`, ou sans tenant accessible, avant
  * `<Outlet />`) et prouve que le cote API (RLS via `current_user_is_shop_customer()`)
- * refuse explicitement AVANT toute selection d espace.
+ * n accepte que les identites back-office resolues dans l annuaire local.
  *
  * Le guard React reste de l UX (redirection immediate) : la vraie barriere
- * est la RLS, testee comportementalement par
- * `tests/adapters/supabase/api-principal-verifier.test.ts` (cote facade) et
- * `tests/sql/gescom-e10-5-shop-customer-link.sql` (cote base, Docker requis).
+ * est la resolution d identite et d appartenance PostgreSQL, testee par les
+ * tests d integration du runtime local.
  */
 const routes = readFileSync(resolve(process.cwd(), 'src/app/routes.tsx'), 'utf8');
 const tenantAwareLayout = readFileSync(
@@ -32,7 +31,7 @@ const storefrontBoundary = readFileSync(
   'utf8',
 );
 const principalVerifier = readFileSync(
-  resolve(process.cwd(), 'src/adapters/supabase/api-principal-verifier.ts'),
+  resolve(process.cwd(), 'src/server/auth/local-api-principal-verifier.ts'),
   'utf8',
 );
 
@@ -74,12 +73,9 @@ describe('E10.5 CA4 — etancheite dashboard / compte client boutique', () => {
     expect(tenantAwareLayout).toContain("<Navigate to=\"/tenants/new\" replace />");
   });
 
-  it('la facade API refuse explicitement un compte client boutique AVANT toute resolution d espace (CA4)', () => {
-    const shopCustomerCheck = principalVerifier.indexOf('isShopCustomer()');
-    const selectTenantCall = principalVerifier.indexOf('await this.selectTenant()');
-    expect(shopCustomerCheck).toBeGreaterThanOrEqual(0);
-    expect(selectTenantCall).toBeGreaterThan(shopCustomerCheck);
-    expect(principalVerifier).toContain('current_user_is_shop_customer');
-    expect(principalVerifier).toContain('scopeForbidden');
+  it('la facade API ne fabrique un principal qu apres resolution dans l annuaire back-office', () => {
+    expect(principalVerifier).toContain('this.options.identities.resolve');
+    expect(principalVerifier).toContain("kind: 'user' as const");
+    expect(principalVerifier).not.toContain("kind: 'shop_customer'");
   });
 });

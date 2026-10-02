@@ -8,6 +8,11 @@ export type AiCompletionRequest = Readonly<{
   messages: readonly AiCompletionMessage[];
   maxTokens: number;
   temperature?: number;
+  outputSchema?: Readonly<{
+    name: string;
+    schema: Readonly<Record<string, unknown>>;
+    strict?: boolean;
+  }>;
 }>;
 
 export type AiCompletion = Readonly<{

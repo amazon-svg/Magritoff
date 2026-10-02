@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const routes = readFileSync(resolve(process.cwd(), 'src/server/api/shops-routes.ts'), 'utf8');
-const repository = readFileSync(resolve(process.cwd(), 'src/adapters/supabase/shops-repository.ts'), 'utf8');
+const repository = readFileSync(resolve(process.cwd(), 'src/adapters/postgres/shops-repository.ts'), 'utf8');
 const storefront = readFileSync(resolve(process.cwd(), 'src/modules/shops/ui/storefront/PublicShop.tsx'), 'utf8');
 const catalogLifecycle = readFileSync(resolve(process.cwd(), 'src/modules/shops/ui/hooks/usePublicShopCatalog.ts'), 'utf8');
 
@@ -15,7 +15,7 @@ describe('accès catalogue par session storefront', () => {
   });
 
   it('borne le catalogue à la boutique portée par la session', () => {
-    expect(repository).toContain('access.storefront?.shopId !== gate.id');
+    expect(repository).toContain('access.storefront?.shopId!==probe.id');
     expect(repository).not.toContain('access.magritUserId');
     expect(repository).not.toContain('current_user_can_access_shop');
   });

@@ -18,7 +18,13 @@ import {
 } from '../../modules/session/api/contracts.ts';
 import {
   SessionTenantAccessDeniedError,
+  type SessionInvitationAcceptanceService,
+  type SessionBootstrapService,
+  type SessionPreferencesService,
   type SessionService,
+  type SessionSubTenantMutationService,
+  type SessionTenantCreationService,
+  type SessionTenantSettingsService,
 } from '../../modules/session/application/session-service.ts';
 import { SessionInvitationAcceptanceError, SessionTenantMutationError } from '../../modules/session/application/session-repository.ts';
 import { API_V1_BASE_PATH } from '../../platform/api/contracts.ts';
@@ -27,49 +33,81 @@ import { defineJsonRoute, type ApiRequestContext, type ApiRoute } from './routes
 
 export function createSessionRoutes(service: SessionService): readonly ApiRoute[] {
   return [
-    defineJsonRoute({
-      method: 'GET', path: `${API_V1_BASE_PATH}/tenant-slugs/{slug}`, authentication: 'required', inputSchema: null, outputSchema: tenantSlugResolutionSchema,
-      async handle(context) { return { status: 200, body: await service.resolveTenantSlug(requireUserId(context), requireSlug(context)) }; },
-    }),
-    defineJsonRoute({
-      method: 'POST', path: `${API_V1_BASE_PATH}/tenants`, authentication: 'required', inputSchema: createRootTenantSchema, outputSchema: createRootTenantResultSchema,
-      async handle(context, command) {
-        try {
-          return { status: 201, body: await service.createRootTenant(requireUserId(context), command) };
-        } catch (error) {
-          throwTenantMutation(error);
+    ...createSessionTenantSettingsRoutes(service),
+    createSessionTenantCreationRoute(service),
+    ...createSessionSubTenantMutationRoutes(service),
+    createSessionInvitationAcceptanceRoute(service),
+    createSessionBootstrapRoute(service),
+    ...createSessionPreferencesRoutes(service),
+    createSessionSubTenantDashboardRoute(service),
+  ];
+}
+
+export function createSessionSubTenantDashboardRoute(
+  service: Pick<SessionService, 'subTenantsDashboard'>,
+): ApiRoute {
+  return defineJsonRoute({
+    method: 'GET',
+    path: `${API_V1_BASE_PATH}/tenants/{tenantId}/subtenants`,
+    authentication: 'required',
+    inputSchema: null,
+    outputSchema: subTenantsDashboardSchema,
+    async handle(context) {
+      try {
+        return {
+          status: 200,
+          body: await service.subTenantsDashboard(requireUserId(context), requireTenantId(context)),
+        };
+      } catch (error) {
+        throwTenantMutation(error);
+      }
+    },
+  });
+}
+
+export function createSessionInvitationAcceptanceRoute(
+  service: Pick<SessionInvitationAcceptanceService, 'acceptInvitation'>,
+): ApiRoute {
+  return defineJsonRoute({
+    method: 'POST', path: `${API_V1_BASE_PATH}/session/invitations/accept`, authentication: 'required', inputSchema: acceptTenantInvitationSchema, outputSchema: acceptTenantInvitationResultSchema,
+    async handle(context, { token }) {
+      try {
+        return { status: 200, body: await service.acceptInvitation(requireUserId(context), token) };
+      } catch (error) {
+        if (error instanceof SessionInvitationAcceptanceError) {
+          throw new ApiHttpError({
+            type: 'about:blank',
+            title: error.code === 'email_mismatch' ? 'Invitation destinée à un autre compte' : 'Invitation invalide',
+            status: error.code === 'email_mismatch' ? 409 : 422,
+            code: `session.invitation_${error.code}`,
+            detail: error.message,
+          });
         }
-      },
-    }),
-    defineJsonRoute({
-      method: 'POST', path: `${API_V1_BASE_PATH}/session/invitations/accept`, authentication: 'required', inputSchema: acceptTenantInvitationSchema, outputSchema: acceptTenantInvitationResultSchema,
-      async handle(context, { token }) {
-        try {
-          return { status: 200, body: await service.acceptInvitation(requireUserId(context), token) };
-        } catch (error) {
-          if (error instanceof SessionInvitationAcceptanceError) {
-            throw new ApiHttpError({
-              type: 'about:blank',
-              title: error.code === 'email_mismatch' ? 'Invitation destinée à un autre compte' : 'Invitation invalide',
-              status: error.code === 'email_mismatch' ? 409 : 422,
-              code: `session.invitation_${error.code}`,
-              detail: error.message,
-            });
-          }
-          throw error;
-        }
-      },
-    }),
-    defineJsonRoute({
-      method: 'GET',
-      path: `${API_V1_BASE_PATH}/session`,
-      authentication: 'required',
-      inputSchema: null,
-      outputSchema: sessionBootstrapSchema,
-      async handle(context) {
-        return { status: 200, body: await service.load(requireUserId(context)) };
-      },
-    }),
+        throw error;
+      }
+    },
+  });
+}
+
+export function createSessionBootstrapRoute(
+  service: Pick<SessionBootstrapService, 'load'>,
+): ApiRoute {
+  return defineJsonRoute({
+    method: 'GET',
+    path: `${API_V1_BASE_PATH}/session`,
+    authentication: 'required',
+    inputSchema: null,
+    outputSchema: sessionBootstrapSchema,
+    async handle(context) {
+      return { status: 200, body: await service.load(requireUserId(context)) };
+    },
+  });
+}
+
+export function createSessionPreferencesRoutes(
+  service: Pick<SessionPreferencesService, 'updatePreferences' | 'updateLastTenant'>,
+): readonly ApiRoute[] {
+  return [
     defineJsonRoute({
       method: 'PATCH',
       path: `${API_V1_BASE_PATH}/session/preferences`,
@@ -108,6 +146,26 @@ export function createSessionRoutes(service: SessionService): readonly ApiRoute[
         }
       },
     }),
+  ];
+}
+
+export function createSessionTenantSettingsRoutes(
+  service: Pick<SessionTenantSettingsService, 'resolveTenantSlug' | 'updateTenantSettings'>,
+): readonly ApiRoute[] {
+  return [
+    defineJsonRoute({
+      method: 'GET',
+      path: `${API_V1_BASE_PATH}/tenant-slugs/{slug}`,
+      authentication: 'required',
+      inputSchema: null,
+      outputSchema: tenantSlugResolutionSchema,
+      async handle(context) {
+        return {
+          status: 200,
+          body: await service.resolveTenantSlug(requireUserId(context), requireSlug(context)),
+        };
+      },
+    }),
     defineJsonRoute({
       method: 'PATCH',
       path: `${API_V1_BASE_PATH}/tenants/{tenantId}`,
@@ -116,26 +174,48 @@ export function createSessionRoutes(service: SessionService): readonly ApiRoute[
       outputSchema: tenantMutationResultSchema,
       async handle(context, patch) {
         try {
-          return { status: 200, body: await service.updateTenantSettings(requireUserId(context), requireTenantId(context), patch) };
+          return {
+            status: 200,
+            body: await service.updateTenantSettings(
+              requireUserId(context),
+              requireTenantId(context),
+              patch,
+            ),
+          };
         } catch (error) {
           throwTenantMutation(error);
         }
       },
     }),
-    defineJsonRoute({
-      method: 'GET',
-      path: `${API_V1_BASE_PATH}/tenants/{tenantId}/subtenants`,
-      authentication: 'required',
-      inputSchema: null,
-      outputSchema: subTenantsDashboardSchema,
-      async handle(context) {
-        try {
-          return { status: 200, body: await service.subTenantsDashboard(requireUserId(context), requireTenantId(context)) };
-        } catch (error) {
-          throwTenantMutation(error);
-        }
-      },
-    }),
+  ];
+}
+
+export function createSessionTenantCreationRoute(
+  service: Pick<SessionTenantCreationService, 'createRootTenant'>,
+): ApiRoute {
+  return defineJsonRoute({
+    method: 'POST',
+    path: `${API_V1_BASE_PATH}/tenants`,
+    authentication: 'required',
+    inputSchema: createRootTenantSchema,
+    outputSchema: createRootTenantResultSchema,
+    async handle(context, command) {
+      try {
+        return {
+          status: 201,
+          body: await service.createRootTenant(requireUserId(context), command),
+        };
+      } catch (error) {
+        throwTenantMutation(error);
+      }
+    },
+  });
+}
+
+export function createSessionSubTenantMutationRoutes(
+  service: Pick<SessionSubTenantMutationService, 'createSubTenant' | 'removeSubTenant'>,
+): readonly ApiRoute[] {
+  return [
     defineJsonRoute({
       method: 'POST',
       path: `${API_V1_BASE_PATH}/tenants/{tenantId}/subtenants`,
@@ -144,7 +224,14 @@ export function createSessionRoutes(service: SessionService): readonly ApiRoute[
       outputSchema: createSubTenantResultSchema,
       async handle(context, command) {
         try {
-          return { status: 201, body: await service.createSubTenant(requireUserId(context), requireTenantId(context), command) };
+          return {
+            status: 201,
+            body: await service.createSubTenant(
+              requireUserId(context),
+              requireTenantId(context),
+              command,
+            ),
+          };
         } catch (error) {
           throwTenantMutation(error);
         }
@@ -158,7 +245,14 @@ export function createSessionRoutes(service: SessionService): readonly ApiRoute[
       outputSchema: removeSubTenantResultSchema,
       async handle(context) {
         try {
-          return { status: 200, body: await service.removeSubTenant(requireUserId(context), requireTenantId(context), requireSubTenantId(context)) };
+          return {
+            status: 200,
+            body: await service.removeSubTenant(
+              requireUserId(context),
+              requireTenantId(context),
+              requireSubTenantId(context),
+            ),
+          };
         } catch (error) {
           throwTenantMutation(error);
         }

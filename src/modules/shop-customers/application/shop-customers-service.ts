@@ -5,7 +5,6 @@ import {
   normalizeShopCustomerEmail,
   type CreateShopCustomerCommand,
   type EnsureSelfShopCustomerResult,
-  type LegacyShopCustomerMigrationReportRow,
   type ShopCustomerAccount,
 } from '../api/contracts.ts';
 import {
@@ -15,10 +14,6 @@ import {
 
 export class ShopCustomersService {
   constructor(private readonly repository: ShopCustomersRepository) {}
-
-  migrationReport(actor: UserId, tenantId: string): Promise<LegacyShopCustomerMigrationReportRow[]> {
-    return this.repository.migrationReport(actor, tenantId);
-  }
 
   list(actor: UserId, tenantId: string, shopId: string): Promise<ShopCustomerAccount[]> {
     return this.repository.list(actor, tenantId, shopId);
@@ -84,17 +79,18 @@ export class ShopCustomersService {
   }
 
   /** E10.5 — tous les acces boutique ouverts pour cet interlocuteur, toutes boutiques confondues. */
-  listForContact(actor: UserId, customerContactId: string): Promise<ShopCustomerAccount[]> {
-    return this.repository.listByCustomerContactId(actor, customerContactId);
+  listForContact(actor: UserId, tenantId: string, customerContactId: string): Promise<ShopCustomerAccount[]> {
+    return this.repository.listByCustomerContactId(actor, tenantId, customerContactId);
   }
 
   /** E10.5 — relie un compte boutique existant (trouve par email, non lie) a l interlocuteur. */
   linkContact(
     actor: UserId,
+    tenantId: string,
     accountId: string,
     customerContactId: string,
   ): Promise<ShopCustomerAccount> {
-    return this.repository.linkCustomerContact(actor, accountId, customerContactId);
+    return this.repository.linkCustomerContact(actor, tenantId, accountId, customerContactId);
   }
 
   /** E10.5 — revoque l acces : delie l interlocuteur et suspend le compte. */

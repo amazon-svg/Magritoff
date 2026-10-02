@@ -47,6 +47,11 @@ export class OrderUploadLinkFileLimitReachedError extends Error {
 }
 
 export type ListOrderUploadLinksResult = readonly OrderUploadLinkDto[];
+export type ResolvedOrderUploadLinkPrincipal = Readonly<{
+  linkId: string;
+  orderId: string;
+  tenantId: TenantId;
+}>;
 
 /**
  * E10.20b — resultat de `confirmFileUpload`, PORTE en plus du recu client
@@ -76,6 +81,9 @@ export type ConfirmOrderUploadLinkFileResult = Readonly<{
  * (`issueFileUploadUrl`/`confirmFileUpload`).
  */
 export interface OrderUploadLinksRepository {
+  /** Résolution sans effet de bord utilisée exclusivement par le middleware d'authentification. */
+  resolvePrincipal(token: string): Promise<ResolvedOrderUploadLinkPrincipal | null>;
+
   /**
    * `createOrderUploadLink`. Genere le jeton, n en persiste que l empreinte
    * `sha256`, et rend le SEUL DTO de tout ce module qui porte le jeton en

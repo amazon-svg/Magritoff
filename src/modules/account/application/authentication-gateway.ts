@@ -4,7 +4,8 @@ export type AuthenticationUser = {
   user_metadata: Record<string, unknown>;
 };
 export type AuthenticationSession = {
-  access_token: string;
+  /** Absent pour une session opaque HttpOnly, illisible par le navigateur. */
+  access_token?: string;
   user: AuthenticationUser;
 };
 
@@ -17,10 +18,10 @@ export interface AuthenticationGateway {
   clearLocalSession(): Promise<void>;
   subscribe(listener: (state: AuthenticationState) => void): () => void;
   signIn(email: string, password: string): Promise<AuthenticationResult>;
-  signUp(email: string, password: string, metadata: { fullName: string; company?: string }): Promise<AuthenticationResult>;
+  signUp(email: string, password: string, metadata: { fullName: string; company?: string; invitationToken?: string; callbackURL?: string }): Promise<AuthenticationResult>;
   refreshSession(): Promise<AuthenticationResult>;
   signOut(): Promise<void>;
   resetPassword(email: string, redirectTo: string): Promise<{ error: Error | null }>;
-  updatePassword(password: string): Promise<{ error: Error | null }>;
+  updatePassword(password: string, token?: string): Promise<{ error: Error | null }>;
   updateProfile(fullName: string): Promise<{ error: Error | null }>;
 }

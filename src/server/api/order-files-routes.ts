@@ -151,7 +151,13 @@ export function createOrderFilesRoutes(service: OrderFilesService): readonly Ges
           const currentTag = await fileEntityTag(current);
           assertPrecondition(context.ifMatch, currentTag, current);
 
-          const updated = await service.updateVisibility(context.tenantId, orderId, fileId, input);
+          const updated = await service.updateVisibility(
+            context.tenantId,
+            orderId,
+            fileId,
+            requireUserId(context),
+            input,
+          );
           return { status: 200, data: updated, etag: await fileEntityTag(updated) };
         });
       },

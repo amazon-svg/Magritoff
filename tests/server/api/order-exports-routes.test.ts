@@ -5,7 +5,7 @@
  * trois demandes non terminees deja en file pour cet acteur`), code
  * technique et `_` compris. Ce test exerce la ROUTE REELLE
  * (`createOrderExportsRoutes`) au-dessus du REPOSITORY REEL
- * (`SupabaseOrderExportsRepository`), avec un faux client Supabase qui rend
+ * (`PostgresOrderExportsRepository`), avec une transaction PostgreSQL qui rend
  * l EXACTE erreur SQL de la migration `20260913000000_gescom_e10_18c_
  * order_exports.sql` (`raise exception 'order_export.pending_limit_reached:
  * trois demandes non terminees deja en file pour cet acteur'`) — pas une
@@ -26,7 +26,7 @@ import { CommercialQuotesService } from '@/modules/commercial-quotes/application
 import { ProductionStepsService } from '@/modules/production-steps/application/production-steps-service';
 import { createOrderExportsRoutes } from '@/server/api/order-exports-routes';
 import { createGescomApiHandler } from '@/server/api';
-import { SupabaseOrderExportsRepository } from '@/adapters/supabase/order-exports-repository';
+import { PostgresOrderExportsRepository } from '@/adapters/postgres/order-exports-repository';
 import { InMemoryCustomersRepository } from '../../contract/_fakes/customers-repository.fake';
 import { InMemoryCommercialQuotesRepository } from '../../contract/_fakes/commercial-quotes-repository.fake';
 import { InMemoryProductionStepsRepository } from '../../contract/_fakes/production-steps-repository.fake';
@@ -56,19 +56,34 @@ const verifier: PrincipalVerifier = {
  */
 const RAW_SQL_ERROR_MESSAGE = 'order_export.pending_limit_reached: trois demandes non terminees deja en file pour cet acteur';
 
-/** Faux client Supabase minimal : capability toujours accordee, RPC de demande TOUJOURS en echec de plafond. */
-function fakeSupabaseClient() {
+/** Faux runner PostgreSQL minimal : capability accordee, demande toujours en echec de plafond. */
+function fakeTransactions() {
   return {
-    rpc: async (fn: string, _params: unknown) => {
-      if (fn === 'user_has_capability') return { data: true, error: null };
-      if (fn === 'api_request_order_export') return { data: null, error: { message: RAW_SQL_ERROR_MESSAGE } };
-      throw new Error(`rpc inattendu dans ce faux: ${fn}`);
+    run: async (_context: unknown, operation: (client: unknown) => Promise<unknown>) => operation({
+      query: async (sql: string) => {
+        if (sql.includes('actor_has_capability')) return { rows: [{ allowed: true }] };
+        if (sql.includes('request_order_export')) throw new Error(RAW_SQL_ERROR_MESSAGE);
+        throw new Error(`requete inattendue dans ce faux: ${sql}`);
+      },
+    }),
+    withTransaction: async (_context: unknown, operation: (client: unknown) => Promise<unknown>) => operation({
+      query: async () => {
+        throw new Error('transaction inattendue');
+      },
+    }),
+  };
+}
+
+function fakeStorage() {
+  return {
+    send: async () => {
+      throw new Error('acces S3 inattendu');
     },
   };
 }
 
 function buildHandler(): (request: Request) => Promise<Response> {
-  const repository = new SupabaseOrderExportsRepository(fakeSupabaseClient() as any, {} as any);
+  const repository = new PostgresOrderExportsRepository(fakeTransactions() as any, fakeStorage() as any);
   const service = new OrderExportsService({ repository });
   const customers = new CustomersService({ repository: new InMemoryCustomersRepository() });
   const commercialQuotes = new CommercialQuotesService({

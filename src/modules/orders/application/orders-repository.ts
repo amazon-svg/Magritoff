@@ -90,7 +90,7 @@ export type PriceMismatchDetail = Readonly<{
 }>;
 
 export type CreateOrderAuthorization =
-  | Readonly<{ kind: 'magrit_user' }>
+  | Readonly<{ kind: 'magrit_user'; userId: UserId }>
   | Readonly<{ kind: 'storefront_session'; opaqueToken: string }>;
 
 export type PortalOrdersAuthorization =
@@ -99,6 +99,7 @@ export type PortalOrdersAuthorization =
 
 export type OrderResourceAuthorization = Readonly<{
   storefrontToken: string | null;
+  magritUserId: UserId | null;
 }>;
 
 export type TransitionOrderAuthorization = Readonly<{
@@ -124,14 +125,14 @@ export class OrderCommandRejectedError extends Error {
 }
 
 export interface OrdersRepository {
-  getTenantTaxRegime(tenantId: string): Promise<TaxRegime | null>;
-  getShopTaxRegime(shopId: string): Promise<TaxRegime | null>;
-  listTenantOrders(tenantId: string): Promise<readonly TenantOrderRecord[]>;
-  listTenantOrdersByIds(orderIds: readonly string[]): Promise<readonly TenantOrderRecord[]>;
+  getTenantTaxRegime(tenantId: string, actor: UserId): Promise<TaxRegime | null>;
+  getShopTaxRegime(shopId: string, actor: UserId): Promise<TaxRegime | null>;
+  listTenantOrders(tenantId: string, actor: UserId): Promise<readonly TenantOrderRecord[]>;
+  listTenantOrdersByIds(orderIds: readonly string[], actor: UserId): Promise<readonly TenantOrderRecord[]>;
   listLegacyOrders(shopIds: readonly string[], customerEmail?: string): Promise<readonly LegacyOrderRecord[]>;
   getPortalCounters(shopId: string, userId: UserId): Promise<PortalOrdersCounters>;
   getPortalOrderIds(shopId: string, userId: UserId, tab: PortalOrdersTab): Promise<readonly string[]>;
-  getAuthenticatedUserEmail(): Promise<string | null>;
+  getAuthenticatedUserEmail(actor: UserId): Promise<string | null>;
   getStorefrontPortalOrders(shopId: string, opaqueToken: string): Promise<StorefrontPortalOrdersRecord>;
   listAuditEvents(orderId: string, authorization: OrderResourceAuthorization): Promise<readonly AuditEventRecord[]>;
   transitionOrder(orderId: string, command: TransitionOrderCommand, authorization: TransitionOrderAuthorization): Promise<TransitionOrderResult>;
@@ -144,5 +145,5 @@ export interface OrdersRepository {
   notifyOrderCreated(result: CreateOrderResult, baseUrl: string): Promise<void>;
   getDraftOrder(orderId: string, authorization: OrderResourceAuthorization): Promise<DraftOrder>;
   updateDraftOrder(orderId: string, command: UpdateDraftOrderCommand, authorization: OrderResourceAuthorization): Promise<UpdateDraftOrderResult>;
-  getOrderRoles(orderId: string): Promise<OrderRolesResponse>;
+  getOrderRoles(orderId: string, actor: UserId): Promise<OrderRolesResponse>;
 }

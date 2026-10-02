@@ -5,7 +5,6 @@ import {
   issueStorefrontActivationResultSchema,
   inviteShopCustomerCommandSchema,
   inviteShopCustomerResultSchema,
-  legacyShopCustomerMigrationReportSchema,
   ensureSelfShopCustomerResultSchema,
   createShopCustomerDelegationCommandSchema,
   selfShopCustomerDelegationResultSchema,
@@ -17,7 +16,6 @@ import {
   type IssueStorefrontActivationResult,
   type InviteShopCustomerCommand,
   type InviteShopCustomerResult,
-  type LegacyShopCustomerMigrationReportRow,
   type EnsureSelfShopCustomerResult,
   type CreateShopCustomerDelegationCommand,
   type SelfShopCustomerDelegationResult,
@@ -25,13 +23,6 @@ import {
 
 export class ShopCustomersApiClient {
   constructor(private readonly client: FetchApiClient) {}
-
-  migrationReport(tenantId: string): Promise<LegacyShopCustomerMigrationReportRow[]> {
-    return this.client.request({
-      path: `${API_V1_BASE_PATH}/tenants/${tenantId}/shop-customer-migration-report`,
-      responseSchema: legacyShopCustomerMigrationReportSchema,
-    });
-  }
 
   list(tenantId: string, shopId: string): Promise<ShopCustomerAccount[]> {
     return this.client.request({

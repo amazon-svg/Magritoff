@@ -9,8 +9,8 @@
  * "le socle ne depend d aucun module metier").
  *
  * Mecanisme : un TOUR reclame un lot borne d evenements en attente (via
- * `OutboxDispatchRepository.claim()`, qui delegue a la fonction Postgres
- * `api_claim_outbox_events` — reclamation atomique, backoff et rebut par
+ * `OutboxDispatchRepository.claim()`, qui delegue a une fonction Postgres
+ * de reclamation atomique — backoff et rebut par
  * fraicheur y sont DEJA appliques, ce module ne les reimplemente pas), les
  * remet un par un au consommateur enregistre pour leur `event_name`, puis
  * rend la main. Aucune boucle, aucun sommeil : l isolat vit le temps d un
@@ -61,10 +61,9 @@ export const DEFAULT_OUTBOX_DISPATCH_SETTINGS: OutboxDispatchSettings = Object.f
 });
 
 /**
- * Port d acces a la file. L implementation Supabase
- * (`src/adapters/supabase/outbox-dispatch-repository.ts`) delegue la
- * reclamation a `api_claim_outbox_events` (service_role SEUL) et le verdict
- * a de simples UPDATE colonne (grants deja en place).
+ * Port d acces a la file. L implementation portable delegue la reclamation
+ * a `magrit.claim_outbox_events` (role `magrit_worker` uniquement) et le
+ * verdict a des mises a jour bornees des colonnes de livraison.
  */
 export interface OutboxDispatchRepository {
   /** Reclame un lot, ATOMIQUEMENT (skip locked cote base). */

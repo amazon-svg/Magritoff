@@ -48,7 +48,7 @@ export function SessionBootstrapProvider({
 
   const reload = useCallback(async () => {
     const sequence = ++requestSequence.current;
-    if (!user || !session?.access_token) {
+    if (!user || !session) {
       setData(null);
       setError(null);
       setLoading(false);
@@ -73,7 +73,7 @@ export function SessionBootstrapProvider({
     } finally {
       if (sequence === requestSequence.current) setLoading(false);
     }
-  }, [api, session?.access_token, user]);
+  }, [api, session, user]);
 
   useEffect(() => {
     if (!authLoading) void reload();

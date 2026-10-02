@@ -1,0 +1,103 @@
+import { describe, expect, it, vi } from 'vitest';
+import { BetterAuthBrowserAuthenticationGateway } from '../../../src/adapters/better-auth/browser-authentication-gateway.ts';
+
+const user = { id: 'user-1', email: 'dev@example.test', name: 'Dev Magrit' };
+
+describe('BetterAuthBrowserAuthenticationGateway', () => {
+  it('lit une session cookie sans exposer de bearer au navigateur', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ user, session: { id: 'session-1' } }));
+    const gateway = new BetterAuthBrowserAuthenticationGateway(fetchMock);
+
+    await expect(gateway.persistedSession()).resolves.toEqual({
+      user: {
+        id: 'user-1',
+        email: 'dev@example.test',
+        user_metadata: { full_name: 'Dev Magrit' },
+      },
+    });
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/auth/get-session', expect.objectContaining({
+      credentials: 'same-origin',
+    }));
+  });
+
+  it('notifie le contexte apres connexion et deconnexion', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({ token: null, user }))
+      .mockResolvedValueOnce(Response.json({ user, session: { id: 'session-1' } }))
+      .mockResolvedValueOnce(Response.json({ success: true }));
+    const gateway = new BetterAuthBrowserAuthenticationGateway(fetchMock);
+    const listener = vi.fn();
+    gateway.subscribe(listener);
+
+    await expect(gateway.signIn('dev@example.test', 'mot-de-passe'))
+      .resolves.toMatchObject({ error: null, session: { user: { id: 'user-1' } } });
+    await gateway.signOut();
+
+    expect(listener).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      user: expect.objectContaining({ id: 'user-1' }),
+    }));
+    expect(listener).toHaveBeenNthCalledWith(2, { session: null, user: null });
+  });
+
+  it('ouvre la creation de compte publique puis attend la verification email', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({ token: null, user }))
+      .mockResolvedValueOnce(Response.json(null));
+    const gateway = new BetterAuthBrowserAuthenticationGateway(fetchMock);
+
+    await expect(gateway.signUp('new@example.test', 'mot-de-passe-solide', {
+      fullName: 'New', callbackURL: 'https://app.example.test/tenants/new',
+    })).resolves.toEqual({ error: null, session: null });
+    expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/v1/auth/sign-up/email', expect.objectContaining({
+      body: JSON.stringify({
+        email: 'new@example.test',
+        password: 'mot-de-passe-solide',
+        name: 'New',
+        callbackURL: 'https://app.example.test/tenants/new',
+      }),
+    }));
+  });
+
+  it('cree un compte invite puis attend aussi la verification email', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({ token: null, user }))
+      .mockResolvedValueOnce(Response.json(null));
+    const gateway = new BetterAuthBrowserAuthenticationGateway(fetchMock);
+
+    await expect(gateway.signUp('new@example.test', 'mot-de-passe-solide', {
+      fullName: 'New', invitationToken: 'invitation-token',
+    })).resolves.toEqual({ error: null, session: null });
+    expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/v1/auth/sign-up/email', expect.objectContaining({
+      body: JSON.stringify({
+        email: 'new@example.test',
+        password: 'mot-de-passe-solide',
+        name: 'New',
+        invitationToken: 'invitation-token',
+      }),
+    }));
+  });
+
+  it('retourne une erreur serveur stable sans perdre le message utile', async () => {
+    const gateway = new BetterAuthBrowserAuthenticationGateway(vi.fn().mockResolvedValue(
+      Response.json({ message: 'Invalid email or password' }, { status: 401 }),
+    ));
+
+    const result = await gateway.signIn('dev@example.test', 'incorrect');
+
+    expect(result.session).toBeNull();
+    expect(result.error?.message).toBe('Invalid email or password');
+  });
+
+  it('transmet le jeton de recuperation avec le nouveau mot de passe', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ status: true }));
+    const gateway = new BetterAuthBrowserAuthenticationGateway(fetchMock);
+
+    await expect(gateway.updatePassword('nouveau-mot-de-passe', 'reset-token'))
+      .resolves.toEqual({ error: null });
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/auth/reset-password', expect.objectContaining({
+      body: JSON.stringify({ newPassword: 'nouveau-mot-de-passe', token: 'reset-token' }),
+    }));
+    await expect(gateway.updatePassword('nouveau-mot-de-passe'))
+      .resolves.toMatchObject({ error: expect.any(Error) });
+  });
+});

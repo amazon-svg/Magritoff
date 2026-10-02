@@ -61,7 +61,7 @@
  * est IGNORE, sans erreur ni controle d integrite). Cette ligne, en
  * apparence inutilisee (`write-excel-file` importe deja `fflate` en
  * interne), FIGE la resolution transitive au COTE DE l import-map du
- * runner (`supabase/functions/magrit-order-export-runner/deno.json`,
+ * runner Node (`src/server/node/order-export-worker-main.ts`,
  * meme version EXACTE que `package.json`, verifie par
  * `tests/architecture/order-export-xlsx-library-boundaries.test.ts`) : NE
  * PAS LA RETIRER, meme si aucun symbole d elle n est utilise ici.

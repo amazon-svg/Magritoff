@@ -7,7 +7,6 @@
 
 import { useState } from 'react';
 import { Plus } from 'lucide-react';
-import { LegacyShopCustomerMigrationSection } from '../../../shop-customers/ui';
 import { ApiClientError } from '../../../../platform/api';
 import { useWorkspaceUiRuntime } from '../../../../platform/runtime/workspace-ui-runtime';
 import { TEST_IDS } from '../../../../shared/presentation/testIds';
@@ -190,7 +189,7 @@ function MagritUsersSection() {
 // SECTION 2 — Contacts CRM SUPPRIME Sprint 10 Phase B users (decision Arnaud
 // 2026-06-02 : consolidation utilisateurs via tenant_members uniquement).
 // La section etait dead code depuis Phase A : ni appelee ni rendue dans
-// MembersPage n'affiche que l'équipe Magrit et la migration legacy.
+// MembersPage n'affiche que l'équipe Magrit.
 // Bloc fonctionnel supprime ci-dessous (200+ lignes), historique via git log.
 
 
@@ -225,8 +224,6 @@ export function MembersPage() {
       <div data-testid={TEST_IDS.user.sectionInternal}>
         <MagritUsersSection />
       </div>
-
-      <LegacyShopCustomerMigrationSection />
 
     </div>
   );

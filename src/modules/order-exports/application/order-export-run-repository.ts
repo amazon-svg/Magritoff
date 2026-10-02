@@ -1,7 +1,7 @@
 /**
  * Port du drain de GENERATION des exports (story E10.18c) — distinct de
  * `OrderExportsRepository` (facade HTTP, client `authenticated`) : ce port
- * n est appele QUE par le runner (`magrit-order-export-runner`), sous
+ * n est appele QUE par le runner Node (`worker:order-exports`), sous
  * `service_role`, exactement comme `NotificationSendRepository` (E10.15c)
  * est distinct de `NotificationLogsRepository` (lecture HTTP).
  */

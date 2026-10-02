@@ -16,8 +16,8 @@ export type {
   ApiV1ApplicationDependencies,
   MagritApiApplicationDependencies,
 } from './composition';
-export { createOutboxDispatchApplication } from './outbox-dispatch-composition';
-export type { OutboxDispatchApplicationDependencies } from './outbox-dispatch-composition';
+export { createPostgresOutboxDispatchApplication } from './outbox-dispatch-composition';
+export type { PostgresOutboxDispatchApplicationDependencies } from './outbox-dispatch-composition';
 export {
   assertNoFacadeCollision,
   createApiFacadeRouter,
@@ -41,8 +41,8 @@ export { createCatalogRoutes } from './catalog-routes';
 export { createConversationsRoutes } from './conversations-routes';
 export { createDiagnosticsRoutes } from './diagnostics-routes';
 export { createAssistantRoutes } from './assistant-routes';
+export { createAssistantChatHandler, isAssistantChatRequest } from './assistant-chat-handler';
 export { createClariprintRoutes } from './clariprint-routes';
-export { isAssistantChatRequest, proxyAssistantChat } from './assistant-stream-proxy';
 export { createQuoteTemplatesRoutes } from './quote-templates-routes';
 export { createLibrariesRoutes } from './libraries-routes';
 export { createLibraryProductsRoutes } from './library-products-routes';

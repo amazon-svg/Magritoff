@@ -30,8 +30,8 @@ export class CommercialSettingsService {
     this.repository = dependencies.repository;
   }
 
-  get(tenantId: TenantId): Promise<CommercialSettingsDto> {
-    return this.repository.get(tenantId);
+  get(tenantId: TenantId, actor: UserId): Promise<CommercialSettingsDto> {
+    return this.repository.get(tenantId, actor);
   }
 
   /**
@@ -59,7 +59,7 @@ export class CommercialSettingsService {
   ): Promise<CommercialSettingsDto> {
     await this.assertCanManagePricing(tenantId, actor);
     await this.assertCanManageNotificationFields(tenantId, actor, command);
-    return this.repository.update(tenantId, command);
+    return this.repository.update(tenantId, actor, command);
   }
 
   /**

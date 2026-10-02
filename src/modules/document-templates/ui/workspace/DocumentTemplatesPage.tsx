@@ -6,13 +6,13 @@
  *
  * L ecran n est monte que sous une route `requiredCapabilities:
  * ['can_manage_document_templates']` (voir `../../surface-contributions.ts`) :
- * garde d ergonomie, pas d autorisation — celle-ci est tenue par la RLS
- * (`document_pdf_templates_write`, migration 20260909020000).
+ * garde d ergonomie, pas d autorisation — celle-ci est tenue par l API et la
+ * RLS PostgreSQL portable.
  *
  * Le depot du fichier se fait par un `fetch(url, { method: 'PUT' })` NU sur
  * l URL signee du billet d import (`DocumentTemplatesApiClient.uploadPdfFile`),
- * JAMAIS par le SDK Supabase : `modular-ui-boundaries.test.ts` interdit tout
- * import `@supabase/*` dans une UI de module (contrat §8.18 §0 point 8).
+ * sans SDK de stockage dans l UI ; `modular-ui-boundaries.test.ts` garde cette
+ * frontiere.
  *
  * Aucun controle metier evalue ici (type MIME reel, poids, geometrie) :
  * l unique verite est le serveur, a la confirmation (`confirmUpload`). Le

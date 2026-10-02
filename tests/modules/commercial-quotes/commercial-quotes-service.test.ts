@@ -20,6 +20,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { CommercialQuotesService } from '@/modules/commercial-quotes/application/commercial-quotes-service';
 import { QuoteSendForbiddenStatusError } from '@/modules/commercial-quotes/application/commercial-quotes-repository';
 import type { TenantId, UserId } from '@/kernel';
+import { QuoteDocumentNotFoundError, QuoteDocumentTemplateMissingError } from '@/modules/quote-documents/application/quote-documents-repository';
 
 const TENANT = 'tenant-1' as TenantId;
 const ACTOR = 'user-1' as UserId;
@@ -120,7 +121,8 @@ function buildService(overrides: {
     overrides.persistRenderedImpl ?? (async () => ({ quote_id: QUOTE_ID, template_id: 'template-1' })),
   );
   const createDraftPreview = vi.fn(async () => ({ quote_id: QUOTE_ID, watermark: 'DRAFT' as const }));
-  const documents = { renderForFirstSend, persistRendered, createDraftPreview } as any;
+  const getForQuote = vi.fn(async (): Promise<any> => { throw new QuoteDocumentNotFoundError(); });
+  const documents = { getForQuote, renderForFirstSend, persistRendered, createDraftPreview } as any;
 
   const service = new CommercialQuotesService({
     repository,
@@ -142,8 +144,42 @@ function buildService(overrides: {
     renderForFirstSend,
     persistRendered,
     createDraftPreview,
+    getForQuote,
   };
 }
+
+describe('CommercialQuotesService.getOrCreateDocument', () => {
+  it.each(['sent', 'accepted', 'rejected', 'converted'] as const)('genere et persiste le PDF manquant du devis %s sans changer son statut', async (status) => {
+    const rendered = {templateId:'template-1',bytes:new Uint8Array([1]),pageCount:1,generatedAt:'2026-09-09T10:00:00.000Z'};
+    const {service,renderForFirstSend,persistRendered,sendQuote,resolveValidUntilForSend} = buildService({status,renderResult:rendered});
+    await service.getOrCreateDocument(TENANT, QUOTE_ID, ACTOR);
+    expect(renderForFirstSend).toHaveBeenCalledWith(TENANT, expect.objectContaining({id:QUOTE_ID,validUntil:null}), '2026-09-09T10:00:00.000Z');
+    expect(persistRendered).toHaveBeenCalledWith(TENANT, ACTOR, QUOTE_ID, rendered);
+    expect(sendQuote).not.toHaveBeenCalled();
+    expect(resolveValidUntilForSend).not.toHaveBeenCalled();
+  });
+
+  it('reutilise le document existant sans rendre ni ecrire', async () => {
+    const {service,getForQuote,renderForFirstSend,persistRendered} = buildService({status:'rejected'});
+    const stored = {quote_id:QUOTE_ID,sha256:'stored'};
+    getForQuote.mockResolvedValue(stored);
+    expect(await service.getOrCreateDocument(TENANT,QUOTE_ID)).toBe(stored);
+    expect(renderForFirstSend).not.toHaveBeenCalled();
+    expect(persistRendered).not.toHaveBeenCalled();
+  });
+
+  it('garde les brouillons sur le parcours apercu', async () => {
+    const {service,renderForFirstSend} = buildService({status:'draft'});
+    await expect(service.getOrCreateDocument(TENANT,QUOTE_ID)).rejects.toBeInstanceOf(QuoteDocumentNotFoundError);
+    expect(renderForFirstSend).not.toHaveBeenCalled();
+  });
+
+  it('signale explicitement un gabarit manquant', async () => {
+    const {service,persistRendered} = buildService({status:'sent'});
+    await expect(service.getOrCreateDocument(TENANT,QUOTE_ID)).rejects.toBeInstanceOf(QuoteDocumentTemplateMissingError);
+    expect(persistRendered).not.toHaveBeenCalled();
+  });
+});
 
 describe('CommercialQuotesService.createDocumentPreview', () => {
   it('rend le brouillon courant avec la validite resolue et les remises configurees', async () => {

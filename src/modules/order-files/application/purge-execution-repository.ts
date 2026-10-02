@@ -34,6 +34,7 @@ export type PurgeExecutionSummary = Readonly<{
  * `api_count_blocked_order_file_purges`.
  */
 export type BlockedPurgeReason =
+  | 'purge_desactivee'
   | 'rappel_non_emis'
   | 'rappels_identiques'
   | 'rappel_en_echec'

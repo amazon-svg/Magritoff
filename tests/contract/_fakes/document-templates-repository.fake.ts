@@ -205,9 +205,11 @@ export class InMemoryDocumentTemplatesRepository implements DocumentTemplatesRep
 
   async update(
     tenantId: TenantId,
+    actor: UserId,
     templateId: string,
     command: UpdateDocumentPdfTemplateCommand,
   ): Promise<DocumentPdfTemplateDetailDto> {
+    void actor;
     const current = this.find(tenantId, templateId);
     if (!current) throw new DocumentPdfTemplateNotFoundError();
 
@@ -252,14 +254,20 @@ export class InMemoryDocumentTemplatesRepository implements DocumentTemplatesRep
     return this.toDetailDto(updated);
   }
 
-  async remove(tenantId: TenantId, templateId: string): Promise<void> {
+  async remove(tenantId: TenantId, actor: UserId, templateId: string): Promise<void> {
+    void actor;
     const current = this.find(tenantId, templateId);
     if (!current) throw new DocumentPdfTemplateNotFoundError();
     this.templates.delete(templateId);
     this.placementsByTemplate.delete(templateId);
   }
 
-  async issueUploadUrl(tenantId: TenantId, templateId: string): Promise<DocumentPdfTemplateUploadTicketDto> {
+  async issueUploadUrl(
+    tenantId: TenantId,
+    actor: UserId,
+    templateId: string,
+  ): Promise<DocumentPdfTemplateUploadTicketDto> {
+    void actor;
     const current = this.find(tenantId, templateId);
     if (!current) throw new DocumentPdfTemplateNotFoundError();
     return this.issueTicketFor(templateId);
@@ -267,9 +275,11 @@ export class InMemoryDocumentTemplatesRepository implements DocumentTemplatesRep
 
   async confirmUpload(
     tenantId: TenantId,
+    actor: UserId,
     templateId: string,
     command: ConfirmDocumentPdfTemplateUploadCommand,
   ): Promise<DocumentPdfTemplateDetailDto> {
+    void actor;
     const current = this.find(tenantId, templateId);
     if (!current) throw new DocumentPdfTemplateNotFoundError();
 
@@ -340,9 +350,11 @@ export class InMemoryDocumentTemplatesRepository implements DocumentTemplatesRep
   /** E10.10b-4b — `PUT .../fields`. Reimplemente FIDELEMENT le 409 upload_required tenu par `api_replace_document_pdf_template_fields`. */
   async replaceFields(
     tenantId: TenantId,
+    actor: UserId,
     templateId: string,
     command: ReplaceDocumentPdfTemplateFieldsCommand,
   ): Promise<DocumentPdfTemplateFieldMapDto> {
+    void actor;
     const current = this.find(tenantId, templateId);
     if (!current) throw new DocumentPdfTemplateNotFoundError();
     if (current.status !== 'ready') throw new DocumentPdfTemplateUploadRequiredError();
@@ -414,4 +426,3 @@ function toSummaryDto(row: StoredTemplate): DocumentPdfTemplateDto {
     updated_at: row.updated_at,
   };
 }
-

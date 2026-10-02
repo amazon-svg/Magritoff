@@ -7,7 +7,7 @@
  * prix resolu par resolvePrice() pour un contexte client donne (devis fait pour
  * ce client, boutique qui lui est dediee).
  *
- * Schema : supabase/migrations/20260808000100_gescom_price_rules.sql
+ * Schema : infra/postgres/migrations/0023_price_rules.sql
  */
 // ─── Types ───────────────────────────────────────────────────────────────────
 

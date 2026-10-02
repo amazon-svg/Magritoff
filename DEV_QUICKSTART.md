@@ -1,138 +1,78 @@
-# DEV Quickstart — Magrit beta/v5
+# DEV Quickstart — Magrit
 
-> Mini-procédure pour lancer/stopper le serveur Vite dev en local sur le port 5177 (branche `beta/v5`).
+## Démarrage complet
 
-## TL;DR
-
-```bash
-pnpm dev:b5          # lance Vite en foreground (Ctrl-C pour stopper)
-pnpm dev:b5:bg       # lance Vite en background (logs /tmp/magrit-vite-5177.log)
-pnpm dev:b5:status   # vérifie si le serveur tourne
-pnpm dev:b5:stop     # stoppe le serveur
-```
-
-Une fois lancé : **http://localhost:5177**
-
-## Supabase local avec Docker
-
-Prérequis : Docker Desktop, OrbStack, Colima ou un autre runtime compatible Docker doit être démarré.
+Prérequis : Node 22, pnpm et Docker.
 
 ```bash
-pnpm db:local:start   # démarre Postgres, Auth, Storage, Studio et Edge Runtime
-pnpm db:local:env     # génère .env.local avec les URL et clés locales
-pnpm dev:b5           # démarre ensuite le front sur le port 5177
+pnpm install --frozen-lockfile
+pnpm dev:local
 ```
 
-La première exécution télécharge les images Docker. Les services principaux sont :
+`dev:local` démarre et initialise :
 
-- API Supabase : http://127.0.0.1:54321
-- Les URL Storage retournées au navigateur utilisent aussi cette origine ;
-  `kong:8000` et `http://127.0.0.1` sans le port `54321` sont des origines
-  invalides côté navigateur et ne doivent jamais apparaître dans l’UI.
-- Studio : http://127.0.0.1:54323
-- Mailpit : http://127.0.0.1:54324
-- front beta/v5 : http://127.0.0.1:5177
+- PostgreSQL 17 sur `127.0.0.1:55432` ;
+- SeaweedFS compatible S3 sur `127.0.0.1:58333` ;
+- Mailpit sur `127.0.0.1:58025` (SMTP `51025`) ;
+- l'API Node sur `127.0.0.1:8787` ;
+- Vite sur `127.0.0.1:5176`.
 
-Le fichier `.env.local` dirige `/api/v1` vers la fonction locale `magrit-api`.
-Le bootstrap emprunte toujours cette API, comme en production. Le fichier est
-ignoré par Git.
+La commande applique les migrations PostgreSQL, le seed de développement et
+la configuration des neuf buckets S3. `Ctrl-C` arrête l'API et Vite ; les
+conteneurs et leurs volumes restent disponibles pour le prochain démarrage.
 
-Le wrapper local extrait temporairement de `_bootstrap_b4.sql` les deux prérequis historiques `user_data` et `shop_module`, puis applique les migrations normales. Ce préambule n est jamais laissé dans `supabase/migrations`, afin que `db push --linked` ne tente pas de le publier sur le projet distant.
-
-Commandes de maintenance :
+## Vérifications et maintenance
 
 ```bash
-pnpm db:local:status  # affiche les services et clés locales
-pnpm db:local:reset   # recrée la base depuis toutes les migrations + seed.sql
-pnpm db:local:stop    # arrête la stack en conservant les données
+curl http://127.0.0.1:8787/api/v1/health
+curl http://127.0.0.1:8787/api/v1/readiness
+pnpm infra:dev:status
+pnpm infra:dev:logs
+pnpm infra:dev:down
 ```
 
-Pour une remise à zéro volontaire, `db:local:reset` détruit uniquement la base locale gérée par ce projet, puis rejoue les migrations.
-
-## Détail
-
-Le script `scripts/dev-b5.sh` :
-
-1. **Libère le port 5177** s'il est déjà occupé (kill -9 propre).
-2. Lance `pnpm exec vite --port 5177 --strictPort` (échec si port pris, pas de fallback silencieux).
-3. En mode `--bg`, attend jusqu'à 10s que le serveur réponde HTTP 200 et confirme.
-
-### Modes
-
-| Commande | Effet |
-|---|---|
-| `pnpm dev:b5` | **Foreground**. Bloque le terminal. Ctrl-C stoppe le serveur. Recommandé en dev actif (voir les logs HMR direct). |
-| `pnpm dev:b5:bg` | **Background**. Détaché du terminal, logs redirigés vers `/tmp/magrit-vite-5177.log`. Utile quand on veut un autre terminal pour bosser. |
-| `pnpm dev:b5:status` | **Diagnostic**. Vérifie si un process écoute sur 5177 + ping HTTP. |
-| `pnpm dev:b5:stop` | **Kill**. Stoppe tout process écoutant sur 5177. |
-
-### Variante directe
-
-Le script peut être appelé sans passer par pnpm :
+Pour réinitialiser volontairement les données locales :
 
 ```bash
-./scripts/dev-b5.sh           # foreground
-./scripts/dev-b5.sh --bg      # background
-./scripts/dev-b5.sh --stop    # stop
-./scripts/dev-b5.sh --status  # status
-./scripts/dev-b5.sh --help    # aide
+pnpm infra:dev:reset
 ```
 
-## Tests rapides après lancement
+Cette commande demande confirmation et détruit uniquement les volumes Compose
+du projet. Au démarrage suivant, les migrations et le seed sont rejoués.
 
-- Boutique B2B : http://localhost:5177/shop/boutique-1 (slug à adapter)
-- Atelier (multi-tenant) : http://localhost:5177/tenants → choisir un tenant
-- Login : http://localhost:5177/login
+## Processus séparés
 
-### Données volumiques pour les tests UX
-
-Le générateur autonome crée par défaut trois tenants (`pressetout`,
-`atelier-lumiere`, `imprimerie-du-parc`), deux boutiques par tenant, puis 100
-clients et 200 commandes par tenant. Les identifiants sont déterministes : la
-commande peut être relancée sans dupliquer les fixtures.
+Pour travailler sur une seule couche :
 
 ```bash
-pnpm db:seed:ux
-pnpm db:seed:ux <tenant-slug> <nombre-clients> <nombre-commandes>
-pnpm db:seed:ux --all <nombre-clients-par-tenant> <nombre-commandes-par-tenant>
+pnpm infra:dev:up
+pnpm api:dev
+pnpm dev
 ```
 
-Le compte local `demo@magrit.local` / `magrit-demo` est créé comme
-administrateur de tous les espaces. Chaque tenant reçoit aussi trois comptes
-connectables avec le même mot de passe : `commandes.<tenant>@magrit.local`,
-`boutiques.<tenant>@magrit.local` et `equipe.<tenant>@magrit.local`. Ils
-permettent de tester respectivement l'option Commandes, l'option Boutiques et
-un membre sans option. Les fixtures couvrent plusieurs types de clients,
-statuts, boutiques et dates afin d'exercer recherche, filtres, pagination et
-listes denses.
-
-## Ports utilisés sur les autres branches
-
-| Branche | Port | Script |
-|---|---|---|
-| `main` (B1, prod) | 5173 | n/a (ne pas toucher) |
-| `design/v2` (B2) | 5174 | n/a |
-| `beta/v3` (B3, Supabase mort) | 5175 | n/a |
-| `beta/v4` (B4, démo client) | 5176 | `pnpm dev` (script historique) |
-| **`beta/v5` (notre branche)** | **5177** | **`pnpm dev:b5`** |
-
-## Troubleshooting
-
-### Port 5177 occupé même après `dev:b5:stop`
+Les workers portables se lancent séparément :
 
 ```bash
-lsof -ti:5177       # liste les PID
-kill -9 <PID>       # kill manuel
+pnpm worker:outbox
+pnpm worker:notifications
+pnpm worker:order-exports
+pnpm worker:order-file-purge
 ```
 
-### Vite répond lentement la 1ère fois après installation
+Les variantes `:once` traitent réellement les éléments en attente. Ne pas les
+utiliser comme simple smoke test sur un environnement contenant des données
+utiles.
 
-Re-optimisation des deps Vite si le lockfile a changé. C'est normal, ~5-10 s au 1er run après `pnpm install`.
+## Tests principaux
 
-### Background lancé via Claude Code
+```bash
+pnpm typecheck
+pnpm test:architecture
+pnpm test:contract
+pnpm build
+```
 
-Si je (Claude) lance le serveur via `run_in_background`, tu peux le stopper d'un seul coup avec `pnpm dev:b5:stop`. Pratique quand la session se termine et qu'un Vite résiduel traîne.
-
----
-
-*Procédure ajoutée 2026-05-11 — Le script et les alias `pnpm dev:b5*` sont commités sur `beta/v5`.*
+L'ancienne stack locale Supabase et la fonction Edge `magrit-api` ne sont plus
+nécessaires au développement courant. Les anciennes migrations Supabase sont
+conservées comme archive de reprise tant que la migration des environnements
+existants n'est pas achevée.

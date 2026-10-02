@@ -369,7 +369,7 @@ export function DashboardAdminPIM() {
             <p className="text-sm text-ink-muted max-w-2xl">
               Les produits commandés sur les boutiques sont poussés ici par trigger DB.
               L'ingestion auto vérifie la richesse du candidat, matche contre les définitions
-              existantes (dédup), et enrichit via Claude (SEO, commercial, FAQ) avant merge
+              existantes (dédup), et enrichit via le fournisseur IA (SEO, commercial, FAQ) avant merge
               dans le PIM global.
             </p>
           </div>
@@ -422,7 +422,7 @@ export function DashboardAdminPIM() {
                 color="emerald"
                 label="Enrichis"
                 value={ingestReport.enriched.length}
-                hint="Nouveaux produits créés dans le PIM via Claude"
+                hint="Nouveaux produits créés dans le PIM via le fournisseur IA"
               />
               <ReportBadge
                 color="blue"

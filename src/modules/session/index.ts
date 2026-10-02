@@ -36,13 +36,23 @@ export {
 } from './api/contracts';
 export {
   DEFAULT_SESSION_PREFERENCES,
+  SessionBootstrapService,
+  SessionPreferencesService,
   SessionService,
+  SessionSubTenantMutationService,
+  SessionTenantCreationService,
+  SessionTenantSettingsService,
   SessionTenantAccessDeniedError,
 } from './application/session-service';
 export type {
   ChildTenant,
   DirectMembership,
+  SessionBootstrapRepository,
+  SessionPreferencesRepository,
   SessionRepository,
+  SessionSubTenantMutationRepository,
+  SessionTenantCreationRepository,
+  SessionTenantSettingsRepository,
 } from './application/session-repository';
 export { SessionTenantMutationError } from './application/session-repository';
 export { SessionInvitationAcceptanceError } from './application/session-repository';

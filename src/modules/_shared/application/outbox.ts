@@ -83,8 +83,8 @@ export type OutboxEventDraft<TName extends EventNameDto = EventNameDto> = Readon
 }>;
 
 /**
- * Port d ecriture dans la table `outbox_events`. L implementation Supabase
- * vit dans src/adapters/supabase/ ; le socle n en connait que le contrat.
+ * Port d ecriture dans la table `outbox_events`. Les implementations
+ * d infrastructure restent derriere ce contrat.
  */
 export interface OutboxRepository {
   /** Ecrit les evenements, dans la meme transaction que l ecriture metier. */

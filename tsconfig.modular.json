@@ -3,7 +3,8 @@
   "compilerOptions": {
     "strict": true,
     "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true
+    "exactOptionalPropertyTypes": true,
+    "types": ["vite/client", "node"]
   },
   "include": [
     "src/kernel",
@@ -12,6 +13,7 @@
     "src/surfaces",
     "src/adapters",
     "src/server/api",
+    "src/server/node",
     "tests/kernel/types.typecheck.ts"
   ]
 }

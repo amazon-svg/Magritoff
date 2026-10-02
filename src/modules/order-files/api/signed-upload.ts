@@ -32,7 +32,9 @@ export async function uploadFileToSignedUrl(
   if (!onProgress) {
     const response = await fetch(uploadUrl, {
       method: 'PUT',
-      headers: { 'Content-Type': contentType },
+      // S3 signe cet en-tete avec le billet portable : un second PUT sur le
+      // meme file_id doit echouer, avant comme apres la confirmation.
+      headers: { 'Content-Type': contentType, 'If-None-Match': '*' },
       body: file,
     });
     if (!response.ok) {
@@ -45,6 +47,7 @@ export async function uploadFileToSignedUrl(
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', uploadUrl, true);
     xhr.setRequestHeader('Content-Type', contentType);
+    xhr.setRequestHeader('If-None-Match', '*');
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) onProgress(event.loaded, event.total);
     };

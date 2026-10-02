@@ -263,7 +263,7 @@ export class QuoteDocumentsService {
    */
   async persistRendered(
     tenantId: TenantId,
-    actor: UserId,
+    actor: UserId | null,
     quoteId: string,
     rendered: RenderedDocumentForSend,
   ): Promise<QuoteDocumentDto> {

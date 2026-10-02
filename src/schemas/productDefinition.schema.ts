@@ -1,7 +1,7 @@
 /**
  * Schema zod pour les ProductDefinition PIM (R4 - refacto 2026-05-11).
  *
- * Aligne sur la table `product_definitions` (cf. database.types.ts). Utilise
+ * Aligne sur la table PostgreSQL `product_definitions`. Utilise
  * pour valider les payloads retournes par `pim-generate` edge function avant
  * persistence (defense-in-depth en sus de la validation cote serveur).
  */

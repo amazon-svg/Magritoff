@@ -57,9 +57,9 @@
 | Edge functions | Supabase Edge Functions (Deno), déploiement via `supabase functions deploy <name> --project-ref ightkxebexuzfjdbpsdg` |
 | **LLM raisonnement** | **`claude-sonnet-4-5-20250929`** (upgrade depuis Sonnet 4 le 2026-05-09) |
 | **LLM génération rapide** | **`claude-haiku-4-5-20251001`** |
-| IA API-first | `MAGRIT_AI_PROVIDER=anthropic|openai|mistral`, clé dédiée par fournisseur et modèle optionnel `MAGRIT_AI_MODEL`. Diagnostic et éditorial de catégorie utilisent cette sélection. Le navigateur appelle le chat via `/api/v1/assistant/chat` ; son moteur historique Anthropic reste un détail serveur transitoire. |
+| IA API-first | `MAGRIT_AI_PROVIDER=anthropic|openai|mistral`, clé dédiée par fournisseur et modèle optionnel `MAGRIT_AI_MODEL`. Le chat, les suggestions catalogue, le diagnostic, le PIM et l’éditorial utilisent cette sélection côté serveur Node. OpenAI passe par Responses API avec stockage désactivé. |
 | Prix Clariprint | Les configurateurs appellent `/api/v1/clariprint/quote`. `CLARIPRINT_HOST`, `CLARIPRINT_LOGIN` et `CLARIPRINT_PASSWORD` restent exclusivement côté serveur. |
-| Mockups | Les composants chargent `/api/v1/mockups/public/*` et `/api/v1/mockups/render`. Storage et `mockup-generator` sont des détails de l’adaptateur serveur. |
+| Mockups | Les composants chargent `/api/v1/mockups/public/*` et `/api/v1/mockups/render`. Le serveur Node rend les PNG avec `resvg` et les met en cache dans S3. |
 | Mockup engine SVG→PNG (post S4.1b) | `npm:@resvg/resvg-wasm@2.6.2` (pure WASM, compat Deno Deploy). Fonts Inter/Bitter/JetBrains Mono incluses. Init lazy via fetch unpkg. **Pivot vs Architecture §4.3** qui spec sharp+svgdom (incompat Deno Deploy) |
 | Tests unit/integration | Vitest |
 | E2E automatisé | **Claude in Chrome** via plugin MCP, sur `data-testid` stables |
@@ -130,10 +130,6 @@
 - `useLegacyTenantSlugResolution` porte la résolution réseau et reconstruit la
   route d'un ancien slug en conservant sous-chemin, query string et ancre ; la
   vue `LegacySlugRedirect` ne connaît plus le client Session.
-- `useLegacyShopCustomerMigrationReport` porte le chargement, l'invalidation et
-  la synthèse du rapport privé de migration des comptes boutique. La surface
-  Utilisateurs masque l'audit sur refus ou indisponibilité et ne pilote plus le
-  client ShopCustomers.
 - `useShopCustomerAccountManagement` porte la liste, la création, l'activation
   et le démarrage de délégation des comptes propres à une boutique. Les réponses
   tardives sont ignorées après un changement de boutique ; la vue conserve
@@ -302,7 +298,7 @@ Roadmap qualité-first post Sprint 4 ([roadmap-v1.1-qualite-first-2026-05-21.md]
 
 1. **Plafond 3-5 stories par sprint**, jamais plus (lesson Arnaud 2026-05-17 — vault `_CONTEXT_FOR_AI/lessons.md`).
 2. **Checkpoint récap toutes les 3 stories** avec mini-doc visuel "ce qui a changé concrètement + ce que tu peux tester en 30 secondes" (lesson 2026-05-17). Pas de batch de stories silencieux.
-3. **Smoke E2E parcours acheteur AI** obligatoire avant clôture sprint qui touche shop / orders / Magrit / claude-proxy / pim-*. Login `/shop/<slug>` → askMagrit → ajout panier → submitCart → vérif insert `tenant_orders` + redirect `PortalThankYou`. Joué par Claude Code ou Arnaud. Référence : `feedback_dod_smoke_e2e_acheteur.md` (mémoire projet).
+3. **Smoke E2E parcours acheteur AI** obligatoire avant clôture sprint qui touche shop / orders / Magrit / assistant / pim-*. Login `/shop/<slug>` → askMagrit → ajout panier → submitCart → vérif insert `tenant_orders` + redirect `PortalThankYou`. Joué par un navigateur automatisé ou Arnaud. Référence : `feedback_dod_smoke_e2e_acheteur.md` (mémoire projet).
 4. **Audit prod systématique avant toute heuristique numérique** (seuils cm/mm, confidence thresholds, magic numbers). 5 minutes Supabase SQL Editor avant écrire le code. Référence : `feedback_audit_prod_avant_heuristique.md` (mémoire projet).
 5. **Sally UX consult systématique** sur tout composant user-facing nouveau ou modifié (wireframes / mockup / microcopy). Pas de UI livrée sans passage Sally.
 6. **ADR formalisée pour toute décision architecturale** (nouveau pattern, choix de modèle DB, contrat d'interface entre modules). Section dédiée dans `_bmad-output/planning-artifacts/architecture.md` numérotée §4.X.

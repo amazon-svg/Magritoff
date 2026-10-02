@@ -171,7 +171,7 @@ export function createCommercialQuotesRoutes(
           const currentTag = await computeEntityTag(current);
           assertPrecondition(context.ifMatch, currentTag, current);
 
-          const updated = await service.update(context.tenantId, quoteId, input);
+          const updated = await service.update(context.tenantId, requireUserId(context), quoteId, input);
           return { status: 200, data: updated, etag: await computeEntityTag(updated) };
         }, () => current);
       },
@@ -287,7 +287,12 @@ export function createCommercialQuotesRoutes(
       dataSchema: quoteLineSchema,
       async handle(context, input) {
         return withDomainErrors(async () => {
-          const line = await service.addLine(context.tenantId, context.params['quoteId']!, input);
+          const line = await service.addLine(
+            context.tenantId,
+            requireUserId(context),
+            context.params['quoteId']!,
+            input,
+          );
           return { status: 201, data: line, etag: await computeEntityTag(line) };
         });
       },
@@ -327,7 +332,13 @@ export function createCommercialQuotesRoutes(
           const currentTag = await computeEntityTag(current);
           assertPrecondition(context.ifMatch, currentTag, current);
 
-          const updated = await service.updateLine(context.tenantId, quoteId, lineId, input);
+          const updated = await service.updateLine(
+            context.tenantId,
+            requireUserId(context),
+            quoteId,
+            lineId,
+            input,
+          );
           return { status: 200, data: updated, etag: await computeEntityTag(updated) };
         });
       },
@@ -344,6 +355,7 @@ export function createCommercialQuotesRoutes(
         return withDomainErrors(async () => {
           await service.removeLine(
             context.tenantId,
+            requireUserId(context),
             context.params['quoteId']!,
             context.params['lineId']!,
           );
@@ -366,7 +378,12 @@ export function createCommercialQuotesRoutes(
           const currentTag = await computeEntityTag(current);
           assertPrecondition(context.ifMatch, currentTag, current);
 
-          const updated = await service.reorderLines(context.tenantId, quoteId, input.line_ids);
+          const updated = await service.reorderLines(
+            context.tenantId,
+            requireUserId(context),
+            quoteId,
+            input.line_ids,
+          );
           return { status: 200, data: updated, etag: await computeEntityTag(quoteSummaryOf(updated)) };
         });
       },

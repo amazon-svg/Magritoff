@@ -5,7 +5,7 @@ import type { Shop, ShopProduct } from '@/modules/shops';
 import type { Gamme, ProductDefinition } from '@/modules/catalog/ui/helpers/productEnrichment';
 import { resolveProductImage } from '@/modules/catalog/ui/helpers/productImages';
 import { computeClariprintQuoteSafe } from '@/modules/clariprint';
-import { useClaudeSseStream, ClaudeSseStreamError } from '@/modules/conversations/ui/hooks';
+import { useAssistantSseStream, AssistantSseStreamError } from '@/modules/conversations/ui/hooks';
 import { ENABLE_STREAMING_CHAT } from '@/shared/config/featureFlags';
 import { TEST_IDS } from '@/shared/presentation/testIds';
 import { ShopProductCard } from '@/modules/catalog/ui/storefront/ShopProductCard';
@@ -80,7 +80,7 @@ interface Props {
   initialFormat?: string | null;
 }
 
-// Convertit une config LLM (format claude-proxy : { clariprint, display }) en
+// Convertit une configuration IA ({ clariprint, display }) en
 // ShopProduct éphémère affichable dans la grille du catalogue.
 function configToEphemeralShopProduct(config: any, index: number): ShopProduct {
   const d = config.display || {};
@@ -157,7 +157,7 @@ export function PortalCatalog({
     setSelectedFormats(initialFormat ? new Set([initialFormat]) : new Set());
   }, [initialFormat]);
 
-  // Resultats generes par Magrit (claude-proxy). Produits ephemeres qu'on peut
+  // Resultats generes par Magrit. Produits ephemeres qu'on peut
   // ajouter au panier meme s'ils n'existent pas dans le catalogue shop.
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResults, setAiResults] = useState<ShopProduct[]>([]);
@@ -171,7 +171,7 @@ export function PortalCatalog({
   // S-SHOP-STREAM (2026-07-08) : compteur de chunks streames -> feedback vivant
   // pendant que Magrit compose (evite l ecran fige sur les requetes 30s+).
   const [aiStreaming, setAiStreaming] = useState(false);
-  const { send: sendSseStream } = useClaudeSseStream(storefrontAssistant);
+  const { send: sendSseStream } = useAssistantSseStream(storefrontAssistant);
 
   // S-CONSO-5 (Sprint 4 Phase 2, Sally) : tri grille catalogue avec
   // persistance localStorage par slug. Sort key chargee au mount.
@@ -190,7 +190,7 @@ export function PortalCatalog({
     setAiQuery(prompt);
     try {
       // S-SHOP-STREAM (2026-07-08) : la boutique STREAME desormais comme la home
-      // Magrit (claude-proxy-stream), au lieu d un invoke non-streame coupe a
+      // Magrit, au lieu d un appel non-streame coupe a
       // 15/45s. Motif : les requetes larges/multi-produits (ex. "produits pour
       // organiser un evenement sportif 15 equipes de rugby") prennent 30s+
       // (mesure reelle 30.9s -> 5 configs). L ancien timeout coupait AVANT la
@@ -208,7 +208,7 @@ export function PortalCatalog({
       if (configs.length === 0) {
         setAiError(
           (data as any)?.demoMode
-            ? "Mode demo actif — l'API Claude n'est pas jointe depuis ce portail."
+            ? "Mode démo actif — le fournisseur IA n'est pas joint depuis ce portail."
             : "Magrit n'a pas suggere de configuration. Essayez de reformuler."
         );
         return;
@@ -237,18 +237,18 @@ export function PortalCatalog({
 
     } catch (err: any) {
       // Annulation (demontage / nouvelle requete) : on ne touche a rien.
-      if (err instanceof ClaudeSseStreamError && err.kind === 'aborted') {
+      if (err instanceof AssistantSseStreamError && err.kind === 'aborted') {
         return;
       }
       // Billing/credits : message explicite (pas un simple silence).
-      if (err instanceof ClaudeSseStreamError && err.kind === 'billing') {
+      if (err instanceof AssistantSseStreamError && err.kind === 'billing') {
         setAiError("L'assistant Magrit est momentanement indisponible. Reessayez plus tard.");
         return;
       }
       // S-CONSO-4 : fallback automatique sur filter local (mode 'text').
       // Le filtered useMemo en aval matche query sur name/description/gamme.
       console.info(
-        `[claude_stream_fallback] ${new Date().toISOString()} ${err?.kind ?? 'error'} — query="${prompt}"`,
+        `[assistant_stream_fallback] ${new Date().toISOString()} ${err?.kind ?? 'error'} — query="${prompt}"`,
       );
       setSearchMode('text');
       // Pas d aiError affiche : le filter local prend le relais. On efface
@@ -595,7 +595,7 @@ export function PortalCatalog({
             <X className="w-3 h-3" strokeWidth={1.5} /> Réinitialiser
           </button>
         )}
-        {/* S-CONSO-4 (Sally) : badge mode discret IA / texte (resilience claude-proxy down) */}
+        {/* Badge mode discret IA / texte pour la résilience fournisseur. */}
         {(aiQuery || query) && (
           <span
             aria-live="polite"
@@ -699,7 +699,7 @@ export function PortalCatalog({
       </div>
 
       {/* ══════════════════════════════════════════════════════════
-          Section "Suggéré par Magrit" — appel à claude-proxy
+          Section "Suggéré par Magrit" — appel à l'assistant serveur
           Affichee sous la grille quand on a des resultats AI ou un loading/error.
           ══════════════════════════════════════════════════════════ */}
       {(aiLoading || aiError || aiResults.length > 0) && (

@@ -4,7 +4,7 @@
  * `api_read_order_export_rows`, rend le fichier et le depose, ou echoue
  * proprement.
  *
- * Invoque par l Edge Function `magrit-order-export-runner`, SON PROPRE
+ * Invoque par le processus Node `worker:order-exports`, SON PROPRE
  * `pg_cron` a la minute (§8.24 §3(b), "strictement le patron de
  * magrit-notification-sender").
  *

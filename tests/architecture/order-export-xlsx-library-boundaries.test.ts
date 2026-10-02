@@ -14,8 +14,7 @@
  * donc ca survit a tous les tests de developpement et tombe en production.
  *
  * PRECAUTION 2 — la version est EPINGLEE EXACTEMENT (jamais un intervalle
- * semver) dans `package.json` ET dans l import-map Deno de l Edge Function
- * `magrit-order-export-runner`, POUR LES DEUX PAQUETS `write-excel-file`
+ * semver) dans `package.json`, POUR LES DEUX PAQUETS `write-excel-file`
  * ET `fflate` (complete le 2026-09-13, treizieme entree du bandeau §8.24,
  * point (ii)) : l entree `/node` de `write-excel-file` n evite le Worker
  * que grace a une CONSTANTE INTERNE NON EXPORTEE
@@ -92,20 +91,12 @@ import { describe, expect, it } from 'vitest';
 
 const projectRoot = process.cwd();
 const RENDERER_PATH = 'src/modules/order-exports/application/renderers/xlsx-renderer.ts';
-const DENO_JSON_PATH = 'supabase/functions/magrit-order-export-runner/deno.json';
 
 function readPackageJsonDependencies(): Record<string, string> {
   const packageJson = JSON.parse(readFileSync(resolve(projectRoot, 'package.json'), 'utf8')) as {
     dependencies?: Record<string, string>;
   };
   return packageJson.dependencies ?? {};
-}
-
-function readDenoImportMap(): Record<string, string> {
-  const denoJson = JSON.parse(readFileSync(resolve(projectRoot, DENO_JSON_PATH), 'utf8')) as {
-    imports?: Record<string, string>;
-  };
-  return denoJson.imports ?? {};
 }
 
 function parseTypeScriptFile(relativePath: string): ts.SourceFile {
@@ -201,7 +192,7 @@ const UNIVERSAL_SPECIFIER_PATTERN = /^(npm:)?write-excel-file(@[^'"/]+)?\/univer
 /**
  * Meme motif que ci-dessus mais SUR LE TEXTE BRUT, guillemets droits
  * compris — sert UNIQUEMENT a `git grep` pour trouver des CANDIDATS dans
- * TOUT `src/`/`supabase/` (JSON compris, ex. `deno.json`) en un seul
+ * TOUT `src/` (JSON compris) en un seul
  * appel rapide. Les candidats `.ts`/`.tsx` sont ENSUITE reverifies par
  * l AST (voir `filesReallyImportingUniversalEntry`) : `git grep` seul ne
  * distingue pas un import d une citation en commentaire ou d un bloc
@@ -215,7 +206,7 @@ const UNIVERSAL_SPECIFIER_PATTERN = /^(npm:)?write-excel-file(@[^'"/]+)?\/univer
 const UNIVERSAL_IMPORT_GREP_PATTERN = '[\'"`](npm:)?write-excel-file(@[^\'"`/]+)?/universal[\'"`]';
 
 function candidateFilesMentioningUniversal(): string[] {
-  // `git grep` : rapide, couvre `src/` ET `supabase/` d un seul appel —
+  // `git grep` : rapide, couvre tout `src/` d un seul appel —
   // exactement le perimetre que la precaution 1 doit couvrir (contrat :
   // « nulle part dans le depot »). `--untracked` est OBLIGATOIRE : sans
   // lui, `git grep` ignore silencieusement un fichier cree mais pas encore
@@ -229,7 +220,7 @@ function candidateFilesMentioningUniversal(): string[] {
   // declencherait sinon une substitution de commande si le motif etait
   // interpole dans une chaine executee par `/bin/sh -c`.
   try {
-    const output = execFileSync('git', ['grep', '-l', '-E', '--untracked', UNIVERSAL_IMPORT_GREP_PATTERN, '--', 'src', 'supabase'], {
+    const output = execFileSync('git', ['grep', '-l', '-E', '--untracked', UNIVERSAL_IMPORT_GREP_PATTERN, '--', 'src'], {
       cwd: projectRoot,
       encoding: 'utf8',
     });
@@ -264,7 +255,7 @@ function filesReallyImportingUniversalEntry(): string[] {
 }
 
 describe('bibliotheque XLSX — write-excel-file/universal jamais IMPORTE (contrat §8.24 point 7, precaution 1)', () => {
-  it('aucun fichier de src/ ou supabase/ ne l importe (imports REELS, AST pour le .ts, grep pour le JSON — pas les commentaires qui l expliquent)', () => {
+  it('aucun fichier de src/ ne l importe (imports REELS, AST pour le .ts, grep pour le JSON — pas les commentaires qui l expliquent)', () => {
     const offenders = filesReallyImportingUniversalEntry();
     expect(offenders).toEqual([]);
   });
@@ -287,34 +278,20 @@ describe('bibliotheque XLSX — write-excel-file/universal jamais IMPORTE (contr
  * cas echeant) doit suivre la version dans la valeur `npm:...`.
  */
 const PINNED_PACKAGES = [
-  { packageName: 'write-excel-file', importMapKey: 'write-excel-file/node', importMapSubpath: '/node' },
-  { packageName: 'fflate', importMapKey: 'fflate', importMapSubpath: '' },
+  { packageName: 'write-excel-file' },
+  { packageName: 'fflate' },
 ] as const;
 
 const EXACT_SEMVER_PATTERN = /^\d+\.\d+\.\d+$/;
 
 describe.each(PINNED_PACKAGES)(
-  'bibliotheque XLSX — $packageName : version EPINGLEE exactement, IDENTIQUE entre package.json et l import-map Deno (contrat §8.24 point 7, precaution 2)',
-  ({ packageName, importMapKey, importMapSubpath }) => {
+  'bibliotheque XLSX — $packageName : version EPINGLEE exactement dans le runtime Node (contrat §8.24 point 7, precaution 2)',
+  ({ packageName }) => {
     it(`package.json declare ${packageName} en version EXACTE (jamais un intervalle semver : ni ^ ni ~)`, () => {
       const dependencies = readPackageJsonDependencies();
       const declared = dependencies[packageName];
       expect(declared, `${packageName} devrait etre declare dans package.json > dependencies`).toBeDefined();
       expect(declared).toMatch(EXACT_SEMVER_PATTERN);
-    });
-
-    it(`l import-map Deno du runner porte "${importMapKey}" a EXACTEMENT la meme version que package.json`, () => {
-      const dependencies = readPackageJsonDependencies();
-      const importMap = readDenoImportMap();
-      const declaredVersion = dependencies[packageName];
-      const importMapValue = importMap[importMapKey];
-
-      expect(declaredVersion, `${packageName} devrait etre declare dans package.json > dependencies`).toBeDefined();
-      expect(importMapValue, `l import-map devrait porter une entree "${importMapKey}"`).toBeDefined();
-      // Egalite STRICTE, DERIVEE de package.json (jamais deux constantes
-      // recopiees independamment) : une version qui diverge d un seul cote
-      // fait tomber CE test, quel que soit le sens de la divergence.
-      expect(importMapValue).toBe(`npm:${packageName}@${declaredVersion}${importMapSubpath}`);
     });
   },
 );

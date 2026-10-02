@@ -33,7 +33,7 @@ export class InMemoryCommercialSettingsRepository implements CommercialSettingsR
     return this.actorCapabilities.get(`${tenantId}:${actorId}:${capability}`) ?? true;
   }
 
-  async get(tenantId: TenantId): Promise<CommercialSettingsDto> {
+  async get(tenantId: TenantId, _actorId?: UserId): Promise<CommercialSettingsDto> {
     const existing = this.settings.get(tenantId);
     if (existing) return existing;
     // Ressource SINGLETON creee IMPLICITEMENT a sa premiere lecture (contrat).
@@ -64,9 +64,10 @@ export class InMemoryCommercialSettingsRepository implements CommercialSettingsR
 
   async update(
     tenantId: TenantId,
+    _actorId: UserId,
     command: UpdateCommercialSettingsCommand,
   ): Promise<CommercialSettingsDto> {
-    const current = await this.get(tenantId);
+    const current = await this.get(tenantId, _actorId);
     let enabledAt = this.purgeEnabledAt.get(tenantId) ?? null;
     let enabled = current.order_file_purge_enabled ?? false;
     if ('order_file_purge_enabled' in command) {

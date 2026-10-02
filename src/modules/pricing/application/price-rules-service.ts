@@ -120,7 +120,7 @@ export class PriceRulesService {
     const nextEndsOn = 'ends_on' in command ? (command.ends_on ?? null) : current.ends_on;
     assertPeriodOrder(nextStartsOn, nextEndsOn);
 
-    const updated = await this.repository.update(tenantId, priceRuleId, command);
+    const updated = await this.repository.update(tenantId, priceRuleId, actor, command);
     await this.publishChanged(tenantId, updated.id, actionFor(command));
     return updated;
   }
@@ -138,7 +138,7 @@ export class PriceRulesService {
     params: ResolvePriceRuleParams,
   ): Promise<PriceRuleResolveResultDto> {
     if (params.customerId !== null) await this.assertKnownCustomer(tenantId, params.customerId);
-    if (params.productRangeId !== null) await this.assertKnownProductRange(params.productRangeId);
+    if (params.productRangeId !== null) await this.assertKnownProductRange(tenantId, params.productRangeId);
     return this.repository.resolve(tenantId, params);
   }
 
@@ -146,7 +146,7 @@ export class PriceRulesService {
     tenantId: TenantId,
     productRangeId: string,
   ): Promise<ProductRangeDefaultMarginDto> {
-    await this.requireExistingProductRange(productRangeId);
+    await this.requireExistingProductRange(tenantId, productRangeId);
     return this.repository.getDefaultMargin(tenantId, productRangeId);
   }
 
@@ -162,7 +162,7 @@ export class PriceRulesService {
     marginRate: string,
   ): Promise<ProductRangeDefaultMarginDto> {
     await this.assertCanManagePricing(tenantId, actor);
-    await this.requireExistingProductRange(productRangeId);
+    await this.requireExistingProductRange(tenantId, productRangeId);
     return this.repository.setDefaultMargin(tenantId, productRangeId, actor, marginRate);
   }
 
@@ -190,8 +190,8 @@ export class PriceRulesService {
     if (!authorized) throw new PriceRuleAccessDeniedError();
   }
 
-  private async requireExistingProductRange(productRangeId: string): Promise<void> {
-    const exists = await this.repository.productRangeExists(productRangeId);
+  private async requireExistingProductRange(tenantId: TenantId, productRangeId: string): Promise<void> {
+    const exists = await this.repository.productRangeExists(tenantId, productRangeId);
     if (!exists) throw new ProductRangeNotFoundError();
   }
 
@@ -232,7 +232,7 @@ export class PriceRulesService {
     }
 
     if (customerId !== null) await this.assertKnownCustomer(tenantId, customerId);
-    if (productRangeId !== null) await this.assertKnownProductRange(productRangeId);
+    if (productRangeId !== null) await this.assertKnownProductRange(tenantId, productRangeId);
   }
 
   /** Partage entre `create()`/`assertScopeTargets()` et `resolve()` (E10.7). */
@@ -248,8 +248,8 @@ export class PriceRulesService {
   }
 
   /** Partage entre `create()`/`assertScopeTargets()` et `resolve()` (E10.7). */
-  private async assertKnownProductRange(productRangeId: string): Promise<void> {
-    const exists = await this.repository.productRangeExists(productRangeId);
+  private async assertKnownProductRange(tenantId: TenantId, productRangeId: string): Promise<void> {
+    const exists = await this.repository.productRangeExists(tenantId, productRangeId);
     if (!exists) {
       throw new PriceRuleCommandRejectedError(
         PRODUCT_RANGE_UNKNOWN_CODE,
