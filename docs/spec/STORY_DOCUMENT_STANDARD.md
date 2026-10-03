@@ -1,6 +1,6 @@
 # Standard du story document — intention avant implémentation
 
-> Règle mise à jour après l'atelier du 1er octobre 2026. Git est la source active du projet ; Notion est une provenance historique utilisée uniquement pour la migration initiale.
+> Règle mise à jour après l'atelier du 1er octobre 2026, complétée après la migration du 3 octobre 2026. Git est l'unique source du projet ; la migration depuis Notion est terminée et Notion n'est plus qu'une provenance archivée hors dépôt.
 
 ## Deux artefacts, deux responsabilités
 
@@ -49,16 +49,16 @@ Une nouvelle fonctionnalité qui modifie un comportement existant doit :
 
 Une simple mention « cette spec est invalidée » sans mise à jour de la source active n'est pas suffisante.
 
-## Héritage Notion
+## Héritage Notion — migration close
 
-Les sections encadrées par les marqueurs `notion-functional` dans les anciens story documents sont des instantanés de migration. Elles sont conservées pour la traçabilité, mais :
+La migration unique a eu lieu le 3 octobre 2026 : 205 stories, 18 epics et 19 fonctionnalités sont dans `project/backlog/`. Les sections encadrées par les marqueurs `notion-functional` dans les anciens story documents sont des instantanés figés. Elles sont conservées pour la traçabilité, mais :
 
-- elles ne sont plus la source fonctionnelle faisant foi ;
-- elles ne sont plus régénérées après la migration unique ;
-- leur statut Notion ne détermine pas le `deliveryStatus` ;
-- une contradiction est enregistrée dans le rapport de migration ou dans la story Git.
+- **elles sont remplacées par la story canonique du même identifiant** dans `project/backlog/stories/` ; en cas de divergence, c'est la story canonique qui s'applique ;
+- elles ne sont plus régénérées, ni relues comme spécification ;
+- le statut Notion d'origine ne détermine aucun statut Git ;
+- toute contradiction est enregistrée dans le rapport de migration ou dans la story canonique, jamais résolue en silence.
 
-`scripts/notion/sync_story_functional.py` est un outil de migration historique. Il ne doit pas être intégré à un workflow de synchronisation récurrent.
+`scripts/notion/sync_story_functional.py` et `docs/spec/notion-extraction-format.md` sont des outils de migration **retirés** : ils ne doivent plus être exécutés ni intégrés à un workflow. `_bmad-output/implementation-artifacts/INDEX-stories-notion.md` est un registre de migration figé, remplacé par l'annexe B du rapport de migration.
 
 ## Responsabilités
 

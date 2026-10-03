@@ -130,7 +130,8 @@ source:
 `importedAt` est immuable. `lastSyncedAt` correspond à la migration unique
 et ne crée pas une synchronisation récurrente. Toute modification postérieure
 est faite dans Git, fait progresser `revision` et référence la story ou la
-décision qui la motive. Notion reste une provenance, pas une autorité active.
+décision qui la motive. Notion est une provenance archivée, jamais une autorité : la migration
+est close depuis le 3 octobre 2026 et le backlog canonique est `project/backlog/`.
 
 ## Hiérarchie des sources
 

@@ -5,7 +5,7 @@
 
 ## Lecture obligatoire avant toute action
 
-1. **[project/README.md](project/README.md)** puis **[project/governance/source-of-truth.md](project/governance/source-of-truth.md)** — organisation produit, hiérarchie des sources et règles de propagation. Git est la source active ; Notion est une archive en cours de migration.
+1. **[project/README.md](project/README.md)** puis **[project/governance/source-of-truth.md](project/governance/source-of-truth.md)** — organisation produit, hiérarchie des sources et règles de propagation. **Git est l unique source du projet.** La migration depuis Notion est terminée le 03/10/2026 : Notion n est plus saisi, plus consulté, plus synchronisé. Le backlog vit dans **[project/backlog/](project/backlog/)** — 18 epics, 205 stories.
 2. **[docs/REGLES_ARCHITECTURE.md](docs/REGLES_ARCHITECTURE.md)** — règles R1-R8 de la session RP#070826 (Annexe A), **opposables à tout développement** : API-first, modularité, MCP différé, noyau minimal, souplesse encadrée sur l existant, workflow Git, design charte v2, rapport de fin de tâche.
    → **[docs/CONVENTION_GIT.md](docs/CONVENTION_GIT.md)** complète R6 : rôle des branches, cadence de remontée vers `main`, tags de version, séquence de synchronisation avec Expert Solutions.
 3. **[docs/project-context.md](docs/project-context.md)** — persistent facts BMAD (vision, stack, multi-tenancy, conventions, identifiants techniques).
@@ -28,7 +28,9 @@ Tous les agents reçoivent automatiquement `docs/project-context.md` + `SPRINT_H
 
 **Règle Dev** : produire un story document `_bmad-output/implementation-artifacts/story-{X}.md` à chaque story livrée.
 
-**Règle story document — périmètre fonctionnel d'abord** : la story canonique se trouve dans `project/backlog/stories/`. Le story document d'implémentation la référence avant les informations techniques et les preuves de livraison. Les anciennes sections `notion-functional` sont des instantanés historiques gelés : elles ne font plus foi et ne sont plus synchronisées en routine. Détail : [docs/spec/STORY_DOCUMENT_STANDARD.md](docs/spec/STORY_DOCUMENT_STANDARD.md).
+**Règle story document — périmètre fonctionnel d'abord** : la story canonique se trouve dans `project/backlog/stories/`, un fichier par identifiant. Le story document d'implémentation la référence avant les informations techniques et les preuves de livraison. Les anciennes sections `notion-functional` des story documents sont des instantanés de migration gelés : **elles sont remplacées par la story canonique du même identifiant** et ne doivent plus être lues comme une spécification. Détail : [docs/spec/STORY_DOCUMENT_STANDARD.md](docs/spec/STORY_DOCUMENT_STANDARD.md).
+
+**Où est le backlog** : `project/backlog/epics/` pour les résultats produit, `project/backlog/features/` pour les capacités, `project/backlog/stories/` pour les unités de travail. Les décisions produit et techniques sont dans `project/decisions/`. Rien de tout cela n est `approved` tant que les rôles d approbation ne sont pas attribués (`project/governance/roles.md`).
 
 ## ⚠️ Copie de travail de référence — à vérifier en début de session
 

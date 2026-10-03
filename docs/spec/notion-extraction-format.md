@@ -1,5 +1,11 @@
 # Format d'extraction des stories Notion
 
+> ⛔ **Outil retiré — migration close.** Ce contrat d'extraction a servi à la migration unique du
+> backlog Notion, réalisée le 3 octobre 2026. Il est conservé comme documentation de méthode et
+> **ne doit plus être exécuté**. Le backlog canonique est dans `project/backlog/` ; le compte rendu
+> de la migration est dans `project/meetings/reports/2026-10-03-rapport-migration-notion.md`.
+
+
 > Utilisé par l'agent `scribe` avant `scripts/notion/sync_story_functional.py`. Règle : [`STORY_DOCUMENT_STANDARD.md`](STORY_DOCUMENT_STANDARD.md).
 
 ## Stories — base « 📋 Backlog Magrit — Sprint Board »
