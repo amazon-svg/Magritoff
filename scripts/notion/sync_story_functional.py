@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
-"""Outil historique de migration unique des stories Notion.
+"""OUTIL RETIRE — ne plus executer.
 
-Règle : docs/spec/STORY_DOCUMENT_STANDARD.md. Git fait foi après import. Ce script
-conserve un instantané de provenance et ne doit pas servir à une synchronisation
-récurrente ou bidirectionnelle.
+La migration unique du backlog Notion vers Git a ete realisee le 3 octobre 2026.
+Le backlog canonique est project/backlog/ ; la correspondance Notion vers Git est
+l annexe B de project/meetings/reports/2026-10-03-rapport-migration-notion.md.
+
+Ce script est conserve comme documentation de methode. L executer reecrirait des
+sections notion-functional qui sont desormais remplacees par les stories
+canoniques, et reintroduirait une seconde source fonctionnelle.
+
+Regle : docs/spec/STORY_DOCUMENT_STANDARD.md.
 
 Entrées (produites par l'agent `scribe` via le MCP Notion, format décrit dans
 docs/spec/notion-extraction-format.md) :
@@ -24,6 +30,13 @@ import json
 import os
 import re
 import sys
+
+RETIRE = (
+    "Outil retire le 2026-10-03 : la migration Notion est close. "
+    "Le backlog canonique est project/backlog/. "
+    "Relancer ce script reintroduirait une seconde source fonctionnelle. "
+    "Pour passer outre en connaissance de cause : MAGRIT_ALLOW_NOTION_SYNC=1."
+)
 
 BEGIN = "<!-- notion-functional:begin — instantané historique importé depuis Notion (docs/spec/STORY_DOCUMENT_STANDARD.md) -->"
 END = "<!-- notion-functional:end -->"
@@ -224,6 +237,8 @@ def traces(repo, sid):
 
 
 def main():
+    if not os.environ.get("MAGRIT_ALLOW_NOTION_SYNC"):
+        sys.exit(RETIRE)
     ap = argparse.ArgumentParser()
     ap.add_argument("--repo", required=True)
     ap.add_argument("--stories", required=True)

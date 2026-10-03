@@ -26,6 +26,13 @@ Ce dossier conserve les productions historiques générées par les workflows BM
 4. Aucun document BMAD ne s'auto-attribue le statut `approved`.
 5. Les fichiers historiques ne sont ni renommés ni supprimés tant que leurs liens et preuves n'ont pas été rapprochés.
 
-## Migration en cours
+## État de la migration
 
-La vision, le périmètre, les principes et l'epic E10 ont été consolidés dans `project/`. Les autres epics historiques sont recensés dans `project/backlog/epics/README.md` et seront traités seulement après vérification de leur état réel.
+La vision, le périmètre, les principes et l'epic E10 ont été consolidés dans `project/` le 2 octobre 2026. Le backlog Notion a été migré le 3 octobre 2026 : `project/backlog/` porte désormais 18 epics, 19 fonctionnalités et 205 stories, chacune référençant son ou ses story documents de ce dossier en `implementationRecords`.
+
+Conséquences pour ce dossier :
+
+- les sections `notion-functional` des story documents sont **remplacées** par la story canonique du même identifiant dans `project/backlog/stories/` ; en cas de divergence, la story canonique s'applique ;
+- la ligne « Source qui fait foi : Notion » que portent certains story documents est **caduque** : elle date d'avant l'atelier du 1er octobre 2026 et n'est pas corrigée fichier par fichier pour ne pas réécrire des preuves de travail datées ;
+- `implementation-artifacts/INDEX-stories-notion.md` est un registre figé, remplacé par l'annexe B du rapport de migration ;
+- les epics historiques recensés dans `project/backlog/epics/README.md` restent à requalifier.
