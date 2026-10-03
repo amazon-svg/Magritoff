@@ -14,7 +14,6 @@ stories:
   - E8.2
   - E8.3
   - E8.4
-  - US-INT-06
 decisions: []
 ---
 
@@ -36,13 +35,12 @@ _Sans objet : regroupement de migration._
 
 Ce fichier a vocation à disparaître. La revue produit doit répartir ses stories dans de véritables fonctionnalités, puis le supprimer.
 
-## Stories (5)
+## Stories (4)
 
 - [E8.1](../stories/E8.1.md)
 - [E8.2](../stories/E8.2.md)
 - [E8.3](../stories/E8.3.md)
 - [E8.4](../stories/E8.4.md)
-- [US-INT-06](../stories/US-INT-06.md)
 
 ## Questions ouvertes
 

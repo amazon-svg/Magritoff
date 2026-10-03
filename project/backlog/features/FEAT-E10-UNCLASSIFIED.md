@@ -33,7 +33,6 @@ stories:
   - E10.20
   - E10.9
   - FIX-GARDE
-  - Q-ARBITRAGES
   - Q14-a
   - Q17-a
   - Q17-c
@@ -60,7 +59,7 @@ _Sans objet : regroupement de migration._
 
 Ce fichier a vocation à disparaître. La revue produit doit répartir ses stories dans de véritables fonctionnalités, puis le supprimer.
 
-## Stories (29)
+## Stories (28)
 
 - [BCP-11](../stories/BCP-11.md)
 - [BCP-5](../stories/BCP-5.md)
@@ -85,7 +84,6 @@ Ce fichier a vocation à disparaître. La revue produit doit répartir ses stori
 - [E10.20](../stories/E10.20.md)
 - [E10.9](../stories/E10.9.md)
 - [FIX-GARDE](../stories/FIX-GARDE.md)
-- [Q-ARBITRAGES](../stories/Q-ARBITRAGES.md)
 - [Q14-a](../stories/Q14-a.md)
 - [Q17-a](../stories/Q17-a.md)
 - [Q17-c](../stories/Q17-c.md)

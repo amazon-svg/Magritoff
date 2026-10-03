@@ -74,8 +74,8 @@ C'est le principal apport de la passe. Les agents ont vérifié dans le dépôt,
 
 | Constat | Story | Portée |
 |---|---|---|
-| **Un administrateur d'espace peut changer le palier d'offre de son propre espace, sans paiement.** `magrit.update_tenant_settings` réserve l'identifiant d'URL au super-administrateur, mais pas le champ `plan`. Tant que ce n'est pas fermé, aucun plafond par offre n'est opposable : il suffit de changer d'offre. | `E7.5`, `E7.WM1`, `E9.8` | bloquante |
-| **`TF-16` est au statut KO** : un utilisateur non administrateur atteindrait l'écran Utilisateurs ou l'opération d'invitation. Défaut d'étanchéité, pas d'ergonomie. | `E9.2`, `E9.3` | à vérifier d'urgence |
+| **Un administrateur d'espace peut changer le palier d'offre de son propre espace, sans paiement.** `magrit.update_tenant_settings` réserve l'identifiant d'URL au super-administrateur, mais pas le champ `plan`. Tant que ce n'est pas fermé, aucun plafond par offre n'est opposable : il suffit de changer d'offre. **Arbitrage du 04/10/2026 : traité lors de l'implantation du modèle de monétisation du service, consigné en `OQ-MONETISATION-PALIERS`.** | `E7.5`, `E7.WM1`, `E9.8` | différée |
+| ~~**`TF-16` est au statut KO**~~ — **traité le 04/10/2026.** Vérification faite, la garde existe aux deux niveaux : l'écran est monté sous `requiredCapabilities: ['members.manage']`, et les cinq opérations d'invitation appellent `requireCanInvite` avant toute écriture, laquelle interroge `magrit.actor_has_capability(tenant, 'can_invite')`. Le KO datait du 24/08, jour où le chantier UM a changé le modèle, et n'était plus rejouable depuis la sortie de Notion. Ce qui manquait était la preuve : `tests/architecture/members-administration-guard.test.ts` la fige. | `E9.2`, `E9.3` | clos |
 | **La règle d'ajout au panier du 16/09/2026 n'est tenue qu'à moitié.** Des deux motifs de refus, un seul est réellement produit ; celui qui vérifie que la configuration est chiffrable est déclaré, son libellé écrit, jamais émis. Et le dispositif est une affordance d'interface, pas une garantie serveur. | `Q14-a` | bloquante |
 | **Le plafond de contexte du modèle est appliqué dans le navigateur**, donc contournable. | `E2.4` | à arbitrer |
 
@@ -112,12 +112,16 @@ Aucun des deux ne porte de fichier dans `project/decisions/`. C'est le trou de g
 
 Quatre entrées encombrent le reste à faire sans décrire un comportement produit.
 
-| Entrée | Nature réelle | Proposition |
+**Arbitrage rendu par Arnaud Mazon le 4 octobre 2026 : les quatre sont sorties du backlog.** Ce qu'elles portaient de récupérable est versé ailleurs ; l'export Notion archivé les conserve intégralement.
+
+| Entrée | Nature réelle | Traitement appliqué |
 |---|---|---|
-| `Q-ARBITRAGES` | liste de cinq décisions en attente | convertir en entrées de `project/decisions/open-questions.md` avec responsable et échéance, puis retirer du backlog. Trois des cinq se ferment par un mot, sans une ligne de code |
-| `E_PIM.audit-classification-ERAM` | tâche d'audit de données sur un client, à une date | sortir du backlog. Sa prémisse est probablement caduque : `ADR-2026-10-01-C5` acte que les données historiques ne sont pas reprises. Seule la part générique — ajouter la gamme kakémono au référentiel — mérite une exigence |
-| `E6.4` | entrée de traçabilité sans développement propre, sa propre source le dit | statuer : exigence ou suppression |
-| `US-INT-06` | **déclarée hors Magrit par sa propre source** (« projet hors Magrit, AGE Services ») | sortir du périmètre, ou déplacer vers le backlog AGE Services |
+| `Q-ARBITRAGES` | liste de cinq décisions en attente | retirée. Versée en `OQ-RENOUVELLEMENT-PRIX`, `OQ-Q24-RETROFIT-VALIDITE`, `OQ-Q19-ACQUITTER`, `OQ-Q16-PERSONNALISER`, `OQ-OUTILLAGE-RENDU` |
+| `E_PIM.audit-classification-ERAM` | tâche d'audit de données sur un client, à une date | retirée. Part générique versée en `OQ-PIM-KAKEMONO`, avec la réserve que `ADR-2026-10-01-C5` ne conservant pas les données historiques, la prémisse est à revérifier |
+| `E6.4` | entrée de traçabilité sans développement propre, sa propre source le dit | retirée, sans report : le besoin réapparaîtra s'il existe |
+| `US-INT-06` | **déclarée hors Magrit par sa propre source** (« projet hors Magrit, AGE Services ») | retirée du périmètre Magrit |
+
+Le backlog compte **201 stories** depuis le 4 octobre 2026.
 
 Deux études de décision — `T03.WM2` (Shopify GO/NO-GO) et `T07.WM1` (Canva GO/NO-GO) — posent la même question. Elles ont été écrites comme des études, avec un livrable « rapport et décision » et la liste des questions que le rapport doit trancher, mais leur place dans un backlog de stories reste à arbitrer.
 
@@ -141,7 +145,7 @@ Deux études de décision — `T03.WM2` (Shopify GO/NO-GO) et `T07.WM1` (Canva G
 
 ## 9. Contradictions de modèle
 
-**Un site de franchise est-il un tenant ou un sous-espace ?** La décision `PD-2026-10-01-B3` pose que le tenant est l'unité de facturation et une entité juridique distincte, et que le sous-espace est la filiale d'un groupe au sein d'un tenant. Or un réseau de franchise est fait d'entités juridiques distinctes. Si un site est un tenant, la consolidation traverse des frontières de facturation ; si c'est un sous-espace, le réseau devient un seul tenant, ce que la franchise ne permet pas. **Aucune story `T-02` n'est planifiable avant cet arbitrage**, et `T-01` en dépend par ricochet.
+**Un site de franchise est-il un tenant ou un sous-espace ? — tranché le 4 octobre 2026.** La question bloquait les six stories `T-02` et, par ricochet, `T-01`. Arnaud Mazon a arbitré : **la tête de réseau est un tenant, chaque franchisé est un sous-espace de ce tenant**. L'espace corporate suit le même modèle, le département étant un sous-espace. Décision enregistrée sous `PD-2026-10-04-B3-FRANCHISE`, propagée en renvoi dans les douze stories concernées. Conséquence directe : le réseau est l'unité de facturation, la consolidation ne traverse aucune frontière de facturation, et l'héritage du catalogue reste une propriété de la hiérarchie.
 
 La question ouverte `OQ-B3-PARC` bloque huit stories des epics `T-01` et `T-02`, plus `E9.3`, `E9.4`, `E9.6`, `E9.8`, `E9.10`, `T06.1` et `T06.3`.
 

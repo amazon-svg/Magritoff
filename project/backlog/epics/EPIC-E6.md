@@ -42,13 +42,11 @@ _Non documenté dans la source Notion._
 
 - [FEAT-E6-UNCLASSIFIED](../features/FEAT-E6-UNCLASSIFIED.md) — regroupement technique de migration, à éclater en fonctionnalités produit lors de la revue.
 
-## Stories importées (5)
+## Stories importées (3)
 
 - [E6.1](../stories/E6.1.md)
 - [E6.2](../stories/E6.2.md)
 - [E6.3](../stories/E6.3.md)
-- [E6.4](../stories/E6.4.md)
-- [E_PIM.audit-classification-ERAM](../stories/E_PIM.audit-classification-ERAM.md)
 
 ## Conditions de réussite
 

@@ -52,7 +52,7 @@ Les chiffres de 197 lignes et 146 « Pas commencé » provenaient de `docs/gover
 |---|---:|---|
 | Epics | 17 | `EPIC-E10` conservée, non recréée |
 | Fonctionnalités | 18 regroupements `UNCLASSIFIED` | les 6 `FEAT-E10-*` existantes conservées |
-| Stories | 205 | — |
+| Stories | 205 à la migration, **201 au 04/10/2026** après retrait de quatre entrées qui ne sont pas des stories (section 14) | — |
 | **Total de fichiers ajoutés** | **240** | |
 
 Aucun fichier de `_bmad-output/` n'a été déplacé, modifié ou supprimé. Aucun fichier de code, ni `CLAUDE.md`, ni `docs/spec/STORY_DOCUMENT_STANDARD.md` n'a été touché.
@@ -298,6 +298,19 @@ Relevées sans être réécrites : la propagation revient à l'agent de gestion 
 
 **Aucune ligne de la base backlog n'a été silencieusement ignorée** : 205 lignes ont un fichier Git, la 206ᵉ est motivée ci-dessus.
 
+### Retraits décidés après la migration, le 4 octobre 2026
+
+Quatre entrées importées ont été retirées du backlog sur arbitrage d'Arnaud Mazon, parce qu'elles ne décrivent aucun comportement produit. Ce qu'elles portaient de récupérable est versé ailleurs ; rien n'est perdu, l'export Notion archivé les conserve intégralement.
+
+| Entrée | Nature réelle | Destination |
+|---|---|---|
+| `Q-ARBITRAGES` | relevé de cinq décisions en attente | cinq entrées de `project/decisions/open-questions.md` |
+| `E_PIM.audit-classification-ERAM` | tâche d'audit de données sur un client pilote, à une date | part générique versée en `OQ-PIM-KAKEMONO` ; la prémisse est à revérifier, `ADR-2026-10-01-C5` ne conservant pas les données historiques |
+| `E6.4` | entrée de traçabilité sans développement propre, sa propre source l'écrit | aucune — le besoin réapparaîtra s'il existe |
+| `US-INT-06` | déclarée « projet hors Magrit, AGE Services » par sa propre source | hors périmètre ; à reprendre dans le backlog AGE Services si besoin |
+
+Le backlog compte donc **201 stories** depuis le 4 octobre 2026.
+
 ## 15. Questions nécessitant une décision humaine
 
 | # | Question |
@@ -403,7 +416,7 @@ Une ligne par story importée. `Notion` est le statut d'origine, conservé comme
 | `E10.8` | `EPIC-E10` | `FEAT-E10-PRICING` | Pas commencé | `implemented` | `draft` | 1 | 2 | [`E10.8.md`](../../backlog/stories/E10.8.md) |
 | `E10.9` | `EPIC-E10` | `FEAT-E10-UNCLASSIFIED` | Terminé | `implemented` | `draft` | 1 | 5 | [`E10.9.md`](../../backlog/stories/E10.9.md) |
 | `FIX-GARDE` | `EPIC-E10` | `FEAT-E10-UNCLASSIFIED` | Terminé | `not-started` | `contradictory` | 0 | 0 | [`FIX-GARDE.md`](../../backlog/stories/FIX-GARDE.md) |
-| `Q-ARBITRAGES` | `EPIC-E10` | `FEAT-E10-UNCLASSIFIED` | Pas commencé | `not-started` | `draft` | 0 | 0 | [`Q-ARBITRAGES.md`](../../backlog/stories/Q-ARBITRAGES.md) |
+| `Q-ARBITRAGES` | `EPIC-E10` | `FEAT-E10-UNCLASSIFIED` | Pas commencé | `not-started` | `draft` | 0 | 0 | **retirée du backlog le 04/10/2026** — relevé de décisions en attente, versé en `OQ-RENOUVELLEMENT-PRIX`, `OQ-Q24-RETROFIT-VALIDITE`, `OQ-Q19-ACQUITTER`, `OQ-Q16-PERSONNALISER`, `OQ-OUTILLAGE-RENDU` |
 | `Q14-a` | `EPIC-E10` | `FEAT-E10-UNCLASSIFIED` | Terminé | `implemented` | `draft` | 0 | 0 | [`Q14-a.md`](../../backlog/stories/Q14-a.md) |
 | `Q17-a` | `EPIC-E10` | `FEAT-E10-UNCLASSIFIED` | Terminé | `implemented` | `draft` | 0 | 0 | [`Q17-a.md`](../../backlog/stories/Q17-a.md) |
 | `Q17-c` | `EPIC-E10` | `FEAT-E10-UNCLASSIFIED` | Terminé | `implemented` | `draft` | 0 | 0 | [`Q17-c.md`](../../backlog/stories/Q17-c.md) |
@@ -441,8 +454,8 @@ Une ligne par story importée. `Notion` est le statut d'origine, conservé comme
 | `E6.1` | `EPIC-E6` | `FEAT-E6-UNCLASSIFIED` | Terminé | `verified` | `draft` | 1 | 4 | [`E6.1.md`](../../backlog/stories/E6.1.md) |
 | `E6.2` | `EPIC-E6` | `FEAT-E6-UNCLASSIFIED` | Pas commencé | `not-started` | `draft` | 1 | 0 | [`E6.2.md`](../../backlog/stories/E6.2.md) |
 | `E6.3` | `EPIC-E6` | `FEAT-E6-UNCLASSIFIED` | Pas commencé | `not-started` | `draft` | 1 | 0 | [`E6.3.md`](../../backlog/stories/E6.3.md) |
-| `E6.4` | `EPIC-E6` | `FEAT-E6-UNCLASSIFIED` | Pas commencé | `not-started` | `draft` | 1 | 0 | [`E6.4.md`](../../backlog/stories/E6.4.md) |
-| `E_PIM.audit-classification-ERAM` | `EPIC-E6` | `FEAT-E6-UNCLASSIFIED` | Pas commencé | `not-started` | `draft` | 1 | 0 | [`E_PIM.audit-classification-ERAM.md`](../../backlog/stories/E_PIM.audit-classification-ERAM.md) |
+| `E6.4` | `EPIC-E6` | `FEAT-E6-UNCLASSIFIED` | Pas commencé | `not-started` | `draft` | 1 | 0 | **retirée du backlog le 04/10/2026** — entrée de traçabilité sans développement propre, sa propre source le dit |
+| `E_PIM.audit-classification-ERAM` | `EPIC-E6` | `FEAT-E6-UNCLASSIFIED` | Pas commencé | `not-started` | `draft` | 1 | 0 | **retirée du backlog le 04/10/2026** — tâche d'audit de données sur un client, part générique versée en `OQ-PIM-KAKEMONO` |
 | `E7.1` | `EPIC-E7` | `FEAT-E7-UNCLASSIFIED` | Terminé | `in-progress` | `draft` | 1 | 3 | [`E7.1.md`](../../backlog/stories/E7.1.md) |
 | `E7.2` | `EPIC-E7` | `FEAT-E7-UNCLASSIFIED` | Pas commencé | `not-started` | `draft` | 1 | 0 | [`E7.2.md`](../../backlog/stories/E7.2.md) |
 | `E7.3` | `EPIC-E7` | `FEAT-E7-UNCLASSIFIED` | Pas commencé | `not-started` | `draft` | 1 | 0 | [`E7.3.md`](../../backlog/stories/E7.3.md) |
@@ -461,7 +474,7 @@ Une ligne par story importée. `Notion` est le statut d'origine, conservé comme
 | `E8.2` | `EPIC-E8` | `FEAT-E8-UNCLASSIFIED` | Pas commencé | `not-started` | `draft` | 1 | 0 | [`E8.2.md`](../../backlog/stories/E8.2.md) |
 | `E8.3` | `EPIC-E8` | `FEAT-E8-UNCLASSIFIED` | Pas commencé | `implemented` | `draft` | 1 | 0 | [`E8.3.md`](../../backlog/stories/E8.3.md) |
 | `E8.4` | `EPIC-E8` | `FEAT-E8-UNCLASSIFIED` | Pas commencé | `not-started` | `draft` | 1 | 0 | [`E8.4.md`](../../backlog/stories/E8.4.md) |
-| `US-INT-06` | `EPIC-E8` | `FEAT-E8-UNCLASSIFIED` | Pas commencé | `not-started` | `draft` | 1 | 0 | [`US-INT-06.md`](../../backlog/stories/US-INT-06.md) |
+| `US-INT-06` | `EPIC-E8` | `FEAT-E8-UNCLASSIFIED` | Pas commencé | `not-started` | `draft` | 1 | 0 | **retirée du backlog le 04/10/2026** — déclarée hors périmètre Magrit par sa propre source |
 | `E9.1` | `EPIC-E9` | `FEAT-E9-UNCLASSIFIED` | Terminé | `in-progress` | `draft` | 1 | 4 | [`E9.1.md`](../../backlog/stories/E9.1.md) |
 | `E9.10` | `EPIC-E9` | `FEAT-E9-UNCLASSIFIED` | Terminé | `in-progress` | `draft` | 1 | 4 | [`E9.10.md`](../../backlog/stories/E9.10.md) |
 | `E9.11` | `EPIC-E9` | `FEAT-E9-UNCLASSIFIED` | Terminé | `implemented` | `draft` | 1 | 0 | [`E9.11.md`](../../backlog/stories/E9.11.md) |

@@ -13,8 +13,6 @@ stories:
   - E6.1
   - E6.2
   - E6.3
-  - E6.4
-  - E_PIM.audit-classification-ERAM
 decisions: []
 ---
 
@@ -36,13 +34,11 @@ _Sans objet : regroupement de migration._
 
 Ce fichier a vocation à disparaître. La revue produit doit répartir ses stories dans de véritables fonctionnalités, puis le supprimer.
 
-## Stories (5)
+## Stories (3)
 
 - [E6.1](../stories/E6.1.md)
 - [E6.2](../stories/E6.2.md)
 - [E6.3](../stories/E6.3.md)
-- [E6.4](../stories/E6.4.md)
-- [E_PIM.audit-classification-ERAM](../stories/E_PIM.audit-classification-ERAM.md)
 
 ## Questions ouvertes
 

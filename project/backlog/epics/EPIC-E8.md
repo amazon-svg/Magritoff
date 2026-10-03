@@ -42,13 +42,12 @@ _Non documenté dans la source Notion._
 
 - [FEAT-E8-UNCLASSIFIED](../features/FEAT-E8-UNCLASSIFIED.md) — regroupement technique de migration, à éclater en fonctionnalités produit lors de la revue.
 
-## Stories importées (5)
+## Stories importées (4)
 
 - [E8.1](../stories/E8.1.md)
 - [E8.2](../stories/E8.2.md)
 - [E8.3](../stories/E8.3.md)
 - [E8.4](../stories/E8.4.md)
-- [US-INT-06](../stories/US-INT-06.md)
 
 ## Conditions de réussite
 
