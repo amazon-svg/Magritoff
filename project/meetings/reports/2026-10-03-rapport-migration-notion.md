@@ -13,6 +13,8 @@ Destinataire principal : Xavier Péchoultres (Expert Solutions), pour relecture 
 
 Ce rapport rend compte de la migration unique décidée à l'atelier du 1er octobre 2026 (`MEET-2026-10-01-ATELIER`, décisions A1 à A4). Tout le contenu importé est au statut `draft` ou `contradictory` : **aucun élément n'a été approuvé**, l'approbation restant humaine.
 
+> **Révision du 3 octobre 2026, après la passe de qualité.** La méthode d'établissement du statut de livraison comportait un défaut, corrigé depuis : une mention d'identifiant dans le code était comptée comme preuve d'implémentation, y compris lorsque cette mention disait l'inverse. Douze statuts ont été corrigés. La section 5 décrit la méthode révisée, la section 9.2 les cas concernés. Les chiffres de la section 4 sont ceux d'après correction.
+
 ## 1. Source et export
 
 | Élément | Valeur |
@@ -105,13 +107,31 @@ Le statut Notion n'a **jamais** été recopié. Pour chacun des 205 identifiants
 
 Règles appliquées :
 
+### Défaut de la première méthode, et correction
+
+La première passe comptait **toute** occurrence d'un identifiant dans le code comme une preuve d'implémentation. C'était faux dans les deux sens.
+
+- **Faux positifs.** Un identifiant de story n'apparaît presque jamais dans le code exécuté : il vit dans les commentaires. Et un commentaire peut dire exactement l'inverse. `E10.8` portait `implemented` sur la foi de douze mentions, dont dix écrivent « E10.8 gelée, aucun calcul de prix ici ». `E8.3` portait `implemented` sur deux commentaires citant « PRD E8.3 » en étiquette d'un onglet de visuels.
+- **Faux négatifs.** Plusieurs stories réellement livrées étaient sous-évaluées, leurs preuves vivant dans des cahiers de tests exécutés OK plutôt que dans le code, ou dans un story document dont le nom emploie une autre graphie de l'identifiant.
+
+Les preuves sont désormais **hiérarchisées**, et une occurrence est classée selon qu'elle se trouve sur une ligne de commentaire ou non.
+
+| Niveau | Preuves | Portée |
+|---|---|---|
+| Livraison | fichier de test référençant l'identifiant · story document BMAD portant un signal d'implémentation · cahier de tests Notion exécuté au statut OK | établit `implemented`, et `verified` si tests **et** cahier OK sans KO |
+| Travail engagé | occurrence sur une ligne de code hors commentaire · commit git | établit `in-progress` |
+| Sans valeur probante | mention en commentaire · mention dans le contrat OpenAPI | ne compte pas — décrire une route n'est pas la livrer |
+| Contre-preuve | commentaire qui nie l'implémentation (« gelée », « non livrée », « n'existe pas », « différée ») | relevée et citée dans la story |
+
 | Statut | Condition retenue |
 |---|---|
-| `verified` | code **et** fichiers de test **et** au moins un cahier de tests au statut OK, aucun KO ni Bloqué |
-| `implemented` | code identifié, ou endpoint décrit dans le contrat OpenAPI, sans vérification suffisante |
-| `in-progress` | signal d'implémentation dans un story document BMAD ou commits, sans code rattachable |
-| `not-started` | aucune des preuves ci-dessus après balayage documenté |
+| `verified` | fichiers de test **et** au moins un cahier de tests au statut OK, aucun KO ni Bloqué |
+| `implemented` | au moins une preuve de livraison |
+| `in-progress` | pas de preuve de livraison, mais une preuve de travail engagé |
+| `not-started` | aucune preuve des deux premiers niveaux après balayage documenté |
 | `released` | preuve explicite de déploiement rattachée à la story — **jamais rencontrée** |
+
+Sur les 205 identifiants, le balayage requalifié trouve **13 traces de code hors commentaire**, 33 mentions en commentaire seules, 2 mentions qui nient l'implémentation, et 157 sans aucune occurrence.
 
 ## 6. Normalisations appliquées
 
@@ -160,19 +180,21 @@ Ces stories passent en `specStatus: contradictory`. La décision A3 fait du code
 | `E7.4` | Terminé | `not-started` | 1 story document BMAD sans signal d'implémentation |
 | `FIX-GARDE` | Terminé | `not-started` | aucune preuve trouvée après balayage du dépôt |
 
-### 9.2 — Stories « Pas commencé » dans Notion qui portent déjà une implémentation (7)
+### 9.2 — Stories « Pas commencé » dans Notion dont le périmètre est couvert par des sous-lots livrés
 
-Conformément au mandat, l'état établi par le code l'emporte et la contradiction est signalée. L'audit du 4 septembre n'en annonçait que trois familles (E10.15, E10.19, E10.20) : il en manquait quatre.
+**Cette section a été réécrite après correction.** La première version annonçait sept stories « qui portent déjà une implémentation ». C'était inexact : aucune des sept n'avait de trace de code hors commentaire. Ce qui est vrai, et qui reste une contradiction réelle avec le statut Notion, est que **le périmètre de certaines de ces stories est couvert par des sous-lots effectivement livrés**, portant un identifiant dérivé (`E10.15a` à `E10.15d-2`, `E10.17a` et `b`, `E10.19a` et `b`, `E10.20a` et `b`, `E10.10b-1` à `b-4c`). Le découpage en sous-lots est propre au dépôt et n'a jamais été répercuté dans Notion.
 
-| Story | Statut Notion | Statut Git établi | Preuves |
+| Story | Statut Notion | Statut Git après correction | Fondement |
 |---|---|---|---|
-| `E10.10` | Pas commencé | `in-progress` | 7 story documents BMAD avec signal d'implémentation |
-| `E10.15` | Pas commencé | `implemented` | 1 fichier de code · décrit dans openapi/magrit-core.v1.yaml · 2 commits git · 5 story documents BMAD avec signal d'implémentation |
-| `E10.17` | Pas commencé | `implemented` | 4 fichiers de code · décrit dans openapi/magrit-core.v1.yaml · 1 commit git · 2 story documents BMAD avec signal d'implémentation |
-| `E10.19` | Pas commencé | `implemented` | 3 fichiers de code · 1 fichier de test · décrit dans openapi/magrit-core.v1.yaml · 2 story documents BMAD avec signal d'implémentation |
-| `E10.20` | Pas commencé | `implemented` | 6 fichiers de code · 2 fichiers de test · décrit dans openapi/magrit-core.v1.yaml · 2 story documents BMAD avec signal d'implémentation |
-| `E10.8` | Pas commencé | `implemented` | 6 fichiers de code · décrit dans openapi/magrit-core.v1.yaml · 1 story document BMAD sans signal d'implémentation |
-| `E8.3` | Pas commencé | `implemented` | 1 fichier de code · 1 story document BMAD sans signal d'implémentation |
+| `E10.10` | Pas commencé | `implemented` | 7 story documents BMAD avec signal d'implémentation (sous-lots `b-1` à `b-4c`) |
+| `E10.15` | Pas commencé | `implemented` | 5 story documents avec signal (`a` à `d-2`) ; le contrat API écrit que l'évaluation des notifications n'est pas livrée |
+| `E10.17` | Pas commencé | `implemented` | 2 story documents avec signal (`a`, `b`) |
+| `E10.19` | Pas commencé | `implemented` | 2 story documents avec signal (`a`, `b`) + 1 fichier de test |
+| `E10.20` | Pas commencé | `implemented` | 2 story documents avec signal (`a`, `b`) + 2 fichiers de test |
+| `E10.8` | Pas commencé | **`not-started`** | faux positif corrigé : 12 mentions en commentaire, dont 10 qui nient l'implémentation. La story est gelée, le statut Notion avait raison |
+| `E8.3` | Pas commencé | **`in-progress`** | faux positif corrigé : les deux occurrences sont des commentaires citant « PRD E8.3 » en étiquette d'un onglet de visuels |
+
+Chaque story parente concernée porte désormais une section « Composition de la story et reste à faire » : le tableau de ses sous-lots livrés, puis ce qu'elle porte encore seule.
 
 ### 9.3 — Deux taxonomies d'epics portent la même numérotation
 
@@ -301,6 +323,7 @@ Relevées sans être réécrites : la propagation revient à l'agent de gestion 
 | Aucun contenu `approved` | ✅ 246 `draft`, 4 `contradictory`, 0 `approved` |
 | Aucun secret ajouté | ✅ aucune occurrence de jeton, clé ou certificat dans les fichiers ajoutés |
 | Exhaustivité | ✅ 205 lignes Notion → 205 fichiers ; 1 ligne non importée, motivée |
+| Correction des statuts (03/10) | ✅ 12 statuts corrigés, `pnpm project:validate` repassé |
 
 `quality/specs` ne contient toujours aucune spécification métier : la migration n'y a rien écrit, le rapprochement entre `project/backlog` et `quality/specs` restant à arbitrer après pilote.
 
