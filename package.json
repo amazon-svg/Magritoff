@@ -44,6 +44,8 @@
     "test": "vitest run --maxWorkers=2",
     "specs:validate": "node ./scripts/validate-functional-specs.mjs",
     "project:validate": "node ./scripts/project/validate-project-docs.mjs",
+    "project:dashboard": "node ./scripts/project/generate-project-dashboard.mjs",
+    "test:dashboard": "vitest run tests/project/project-dashboard.test.ts --maxWorkers=2",
     "test:project": "vitest run tests/project --maxWorkers=2",
     "quality:audit": "node ./scripts/run-quality-audit.mjs",
     "quality:audit:diff": "pnpm quality:audit --mode diff",
