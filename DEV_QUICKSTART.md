@@ -77,6 +77,13 @@ pnpm test:contract
 pnpm build
 ```
 
+`pnpm test:postgres:integration` crée une base temporaire sur PostgreSQL local,
+applique les migrations, exécute les intégrations puis supprime uniquement cette
+base. Les données de développement ne sont pas utilisées. Une cible distante
+est refusée ; une interruption forcée du processus peut laisser une base
+`magrit_test_*` à nettoyer. Les tests Vitest lancés sans cette commande gardent
+leurs intégrations PostgreSQL désactivées par défaut.
+
 L'ancienne stack locale Supabase et la fonction Edge `magrit-api` ne sont plus
 nécessaires au développement courant. Les anciennes migrations Supabase sont
 conservées comme archive de reprise tant que la migration des environnements

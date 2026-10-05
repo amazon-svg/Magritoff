@@ -36,6 +36,12 @@ jobs:
       - name: Typecheck modular core
         run: pnpm typecheck
 
+      - name: Build application
+        run: pnpm build
+
+      - name: Run complete Vitest suite
+        run: pnpm test
+
       - name: Check architecture boundaries
         run: pnpm test:architecture
 

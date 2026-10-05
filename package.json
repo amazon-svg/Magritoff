@@ -57,7 +57,7 @@
     "test:hopstudio:live": "HOPSTUDIO_LIVE_TEST=1 vitest run tests/integration/hopstudio-live.test.ts --maxWorkers=1 --disableConsoleIntercept",
     "test:architecture": "vitest run tests/architecture",
     "test:contract": "vitest run tests/contract",
-    "test:postgres:integration": "MAGRIT_POSTGRES_INTEGRATION=1 vitest run tests/integration/postgres-*.test.ts --maxWorkers=1",
+    "test:postgres:integration": "node scripts/db/test-postgres-isolated.mjs",
     "test:coverage": "vitest run --coverage",
     "test:e2e:quality": "playwright test tests/e2e/a11y-dynamic.spec.ts tests/e2e/atelier-no-cart-button.spec.ts",
     "test:e2e:staging": "playwright test",
