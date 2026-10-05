@@ -12,3 +12,10 @@ Les personnes occupant les rôles d'approbation doivent encore être confirmées
 | Propagation d'une décision | Gestionnaire du projet | Approbateur de l'artefact cible | Auteur de la décision |
 
 Un agent peut préparer, extraire et vérifier. Il ne s'attribue ni l'approbation produit ni l'approbation technique.
+
+
+## Précision de Xavier le 5 octobre 2026
+
+Xavier demande que son périmètre inclue la validation de points produit non structurants, en complément du rôle technique proposé. La répartition ne doit donc pas lui réserver exclusivement les décisions techniques.
+
+Cette demande est enregistrée ; les frontières entre points non structurants et changements structurants restent à formaliser avec la répartition des responsabilités. Il ne faut pas déduire de cette précision une approbation générale des règles de droits, de tarification ou de périmètre produit, ni l’accord d’Arnaud sur sa nomination. Les points déjà arbitrés en réunion doivent être retrouvés et propagés avant d’être présentés comme de nouvelles décisions.

@@ -27,7 +27,7 @@ La [note du 4 octobre](2026-10-04-note-a-xavier-pechoultres.md) reste une source
 |---|---|---|
 | 5 min | État de la reprise | Partager ce qui est vérifié localement, ce qui est seulement documenté et ce qui reste à recetter ou publier. |
 | 10 min | Responsables et approbations | Confirmer les approbateurs produit et technique, le relecteur des développements et le circuit de validation dans GitHub. |
-| 15 min | Modèle de droits utilisateurs | Confirmer ou corriger la cible UM et choisir le traitement des anciens accès ; attribuer l’analyse des écarts techniques. |
+| 15 min | Modèle de droits utilisateurs | Formaliser la décision UM déjà prise et examiner le traitement des anciens accès ; attribuer l’analyse des écarts techniques. |
 | 20 min | Fiche des commandes boutique | Valider le besoin, les champs/actions modifiables, le découpage et les critères du prochain lot. |
 | 10 min | PIM et sources des boutiques | Clarifier ce que le référentiel global impose et ce que chaque tenant ou boutique choisit ; attribuer les points restant ouverts. |
 | 10 min | HopeStudio et backlog | Définir le besoin restant et le rapprochement des stories avec l’intégration existante, avant toute nouvelle estimation. |
@@ -35,18 +35,18 @@ La [note du 4 octobre](2026-10-04-note-a-xavier-pechoultres.md) reste une source
 
 ## Responsables et circuit d’approbation
 
-Proposition à confirmer : Arnaud Mazon porte la validation produit ; Xavier Péchoultres porte la validation technique. Désigner également la personne chargée de préparer chaque dossier et un relecteur distinct pour l’implémentation. Les rôles confirmés seront enregistrés dans `project/governance/roles.md`.
+Répartition à formaliser : Arnaud Mazon est proposé pour la validation produit ; Xavier Péchoultres pour la validation technique et, selon sa demande du 5 octobre, les points produit non structurants. Préciser cette frontière sans lui réserver uniquement les décisions techniques. Désigner également la personne chargée de préparer chaque dossier et un relecteur distinct pour l’implémentation. Les rôles confirmés seront enregistrés dans `project/governance/roles.md`.
 
 Confirmer le circuit proposé : PR documentaire dédiée à UM, revue explicite des règles et des écarts, puis propagation de la décision dans les sept stories concernées. Une fusion seule ne vaut pas approbation produit. Si l’accord est donné pendant le WM, consigner son auteur, sa date et son périmètre dans le compte rendu, puis faire confirmer sa restitution dans la PR. Les documents approuvés référencent cette preuve ; une question encore ouverte conserve son statut.
 
 ## Cible UM à discuter
 
-1. Confirmer la séparation des utilisateurs internes Magrit et des clients boutique.
-2. Confirmer les options Boutiques et Commandes pour les membres internes, avec administration réservée aux administrateurs. Préciser que « admin unique » ne signifie pas une seule personne administratrice par tenant.
+1. Retrouver la décision de réunion qui sépare les utilisateurs internes Magrit et les clients boutique. Une trace datée du 14/08/2026, indiquant une validation par Arnaud, est référencée dans la consolidation UM.
+2. Reprendre les options Boutiques et Commandes de la décision historique pour les membres internes, avec administration réservée aux administrateurs. Préciser que « admin unique » ne signifie pas une seule personne administratrice par tenant.
 3. Décider du traitement de `shop_only` et des anciens champs de droits encore éditables : création fermée, maintien éventuel en lecture, migration ou autre règle explicite.
 4. Attribuer l’analyse des garanties à porter dans les services et en base. La règle produit doit précéder le choix du correctif technique.
 
-Sortie attendue : décision UM confirmée ou amendée, questions techniques restantes attribuées, puis finalisation d’E9.1, E9.2, E9.3, E9.9, E9.10, E9.13 et E10.11. Aucun passage automatique à `ready` si leurs critères restent contradictoires.
+Sortie attendue : décision UM historique formalisée et toute évolution nouvelle distinguée, questions techniques restantes attribuées, puis finalisation d’E9.1, E9.2, E9.3, E9.9, E9.10, E9.13 et E10.11. Aucun passage automatique à `ready` si leurs critères restent contradictoires.
 
 ## Périmètre de la fiche commande
 

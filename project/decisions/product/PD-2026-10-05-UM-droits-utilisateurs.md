@@ -23,6 +23,14 @@ affectedArtifacts:
 
 Reprise demandée par Xavier le 5 octobre 2026 : formaliser le modèle actuel et actualiser les sept stories identifiées dans la note du 4 octobre. Ce document prépare la revue humaine. Il ne constitue pas une nouvelle approbation produit ni une autorisation de supprimer des comptes ou de modifier leurs droits.
 
+## Précision du 5 octobre et source historique retrouvée
+
+Xavier indique que les deux typologies d’utilisateurs ont déjà été décidées en réunion et mises en œuvre. La première démarche est de retrouver et formaliser cette décision, pas de demander à nouveau le choix d’un modèle.
+
+Le document [`UM1 — Règles fonctionnelles de la gestion des utilisateurs`](../../../_bmad-output/planning-artifacts/um1-regles-fonctionnelles-gestion-utilisateurs.md), daté du 14 août 2026, porte `status: validated`, `decision_owner: Arnaud (produit)` et indique explicitement « Validé par Arnaud le 2026-08-14 ». Il distingue **deux populations**, utilisateurs Magrit et clients boutique. Au sein de Magrit, il définit les profils admin/utilisateur et les options Boutiques/Commandes. `shop_only` décrit un état legacy, pas une troisième population cible.
+
+Ce document est une trace de validation dans le dépôt, pas le compte rendu original. Il renvoie à `SPEC-IDENTITY-STORE-01`, dont le fichier n’a pas été retrouvé par la recherche de noms dans le dépôt. Xavier recherche les comptes rendus pour compléter la provenance. Les écarts de la stack portable restent à analyser au regard de la décision historique ; ils ne démontrent pas que la décision produit manque.
+
 ## Modèle décrit par le chantier UM historique
 
 - Les utilisateurs internes Magrit et les clients boutique constituent deux populations distinctes. Les comptes et sessions storefront sont limités à leur boutique ; une session Magrit n'y donne pas automatiquement accès.
@@ -44,9 +52,9 @@ Référence historique : `docs/SHOP_ACCESS_CONTROL.md`. Les mentions de `auth.us
 
 Ces constats ne permettent pas de déclarer silencieusement l'un des modèles comme entièrement livré. Ils motivent le statut `contradictory` d'E9.3 et une vérification des tests et contrats avant toute évolution des droits.
 
-## Proposition à valider
+## Consolidation de la décision historique
 
-Retenir la séparation des populations et les deux options UM comme cible produit. Interdire tout développement qui réintroduirait le choix d'un compte acheteur par `shop_only`. Avant mise en conformité, déterminer quels chemins legacy doivent être fermés et quelles garanties doivent être opposables en base.
+Reprendre la séparation des populations et les deux options UM décrites dans la source historique validée, puis compléter leur provenance dans la décision canonique. Interdire tout développement qui réintroduirait le choix d'un compte acheteur par `shop_only`. Avant mise en conformité, déterminer quels chemins legacy doivent être fermés et quelles garanties doivent être opposables en base.
 
 Les six autres stories gardent leur objectif métier, avec un cadrage UM spécifique. E9.3 conserve son intention d'étanchéité mais son ancien comportement et ses anciens critères sont identifiés comme historiques ; aucun successeur approuvé n'est inventé.
 
@@ -59,7 +67,7 @@ Les six autres stories gardent leur objectif métier, avec un cadrage UM spécif
 
 ## Questions à trancher
 
-- Confirmer la cible UM et identifier ses approbateurs produit et technique.
+- Retrouver le compte rendu de la décision UM, confirmer sa portée et identifier les responsables de sa consolidation et de la vérification technique.
 - Le contrat d'édition des accès interne doit-il conserver des champs legacy en lecture seulement, ou les retirer ?
 - Quelles restrictions doivent être garanties en base, en complément des services ?
 - Le mappage SSO peut-il attribuer des droits administratifs, et avec quel contrôle explicite ?
