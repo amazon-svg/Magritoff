@@ -21,6 +21,10 @@ Préparation du 5 octobre 2026. Date de réunion à fixer ; durée proposée : 7
 
 La [note du 4 octobre](2026-10-04-note-a-xavier-pechoultres.md) reste une source de constats historiques ; son interprétation de l’intégration Studio doit être lue avec l’actualisation du 5 octobre.
 
+## Sources retrouvées après la préparation initiale
+
+Les [comptes rendus ajoutés et leur relecture](2026-10-05-relecture-comptes-rendus-ajoutes.md) apportent trois repères : le RP du 28 août décide la séparation des populations et une fiche commande complète ; le WM du 21 septembre confie à Xavier la supervision des intégrations Git. Le WM doit examiner la conformité et les modalités restantes, sans rouvrir ces principes. La répartition des approbations produit non structurantes reste à préciser.
+
 ## Déroulement et résultats attendus
 
 | Durée | Sujet | Décision ou résultat attendu |
@@ -41,7 +45,7 @@ Confirmer le circuit proposé : PR documentaire dédiée à UM, revue explicite 
 
 ## Cible UM à discuter
 
-1. Retrouver la décision de réunion qui sépare les utilisateurs internes Magrit et les clients boutique. Une trace datée du 14/08/2026, indiquant une validation par Arnaud, est référencée dans la consolidation UM.
+1. Reprendre la séparation des utilisateurs internes Magrit et des clients boutique confirmée par le RP du 28 août, en complément de la trace UM validée du 14 août. Examiner sa conformité et les sources des détails de droits.
 2. Reprendre les options Boutiques et Commandes de la décision historique pour les membres internes, avec administration réservée aux administrateurs. Préciser que « admin unique » ne signifie pas une seule personne administratrice par tenant.
 3. Décider du traitement de `shop_only` et des anciens champs de droits encore éditables : création fermée, maintien éventuel en lecture, migration ou autre règle explicite.
 4. Attribuer l’analyse des garanties à porter dans les services et en base. La règle produit doit précéder le choix du correctif technique.

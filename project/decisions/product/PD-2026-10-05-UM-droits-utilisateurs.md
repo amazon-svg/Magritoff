@@ -29,7 +29,11 @@ Xavier indique que les deux typologies d’utilisateurs ont déjà été décid�
 
 Le document [`UM1 — Règles fonctionnelles de la gestion des utilisateurs`](../../../_bmad-output/planning-artifacts/um1-regles-fonctionnelles-gestion-utilisateurs.md), daté du 14 août 2026, porte `status: validated`, `decision_owner: Arnaud (produit)` et indique explicitement « Validé par Arnaud le 2026-08-14 ». Il distingue **deux populations**, utilisateurs Magrit et clients boutique. Au sein de Magrit, il définit les profils admin/utilisateur et les options Boutiques/Commandes. `shop_only` décrit un état legacy, pas une troisième population cible.
 
-Ce document est une trace de validation dans le dépôt, pas le compte rendu original. Il renvoie à `SPEC-IDENTITY-STORE-01`, dont le fichier n’a pas été retrouvé par la recherche de noms dans le dépôt. Xavier recherche les comptes rendus pour compléter la provenance. Les écarts de la stack portable restent à analyser au regard de la décision historique ; ils ne démontrent pas que la décision produit manque.
+Ce document est une trace de validation dans le dépôt, pas le compte rendu original. Il renvoie à `SPEC-IDENTITY-STORE-01`, dont le fichier n’a pas été retrouvé par la recherche de noms dans le dépôt. Les comptes rendus ajoutés par Xavier complètent cette provenance, comme indiqué ci-dessous. Les écarts de la stack portable restent à analyser au regard de la décision historique ; ils ne démontrent pas que la décision produit manque.
+
+## Compte rendu ajouté et séparation des populations
+
+Le [RP du 28 août 2026](../../meetings/2026/CR_RP280826_Magrit_IA.md), §2 et §3, confirme la séparation entre utilisateurs internes Magrit (commerciaux et administrateurs) et clients finaux des boutiques. Il écarte la fusion de leurs comptes et distingue leurs accès. Le §8 traite l’étanchéité comme un prérequis de sécurité. La séparation des deux populations est donc une décision historique à reprendre ; les détails des options, droits et accès legacy restent à rapprocher de leurs sources propres et du code portable.
 
 ## Modèle décrit par le chantier UM historique
 
@@ -67,7 +71,7 @@ Les six autres stories gardent leur objectif métier, avec un cadrage UM spécif
 
 ## Questions à trancher
 
-- Retrouver le compte rendu de la décision UM, confirmer sa portée et identifier les responsables de sa consolidation et de la vérification technique.
+- Consolider la provenance UM : le RP du 28 août établit la séparation des populations ; compléter les sources de la matrice des options et droits, puis vérifier sa conformité technique.
 - Le contrat d'édition des accès interne doit-il conserver des champs legacy en lecture seulement, ou les retirer ?
 - Quelles restrictions doivent être garanties en base, en complément des services ?
 - Le mappage SSO peut-il attribuer des droits administratifs, et avec quel contrôle explicite ?
