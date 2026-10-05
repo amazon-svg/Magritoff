@@ -9079,6 +9079,7 @@ paths:
       summary: Consulter le détail d une commande boutique dans le backoffice.
       x-legacy-facade: true
       parameters:
+        - $ref: '#/components/parameters/MagritTenant'
         - name: orderId
           in: path
           required: true
@@ -9089,6 +9090,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/LegacyOrderDetail' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
