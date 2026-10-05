@@ -4,6 +4,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { parseProjectFrontmatter } from './project-frontmatter.mjs';
+import { validateMeetingTracking } from './meeting-tracking.mjs';
 
 const root = process.cwd();
 const projectRoot = path.join(root, 'project');
@@ -23,7 +24,6 @@ const DELIVERY_STATUSES = new Set([
   'blocked',
   'cancelled',
 ]);
-const PROPAGATION_STATUSES = new Set(['pending', 'partial', 'complete', 'not-applicable']);
 const DECISION_STATUSES = new Set(['proposed', 'adopted', 'rejected', 'deferred', 'superseded']);
 
 async function listMarkdown(directory) {
@@ -85,6 +85,9 @@ for (const absolute of files.sort()) {
 
   checked += 1;
   artifactCounts.set(type, (artifactCounts.get(type) ?? 0) + 1);
+  // Les comptes rendus sont des sources immuables : leur suivi et leur
+  // intégrité sont vérifiés dans project/meetings/tracking.yaml.
+  if (type === 'meeting') continue;
   const content = await readFile(absolute, 'utf8');
   let data;
   try {
@@ -103,15 +106,6 @@ for (const absolute of files.sort()) {
   if (type === 'prd') {
     requireFields(relative, data, ['id', 'title', 'documentStatus', 'owner', 'source']);
     checkEnum(relative, 'documentStatus', data.documentStatus, DOCUMENT_STATUSES);
-  }
-
-  if (type === 'meeting') {
-    requireFields(relative, data, ['id', 'title', 'date', 'type', 'status', 'propagationStatus']);
-    checkEnum(relative, 'status', data.status, DOCUMENT_STATUSES);
-    checkEnum(relative, 'propagationStatus', data.propagationStatus, PROPAGATION_STATUSES);
-    if (!content.includes('## Matrice de propagation')) {
-      errors.push(`${relative}: section « Matrice de propagation » absente`);
-    }
   }
 
   if (type === 'decision') {
@@ -152,6 +146,9 @@ for (const absolute of files.sort()) {
     checkEnum(relative, 'status', data.status, DOCUMENT_STATUSES);
   }
 }
+
+const meetingTracking = await validateMeetingTracking(root);
+errors.push(...meetingTracking.errors);
 
 const activeAuthorityFiles = [
   'CLAUDE.md',

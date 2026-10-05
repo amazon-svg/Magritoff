@@ -31,16 +31,15 @@ Livraison et mise à jour des statuts
 
 Git conserve l'historique. Il ne faut pas créer de séries de fichiers `v1`, `v2` ou `final` pour un même élément canonique.
 
-## Compte rendu
+## Comptes rendus et reports
 
-Un compte rendu approuvé confirme ce qui a été dit et décidé. `propagationStatus` indique si ses conséquences ont été reportées :
+Les comptes rendus déposés sont immuables. Les reports produits dans le projet peuvent être corrigés pendant leur traitement. Leur avancement est suivi hors du document dans `project/meetings/tracking.yaml` :
 
-- `pending`
-- `partial`
-- `complete`
-- `not-applicable`
+- `draft` : document déposé ;
+- `review` : relecture et propagation à effectuer ;
+- `done` : chaque information utile possède une destination, une preuve de clôture ou une justification de classement sans suite.
 
-Une propagation est complète lorsque chaque décision ou action possède une destination, une preuve de clôture ou une justification de classement sans suite.
+Le hash SHA-256 du registre protège les comptes rendus contre les modifications accidentelles. Les détails du processus figurent dans `project/meetings/README.md`.
 
 ## Génération automatique
 

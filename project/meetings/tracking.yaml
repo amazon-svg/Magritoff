@@ -1,0 +1,52 @@
+version: 1
+documents:
+  - id: MEET-2026-10-01-ATELIER
+    kind: meeting
+    path: project/meetings/2026/2026-10-01-atelier-arbitrage-backlog.md
+    processingStatus: review
+    owner: unassigned
+    contentHash: sha256:8a3bda4e678099de0e603fb999b0d897b690752a2ac8cb540d9b4da12389eff6
+    reviewedAt: null
+    openItems: []
+  - id: REPORT-2026-10-02-PRD-EPICS
+    kind: report
+    path: project/meetings/reports/2026-10-02-rapport-migration-prd-epics.md
+    processingStatus: draft
+    owner: unassigned
+    reviewedAt: null
+    openItems: []
+  - id: REPORT-2026-10-02-GOVERNANCE
+    kind: report
+    path: project/meetings/reports/2026-10-02-rapport-mise-en-place-gouvernance.md
+    processingStatus: draft
+    owner: unassigned
+    reviewedAt: null
+    openItems: []
+  - id: REPORT-2026-10-03-MIGRATION-NOTION
+    kind: report
+    path: project/meetings/reports/2026-10-03-rapport-migration-notion.md
+    processingStatus: draft
+    owner: unassigned
+    reviewedAt: null
+    openItems: []
+  - id: REPORT-2026-10-03-PASSE-QUALITE
+    kind: report
+    path: project/meetings/reports/2026-10-03-rapport-passe-qualite-backlog.md
+    processingStatus: draft
+    owner: unassigned
+    reviewedAt: null
+    openItems: []
+  - id: REPORT-2026-10-04-NOTE-XAVIER
+    kind: report
+    path: project/meetings/reports/2026-10-04-note-a-xavier-pechoultres.md
+    processingStatus: draft
+    owner: unassigned
+    reviewedAt: null
+    openItems: []
+  - id: REPORT-2026-10-04-SYNTHESE
+    kind: report
+    path: project/meetings/reports/2026-10-04-synthese-relecture.md
+    processingStatus: draft
+    owner: unassigned
+    reviewedAt: null
+    openItems: []

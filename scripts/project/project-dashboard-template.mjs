@@ -51,7 +51,7 @@ export function renderProjectDashboard(model) {
     .tab { border: 1px solid var(--line); background: var(--panel); color: var(--muted); border-radius: 999px; padding: 9px 14px; cursor: pointer; }
     .tab[aria-selected="true"] { background: var(--accent); color: #05202b; border-color: transparent; font-weight: 800; }
     .view[hidden] { display: none; }
-    .metrics { display: grid; grid-template-columns: repeat(6, minmax(130px, 1fr)); gap: 12px; margin-bottom: 18px; }
+    .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 12px; margin-bottom: 18px; }
     .metric { padding: 17px; border: 1px solid var(--line); border-radius: var(--radius); background: linear-gradient(145deg, #132139, #0e192a); }
     .metric strong { display: block; font-size: 1.75rem; margin-bottom: 4px; }
     .metric span { color: var(--muted); font-size: .82rem; }
@@ -99,6 +99,14 @@ export function renderProjectDashboard(model) {
     .decision-card p { color: var(--muted); font-size: .82rem; line-height: 1.45; margin: 0; }
     .decision-card footer { display: flex; justify-content: space-between; gap: 8px; margin-top: 10px; color: var(--muted); font-size: .72rem; }
     .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--warn); margin-right: 6px; }
+    .document-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 11px; }
+    .document-card { border: 1px solid var(--line); background: var(--panel-2); border-radius: 10px; padding: 13px; }
+    .document-card h3 { margin: 7px 0 10px; font-size: .92rem; line-height: 1.35; }
+    .document-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+    .document-footer { display: flex; justify-content: space-between; gap: 9px; color: var(--muted); font-size: .74rem; }
+    .status-draft { color: var(--muted); }
+    .status-review { color: var(--warn); }
+    .status-done { color: var(--good); }
     .muted { color: var(--muted); }
     @media (max-width: 1050px) { .metrics { grid-template-columns: repeat(3, 1fr); } .grid-2, .decision-layout { grid-template-columns: 1fr; } .filters { grid-template-columns: 1fr 1fr; } }
     @media (max-width: 640px) { .shell { padding: 17px; } .header { align-items: start; flex-direction: column; } .metrics { grid-template-columns: repeat(2, 1fr); } .filters { grid-template-columns: 1fr; } }
@@ -110,7 +118,7 @@ export function renderProjectDashboard(model) {
       <div>
         <div class="eyebrow">Source canonique · Git</div>
         <h1>Pilotage du projet Magrit</h1>
-        <p class="subtitle">Vue générée depuis les epics, fonctionnalités, stories, décisions et questions ouvertes du dépôt. Toute modification se fait dans les fichiers Markdown, jamais dans ce tableau.</p>
+        <p class="subtitle">Vue générée depuis les epics, fonctionnalités, stories, décisions, questions ouvertes et suivi des réunions du dépôt. Toute modification se fait dans les sources, jamais dans ce tableau.</p>
       </div>
       <div class="source-pill" id="source-pill"></div>
     </header>
@@ -120,12 +128,14 @@ export function renderProjectDashboard(model) {
       <button class="tab" data-view="kanban" aria-selected="false">Kanban</button>
       <button class="tab" data-view="hierarchy" aria-selected="false">Epics → stories</button>
       <button class="tab" data-view="decisions" aria-selected="false">Décisions</button>
+      <button class="tab" data-view="meetings" aria-selected="false">Réunions & reports</button>
     </nav>
 
     <section class="view" id="view-overview"></section>
     <section class="view" id="view-kanban" hidden></section>
     <section class="view" id="view-hierarchy" hidden></section>
     <section class="view" id="view-decisions" hidden></section>
+    <section class="view" id="view-meetings" hidden></section>
   </main>
 
   <script id="dashboard-data" type="application/json">${safeJson({ ...model, deliveryOrder: DELIVERY_ORDER })}</script>
@@ -149,7 +159,8 @@ export function renderProjectDashboard(model) {
       'not-started': 'À démarrer', ready: 'Prête', 'in-progress': 'En cours', implemented: 'Implémentée',
       verified: 'Vérifiée', released: 'Livrée', blocked: 'Bloquée', cancelled: 'Annulée',
       draft: 'Brouillon', review: 'En revue', approved: 'Approuvée', contradictory: 'Contradictoire',
-      superseded: 'Remplacée', deprecated: 'Dépréciée', adopted: 'Adoptée', proposed: 'Proposée', deferred: 'Différée'
+      superseded: 'Remplacée', deprecated: 'Dépréciée', adopted: 'Adoptée', proposed: 'Proposée', deferred: 'Différée',
+      done: 'Traité', meeting: 'Compte rendu', report: 'Report'
     }[value] || value || 'Non renseigné');
 
     document.getElementById('source-pill').textContent = data.metrics.epics + ' epics · ' + data.metrics.features + ' fonctionnalités · ' + data.metrics.stories + ' stories';
@@ -184,7 +195,8 @@ export function renderProjectDashboard(model) {
       metrics.append(
         metric(data.metrics.epics, 'Epics'), metric(data.metrics.features, 'Fonctionnalités'),
         metric(data.metrics.stories, 'Stories'), metric(data.metrics.openQuestions, 'Questions ouvertes'),
-        metric(data.metrics.contradictory, 'Spécifications contradictoires'), metric(data.metrics.blocked, 'Stories bloquées')
+        metric(data.metrics.contradictory, 'Spécifications contradictoires'), metric(data.metrics.blocked, 'Stories bloquées'),
+        metric(data.metrics.documentsToProcess, 'Documents à traiter')
       );
       const grid = el('div', 'grid-2');
       const charts = el('div', 'panel');
@@ -315,12 +327,39 @@ export function renderProjectDashboard(model) {
       layout.append(questions, decisions); root.append(layout);
     }
 
+    function renderMeetings() {
+      const root = document.getElementById('view-meetings');
+      const metrics = el('div', 'metrics');
+      for (const status of ['draft', 'review', 'done']) {
+        metrics.append(metric(data.metrics.meetingStatuses[status] || 0, label(status)));
+      }
+      const panel = el('section', 'panel');
+      panel.append(el('h2', '', 'Suivi des comptes rendus et reports'));
+      const grid = el('div', 'document-grid');
+      for (const item of data.meetingDocuments) {
+        const card = el('article', 'document-card');
+        const identifier = el('div', 'card-id', item.id);
+        const title = link('', item, item.title);
+        const heading = el('h3'); heading.append(title);
+        const meta = el('div', 'document-meta');
+        meta.append(
+          el('span', 'tag', label(item.kind)),
+          el('span', 'tag status-' + item.processingStatus, label(item.processingStatus)),
+          el('span', 'tag', (item.openItemCount || 0) + ' point(s) ouvert(s)')
+        );
+        const footer = el('div', 'document-footer');
+        footer.append(el('span', '', item.owner === 'unassigned' ? 'Responsable à nommer' : item.owner), el('span', '', item.date || 'Date non renseignée'));
+        card.append(identifier, heading, meta, footer); grid.append(card);
+      }
+      panel.append(grid); root.append(metrics, panel);
+    }
+
     document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => {
       document.querySelectorAll('.tab').forEach(candidate => candidate.setAttribute('aria-selected', String(candidate === tab)));
       document.querySelectorAll('.view').forEach(view => { view.hidden = view.id !== 'view-' + tab.dataset.view; });
     }));
 
-    renderOverview(); renderKanban(); renderHierarchy(); renderDecisions();
+    renderOverview(); renderKanban(); renderHierarchy(); renderDecisions(); renderMeetings();
   </script>
 </body>
 </html>\n`;
