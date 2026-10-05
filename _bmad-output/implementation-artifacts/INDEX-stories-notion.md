@@ -1,5 +1,11 @@
 # Index — stories Notion ↔ story documents
 
+> ⛔ **Registre de migration figé.** Cet index reliait les stories Notion aux story documents BMAD.
+> La migration a eu lieu le 3 octobre 2026 : la correspondance qui fait foi est l'annexe B de
+> `project/meetings/reports/2026-10-03-rapport-migration-notion.md`, et le backlog canonique est
+> `project/backlog/stories/`. Ce fichier n'est plus régénéré.
+
+
 > Généré le 17/09/2026 par `scripts/notion/sync_story_functional.py` (règle : `docs/spec/STORY_DOCUMENT_STANDARD.md`). Source : base Notion « 📋 Backlog Magrit — Sprint Board ». Ne pas modifier à la main.
 
 | ID Notion | Story | Epic | Sprint | Statut Notion | Story documents |

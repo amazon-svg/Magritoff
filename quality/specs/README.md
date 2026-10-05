@@ -5,8 +5,9 @@ contrôles qualité automatisés de Magrit. Il constitue la source versionnée q
 l'agent de conformité lit pour relier une exigence au code, aux tests et aux
 preuves d'exécution.
 
-Les documents d'origine peuvent continuer à être rédigés dans Notion. Après
-transfert, leur version Git fait foi pour un audit donné : elle est figée avec
+La story ou fonctionnalité d'origine est rédigée dans `project/backlog/`.
+Lorsqu'une représentation structurée est nécessaire pour l'audit, elle est
+ajoutée ici et référence cet artefact canonique. Sa version Git est figée avec
 le commit audité et reste donc reproductible.
 
 ## Contenu du répertoire
@@ -113,7 +114,7 @@ Les `testIds` ne sont que des indications de localisation. Toute nouvelle
 valeur doit également être déclarée dans
 `src/shared/presentation/testIds.ts`, conformément aux règles du projet.
 
-## Traçabilité Notion
+## Traçabilité d'un import Notion historique
 
 Pour une importation Notion, conserver obligatoirement :
 
@@ -126,11 +127,11 @@ source:
   lastSyncedAt: "2026-09-10T12:00:00Z"
 ```
 
-`importedAt` est immuable. `lastSyncedAt` indique la dernière synchronisation.
-Une modification manuelle postérieure au transfert doit être faite dans Git et
-faire progresser `revision`. Si une synchronisation bidirectionnelle est mise
-en place ultérieurement, elle devra détecter les conflits au lieu d'écraser la
-version Git silencieusement.
+`importedAt` est immuable. `lastSyncedAt` correspond à la migration unique
+et ne crée pas une synchronisation récurrente. Toute modification postérieure
+est faite dans Git, fait progresser `revision` et référence la story ou la
+décision qui la motive. Notion est une provenance archivée, jamais une autorité : la migration
+est close depuis le 3 octobre 2026 et le backlog canonique est `project/backlog/`.
 
 ## Hiérarchie des sources
 
@@ -155,15 +156,17 @@ dans l'environnement du runner et ne sont jamais stockés ici.
 
 ## Procédure d'import
 
-1. Copier `_template.spec.yaml` dans le dossier du domaine.
-2. Reporter fidèlement le contenu de la source, sans compléter les lacunes par
+1. Vérifier ou créer la story canonique dans `project/backlog/stories/`.
+2. Copier `_template.spec.yaml` dans le dossier du domaine.
+3. Reporter fidèlement le contenu de la source, sans compléter les lacunes par
    supposition.
-3. Conserver l'URL, l'identifiant Notion et les dates dans `source`.
-4. Attribuer un identifiant stable à chaque règle, critère et scénario.
-5. Ajouter les références de tests déjà connues.
-6. Exécuter `pnpm specs:validate` pour valider le schéma, les identifiants et
+4. Pour un import historique, conserver l'URL, l'identifiant Notion et les
+   dates dans `source`.
+5. Attribuer un identifiant stable à chaque règle, critère et scénario.
+6. Ajouter les références de tests déjà connues.
+7. Exécuter `pnpm specs:validate` pour valider le schéma, les identifiants et
    les références internes.
-7. Faire relire puis passer `status` à `approved`.
+8. Faire relire puis passer `status` à `approved`.
 
 Le transfert d'une spécification ne vaut pas validation de son contenu. Son
 statut doit refléter la décision produit réelle.

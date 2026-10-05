@@ -1,5 +1,12 @@
 # Backlog Magrit — Export structuré
 
+> ⛔ **Vue dérivée périmée.** Cet export agrégé du 4 septembre 2026 n'est plus la vue du backlog.
+> Le backlog canonique est `project/backlog/` : 18 epics, 24 fonctionnalités, 201 stories, un
+> fichier par élément, avec statut documentaire et statut de livraison séparés. Ce fichier est
+> conservé comme instantané historique et comme source de provenance citée par la migration ; il
+> n'est plus régénéré et ne doit pas servir de référence pour décider quoi développer.
+
+
 > Export centralisé du backlog Magrit (toutes stories, tous chantiers) à date du **2026-09-04**.
 > Généré à partir des artefacts BMAD du dépôt — pas une nouvelle source de vérité : en cas de divergence, le document source cité dans chaque section prévaut.
 
