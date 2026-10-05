@@ -8,6 +8,63 @@ documents:
     contentHash: sha256:8a3bda4e678099de0e603fb999b0d897b690752a2ac8cb540d9b4da12389eff6
     reviewedAt: null
     openItems: []
+  - id: MEET-CR-RP070826-MAGRIT-IA
+    kind: meeting
+    path: project/meetings/2026/CR_RP070826_Magrit_IA.md
+    processingStatus: review
+    owner: unassigned
+    contentHash: sha256:563fdb9bb7fd956fa5eb8c376ce7208d5a984defd3eabc9ae88abcd33ccf49ff
+    reviewedAt: null
+    openItems:
+      - Rapprocher les décisions architecture et coûts/prix des règles canoniques.
+      - Examiner les points ouverts du parc et du wizard.
+  - id: MEET-CR-RP280826-MAGRIT-IA
+    kind: meeting
+    path: project/meetings/2026/CR_RP280826_Magrit_IA.md
+    processingStatus: review
+    owner: unassigned
+    contentHash: sha256:9df30227191ece17ae36e3608b1dbb04db5f9d5034dc9d953904deae1e02c4ac
+    reviewedAt: null
+    openItems:
+      - Comparer les autres règles commerciales aux décisions ultérieures.
+      - Vérifier la couverture boutique de la fiche commande et préciser les droits d’édition.
+  - id: MEET-CR-WM210926-MAGRIT-IA
+    kind: meeting
+    path: project/meetings/2026/CR_WM210926_Magrit_IA.md
+    processingStatus: review
+    owner: unassigned
+    contentHash: sha256:e00f15900e530cd76eed777d01e924fadb7e7b11f1577ab8f7ab6a1c84290095
+    reviewedAt: null
+    openItems:
+      - Préciser le périmètre de validation produit non structurant demandé par Xavier.
+      - Rapprocher les règles devis/projet, HopeStudio et PIM des spécifications actuelles.
+  - id: MEET-CR-WM290726-MAGRIT-IA
+    kind: meeting
+    path: project/meetings/2026/CR_WM290726_Magrit_IA.md
+    processingStatus: review
+    owner: unassigned
+    contentHash: sha256:ae769da7d1664b8f49c3d53efea053b79c160b8f703319ce888da2109556a879
+    reviewedAt: null
+    openItems:
+      - Rapprocher les règles PIM et bibliothèques des décisions ultérieures et du fonctionnement actuel.
+  - id: MEET-STORIES-EPICS-RP070826-MAGRIT
+    kind: meeting
+    path: project/meetings/2026/Stories_Epics_RP070826_Magrit.md
+    processingStatus: review
+    owner: unassigned
+    contentHash: sha256:465d4b625a0de9e9dc649fb390ba8aef47ab887852324379dd0185df67ec392d
+    reviewedAt: null
+    openItems:
+      - Établir la correspondance des propositions BK avec les stories canoniques.
+  - id: MEET-ZZ-REMPLACE-CR-WM011026-MAGRIT-IA-V1
+    kind: meeting
+    path: project/meetings/2026/ZZ-REMPLACE-CR_WM011026_Magrit_IA-v1.md
+    processingStatus: review
+    owner: unassigned
+    contentHash: sha256:a777f75d0a94a66c71df68884cdc1278bed69a81ea24b0f5026d12aafec05085
+    reviewedAt: null
+    openItems:
+      - Comparer les écarts avec MEET-2026-10-01-ATELIER sans compter deux fois les décisions.
   - id: REPORT-2026-10-02-PRD-EPICS
     kind: report
     path: project/meetings/reports/2026-10-02-rapport-migration-prd-epics.md
@@ -50,3 +107,33 @@ documents:
     owner: unassigned
     reviewedAt: null
     openItems: []
+  - id: REPORT-2026-10-05-PREPARATION-WM
+    kind: report
+    path: project/meetings/reports/2026-10-05-preparation-prochain-wm.md
+    processingStatus: draft
+    owner: unassigned
+    reviewedAt: null
+    openItems:
+      - Fixer la date et confirmer les participants du prochain WM.
+      - Relire l’ordre du jour et les documents de préparation.
+      - Consigner après la réunion les décisions, responsables et échéances.
+  - id: REPORT-2026-10-05-RELECTURE-CR
+    kind: report
+    path: project/meetings/reports/2026-10-05-relecture-comptes-rendus-ajoutes.md
+    processingStatus: draft
+    owner: unassigned
+    reviewedAt: null
+    openItems:
+      - Terminer les rapprochements documentaires signalés pour chaque source.
+      - Formaliser le périmètre de validation produit non structurant et les approbateurs restants.
+  - id: REPORT-2026-10-05-REPRISE-PROJET
+    kind: report
+    path: project/meetings/reports/2026-10-05-synthese-reprise-projet.md
+    processingStatus: draft
+    owner: unassigned
+    reviewedAt: null
+    openItems:
+      - Confirmer le lot E4.4a et son découpage consultation puis édition.
+      - Définir la matrice des champs et actions modifiables par état et droit.
+      - Nommer les responsables d’approbation et de revue.
+      - "Cadrer les suites HopeStudio : formulaire PIM, chat boutique et vérification des marges, selon PD-2026-10-05-HOPESTUDIO."

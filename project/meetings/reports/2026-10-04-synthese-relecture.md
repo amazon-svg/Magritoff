@@ -8,6 +8,8 @@ source: MEET-2026-10-01-ATELIER
 
 # Synthèse pour relecture
 
+> Actualisation du 5 octobre : [la synthèse de reprise du 5 octobre](2026-10-05-synthese-reprise-projet.md) corrige l’interprétation de US-CONV-02 et distingue l’intégration HopeStudio existante des sujets d’API pour tiers. Les questions ci-dessous ne doivent plus être prises comme prérequis automatiques de cette intégration.
+
 **Pour Xavier Péchoultres.** Porte d'entrée unique de la demande de fusion `migration/notion-backlog-init`. Trois documents la détaillent ; celui-ci dit lequel ouvrir selon ce que tu cherches.
 
 ## Ce qui s'est passé, en trois temps

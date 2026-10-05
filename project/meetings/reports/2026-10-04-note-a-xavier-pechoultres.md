@@ -8,6 +8,8 @@ source: REPORT-2026-10-03-PASSE-QUALITE
 
 # Note à Xavier Péchoultres — trois sujets techniques à trancher
 
+> Actualisation du 5 octobre : [la synthèse de reprise du 5 octobre](2026-10-05-synthese-reprise-projet.md) corrige l’interprétation de US-CONV-02 et distingue l’intégration HopeStudio existante des sujets d’API pour tiers. Les questions ci-dessous ne doivent plus être prises comme prérequis automatiques de cette intégration.
+
 La passe de qualité du backlog, menée dans la nuit du 3 au 4 octobre 2026 après la migration depuis Notion, a relevé trois sujets qui sortent du périmètre produit et relèvent de l'architecture. Arnaud Mazon a arbitré le reste ; ces trois-là te reviennent.
 
 Le détail complet des constats est dans `2026-10-03-rapport-passe-qualite-backlog.md`. Cette note isole ce qui demande ta décision.

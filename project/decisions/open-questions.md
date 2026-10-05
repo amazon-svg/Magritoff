@@ -4,9 +4,10 @@
 |---|---|---|---|---|---|
 | OQ-B2 | Les champs d'un produit administré sont-ils verrouillés, ou une modification libre doit-elle déclencher un recalcul Clariprint ? | MEET-2026-10-01-ATELIER | à nommer | à fixer | ouverte |
 | OQ-B3-PARC | Comment un sous-espace est-il rattaché à un parc machines et quels droits le groupe exerce-t-il sur ses filiales ? Bloque 15 stories des epics T-01, T-02, E9 et T-06. | MEET-2026-10-01-ATELIER | à nommer | à fixer | ouverte |
-| OQ-GOV-ROLES | Qui porte les rôles d'approbateur produit et d'approbateur technique ? | MEET-2026-10-01-ATELIER | Arnaud Mazon / Xavier Péchoultres | à fixer | ouverte |
+| OQ-GOV-ROLES | Compléter les approbateurs produit et technique hors HopeStudio, dont le périmètre est porté par Xavier ; préciser la validation des points produit non structurants de Magrit. | MEET-2026-10-01-ATELIER | Arnaud Mazon / Xavier Péchoultres | à fixer | ouverte |
+| OQ-UM-PORTABLE | Formaliser la décision UM historique : trace validée du 14/08 et séparation des populations confirmée par le RP du 28/08. Compléter les sources des options/droits et vérifier les chemins legacy ainsi que les garanties en base portable. | PD-2026-10-05-UM | à nommer | avant approbation des stories de droits | ouverte |
 | OQ-ARCH-C3 | Quels workers sont conservés, fusionnés ou supprimés après inventaire ? | MEET-2026-10-01-ATELIER | Xavier Péchoultres | à fixer | ouverte |
-| OQ-PROD-B6-B7 | Quels arbitrages complémentaires sont requis pour Studio et le panier ? | MEET-2026-10-01-ATELIER | à nommer | à fixer | ouverte |
+| OQ-PROD-B6-B7 | Quels arbitrages complémentaires sont requis pour Studio et le panier ? Distinguer le périmètre HopeStudio porté par Xavier des règles du panier Magrit. | MEET-2026-10-01-ATELIER | Xavier Péchoultres pour HopeStudio ; responsable panier à nommer | à fixer | ouverte |
 | OQ-RENOUVELLEMENT-PRIX | « Commander à nouveau » rejoue-t-il le prix payé, ou propose-t-il le prix du jour ? Le prix du jour est **déjà en service** avec un avertissement au panier, sans avoir été arbitré. | Session boutique 19-20/09/2026, relevé `Q-ARBITRAGES` | Arnaud Mazon | à fixer | ouverte |
 | OQ-Q24-RETROFIT-VALIDITE | Les espaces existants passent-ils à 30 jours de validité de devis ? Et un devis sans date de fin est-il un cas légitime ? En base, rien ne distingue « jamais décidé » de « décidé sans terme ». **À vérifier d'abord** : `ADR-2026-10-01-C5` ne conserve pas les données historiques, la question peut être sans objet. | Session boutique 19-20/09/2026, relevé `Q-ARBITRAGES` | Arnaud Mazon | à fixer | ouverte |
 | OQ-Q19-ACQUITTER | Acquitter un prix non vérifié doit-il être réservé à une population plus étroite que valider une commande ? **Livré fermé par défaut** : qui peut valider peut acquitter. Un mot suffit à fermer le sujet, aucun code à changer. | Session boutique 19-20/09/2026, relevé `Q-ARBITRAGES` | Arnaud Mazon | à fixer | ouverte |
@@ -14,3 +15,23 @@
 | OQ-OUTILLAGE-RENDU | Le dépôt doit-il se doter d'une bibliothèque permettant d'observer ce qu'un écran affiche ? Il n'en a aucune : les vérifications lisent le texte du code source, et un commentaire les trompe. Quatre défauts de ce type sur le seul chantier boutique, dont un vivant dans la branche principale. | Session boutique 19-20/09/2026, relevé `Q-ARBITRAGES` | Xavier Péchoultres | à fixer | ouverte |
 | OQ-PIM-KAKEMONO | La gamme kakémono manque-t-elle réellement au référentiel produit, et le rattachement produit vers gamme est-il fiable au-delà du client pilote ? Part générique extraite de l'audit `E_PIM.audit-classification-ERAM`, retiré du backlog le 04/10/2026. | Constat ERAM du 11/05/2026 | à nommer | à fixer | ouverte |
 | OQ-MONETISATION-PALIERS | Le changement de palier d'offre est aujourd'hui ouvert à tout administrateur d'un espace, sans paiement : `magrit.update_tenant_settings` protège l'identifiant d'URL mais pas le champ `plan`. À fermer lors de l'implantation du modèle de monétisation. Tant que c'est ouvert, aucun plafond par offre n'est opposable (`E7.5`, `E7.WM1`, `E9.8`). | Passe de qualité du 03/10/2026 | Arnaud Mazon | implantation du modèle de monétisation | ouverte |
+
+## Suites HopeStudio après validation du parcours Magrit
+
+| ID | Question | Source | Responsable | Échéance | État |
+|---|---|---|---|---|---|
+| OQ-HS-PIM-FORM | Quelles données PIM et HopeStudio alimentent le formulaire produit, avec quelles priorités et quel comportement de mise à jour ? Rapprocher E1.2/Q20/B1 avant une nouvelle story. | PD-2026-10-05-HOPESTUDIO | Xavier Péchoultres | avant cadrage du lot formulaire | ouverte |
+| OQ-HS-SHOP-CHAT | Quel parcours de chat activer en boutique, pour quels utilisateurs et quelle destination des résultats : panier, devis ou autre ? Rapprocher E4.1/E4.2. | PD-2026-10-05-HOPESTUDIO | Xavier Péchoultres pour HopeStudio ; consulter le responsable boutique | avant cadrage du lot boutique | ouverte |
+| OQ-HS-MARGINS | Les coûts de production HopeStudio reçoivent-ils les marges attendues jusqu’au devis et, ensuite, en boutique ? HopeStudio ne fournit pas la gamme. L’ajout manuel est vérifié pour les marges globales/client ; définir le rattachement PIM éventuel et le callback de prix affiché décrit dans E1.WM1. | PD-2026-10-05-HOPESTUDIO | Xavier Péchoultres pour le diagnostic ; règles commerciales avec leur responsable | avant validation du parcours de prix concerné | ouverte |
+
+## Terminologie du référentiel produit
+
+| ID | Question | Source | Responsable | Échéance | État |
+|---|---|---|---|---|---|
+| OQ-PIM-TERMINOLOGIE | Remplacer le terme « gamme » utilisé pour le classement des produits par « catégorie de produits », ou un autre terme à retenir ? Xavier signale que « gamme » évoque d’abord la gamme de fabrication dans le métier print. | Précision de Xavier dans le chat du 05/10/2026 | Xavier Péchoultres pour la proposition ; arbitrage du vocabulaire produit au WM | prochain WM | ouverte |
+
+Proposition à discuter : **catégorie de produits** pour le classement du référentiel PIM (exemples : flyers, cartes, affiches) ; **gamme de fabrication** pour les opérations et moyens de réalisation d’un produit. « Famille de produits » est une alternative à examiner si le référentiel comporte plusieurs niveaux. Il ne faut pas inventer une hiérarchie familles/catégories sans examiner l’existant.
+
+Portée d’un éventuel changement : libellés des écrans, aide, spécifications, référentiel JSON et vocabulaire des règles de marge. Le nom historique `product_gammes`, `productRangeId` et les routes associées doit être inventorié séparément : un changement de vocabulaire affiché n’impose pas automatiquement une migration technique. Prévoir une correspondance explicite pour éviter de confondre catégorie de produits et gamme de fabrication dans les documents et contrats.
+
+Le terme « catégorie de produits » reste une proposition, pas un renommage décidé. Les comptes rendus historiques sont conservés tels quels.

@@ -18,8 +18,13 @@ pnpm dev:local
 - Vite sur `127.0.0.1:5176`.
 
 La commande applique les migrations PostgreSQL, le seed de développement et
-la configuration des neuf buckets S3. `Ctrl-C` arrête l'API et Vite ; les
+le référentiel de gammes `infra/pim/gammes.json`, ainsi que la configuration des neuf buckets S3. `Ctrl-C` arrête l'API et Vite ; les
 conteneurs et leurs volumes restent disponibles pour le prochain démarrage.
+
+Après modification du JSON des gammes, `pnpm db:seed:pim` applique les ajouts et
+mises à jour par slug, sans supprimer les gammes supplémentaires. Cet import
+global ne crée pas de produits tarifés dans les bibliothèques et n'active pas
+automatiquement les gammes d'un tenant.
 
 ## Vérifications et maintenance
 
@@ -71,6 +76,13 @@ pnpm test:architecture
 pnpm test:contract
 pnpm build
 ```
+
+`pnpm test:postgres:integration` crée une base temporaire sur PostgreSQL local,
+applique les migrations, exécute les intégrations puis supprime uniquement cette
+base. Les données de développement ne sont pas utilisées. Une cible distante
+est refusée ; une interruption forcée du processus peut laisser une base
+`magrit_test_*` à nettoyer. Les tests Vitest lancés sans cette commande gardent
+leurs intégrations PostgreSQL désactivées par défaut.
 
 L'ancienne stack locale Supabase et la fonction Edge `magrit-api` ne sont plus
 nécessaires au développement courant. Les anciennes migrations Supabase sont

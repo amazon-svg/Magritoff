@@ -43,13 +43,14 @@ _Sans objet : regroupement de migration._
 
 Ce fichier a vocation à disparaître. La revue produit doit répartir ses stories dans de véritables fonctionnalités, puis le supprimer.
 
-## Stories (12)
+## Stories (13)
 
 - [E2.fix-TF55](../stories/E2.fix-TF55.md)
 - [E4.1](../stories/E4.1.md)
 - [E4.2](../stories/E4.2.md)
 - [E4.3](../stories/E4.3.md)
 - [E4.4](../stories/E4.4.md)
+- [E4.4a](../stories/E4.4a.md) — fiche de consultation et modification, demande du 5 octobre 2026
 - [E4.WM1](../stories/E4.WM1.md)
 - [E4.WM2](../stories/E4.WM2.md)
 - [E4.fix-TF54](../stories/E4.fix-TF54.md)

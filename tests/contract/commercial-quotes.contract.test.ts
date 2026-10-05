@@ -535,6 +535,37 @@ describe('module Devis commerciaux (E10.9) contre le contrat — lignes et audit
     expect(line.warnings).toEqual([]);
   });
 
+  it.each(['global', 'customer'] as const)(
+    'applique la marge %s lors de l ajout manuel puis conserve le cout et le prix de vente a la relecture',
+    async (scope) => {
+      const { customer, quote } = await createDraftQuote();
+      const rule = await priceRulesRepository.create(TENANT, USER, {
+        name: 'Majoration de 25 pour cent',
+        scope,
+        ...(scope === 'customer' ? { customer_id: customer.id } : {}),
+        value_type: 'margin_rate',
+        value: '0.2500',
+        starts_on: '2026-01-01',
+        is_active: true,
+      });
+      const response = await addFreeLine(quote.id, { production_price: '100.00', quantity: 1 });
+      await expectContract(response, { status: 201, dataSchema: 'QuoteLine' });
+      const { data: line } = (await response.json()) as { data: QuoteLineDto };
+      expect(line.production_price).toBe('100.00');
+      expect(line.public_price).toBe('125.00');
+      expect(line.customer_price).toBe('125.00');
+      expect(line.sale_price).toBe('125.00');
+      expect(line.applied_margin_rate).toBe('0.2500');
+      expect(line.applied_rule_id).toBe(rule.id);
+      const reread = await call(`/api/v1/quotes/${quote.id}/lines/${line.id}`, { headers: asUser });
+      await expectContract(reread, { status: 200, dataSchema: 'QuoteLine' });
+      const stored = ((await reread.json()) as { data: QuoteLineDto }).data;
+      expect(stored.production_price).toBe('100.00');
+      expect(stored.sale_price).toBe('125.00');
+      expect(stored.applied_rule_id).toBe(rule.id);
+    },
+  );
+
   it('description HTML — modifiable seule sur un brouillon et HTML actif refuse', async () => {
     const { quote } = await createDraftQuote();
     const added = await addFreeLine(quote.id);
