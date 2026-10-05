@@ -26,6 +26,8 @@ export interface OrderUI {
   id: string;
   /** Numéro métier quand le workflow en attribue un (`CDE-AAAA-NNNNN`). */
   number?: string | null;
+  /** Client CRM associé, lorsqu'il existe dans le référentiel du tenant. */
+  customer_id?: string | null;
   source: OrderSource;
   date: string; // ISO
   customer_name: string;

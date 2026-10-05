@@ -30,6 +30,9 @@ describe('surface du dashboard commandes', () => {
     expect(orderHistoryTable).toContain('<colgroup>');
     expect(orderHistoryTable).toContain('N°');
     expect(orderHistoryTable).toContain('o.number ??');
+    expect(orderHistoryTable).toContain('onClick={() => onOpenOrder(o)}');
+    expect(orderHistoryTable).toContain('onClick={() => onOpenCustomer(o)}');
+    expect(dashboardOrders).toContain('/dashboard/customers/${order.customer_id}');
     expect(orderHistoryTable).toContain("<col style={{ width: '390px' }} />");
     expect(orderHistoryTable).toContain('justify-start gap-1.5 whitespace-nowrap');
     expect(orderHistoryTable).toContain('text-[10.5px] tracking-[0.08em]');

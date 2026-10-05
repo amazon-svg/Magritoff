@@ -161,6 +161,8 @@ export interface OrderHistoryTableProps {
   onMarkShippedOrder?: ((order: OrderUI) => void | Promise<void>) | undefined;
   /** Ouvre la fiche de consultation backoffice. */
   onOpenOrder?: ((order: OrderUI) => void) | undefined;
+  /** Ouvre la fiche du client CRM associé à la commande. */
+  onOpenCustomer?: ((order: OrderUI) => void) | undefined;
 }
 
 interface TableState {
@@ -435,6 +437,7 @@ export function OrderHistoryTable({
   onStartProductionOrder,
   onMarkShippedOrder,
   onOpenOrder,
+  onOpenCustomer,
 }: OrderHistoryTableProps) {
   const isDashboardAppearance = appearance === 'dashboard';
   // S3.3 : une commande est renouvelable si v1.1 + status workflow/terminal
@@ -1099,7 +1102,18 @@ export function OrderHistoryTable({
                   >
                     {isDashboardAppearance && (
                       <td className="py-3 pr-4 text-ink font-mono whitespace-nowrap font-medium">
-                        {o.number ?? `#${o.id.replace(/-/g, '').slice(0, 8).toUpperCase()}`}
+                        {onOpenOrder && o.source !== 'legacy' ? (
+                          <button
+                            type="button"
+                            onClick={() => onOpenOrder(o)}
+                            className="font-mono font-medium text-ink hover:text-brand hover:underline"
+                            aria-label={`Ouvrir la commande ${o.number ?? o.id}`}
+                          >
+                            {o.number ?? `#${o.id.replace(/-/g, '').slice(0, 8).toUpperCase()}`}
+                          </button>
+                        ) : (
+                          o.number ?? `#${o.id.replace(/-/g, '').slice(0, 8).toUpperCase()}`
+                        )}
                       </td>
                     )}
                     <td
@@ -1111,7 +1125,20 @@ export function OrderHistoryTable({
                     {extraColumn?.position === 'after-date' && (
                       <td className="py-3 pr-4 text-ink-muted truncate">{extraColumn.render(o)}</td>
                     )}
-                    <td className="py-3 pr-4 text-ink truncate">{o.customer_name || '—'}</td>
+                    <td className="py-3 pr-4 text-ink truncate">
+                      {onOpenCustomer && o.customer_id ? (
+                        <button
+                          type="button"
+                          onClick={() => onOpenCustomer(o)}
+                          className="max-w-full truncate text-left text-ink hover:text-brand hover:underline"
+                          aria-label={`Ouvrir la fiche client ${o.customer_name || o.customer_id}`}
+                        >
+                          {o.customer_name || '—'}
+                        </button>
+                      ) : (
+                        o.customer_name || '—'
+                      )}
+                    </td>
                     <td className="py-3 pr-4 text-ink-muted whitespace-nowrap">
                       {isAtelierAppearance(appearance) ? (
                         <button

@@ -14,7 +14,7 @@ Date : 2026-10-05
 - calcul du TTC selon le régime fiscal du tenant, à partir du montant HT enregistré ;
 - écran en lecture seule avec gestion explicite des données absentes, totaux HT/TTC, historique et transitions existantes selon les droits déjà exposés ;
 - convergence physique dans `tenant_orders` / `tenant_order_items`, sans mutation ni recalcul des lignes ou des prix engagés ;
-- restauration du numéro `CDE-AAAA-NNNNN` dans la grille pour les commandes issues de devis ; les commandes boutique sans numéro métier conservent une référence technique courte ;
+- restauration du numéro `CDE-AAAA-NNNNN` dans la grille pour les commandes issues de devis ; les commandes boutique sans numéro métier conservent une référence technique courte ; la référence ouvre la commande et le nom du client ouvre sa fiche CRM lorsqu'elle existe ;
 - retrait des boutons de transition directe de la grille conformément à l'arbitrage du RP du 28 août 2026 : la grille dense affiche l'état et ouvre la fiche, les changements restent dans une interaction dédiée.
 
 ## Modules et API

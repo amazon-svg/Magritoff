@@ -138,6 +138,9 @@ export function DashboardOrders() {
         auditApi={auditApi}
         appearance="dashboard"
         onOpenOrder={(order) => navigate(tenantPath(`/dashboard/orders/${order.id}`))}
+        onOpenCustomer={(order) => {
+          if (order.customer_id) navigate(tenantPath(`/dashboard/customers/${order.customer_id}`));
+        }}
         persistKey={currentTenant ? `orderHistory:dashboard:${currentTenant.id}` : undefined}
         extraColumn={{
           header: 'Origine',
@@ -180,6 +183,7 @@ function commercialOrderToDashboard(order: CommercialOrderDto, customer?: Custom
   return {
     id: order.id,
     number: order.number,
+    customer_id: order.customer_id,
     source: 'commercial',
     date: order.created_at,
     customer_name: customer ? customerName(customer) : 'Client',
