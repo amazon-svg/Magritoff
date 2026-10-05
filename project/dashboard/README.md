@@ -12,6 +12,15 @@ pnpm project:dashboard
 Ouvrir ensuite `project/dashboard/index.html` dans un navigateur. Le fichier est
 autonome : aucune API, aucun serveur et aucun jeton GitHub ne sont nécessaires.
 
+Depuis GitHub, utiliser le lien suivant pour obtenir directement le rendu HTML :
+
+[Ouvrir le tableau de bord](https://html-preview.github.io/?url=https://github.com/amazon-svg/Magritoff/blob/main/project/dashboard/index.html)
+
+Ce lien utilise le proxy CORS tiers `html-preview.github.io`. Le dashboard ne
+contient que les informations versionnées dans le dépôt et ne stocke aucune
+donnée saisie, aucun cookie et aucun jeton. Ne pas employer ce mécanisme pour
+prévisualiser une page contenant des données sensibles.
+
 ## Données affichées
 
 - synthèse et métriques du backlog ;
@@ -30,7 +39,8 @@ fichier à chaque pull request ou push qui modifie ses sources. Le HTML est join
 si le fichier versionné ne correspond plus aux sources : il suffit alors de
 relancer `pnpm project:dashboard` et de committer le résultat.
 
-La publication GitHub Pages est optionnelle et n'utilise aucun jeton personnel.
+La publication GitHub Pages reste optionnelle si une URL hébergée directement
+par le dépôt est préférée. Elle n'utilise aucun jeton personnel.
 Pour l'activer :
 
 1. choisir **GitHub Actions** comme source dans `Settings → Pages` ;
