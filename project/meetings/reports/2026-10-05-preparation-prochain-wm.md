@@ -70,6 +70,8 @@ Sortie attendue : périmètre produit utilisable pour l’analyse d’impact et 
 
 ## Politique PIM et bibliothèques
 
+Ajouter la clarification de vocabulaire demandée par Xavier : « gamme » évoque dans le métier la **gamme de fabrication**, alors que le PIM l’utilise aussi pour classer les produits. Examiner « catégorie de produits » pour ce classement, avec « famille de produits » comme alternative éventuelle. Le sujet est suivi sous OQ-PIM-TERMINOLOGIE. Arrêter le terme et le périmètre des libellés/documents à adapter avant tout renommage ; les identifiants techniques et leur compatibilité font l’objet d’un inventaire distinct.
+
 Le JSON conserve 81 gammes globales et le seed les synchronise. Il ne constitue pas une bibliothèque de produits tarifés. La sélection faite dans Atelier Lumière est locale et n’a pas décidé d’une hiérarchie obligatoire pour toutes les boutiques.
 
 Décider ou attribuer explicitement : statut du référentiel global (référence commune ou structure obligatoire), possibilités d’extension par tenant, activation des gammes, sélection des sources catalogue par boutique et comportement attendu après mise à jour du JSON. Distinguer mise à jour du référentiel et publication de produits dans une boutique.

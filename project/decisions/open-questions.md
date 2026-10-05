@@ -23,3 +23,15 @@
 | OQ-HS-PIM-FORM | Quelles données PIM et HopeStudio alimentent le formulaire produit, avec quelles priorités et quel comportement de mise à jour ? Rapprocher E1.2/Q20/B1 avant une nouvelle story. | PD-2026-10-05-HOPESTUDIO | Xavier Péchoultres | avant cadrage du lot formulaire | ouverte |
 | OQ-HS-SHOP-CHAT | Quel parcours de chat activer en boutique, pour quels utilisateurs et quelle destination des résultats : panier, devis ou autre ? Rapprocher E4.1/E4.2. | PD-2026-10-05-HOPESTUDIO | Xavier Péchoultres pour HopeStudio ; consulter le responsable boutique | avant cadrage du lot boutique | ouverte |
 | OQ-HS-MARGINS | Les coûts de production HopeStudio reçoivent-ils les marges attendues jusqu’au devis et, ensuite, en boutique ? HopeStudio ne fournit pas la gamme. L’ajout manuel est vérifié pour les marges globales/client ; définir le rattachement PIM éventuel et le callback de prix affiché décrit dans E1.WM1. | PD-2026-10-05-HOPESTUDIO | Xavier Péchoultres pour le diagnostic ; règles commerciales avec leur responsable | avant validation du parcours de prix concerné | ouverte |
+
+## Terminologie du référentiel produit
+
+| ID | Question | Source | Responsable | Échéance | État |
+|---|---|---|---|---|---|
+| OQ-PIM-TERMINOLOGIE | Remplacer le terme « gamme » utilisé pour le classement des produits par « catégorie de produits », ou un autre terme à retenir ? Xavier signale que « gamme » évoque d’abord la gamme de fabrication dans le métier print. | Précision de Xavier dans le chat du 05/10/2026 | Xavier Péchoultres pour la proposition ; arbitrage du vocabulaire produit au WM | prochain WM | ouverte |
+
+Proposition à discuter : **catégorie de produits** pour le classement du référentiel PIM (exemples : flyers, cartes, affiches) ; **gamme de fabrication** pour les opérations et moyens de réalisation d’un produit. « Famille de produits » est une alternative à examiner si le référentiel comporte plusieurs niveaux. Il ne faut pas inventer une hiérarchie familles/catégories sans examiner l’existant.
+
+Portée d’un éventuel changement : libellés des écrans, aide, spécifications, référentiel JSON et vocabulaire des règles de marge. Le nom historique `product_gammes`, `productRangeId` et les routes associées doit être inventorié séparément : un changement de vocabulaire affiché n’impose pas automatiquement une migration technique. Prévoir une correspondance explicite pour éviter de confondre catégorie de produits et gamme de fabrication dans les documents et contrats.
+
+Le terme « catégorie de produits » reste une proposition, pas un renommage décidé. Les comptes rendus historiques sont conservés tels quels.
