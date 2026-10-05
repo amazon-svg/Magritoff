@@ -9,7 +9,7 @@
  * afficher le slug par ligne.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '@/modules/account/ui/runtime';
 import { useTenant } from '@/modules/tenants/ui/runtime';
@@ -20,6 +20,9 @@ import { CancelOrderConfirmDialog } from '@/modules/orders/ui/storefront/CancelO
 import { ValidateOrderConfirmDialog } from '@/modules/orders/ui/storefront/ValidateOrderConfirmDialog';
 import { useUserCapability } from '@/modules/roles/ui/hooks';
 import { useTenantPath } from '@/modules/tenants/ui/hooks';
+import { CommercialOrdersApiClient, type CommercialOrderDto } from '@/modules/commercial-orders';
+import { CustomersApiClient, type CustomerDetailDto } from '@/modules/customers';
+import { useWorkspaceApi } from '@/platform/runtime/workspace-ui-runtime';
 import {
   type DashboardOrderUI,
   useDashboardOrderManagement,
@@ -30,6 +33,8 @@ export function DashboardOrders() {
   const tenantPath = useTenantPath();
   const { user } = useAuth();
   const { currentTenant } = useTenant();
+  const commercialOrdersApi = useWorkspaceApi(CommercialOrdersApiClient);
+  const customersApi = useWorkspaceApi(CustomersApiClient);
   const { shops } = useShops();
   const shopIds = useMemo(() => shops.map((shop) => shop.id), [shops]);
   const {
@@ -46,6 +51,58 @@ export function DashboardOrders() {
     tenantId: currentTenant?.id ?? null,
     shopIds,
   });
+
+  const [quoteOrders, setQuoteOrders] = useState<DashboardOrderUI[]>([]);
+  const [quoteOrdersLoading, setQuoteOrdersLoading] = useState(true);
+  const [quoteOrdersError, setQuoteOrdersError] = useState<string | null>(null);
+
+  // Modele de lecture commun : les commandes issues d un devis rejoignent
+  // la meme grille que celles issues d une boutique. Les deux API restent
+  // des adaptateurs temporaires tant que la migration physique des tables
+  // historiques n est pas terminee.
+  useEffect(() => {
+    let active = true;
+    if (!user || !currentTenant) {
+      setQuoteOrders([]);
+      setQuoteOrdersLoading(false);
+      setQuoteOrdersError(null);
+      return () => { active = false; };
+    }
+
+    setQuoteOrdersLoading(true);
+    setQuoteOrdersError(null);
+    void loadAllCommercialOrders(commercialOrdersApi).then(async (commercialOrders) => {
+      const customerIds = [...new Set(commercialOrders.map((order) => order.customer_id))];
+      const customers = await Promise.all(
+        customerIds.map(async (customerId) => {
+          try {
+            return [customerId, await customersApi.getDetail(customerId)] as const;
+          } catch {
+            return null;
+          }
+        }),
+      );
+      if (!active) return;
+      const customersById = new Map<string, CustomerDetailDto>();
+      for (const entry of customers) {
+        if (entry) customersById.set(entry[0], entry[1]);
+      }
+      setQuoteOrders(commercialOrders.map((order) => commercialOrderToDashboard(order, customersById.get(order.customer_id))));
+    }).catch((cause: unknown) => {
+      if (!active) return;
+      setQuoteOrders([]);
+      setQuoteOrdersError(cause instanceof Error ? cause.message : 'Chargement des commandes issues de devis impossible.');
+    }).finally(() => {
+      if (active) setQuoteOrdersLoading(false);
+    });
+
+    return () => { active = false; };
+  }, [commercialOrdersApi, currentTenant, customersApi, user]);
+
+  const unifiedOrders = useMemo(
+    () => [...orders, ...quoteOrders].sort((left, right) => Date.parse(right.date) - Date.parse(left.date)),
+    [orders, quoteOrders],
+  );
 
   // Fix 2026-05-25 : Map shop_id -> { name, slug } pour afficher le NOM
   // humain dans la colonne Boutique (et plus le slug technique qui ressemble
@@ -127,14 +184,14 @@ export function DashboardOrders() {
           Commandes
         </h1>
         <p className="mt-2 mb-0 text-ink-muted" style={{ fontSize: '13.5px' }}>
-          {orders.length} commande{orders.length > 1 ? 's' : ''} enregistrée{orders.length > 1 ? 's' : ''} sur l’ensemble de vos boutiques.
+          {unifiedOrders.length} commande{unifiedOrders.length > 1 ? 's' : ''} enregistrée{unifiedOrders.length > 1 ? 's' : ''}, toutes origines confondues.
         </p>
       </div>
 
       <OrderHistoryTable
-        orders={orders}
-        loading={loading}
-        error={error}
+        orders={unifiedOrders}
+        loading={loading || quoteOrdersLoading}
+        error={[error, quoteOrdersError].filter(Boolean).join(' · ') || null}
         auditApi={auditApi}
         appearance="dashboard"
         onOpenOrder={(order) => navigate(tenantPath(`/dashboard/orders/${order.id}`))}
@@ -150,20 +207,24 @@ export function DashboardOrders() {
         onStartProductionOrder={canModifyProduction || isTenantAdmin ? handleStartProduction : undefined}
         onMarkShippedOrder={canModifyProduction || isTenantAdmin ? handleMarkShipped : undefined}
         extraColumn={{
-          header: 'Boutique',
+          header: 'Origine',
           position: 'after-date',
           render: (o) => (
             <span className="text-xs">
-              {shopDisplayLabel((o as DashboardOrderUI).shop_id)}
+              {(o as DashboardOrderUI).source === 'commercial'
+                ? 'Devis'
+                : shopDisplayLabel((o as DashboardOrderUI).shop_id)}
             </span>
           ),
           // Fix 2026-05-25 : retrait du sortValue (lesson : sur colonne
           // catégorielle, l'usage primaire est le filtre, pas le tri).
         }}
         extraFilter={{
-          label: 'Boutique',
+          label: 'Origine',
           getOptionKey: (o) => (o as DashboardOrderUI).shop_id,
-          getOptionLabel: (o) => shopDisplayLabel((o as DashboardOrderUI).shop_id),
+          getOptionLabel: (o) => (o as DashboardOrderUI).source === 'commercial'
+            ? 'Devis'
+            : shopDisplayLabel((o as DashboardOrderUI).shop_id),
         }}
       />
 
@@ -183,4 +244,36 @@ export function DashboardOrders() {
       />
     </div>
   );
+}
+
+async function loadAllCommercialOrders(api: CommercialOrdersApiClient): Promise<readonly CommercialOrderDto[]> {
+  const orders: CommercialOrderDto[] = [];
+  let pageCursor: string | undefined;
+  do {
+    const page = await api.list({ pageSize: 100, ...(pageCursor ? { pageCursor } : {}) });
+    orders.push(...page.items);
+    pageCursor = page.nextCursor ?? undefined;
+  } while (pageCursor);
+  return orders;
+}
+
+function commercialOrderToDashboard(order: CommercialOrderDto, customer?: CustomerDetailDto): DashboardOrderUI {
+  return {
+    id: order.id,
+    source: 'commercial',
+    date: order.created_at,
+    customer_name: customer ? customerName(customer) : 'Client',
+    customer_email: '',
+    items: [],
+    total_ht: Number(order.totals.net_total),
+    total_ttc: Number(order.totals.total_incl_tax),
+    status: order.status,
+    hasUnverifiedPrices: false,
+    shop_id: '__quote__',
+  };
+}
+
+function customerName(customer: CustomerDetailDto): string {
+  if (customer.type === 'company') return customer.company_name ?? 'Client';
+  return [customer.first_name, customer.last_name].filter(Boolean).join(' ') || 'Client';
 }

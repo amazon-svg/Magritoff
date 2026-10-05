@@ -1176,7 +1176,7 @@ export function OrderHistoryTable({
                     {showActionsColumn && (
                       <td className="py-3 text-left">
                         <div className="flex items-center justify-start gap-1.5 whitespace-nowrap">
-                          {onOpenOrder && o.source === 'v1_1' && (
+                          {onOpenOrder && o.source !== 'legacy' && (
                             <button
                               type="button"
                               onClick={() => onOpenOrder(o)}

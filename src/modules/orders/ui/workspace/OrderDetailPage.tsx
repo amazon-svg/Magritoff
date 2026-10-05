@@ -17,15 +17,15 @@ import { TEST_IDS } from '@/shared/presentation/testIds';
 const dateFormatter = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', timeStyle: 'short' });
 const actionClass = 'inline-flex items-center gap-1.5 rounded border border-line bg-paper px-3 py-2 text-sm text-ink hover:border-brand disabled:cursor-not-allowed disabled:opacity-50';
 
-export function DashboardShopOrderDetail() {
+export function DashboardShopOrderDetail({ initialOrder = null }: { initialOrder?: OrderDetail | null }) {
   const { orderId } = useParams<{ orderId: string }>();
   const tenantPath = useTenantPath();
   const ordersApi = useWorkspaceApi(OrdersApiClient);
   const { currentTenant } = useTenant();
   const { hasIt: canValidate } = useUserCapability('can_validate');
   const { hasIt: canModify } = useUserCapability('can_modify');
-  const [order, setOrder] = useState<OrderDetail | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [order, setOrder] = useState<OrderDetail | null>(initialOrder);
+  const [loading, setLoading] = useState(initialOrder === null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -50,7 +50,10 @@ export function DashboardShopOrderDetail() {
     }
   }, [orderId, ordersApi]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    if (initialOrder?.orderId === orderId) return;
+    void load();
+  }, [initialOrder, load, orderId]);
 
   const transition = async (
     toStatus: 'cancelled' | 'validated' | 'in_production' | 'shipped',
@@ -116,7 +119,7 @@ export function DashboardShopOrderDetail() {
 
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-xs font-mono uppercase tracking-wider text-ink-muted">Commande boutique</p>
+          <p className="text-xs font-mono uppercase tracking-wider text-ink-muted">Commande</p>
           <h1 className="mt-1 text-2xl font-semibold text-ink">#{shortId}</h1>
           <p className="mt-1 text-sm text-ink-muted">Référence complète : {order.orderId}</p>
         </div>

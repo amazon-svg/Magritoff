@@ -119,9 +119,9 @@ function parsePurgeScheduledPayload(payload: ClaimedOutboxEvent['payload']): Pur
  * NAVIGATEUR (`src/app/surfaces/workspaceRuntimeRoutes.tsx`), inutilisable
  * depuis un consommateur de drain (aucun bundle navigateur, execution Deno).
  * Un test dedie (`tests/modules/order-files/purge-notice-notification-
- * consumer.test.ts`) assere l egalite de la portion `commercial-orders/:orderId`
+ * consumer.test.ts`) assere l egalite de la portion `orders/:orderId`
  * de ce chemin avec le registre de surfaces (`workspaceSurface`, route
- * `commercial-orders.workspace.detail`) : si cette route change sans que ce
+ * `orders.workspace.detail`) : si cette route change sans que ce
  * litteral suive, ce test tombe. LIMITE CONNUE (qa-review round 2) : le
  * prefixe `/t/:tenantSlug/dashboard` n est verifie contre AUCUN registre —
  * contrairement au portail client (`portalRuntimePaths`), le workspace n a
@@ -130,7 +130,7 @@ function parsePurgeScheduledPayload(payload: ClaimedOutboxEvent['payload']): Pur
  * un `workspaceRuntimePaths` fermerait cet ecart — hors perimetre d E10.22a.
  */
 export function buildOrderDetailLink(baseUrl: string, tenantSlug: string, orderId: string): string {
-  return `${baseUrl.replace(/\/+$/, '')}/t/${encodeURIComponent(tenantSlug)}/dashboard/commercial-orders/${encodeURIComponent(orderId)}`;
+  return `${baseUrl.replace(/\/+$/, '')}/t/${encodeURIComponent(tenantSlug)}/dashboard/orders/${encodeURIComponent(orderId)}`;
 }
 
 export type PurgeNoticeNotificationConsumerDependencies = Readonly<{

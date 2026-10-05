@@ -78,8 +78,9 @@
  * du tiret "sans etape" — jamais confondu avec "aucune commande n a
  * d etape".
  *
- * DECOUVRABLE DEPUIS LA SIDEBAR ("Commandes atelier", `surface-
- * contributions.ts`) depuis E10.18e-1.
+ * Cette implementation historique reste disponible au module pour ses
+ * filtres et exports. La surface workspace redirige desormais vers la liste
+ * Commandes commune (PD-2026-10-05-COMMANDES-UNIQUE).
  *
  * AUCUN CONTROLE METIER ICI : les filtres ne sont qu une mise en forme de
  * requete (`buildOrdersListQuery`) — la validation du format, l ordre des
@@ -234,7 +235,7 @@ export function DashboardCommercialOrders() {
           className="text-ink m-0"
           style={{ fontWeight: 300, fontSize: '34px', letterSpacing: '-0.025em', lineHeight: 1.05 }}
         >
-          Commandes atelier
+          Commandes issues de devis
         </h1>
         <p className="mt-2 mb-0 text-ink-muted" style={{ fontSize: '13.5px' }}>
           {state.orders.length} commande{state.orders.length > 1 ? 's' : ''} de gestion commerciale.

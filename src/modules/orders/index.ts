@@ -38,6 +38,7 @@ export {
   type CreateOrderResult,
   type DraftOrderItem,
   type DraftOrder,
+  type OrderDetail,
   type UpdateDraftOrderCommand,
   type UpdateDraftOrderResult,
   type OrderCapability,

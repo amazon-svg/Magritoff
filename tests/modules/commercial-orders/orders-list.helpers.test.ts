@@ -290,7 +290,7 @@ describe('ORDERS_LIST_COLUMNS — descripteurs UNIQUES pour en-tetes, cellules E
 
   it('le lien de la colonne N° pointe vers la fiche de la commande', () => {
     const order = fixtureOrder({ id: 'order-42' });
-    expect(ORDERS_LIST_COLUMNS[0]!.linkTo!(order)).toBe('commercial-orders/order-42');
+    expect(ORDERS_LIST_COLUMNS[0]!.linkTo!(order)).toBe('orders/order-42');
   });
 });
 

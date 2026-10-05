@@ -2,12 +2,9 @@ import { defineModuleManifest } from '../../surfaces/registry';
 
 export const commercialOrdersModuleManifest = defineModuleManifest({
   id: 'commercial-orders',
-  // "Commandes atelier", PAS "Commandes" (qa-review E10.18a round 1,
-  // arbitrage Arnaud 2026-09-12) : `src/modules/orders/manifest.ts` (module
-  // COMMANDES BOUTIQUE, domaine sans rapport) declare deja `name: 'Commandes'`
-  // — une collision de libelle qui deviendrait visible des que l un des deux
-  // modules gagne une entree de navigation ou un selecteur de module.
-  name: 'Commandes atelier',
+  // Nom technique du workflow devis. Le produit expose un seul domaine
+  // Commandes ; ce manifeste ne contribue plus d entree de navigation.
+  name: 'Commandes issues de devis',
   features: [
     {
       id: 'commercial-orders.workspace-detail',
@@ -22,7 +19,7 @@ export const commercialOrdersModuleManifest = defineModuleManifest({
         'Grille des commandes de gestion commerciale, filtrable par periode de creation ' +
         '(created_from/created_to, fuseau Europe/Paris, E10.18a), par client et par etape de ' +
         'production courante, et triable (date de creation ou etape de production, ' +
-        'E10.18e-1) — decouvrable depuis la sidebar ("Commandes atelier") — avant l export ' +
+        'E10.18e-1) — integree au modele de lecture Commandes commun — avant l export ' +
         'comptable (E10.18e-2+).',
     },
   ],

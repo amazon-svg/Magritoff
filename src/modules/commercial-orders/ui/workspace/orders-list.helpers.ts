@@ -248,7 +248,7 @@ export type OrdersListColumn = Readonly<{
  * permutation de colonnes ne peut plus deplacer le lien par accident (N01).
  */
 export const ORDERS_LIST_COLUMNS: readonly OrdersListColumn[] = [
-  { header: 'N°', cell: (order) => order.number, linkTo: (order) => `commercial-orders/${order.id}` },
+  { header: 'N°', cell: (order) => order.number, linkTo: (order) => `orders/${order.id}` },
   { header: 'Client', cell: (order, ctx) => ctx.customerLabel(order.customer_id) },
   { header: 'Créée le', cell: (order) => formatOrderCreatedAt(order.created_at) },
   {
