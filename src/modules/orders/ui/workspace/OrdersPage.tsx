@@ -56,10 +56,9 @@ export function DashboardOrders() {
   const [quoteOrdersLoading, setQuoteOrdersLoading] = useState(true);
   const [quoteOrdersError, setQuoteOrdersError] = useState<string | null>(null);
 
-  // Modele de lecture commun : les commandes issues d un devis rejoignent
-  // la meme grille que celles issues d une boutique. Les deux API restent
-  // des adaptateurs temporaires tant que la migration physique des tables
-  // historiques n est pas terminee.
+  // Modèle de lecture commun : les deux workflows partagent désormais les
+  // tables orders. Les deux API restent des projections de compatibilité le
+  // temps d'unifier leurs contrats de détail et de transition.
   useEffect(() => {
     let active = true;
     if (!user || !currentTenant) {

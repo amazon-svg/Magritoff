@@ -38,9 +38,9 @@ Xavier Péchoultres confirme que cette séparation visible n'est pas acceptable 
 
 ## Conséquences techniques
 
-Les tables historiques `tenant_orders` et `commercial_orders` et leurs contrats d'écriture ne peuvent pas être fusionnés sans migration : la seconde impose actuellement un client CRM, un devis source et une décomposition tarifaire que la première ne possède pas toujours. Le correctif met donc en place un modèle de lecture back-office commun et conserve temporairement les deux adaptateurs de persistance.
+La migration `0086_orders_unification.sql` conserve `tenant_orders` et `tenant_order_items` comme tables canoniques. Elle y ajoute une origine (`storefront` ou `quote`) et les extensions facultatives propres aux devis, reprend les données sans recalculer les montants, repointe les documents, fichiers, étapes, notifications et exports, puis supprime `commercial_orders` et `commercial_order_lines`.
 
-Cette étape transitoire est une dette de migration explicite. Le vocabulaire du code peut conserver `commercial-orders` pour les opérations issues d'un devis, mais l'interface ne doit plus le présenter comme un second type de commande. Les anciennes adresses `commercial-orders` restent des alias de compatibilité et ne constituent plus les adresses de référence.
+Le vocabulaire et les routes `commercial-orders` peuvent subsister comme projections de compatibilité du workflow devis. Ils n'ont plus de stockage propre et l'interface ne doit pas les présenter comme un second type de commande. La prochaine étape d'E4.4b consiste à remplacer ces deux projections API par un contrat de lecture commun paginé.
 
 ## Vérifications attendues
 
@@ -52,4 +52,4 @@ Cette étape transitoire est une dette de migration explicite. Le vocabulaire du
 
 ## Suite technique
 
-[E4.4b](../../backlog/stories/E4.4b.md) prépare la convergence physique du stockage et du contrat d'API. Elle traite les commandes boutique sans client CRM lié, les commandes sans devis, la numérotation, les lignes tarifaires de formes différentes, les historiques et les documents, avec une migration de données contrôlée. Ce chantier ne bloque pas la lecture back-office unifiée.
+[E4.4b](../../backlog/stories/E4.4b.md) suit la convergence. Le stockage et la reprise des dépendances sont réalisés ; le contrat API commun, la pagination globale, les filtres et l'export commun restent à livrer.

@@ -35,7 +35,7 @@ export class PostgresCommercialOrdersRepository implements CommercialOrdersRepos
   list(tenantId: TenantId, params: ListCommercialOrdersParams): Promise<ListCommercialOrdersResult> {
     return this.transactions.run({ tenantId }, async (client) => {
       const values: unknown[] = [tenantId];
-      const predicates = ['orders.tenant_id = $1'];
+      const predicates = ["orders.tenant_id = $1", "orders.order_origin = 'quote'"];
 
       addOptionalPredicate(predicates, values, 'orders.customer_id', params.customerId);
       addOptionalPredicate(predicates, values, 'orders.quote_id', params.quoteId);
@@ -106,7 +106,7 @@ export class PostgresCommercialOrdersRepository implements CommercialOrdersRepos
       values.push(params.size + 1);
       const result = await client.query(
         `select orders.*, orders.expected_delivery_date::text as expected_delivery_date
-         from public.commercial_orders orders
+         from public.tenant_orders orders
          ${join}
          where ${predicates.join(' and ')}
          order by ${orderBy}
@@ -121,7 +121,7 @@ export class PostgresCommercialOrdersRepository implements CommercialOrdersRepos
   findById(tenantId: TenantId, orderId: string): Promise<CommercialOrderDto | null> {
     return this.transactions.run({ tenantId }, async (client) => {
       const result = await client.query(
-        'select * from public.commercial_orders where tenant_id = $1 and id = $2',
+        "select * from public.tenant_orders where tenant_id = $1 and id = $2 and order_origin = 'quote'",
         [tenantId, orderId],
       );
       return result.rows[0] ? toCommercialOrder(result.rows[0]) : null;
@@ -132,15 +132,17 @@ export class PostgresCommercialOrdersRepository implements CommercialOrdersRepos
     return this.transactions.run({ tenantId }, async (client) => {
       const orderResult = await client.query(
         `select orders.*, orders.expected_delivery_date::text as expected_delivery_date
-         from public.commercial_orders orders
-         where orders.tenant_id = $1 and orders.id = $2`,
+         from public.tenant_orders orders
+         where orders.tenant_id = $1 and orders.id = $2 and orders.order_origin = 'quote'`,
         [tenantId, orderId],
       );
       const order = orderResult.rows[0];
       if (!order) return null;
 
       const lines = await client.query(
-        'select * from public.commercial_order_lines where order_id = $1 order by position',
+        `select items.*, items.product_label as label, items.clariprint_options as product_config,
+                items.line_origin as origin
+           from public.tenant_order_items items where order_id = $1 order by position`,
         [orderId],
       );
       return {
@@ -225,16 +227,18 @@ export class PostgresCommercialOrdersRepository implements CommercialOrdersRepos
       const orderResult = await client.query(
         `select orders.*, orders.expected_delivery_date::text as expected_delivery_date,
                 quotes.number as quote_number
-         from public.commercial_orders orders
+         from public.tenant_orders orders
          join public.commercial_quotes quotes on quotes.id = orders.quote_id
-         where orders.tenant_id = $1 and orders.id = $2`,
+         where orders.tenant_id = $1 and orders.id = $2 and orders.order_origin = 'quote'`,
         [tenantId, orderId],
       );
       const order = orderResult.rows[0];
       if (!order) return null;
 
       const lines = await client.query(
-        'select * from public.commercial_order_lines where order_id = $1 order by position',
+        `select items.*, items.product_label as label, items.clariprint_options as product_config,
+                items.line_origin as origin
+           from public.tenant_order_items items where order_id = $1 order by position`,
         [orderId],
       );
       return {

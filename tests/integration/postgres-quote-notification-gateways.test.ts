@@ -53,12 +53,14 @@ describeIntegration('gateways portables de notification quote.sent', () => {
     await pool.query(`insert into public.production_steps(id,tenant_id,label,position,color)
       values($1,$3,'Préparation worker',100,'slate'),($2,$3,'Production worker',101,'blue')`, [fromStepId, toStepId, tenantId]);
     await pool.query("insert into public.commercial_quotes(id,tenant_id,customer_id,project_id,number,status,valid_until) values($1,$2,$3,$4,'DEV-2026-00888','sent','2026-12-31')", [quoteId, tenantId, customerId, projectId]);
-    await pool.query(`insert into public.commercial_orders(
-      id,tenant_id,customer_id,customer_contact_id,quote_id,number,status,source_quote_status,
+    await pool.query(`insert into public.tenant_orders(
+      id,tenant_id,shop_id,created_by,status,total_ht,currency,notes,order_origin,
+      customer_id,customer_contact_id,quote_id,number,source_quote_status,
       current_production_step_id,expected_delivery_date,customer_reference,lines_subtotal,
-      global_discount,net_total,vat_rate,vat_amount,total_incl_tax,created_by
-    ) values($1,$2,$3,$4,$5,'CDE-2026-00888','validated','sent',$6,'2026-11-15','REF-CLIENT',
-             100,0,100,0.2,20,120,$7)`, [orderId, tenantId, customerId, contactId, quoteId, toStepId, actorId]);
+      global_discount,net_total,vat_rate,vat_amount,total_incl_tax
+    ) values($1,$2,null,$7,'validated',100,'EUR','','quote',$3,$4,$5,'CDE-2026-00888','sent',
+             $6,'2026-11-15','REF-CLIENT',100,0,100,0.2,20,120)`,
+      [orderId, tenantId, customerId, contactId, quoteId, toStepId, actorId]);
     await pool.query(`insert into public.notification_templates(
       id,tenant_id,event_name,channel,audience,recipients,name,subject,body,is_active
     ) values($1,$2,'quote.sent','email','customer',null,'Devis envoyé','Votre devis','Bonjour {{customer.contact_name}}',true)`, [notificationTemplateId, tenantId]);

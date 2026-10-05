@@ -229,30 +229,27 @@ update public.commercial_quotes quote set
   updated_at = fixture.fixture_created_at + interval '4 days'
 from ux_seed_quotes fixture where quote.id = fixture.quote_id;
 
--- Les commandes atelier sont distinctes des commandes boutique ci-dessous.
--- Chaque devis converti possede son instantane immuable, comme s'il avait
--- suivi magrit.convert_commercial_quote(). Le rejeu ne modifie jamais une
--- commande atelier deja creee.
-insert into public.commercial_orders (
-  id, tenant_id, customer_id, customer_contact_id, quote_id, number, status,
+-- Les devis convertis alimentent la même table canonique que la boutique.
+insert into public.tenant_orders (
+  id, tenant_id, shop_id, created_by, status, total_ht, currency, notes,
+  order_origin, customer_id, customer_contact_id, quote_id, number,
   source_quote_status, current_production_step_id, expected_delivery_date,
   show_discounts, customer_reference, lines_subtotal, global_discount,
   effective_discount_rate, net_total, vat_rate, vat_amount, total_incl_tax,
-  created_by, created_at, updated_at
+  created_at, updated_at
 )
 select pg_temp.ux_uuid(fixture.quote_id::text || ':commercial-order'),
-  fixture.tenant_id,
+  fixture.tenant_id, null, fixture.actor_id, 'validated', totals.net_total, 'EUR', '', 'quote',
   pg_temp.ux_uuid(fixture.tenant_id::text || ':ux-customer:' || fixture.customer_number),
   pg_temp.ux_uuid(fixture.tenant_id::text || ':ux-contact:' || fixture.customer_number),
   fixture.quote_id,
   'CDE-' || extract(year from current_date)::integer || '-' || lpad((50000 + fixture.number)::text, 5, '0'),
-  'validated', 'accepted', step.id, current_date + (7 + fixture.number % 45),
+  'accepted', step.id, current_date + (7 + fixture.number % 45),
   fixture.number % 3 = 0, 'UX-' || lpad(fixture.number::text, 5, '0'),
   totals.subtotal, totals.discount,
   case when totals.subtotal = 0 then null else round(totals.discount / totals.subtotal, 4) end,
   totals.net_total, 0.2000, round(totals.net_total * 0.2000, 2),
-  totals.net_total + round(totals.net_total * 0.2000, 2),
-  fixture.actor_id, fixture.fixture_created_at + interval '4 days',
+  totals.net_total + round(totals.net_total * 0.2000, 2), fixture.fixture_created_at + interval '4 days',
   fixture.fixture_created_at + interval '4 days'
 from ux_seed_quotes fixture
 cross join lateral (
@@ -272,25 +269,29 @@ cross join lateral (
 where fixture.target_status = 'converted'
 on conflict (id) do nothing;
 
-insert into public.commercial_order_lines (
-  id, order_id, source_quote_line_id, origin, label, description_html,
-  product_config, quantity, position, production_price, public_price,
+select set_config('magrit.quote_conversion', 'on', true);
+insert into public.tenant_order_items (
+  id, order_id, source_quote_line_id, line_origin, product_label, description_html,
+  clariprint_options, quantity, position, unit_price_ht, line_total_ht, price_origin,
+  production_price, public_price,
   customer_price, applied_margin_rate, applied_rule_id, sale_price,
   sale_margin_rate, discount_rate, margin_variation, breakdown, created_at
 )
 select pg_temp.ux_uuid(order_row.id::text || ':line:' || quote_line.position),
   order_row.id, quote_line.id, quote_line.origin, quote_line.label,
   quote_line.description_html, quote_line.product_config, quote_line.quantity,
-  quote_line.position, quote_line.production_price, quote_line.public_price,
+  quote_line.position, round(quote_line.sale_price / quote_line.quantity, 2),
+  quote_line.sale_price, 'quoted', quote_line.production_price, quote_line.public_price,
   quote_line.customer_price, quote_line.applied_margin_rate,
   quote_line.applied_rule_id, quote_line.sale_price,
   quote_line.sale_margin_rate, quote_line.discount_rate,
   quote_line.margin_variation, quote_line.breakdown, quote_line.created_at
 from ux_seed_quotes fixture
-join public.commercial_orders order_row on order_row.quote_id = fixture.quote_id
+join public.tenant_orders order_row on order_row.quote_id = fixture.quote_id
 join public.commercial_quote_lines quote_line on quote_line.quote_id = fixture.quote_id
 where fixture.target_status = 'converted'
 on conflict (id) do nothing;
+select set_config('magrit.quote_conversion', 'off', true);
 
 create temporary table ux_seed_orders on commit drop as
 select context.*, series.number,
@@ -359,8 +360,9 @@ select context.tenant_slug,
   context.customer_count as ux_customers,
   context.order_count as ux_orders,
   context.quote_count as ux_quotes,
-  (select count(*) from public.commercial_orders orders
+  (select count(*) from public.tenant_orders orders
     join public.commercial_quotes quote on quote.id = orders.quote_id
     join public.projects project on project.id = quote.project_id
-    where orders.tenant_id = context.tenant_id and project.name like '[UX]%') as ux_commercial_orders
+    where orders.tenant_id = context.tenant_id and orders.order_origin = 'quote'
+      and project.name like '[UX]%') as ux_quote_orders
 from ux_seed_context context order by context.tenant_slug;

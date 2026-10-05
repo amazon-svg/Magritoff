@@ -14,10 +14,10 @@ type ResolvedOrder =
 /**
  * Point d entree unique de la fiche Commande.
  *
- * Deux persistances historiques subsistent encore (`tenant_orders` et
- * `commercial_orders`). Elles sont ici des adaptateurs de lecture, pas deux
- * objets ni deux destinations UX. La route canonique reste `/orders/:id` ;
- * l ancien chemin `/commercial-orders/:id` monte ce meme composant.
+ * Les commandes partagent la persistance canonique `tenant_orders`. Les deux
+ * projections API distinguent encore leur workflow d'origine pour rendre la
+ * fiche adaptée. La route canonique reste `/orders/:id` ; l'ancien chemin
+ * `/commercial-orders/:id` monte ce même composant.
  */
 export function UnifiedOrderDetailPage() {
   const { orderId } = useParams<{ orderId: string }>();

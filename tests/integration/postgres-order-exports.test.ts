@@ -74,17 +74,22 @@ describeIntegration('exports de commandes PostgreSQL/S3', () => {
       [quoteId],
     );
     await pool.query(
-      `insert into public.commercial_orders(
-         id,tenant_id,customer_id,quote_id,number,status,source_quote_status,lines_subtotal,
-         global_discount,net_total,vat_rate,vat_amount,total_incl_tax,created_by
-       ) values($1,$2,$3,$4,'CDE-2026-00992','validated','sent',180,0,180,.2,36,216,$5)`,
+      `insert into public.tenant_orders(
+         id,tenant_id,shop_id,created_by,status,total_ht,currency,notes,order_origin,
+         customer_id,quote_id,number,source_quote_status,lines_subtotal,
+         global_discount,net_total,vat_rate,vat_amount,total_incl_tax
+       ) values($1,$2,null,$5,'validated',180,'EUR','','quote',$3,$4,
+         'CDE-2026-00992','sent',180,0,180,.2,36,216)`,
       [orderId, tenantId, customerId, quoteId, actorId],
     );
+    await pool.query("select set_config('magrit.quote_conversion','on',false)");
     await pool.query(
-      `insert into public.commercial_order_lines(
-         id,order_id,source_quote_line_id,origin,label,product_config,quantity,position,
-         production_price,public_price,customer_price,applied_margin_rate,sale_price,breakdown
-       ) values($1,$2,$3,'free','Ligne export','{}',2,0,40,100,90,.5,180,'[{"label":"base","amount":"180.00"}]')`,
+      `insert into public.tenant_order_items(
+         id,order_id,source_quote_line_id,line_origin,product_label,clariprint_options,
+         quantity,position,unit_price_ht,line_total_ht,price_origin,production_price,
+         public_price,customer_price,applied_margin_rate,sale_price,breakdown
+       ) values($1,$2,$3,'free','Ligne export','{}',2,0,90,180,'quoted',40,100,90,.5,180,
+         '[{"label":"base","amount":"180.00"}]')`,
       [orderLineId, orderId, quoteLineId],
     );
   });

@@ -74,7 +74,7 @@ export class PostgresOrdersRepository implements OrdersRepository {
   listTenantOrders(tenantId: string, actor: UserId): Promise<readonly TenantOrderRecord[]> {
     return this.tx.run(context(actor, tenantId), (client) => readOrders(
       client,
-      'orders.tenant_id=$1',
+      "orders.tenant_id=$1 and orders.order_origin='storefront'",
       [tenantId],
     ));
   }
@@ -85,7 +85,7 @@ export class PostgresOrdersRepository implements OrdersRepository {
     if (first === null) return [];
     return this.tx.run(context(actor, first.tenant_id), (client) => readOrders(
       client,
-      'orders.id=any($1::uuid[])',
+      "orders.id=any($1::uuid[]) and orders.order_origin='storefront'",
       [[...orderIds]],
     ));
   }

@@ -63,7 +63,7 @@ async function main() {
       process.stdout.write(
         `Fixtures UX pretes : ${summary.tenant_slug}, ${summary.ux_customers} clients, `
         + `${summary.ux_orders} commandes boutique, ${summary.ux_quotes} devis, `
-        + `${summary.ux_commercial_orders} commandes atelier.\n`,
+        + `${summary.ux_quote_orders} commandes issues de devis.\n`,
       );
     }
   } finally {
