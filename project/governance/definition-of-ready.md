@@ -3,6 +3,7 @@
 Une story peut être planifiée lorsque :
 
 - son identifiant est stable ;
+- son frontmatter est du YAML valide et `pnpm project:validate` réussit ;
 - son epic et sa fonctionnalité parentes sont connues ;
 - son `specStatus` vaut `approved` ou une dérogation est explicitement enregistrée ;
 - le besoin et le résultat attendu sont compréhensibles ;

@@ -2,7 +2,7 @@
 
 ## Règle générale
 
-Git est l'unique source officielle du projet. Notion est gelé et sert uniquement à la migration initiale et à l'archive historique.
+Git est l'unique source officielle du projet. La migration initiale depuis Notion a été réalisée le 3 octobre 2026 ; Notion est sorti du jeu et ne sert plus qu'à l'archive de provenance, conservée hors dépôt.
 
 ## Autorité par type d'information
 
@@ -27,10 +27,15 @@ Git est l'unique source officielle du projet. Notion est gelé et sert uniquemen
 4. En l'absence de décision permettant de départager, l'élément est marqué `contradictory` et soumis à arbitrage.
 5. Un agent ne résout jamais silencieusement une contradiction.
 
-## Transition Notion
+## Sortie de Notion — état au 3 octobre 2026
 
-- Aucune nouvelle information de projet n'est saisie dans Notion.
-- Les exports et URL Notion sont conservés uniquement comme provenance historique.
-- Une importation arrive au statut `draft`.
-- Le statut de livraison est établi à partir du dépôt, pas du statut Notion.
-- Les anciennes sections `notion-functional` sont des instantanés historiques jusqu'à leur remplacement par un fichier canonique du backlog.
+La sortie est effective. Les règles suivantes sont permanentes :
+
+- aucune information de projet n'est saisie, lue ni synchronisée dans Notion ;
+- les identifiants de page et les URL Notion conservés en frontmatter `source:` sont une **provenance**, jamais une autorité ;
+- le statut Notion d'origine (`originalStatus`) documente d'où vient la story ; il ne détermine aucun statut Git ;
+- le statut de livraison est établi à partir du code, des tests et de l'historique du dépôt ;
+- les sections `notion-functional` des story documents de `_bmad-output/` sont **remplacées** par la story canonique du même identifiant dans `project/backlog/stories/` ;
+- `scripts/notion/sync_story_functional.py` est un outil retiré : il ne doit plus être exécuté.
+
+L'export complet et daté de la base Notion est conservé hors dépôt. Son emplacement, sa date et son empreinte SHA-256 figurent dans `project/meetings/reports/2026-10-03-rapport-migration-notion.md`.

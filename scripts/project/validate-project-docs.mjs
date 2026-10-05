@@ -3,6 +3,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
+import { parseProjectFrontmatter } from './project-frontmatter.mjs';
 
 const root = process.cwd();
 const projectRoot = path.join(root, 'project');
@@ -35,21 +36,9 @@ async function listMarkdown(directory) {
   return files;
 }
 
-function parseFrontmatter(content) {
-  const match = content.match(/^---\n([\s\S]*?)\n---(?:\n|$)/);
-  if (!match) return null;
-  const result = {};
-  for (const line of match[1].split('\n')) {
-    const field = line.match(/^([A-Za-z][A-Za-z0-9]*):\s*(.*)$/);
-    if (!field) continue;
-    result[field[1]] = field[2].trim().replace(/^['"]|['"]$/g, '');
-  }
-  return result;
-}
-
 function requireFields(relative, data, fields) {
   for (const field of fields) {
-    if (!(field in data) || data[field] === '' || data[field] === 'null') {
+    if (!(field in data) || data[field] === null || data[field] === '' || data[field] === 'null') {
       errors.push(`${relative}: champ obligatoire manquant ou vide : ${field}`);
     }
   }
@@ -95,7 +84,13 @@ for (const absolute of files.sort()) {
 
   checked += 1;
   const content = await readFile(absolute, 'utf8');
-  const data = parseFrontmatter(content);
+  let data;
+  try {
+    data = parseProjectFrontmatter(content);
+  } catch (error) {
+    errors.push(`${relative}: ${error.message}`);
+    continue;
+  }
   if (!data) {
     errors.push(`${relative}: frontmatter YAML absent`);
     continue;

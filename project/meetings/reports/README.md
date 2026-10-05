@@ -1,3 +1,16 @@
 # Rapports associés aux réunions
 
 Ce dossier accueille les inventaires, rapports de migration et analyses produits par des personnes ou des agents. Chaque rapport référence sa réunion ou son mandat d'origine et indique son statut de validation.
+
+Nommage : `AAAA-MM-JJ-rapport-<objet>.md`.
+
+**Pour la relecture de la demande de fusion `migration/notion-backlog-init` : commencer par [la synthèse du 4 octobre](2026-10-04-synthese-relecture.md).**
+
+| Rapport | Objet | Statut |
+|---|---|---|
+| [2026-10-04-synthese-relecture.md](2026-10-04-synthese-relecture.md) | **Porte d'entrée** — ce qui s'est passé en trois temps, où regarder, et les trois décisions attendues | `draft` |
+| [2026-10-02-rapport-mise-en-place-gouvernance.md](2026-10-02-rapport-mise-en-place-gouvernance.md) | Mise en place de l'arborescence de gestion de projet | `draft` |
+| [2026-10-02-rapport-migration-prd-epics.md](2026-10-02-rapport-migration-prd-epics.md) | Consolidation des PRD et de l'epic active | `draft` |
+| [2026-10-03-rapport-migration-notion.md](2026-10-03-rapport-migration-notion.md) | Migration unique du backlog Notion vers Git — 205 stories, 17 epics, 18 regroupements | `draft` |
+| [2026-10-03-rapport-passe-qualite-backlog.md](2026-10-03-rapport-passe-qualite-backlog.md) | Passe de qualité des 205 stories migrées — écarts story/code, doublons, arbitrages | `draft` |
+| [2026-10-04-note-a-xavier-pechoultres.md](2026-10-04-note-a-xavier-pechoultres.md) | Trois sujets techniques à trancher : portée d'écriture des clés de service, décision manquante du chantier UM, hygiène d'intégration continue | `draft` |

@@ -1,6 +1,6 @@
 ---
 id: EPIC-XXX
-title: Titre de l'epic
+title: "Titre de l'epic"
 specStatus: draft
 owner: unassigned
 source:

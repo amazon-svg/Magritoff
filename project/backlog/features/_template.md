@@ -1,6 +1,6 @@
 ---
 id: FEAT-XXX
-title: Titre de la fonctionnalité
+title: "Titre de la fonctionnalité"
 epic: EPIC-XXX
 specStatus: draft
 owner: unassigned

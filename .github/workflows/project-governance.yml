@@ -2,7 +2,6 @@ name: project-governance
 
 on:
   pull_request:
-    branches: [main]
     paths:
       - "project/**"
       - "quality/specs/**"
@@ -10,6 +9,7 @@ on:
       - "docs/GOUVERNANCE_PRODUIT_BACKLOG_SPECIFICATIONS.md"
       - "CLAUDE.md"
       - "scripts/project/**"
+      - "tests/project/**"
       - "package.json"
       - "pnpm-lock.yaml"
   workflow_dispatch:
@@ -40,6 +40,9 @@ jobs:
 
       - name: Valider la gouvernance
         run: pnpm project:validate
+
+      - name: Tester les contrôles de gouvernance
+        run: pnpm test:project
 
       - name: Valider les spécifications auditables
         run: pnpm specs:validate

@@ -2,7 +2,7 @@
 
 Ce dossier est la source Git canonique pour la vision produit, le backlog, les décisions, les comptes rendus et les sprints de Magrit.
 
-La décision a été prise lors de l'atelier du 1er octobre 2026. Notion est désormais une source historique en cours de migration, sans nouvelle saisie. Les éléments importés restent au statut `draft` jusqu'à approbation humaine.
+La décision a été prise lors de l'atelier du 1er octobre 2026. **La migration depuis Notion a été réalisée le 3 octobre 2026** : 18 epics, 19 fonctionnalités et 205 stories sont désormais dans ce dossier. Notion n'est plus saisi, plus consulté et plus synchronisé ; son export daté est conservé hors dépôt comme archive de provenance (voir le rapport de migration). Les éléments importés restent au statut `draft` jusqu'à approbation humaine.
 
 ## Organisation
 
@@ -28,7 +28,7 @@ La décision a été prise lors de l'atelier du 1er octobre 2026. Notion est dé
 
 Les documents dans `_bmad-output`, `docs/spec`, `quality/specs` et `SPRINT_HANDOFF.md` ne sont pas déplacés automatiquement. Ils restent des sources historiques ou techniques pendant la migration.
 
-L'inventaire et la stratégie de correspondance sont disponibles dans [`docs/governance-audit/`](../docs/governance-audit/). La migration Notion doit créer les éléments du backlog ici, avec leur provenance, sans supprimer les originaux avant validation.
+L'inventaire et la stratégie de correspondance sont disponibles dans [`docs/governance-audit/`](../docs/governance-audit/). La migration Notion est faite : son compte rendu, ses contradictions et sa table de correspondance figurent dans [`meetings/reports/2026-10-03-rapport-migration-notion.md`](meetings/reports/2026-10-03-rapport-migration-notion.md). Les originaux n'ont pas été supprimés.
 
 ## Validation
 
