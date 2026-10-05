@@ -58,3 +58,16 @@ Ces rapprochements restent dans le suivi. Aucun nouveau modèle de projet, contr
 - Les six sources restent en cours de relecture dans le registre, avec les suites propres à chaque document. Aucune approbation de story ni clôture globale n’est revendiquée.
 
 Travail documentaire uniquement : aucun module, contrat API, droit ou dérogation R5 modifié. La validation porte sur le registre, les empreintes des sources, le dashboard et la structure du projet ; aucun test métier ni appel fournisseur n’est requis.
+
+## Rapprochement du backlog HopeStudio — complément du 5 octobre
+
+| Story canonique | Correspondance établie | Reste à vérifier ou décider |
+|---|---|---|
+| E1.WM1 — frontière entre équipes | US-CONV-02 et le diagnostic explicitent le rôle de la bibliothèque, du relais et de l’import. | Inventaire complet des composants, notamment patrons et vue 3D, et validation bilatérale. Une description locale ne prouve pas ces critères. |
+| E1.WM2 — intégration du POC | HSPQ-1 décrit les sessions par projet ; HSPQ-2 l’import des cartes et du prix choisi. Le test navigateur du 5 octobre exerce le bundle réel avec fournisseur et stockage simulés. | Recette avec fournisseur et persistance réels, correspondance des critères historiques du POC, notamment patrons et vue 3D. Les autres chemins Clariprint ne prouvent pas que le widget contourne Studio. |
+| E1.WM3 — refactoring des attaches | Le parcours widget délègue l’orchestration au runtime. | Inventorier les autres appels et leurs usages avant de décider leur maintien ou suppression. Le présent rapprochement ne prouve pas un refactoring exhaustif. |
+| US-CONV-02 — brief, carte et prix | Prix sélectionné et callback d’import couverts par la recette simulée ; HSPQ-2 porte l’import, HSPQ-3 les fichiers, HSPQ-4 les devis et PDF. | Sens fonctionnel de « hors couche conversationnelle », valeur du prix importé et recette réelle. Les fichiers et PDF ne sont pas couverts par la fixture navigateur du 5 octobre. |
+
+Les statuts historiques des lots HSPQ sont des traces d’implémentation, pas une preuve de production actuelle. Les quatre stories canoniques restent dans leurs statuts de livraison existants. E1.WM1/E1.WM2/E1.WM3 sont référencées à cette relecture pour éviter de déduire de `not-started` une absence globale d’intégration.
+
+L’analyse d’impact et la matrice proposées pour la fiche commande sont désormais dans [E4.4a](../../backlog/stories/E4.4a.md). Elles distinguent les données déjà accessibles, les manques du détail, l’origine legacy et les limites de l’édition du brouillon. La proposition de consultation est prête à être examinée par Xavier ; l’édition reste conditionnée aux règles et garanties explicites.

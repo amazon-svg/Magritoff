@@ -56,7 +56,7 @@ Sortie attendue : décision UM historique formalisée et toute évolution nouvel
 
 Proposition : retenir E4.4a comme prochain lot fonctionnel, avec consultation complète puis édition encadrée. La commande passée dans Atelier Lumière sert de cas de recette. La fiche commerciale existante ne prouve pas la couverture de cette origine boutique.
 
-Construire en séance une matrice **champ ou action × état de commande × droit requis × effet sur le prix**. Examiner au minimum :
+Une première matrice et l’analyse d’impact sont consignées dans E4.4a. Relire en séance la matrice **champ ou action × état de commande × droit requis × effet sur le prix**. Examiner au minimum :
 
 - validation, annulation et étapes de production ;
 - notes et références ;
@@ -80,9 +80,19 @@ Sortie attendue : règle produit ou questions attribuées, sans imposer implicit
 
 Acter dans le cadrage que la bibliothèque JavaScript HopeStudio orchestre ; Magrit relaie et importe. Le point à discuter est le résultat utilisateur encore attendu, notamment le sens de « hors couche conversationnelle », et non le choix artificiel d’une nouvelle API de génération Magrit.
 
-Attribuer le rapprochement de US-CONV-02 et E1.WM1/E1.WM2/E1.WM3 avec les lots HSPQ existants : exigence couverte avec preuve, capacité présente à recetter, ou manque confirmé. Décider ensuite si un lot de développement reste nécessaire. La recette fournisseur réelle doit passer par la bibliothèque ; les tests simulés ne prouvent pas le chiffrage réel.
+Relire le rapprochement initial de US-CONV-02 et E1.WM1/E1.WM2/E1.WM3 avec les lots HSPQ, consigné dans le rapport de relecture, et attribuer les vérifications restantes : exigence couverte avec preuve, capacité présente à recetter, ou manque confirmé. Décider ensuite si un lot de développement reste nécessaire. La recette fournisseur réelle doit passer par la bibliothèque ; les tests simulés ne prouvent pas le chiffrage réel.
 
 Sortie attendue : besoin restant et responsable du rapprochement. Les clés de service et intégrations CMS/ERP sont des sujets séparés et ne deviennent pas des prérequis implicites de la fiche commande ou du widget.
+
+## Points préparés pour une validation de Xavier
+
+Proposition à confirmer, sans nouvel arbitrage de droits ou de prix :
+
+1. Livrer d’abord la consultation complète d’une commande boutique depuis sa liste actuelle, avec une adresse permettant son rechargement.
+2. Conserver l’organisation actuelle des listes pendant ce lot ; traiter leur éventuelle fusion séparément.
+3. Cadrer ensuite l’édition : réutiliser les transitions existantes, sans ouvrir implicitement aux gestionnaires la modification des lignes, quantités, configurations ou montants.
+
+Cette validation porte sur la proposition de découpage ; elle ne vaut pas nomination générale des approbateurs, approbation de nouvelles règles métier ou autorisation de publication Git. La date, l’auteur et le périmètre de la réponse seront enregistrés après son obtention.
 
 ## Revue des commits et clôture
 

@@ -10,7 +10,7 @@ source: user-request
 
 Pour Xavier Péchoultres. Cette synthèse reprend le mandat en quatre étapes : vérifier le socle, sécuriser les développements, clarifier les droits, puis choisir un lot fonctionnel. Elle distingue l’existant, les résultats locaux et le travail restant. La proposition est de prendre la fiche des commandes boutique comme prochain lot, et de réconcilier les stories HopeStudio avec l’intégration déjà présente avant de planifier un nouveau développement sur ce sujet.
 
-Référence de travail : branche locale `codex/diagnostic-reprise`, commit `8a3e1898`. Les cinq commits de reprise sont enregistrés localement ; aucun push, fusion ou déploiement n’a été effectué dans cette session. Ce document reste un brouillon de proposition, pas une décision adoptée ni un sprint engagé.
+Référence du diagnostic technique initial : commit `8a3e1898`, sur la branche locale `codex/diagnostic-reprise`. Les compléments documentaires ultérieurs intègrent les comptes rendus retrouvés ; aucun push, fusion ou déploiement n’a été effectué dans cette session. Ce document reste un brouillon de proposition, pas une décision adoptée ni un sprint engagé.
 
 ## État du mandat initial
 
@@ -18,7 +18,7 @@ Référence de travail : branche locale `codex/diagnostic-reprise`, commit `8a3e
 |---|---|---|
 | Vérifier le socle | Stack PostgreSQL/S3/API/Vite opérationnelle ; tests, typage modulaire et build réussis. Xavier confirme une commande boutique visible au back-office. | Recette utilisateur complète incluant devis, commande et traitement dans le back-office. Les tests de repositories ne remplacent pas cette recette. |
 | Sécuriser les développements | Suite Vitest complète ajoutée à la CI ; tests PostgreSQL isolés ; contrôles navigateur transférés sur le runtime portable et `main`. Commandes vérifiées localement. | Revue des changements, autorisation de publication, exécution effective de GitHub Actions puis intégration. |
-| Clarifier les droits | Proposition `PD-2026-10-05-UM` et cadrage des sept stories ; divergences de la stack portable explicitées. | Décider la cible et les règles legacy, puis corriger les écarts retenus. Aucun droit réel n’a été changé. |
+| Clarifier les droits | Proposition `PD-2026-10-05-UM` et cadrage des sept stories ; divergences de la stack portable explicitées. | Appliquer la séparation des populations déjà décidée, compléter les sources des droits et traiter les règles legacy, puis corriger les écarts retenus. Aucun droit réel n’a été changé. |
 | Livrer un lot fonctionnel | Besoin de fiche commande enregistré dans E4.4a ; lecture de US-CONV-02 corrigée. | Choisir et approuver le périmètre du lot, analyser les impacts, puis développer et faire une revue distincte. Aucune nouvelle fiche n’a été livrée. |
 
 ## Capacités disponibles et limites constatées
@@ -45,7 +45,7 @@ US-CONV-02 cesse d’être le candidat automatiquement retenu pour le prochain d
 
 La responsabilité des appels est désormais explicitée : la bibliothèque JavaScript HopeStudio orchestre ; Magrit relaie et importe. Créer une nouvelle API de génération Magrit ou des clés de service n’est pas un préalable de ce parcours. Les capacités d’intégration tierce d’E5.1/E5.2 restent des sujets distincts.
 
-Avant toute nouvelle estimation, rapprocher US-CONV-02 et E1.WM1/E1.WM2/E1.WM3 des lots HSPQ déjà présents. Pour chaque exigence, consigner « couvert avec preuve », « présent à recetter » ou « manque confirmé ». Le statut `not-started` de ces stories ne permet pas d’en déduire que toute l’intégration est à reconstruire. Le sens fonctionnel de « hors couche conversationnelle » reste à préciser ; il ne supprime pas les sessions techniques du runtime.
+Le [rapprochement initial avec les lots HSPQ](2026-10-05-relecture-comptes-rendus-ajoutes.md) est maintenant consigné pour US-CONV-02 et E1.WM1/E1.WM2/E1.WM3 ; il distingue couverture partielle et validations restantes. Avant toute nouvelle estimation, compléter les exigences encore non démontrées. Pour chaque exigence, consigner « couvert avec preuve », « présent à recetter » ou « manque confirmé ». Le statut `not-started` de ces stories ne permet pas d’en déduire que toute l’intégration est à reconstruire. Le sens fonctionnel de « hors couche conversationnelle » reste à préciser ; il ne supprime pas les sessions techniques du runtime.
 
 ## Lot fonctionnel recommandé
 
@@ -58,7 +58,7 @@ Deux étapes de livraison sont proposées au sein de ce cadrage. Elles ne consti
 
 La consultation peut être cadrée sans attendre la refonte globale UM ni la fusion des deux menus. Pour l’édition, le besoin n’autorise pas implicitement la réécriture des prix, quantités ou configurations après engagement. Le gel des montants des commandes issues de devis reste applicable.
 
-L’existant expose déjà des transitions, un audit et une édition de brouillon dans le module `orders`. Cette dernière porte sur des lignes et montants : son existence ne signifie pas qu’elle convient à une commande engagée. L’analyse d’impact doit identifier ce qui est réutilisable, les données manquantes et les éventuelles évolutions du contrat avant de dessiner ou coder une nouvelle fiche. Pas d’estimation en jours avant ce relevé.
+L’existant expose déjà des transitions, un audit et une édition de brouillon dans le module `orders`. Cette dernière porte sur des lignes et montants : son existence ne signifie pas qu’elle convient à une commande engagée. L’analyse d’impact est maintenant consignée dans E4.4a : résumé sans configuration complète, projection de détail incomplète, lecture limitée à `tenant_orders`, édition du brouillon réservée au créateur Magrit et garanties de concurrence/audit à compléter. Le prochain travail technique doit définir le contrat de consultation avant de dessiner ou coder la fiche. Pas d’estimation en jours avant ce relevé.
 
 ## Décisions nécessaires et sujets séparés
 
@@ -74,7 +74,7 @@ L’existant expose déjà des transitions, un audit et une édition de brouillo
 
 ## Prochaine séquence de travail
 
-Relire ce choix de lot et la matrice d’édition, compléter l’analyse d’impact d’E4.4a, puis faire approuver son périmètre et sélectionner le travail dans un sprint. L’implémentation viendra ensuite sur une branche fonctionnelle, avec revue distincte et recette de la commande boutique. Les changements de socle déjà commités peuvent faire l’objet d’une revue séparée ; leur publication reste à autoriser.
+Relire ce choix de lot et la matrice d’édition, relire l’analyse d’impact d’E4.4a, puis faire approuver son périmètre et sélectionner le travail dans un sprint. L’implémentation viendra ensuite sur une branche fonctionnelle, avec revue distincte et recette de la commande boutique. Les changements de socle déjà commités peuvent faire l’objet d’une revue séparée ; leur publication reste à autoriser.
 
 Le présent travail modifie uniquement la gestion de projet. Aucun module applicatif, contrat API, droit, statut d’approbation ou dérogation R5 n’est modifié. La vérification porte sur la structure des documents et le suivi du report ; aucun nouvel appel fournisseur ni test métier n’est lancé pour produire cette synthèse.
 
