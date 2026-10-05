@@ -2580,6 +2580,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/orders/{orderId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Consulter le détail d une commande boutique dans le backoffice. */
+        get: operations["getLegacyOrderDetail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/orders/{orderId}/draft": {
         parameters: {
             query?: never;
@@ -4764,6 +4781,28 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
             totalHt: string;
+            hasUnverifiedPrices: boolean;
+            items: components["schemas"]["LegacyDraftOrderItem"][];
+        };
+        LegacyOrderDetail: {
+            /** Format: uuid */
+            orderId: string;
+            /** Format: uuid */
+            shopId: string;
+            shopName: string;
+            /** @enum {string} */
+            source: "v1_1";
+            status: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            customerName: string | null;
+            customerEmail: string | null;
+            currency: string;
+            notes: string;
+            totalHt: string;
+            totalTtc: string;
             hasUnverifiedPrices: boolean;
             items: components["schemas"]["LegacyDraftOrderItem"][];
         };
@@ -10042,6 +10081,7 @@ export type LegacyCreateOrderCommand = components['schemas']['LegacyCreateOrderC
 export type LegacyCreateOrderResult = components['schemas']['LegacyCreateOrderResult'];
 export type LegacyDraftOrderItem = components['schemas']['LegacyDraftOrderItem'];
 export type LegacyDraftOrder = components['schemas']['LegacyDraftOrder'];
+export type LegacyOrderDetail = components['schemas']['LegacyOrderDetail'];
 export type LegacyUpdateDraftOrderItem = components['schemas']['LegacyUpdateDraftOrderItem'];
 export type LegacyUpdateDraftOrderCommand = components['schemas']['LegacyUpdateDraftOrderCommand'];
 export type LegacyUpdateDraftOrderResult = components['schemas']['LegacyUpdateDraftOrderResult'];
@@ -16210,6 +16250,31 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getLegacyOrderDetail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Détail en lecture seule de la commande. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegacyOrderDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     getLegacyOrderDraft: {

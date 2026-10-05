@@ -174,6 +174,26 @@ export const draftOrderSchema = z.object({
   items: z.array(draftOrderItemSchema),
 });
 
+export const orderDetailItemSchema = draftOrderItemSchema;
+
+export const orderDetailSchema = z.object({
+  orderId: z.uuid(),
+  shopId: z.uuid(),
+  shopName: z.string(),
+  source: z.literal('v1_1'),
+  status: z.string(),
+  createdAt: z.iso.datetime({ offset: true }),
+  updatedAt: z.iso.datetime({ offset: true }),
+  customerName: z.string().nullable(),
+  customerEmail: z.string().nullable(),
+  currency: z.string().length(3),
+  notes: z.string(),
+  totalHt: nonNegativeMoneySchema,
+  totalTtc: nonNegativeMoneySchema,
+  hasUnverifiedPrices: z.boolean(),
+  items: z.array(orderDetailItemSchema),
+});
+
 /**
  * Q17-a (point 12 (e)) — ni `productId` ni `clariprintOptions` : l identité
  * catalogue d une ligne n est PAS resoumise ici, elle reste celle déjà en
@@ -242,6 +262,7 @@ export type CreateOrderCommand = z.infer<typeof createOrderCommandSchema>;
 export type CreateOrderResult = z.infer<typeof createOrderResultSchema>;
 export type DraftOrderItem = z.infer<typeof draftOrderItemSchema>;
 export type DraftOrder = z.infer<typeof draftOrderSchema>;
+export type OrderDetail = z.infer<typeof orderDetailSchema>;
 export type UpdateDraftOrderCommand = z.infer<typeof updateDraftOrderCommandSchema>;
 export type UpdateDraftOrderResult = z.infer<typeof updateDraftOrderResultSchema>;
 export type OrderCapability = z.infer<typeof orderCapabilitySchema>;

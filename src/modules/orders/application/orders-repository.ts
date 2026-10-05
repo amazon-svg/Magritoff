@@ -4,6 +4,7 @@ import type {
   CreateOrderCommand,
   CreateOrderResult,
   DraftOrder,
+  OrderDetail,
   UpdateDraftOrderCommand,
   UpdateDraftOrderResult,
   OrderRolesResponse,
@@ -144,6 +145,7 @@ export interface OrdersRepository {
   createOrder(command: CreateOrderCommand, authorization: CreateOrderAuthorization): Promise<CreateOrderResult>;
   notifyOrderCreated(result: CreateOrderResult, baseUrl: string): Promise<void>;
   getDraftOrder(orderId: string, authorization: OrderResourceAuthorization): Promise<DraftOrder>;
+  getOrderDetail(orderId: string, authorization: OrderResourceAuthorization): Promise<OrderDetail>;
   updateDraftOrder(orderId: string, command: UpdateDraftOrderCommand, authorization: OrderResourceAuthorization): Promise<UpdateDraftOrderResult>;
   getOrderRoles(orderId: string, actor: UserId): Promise<OrderRolesResponse>;
 }

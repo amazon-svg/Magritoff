@@ -24,7 +24,7 @@
  */
 
 import { Fragment, type ReactNode, useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Ban, Check, ChevronDown, History, Loader2, Package, Pencil, Play, RotateCcw, RotateCw, Truck, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Ban, Check, ChevronDown, Eye, History, Loader2, Package, Pencil, Play, RotateCcw, RotateCw, Truck, X } from 'lucide-react';
 import { OrderAuditTrailModal } from '@/modules/orders/ui/storefront/OrderAuditTrailModal';
 import type { OrderUI } from '@/modules/orders/ui/storefront/PortalOrders.helpers';
 import { getStatusInfo, type OrderStatus } from '@/modules/orders/ui/helpers/orderStatus';
@@ -159,6 +159,8 @@ export interface OrderHistoryTableProps {
    * status='in_production' v1.1 uniquement. Réservé rôle Producteur.
    */
   onMarkShippedOrder?: ((order: OrderUI) => void | Promise<void>) | undefined;
+  /** Ouvre la fiche de consultation backoffice. */
+  onOpenOrder?: ((order: OrderUI) => void) | undefined;
 }
 
 interface TableState {
@@ -432,6 +434,7 @@ export function OrderHistoryTable({
   onRejectOrder,
   onStartProductionOrder,
   onMarkShippedOrder,
+  onOpenOrder,
 }: OrderHistoryTableProps) {
   const isDashboardAppearance = appearance === 'dashboard';
   // S3.3 : une commande est renouvelable si v1.1 + status workflow/terminal
@@ -500,7 +503,7 @@ export function OrderHistoryTable({
   const hasAnyV11 = orders.some((o) => o.source === 'v1_1');
   const showActionsColumn = !!onRenewOrder || !!onCancelOrder || !!onEditOrder
     || !!onValidateOrder || !!onRejectOrder || !!onStartProductionOrder
-    || !!onMarkShippedOrder || hasAnyV11;
+    || !!onMarkShippedOrder || !!onOpenOrder || hasAnyV11;
   const [state, setState] = useState<TableState>(() => loadState(persistKey));
 
   useEffect(() => {
@@ -1173,6 +1176,20 @@ export function OrderHistoryTable({
                     {showActionsColumn && (
                       <td className="py-3 text-left">
                         <div className="flex items-center justify-start gap-1.5 whitespace-nowrap">
+                          {onOpenOrder && o.source === 'v1_1' && (
+                            <button
+                              type="button"
+                              onClick={() => onOpenOrder(o)}
+                              data-testid={TEST_IDS.shop.orderOpenBtn}
+                              data-order-id={o.id}
+                              aria-label={`Ouvrir la commande ${o.id}`}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded border border-line bg-paper text-ink hover:border-brand transition-colors"
+                              style={{ fontSize: '11.5px' }}
+                            >
+                              <Eye className="w-3 h-3" strokeWidth={2} aria-hidden="true" />
+                              Ouvrir
+                            </button>
+                          )}
                           {canValidate(o) && (
                             <button
                               type="button"

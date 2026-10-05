@@ -10,6 +10,7 @@
  */
 
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { useAuth } from '@/modules/account/ui/runtime';
 import { useTenant } from '@/modules/tenants/ui/runtime';
 import { useShops } from '@/modules/shops/ui/runtime';
@@ -18,12 +19,15 @@ import { OrderHistoryTable } from '@/modules/orders/ui/storefront/OrderHistoryTa
 import { CancelOrderConfirmDialog } from '@/modules/orders/ui/storefront/CancelOrderConfirmDialog';
 import { ValidateOrderConfirmDialog } from '@/modules/orders/ui/storefront/ValidateOrderConfirmDialog';
 import { useUserCapability } from '@/modules/roles/ui/hooks';
+import { useTenantPath } from '@/modules/tenants/ui/hooks';
 import {
   type DashboardOrderUI,
   useDashboardOrderManagement,
 } from '@/modules/orders/ui/hooks/useDashboardOrderManagement';
 
 export function DashboardOrders() {
+  const navigate = useNavigate();
+  const tenantPath = useTenantPath();
   const { user } = useAuth();
   const { currentTenant } = useTenant();
   const { shops } = useShops();
@@ -133,6 +137,7 @@ export function DashboardOrders() {
         error={error}
         auditApi={auditApi}
         appearance="dashboard"
+        onOpenOrder={(order) => navigate(tenantPath(`/dashboard/orders/${order.id}`))}
         persistKey={currentTenant ? `orderHistory:dashboard:${currentTenant.id}` : undefined}
         onCancelOrder={handleCancelOrderRequest}
         // S-USERS-REFONTE Phase A : bouton Valider visible uniquement si

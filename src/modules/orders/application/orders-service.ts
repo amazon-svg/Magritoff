@@ -9,6 +9,7 @@ import type {
   CreateOrderCommand,
   CreateOrderResult,
   DraftOrder,
+  OrderDetail,
   UpdateDraftOrderCommand,
   UpdateDraftOrderResult,
   OrderRolesResponse,
@@ -218,6 +219,10 @@ export class OrdersService {
 
   getDraft(orderId: string, authorization: OrderResourceAuthorization): Promise<DraftOrder> {
     return this.repository.getDraftOrder(orderId, authorization);
+  }
+
+  getDetail(orderId: string, authorization: OrderResourceAuthorization): Promise<OrderDetail> {
+    return this.repository.getOrderDetail(orderId, authorization);
   }
 
   updateDraft(orderId: string, command: UpdateDraftOrderCommand, authorization: OrderResourceAuthorization): Promise<UpdateDraftOrderResult> {

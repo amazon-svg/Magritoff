@@ -89,6 +89,7 @@ describe('registre des contributions de surfaces', () => {
     expect(applicationContributionRegistry.forSurface('storefront').routes).toContainEqual(expect.objectContaining({ id: 'orders.storefront.confirmation', path: 'thank-you', mount: 'host' }));
     expect(applicationContributionRegistry.forSurface('customer-portal').routes).toContainEqual(expect.objectContaining({ id: 'orders.customer-portal.list', path: 'account/orders', mount: 'host' }));
     expect(applicationContributionRegistry.forSurface('workspace').routes).toContainEqual(expect.objectContaining({ id: 'orders.workspace.list', path: 'orders', mount: 'router' }));
+    expect(applicationContributionRegistry.forSurface('workspace').routes).toContainEqual(expect.objectContaining({ id: 'orders.workspace.detail', path: 'orders/:orderId', mount: 'router' }));
     expect(applicationContributionRegistry.forSurface('backoffice').plannedRoutes).toContainEqual(expect.objectContaining({ id: 'orders.backoffice.production', availability: 'planned', requiredCapabilities: ['orders.transition'] }));
   });
 

@@ -9072,6 +9072,26 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
 
+  /orders/{orderId}:
+    get:
+      operationId: getLegacyOrderDetail
+      tags: [Legacy facade]
+      summary: Consulter le détail d une commande boutique dans le backoffice.
+      x-legacy-facade: true
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Détail en lecture seule de la commande.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LegacyOrderDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /orders/{orderId}/draft:
     x-legacy-facade: true
     parameters:
@@ -13175,6 +13195,26 @@ components:
         status: { type: string }
         createdAt: { type: string, format: date-time }
         totalHt: { type: string, pattern: '^[0-9]{1,10}\\.[0-9]{2}$' }
+        hasUnverifiedPrices: { type: boolean }
+        items: { type: array, items: { $ref: '#/components/schemas/LegacyDraftOrderItem' } }
+    LegacyOrderDetail:
+      type: object
+      additionalProperties: false
+      required: [orderId, shopId, shopName, source, status, createdAt, updatedAt, customerName, customerEmail, currency, notes, totalHt, totalTtc, hasUnverifiedPrices, items]
+      properties:
+        orderId: { type: string, format: uuid }
+        shopId: { type: string, format: uuid }
+        shopName: { type: string }
+        source: { type: string, enum: [v1_1] }
+        status: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        customerName: { type: [string, 'null'] }
+        customerEmail: { type: [string, 'null'] }
+        currency: { type: string, minLength: 3, maxLength: 3 }
+        notes: { type: string }
+        totalHt: { type: string, pattern: '^[0-9]{1,10}\\.[0-9]{2}$' }
+        totalTtc: { type: string, pattern: '^[0-9]{1,10}\\.[0-9]{2}$' }
         hasUnverifiedPrices: { type: boolean }
         items: { type: array, items: { $ref: '#/components/schemas/LegacyDraftOrderItem' } }
     LegacyUpdateDraftOrderItem:

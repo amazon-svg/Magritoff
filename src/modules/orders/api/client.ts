@@ -8,6 +8,7 @@ import {
   createOrderCommandSchema,
   createOrderResultSchema,
   draftOrderSchema,
+  orderDetailSchema,
   updateDraftOrderCommandSchema,
   updateDraftOrderResultSchema,
   orderRolesResponseSchema,
@@ -19,6 +20,7 @@ import {
   type CreateOrderCommand,
   type CreateOrderResult,
   type DraftOrder,
+  type OrderDetail,
   type UpdateDraftOrderCommand,
   type UpdateDraftOrderResult,
   type OrderRolesResponse,
@@ -75,6 +77,14 @@ export class OrdersApiClient {
     return this.client.request({
       path: `${API_V1_BASE_PATH}/orders/${encodeURIComponent(orderId)}/draft`,
       responseSchema: draftOrderSchema,
+      ...(signal === undefined ? {} : { signal }),
+    });
+  }
+
+  getDetail(orderId: string, signal?: AbortSignal): Promise<OrderDetail> {
+    return this.client.request({
+      path: `${API_V1_BASE_PATH}/orders/${encodeURIComponent(orderId)}`,
+      responseSchema: orderDetailSchema,
       ...(signal === undefined ? {} : { signal }),
     });
   }
