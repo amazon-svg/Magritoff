@@ -2,6 +2,9 @@
 
 Statut : draft. Mandat : reprise du développement demandée par Xavier dans le chat. Référence du code vérifié : `b8dc8c6f`. Ce rapport ne vaut ni approbation de story ni preuve de déploiement.
 
+
+Pilotage actualisé : [synthèse de reprise du projet](../../project/meetings/reports/2026-10-05-synthese-reprise-projet.md). La recommandation initiale de commencer par US-CONV-02 est réévaluée ; la fiche des commandes boutique est désormais le lot proposé, sous réserve de revue du périmètre. Les sections datées ci-dessous conservent les étapes du diagnostic.
+
 ## Conclusion
 
 Le socle portable démarre et les contrôles exécutés passent sur un environnement de test isolé. Le premier lot recommandé est la fiabilisation de la recette et de la CI. Le parcours complet boutique → devis → commande dans le navigateur reste à construire et à exécuter avant une validation fonctionnelle globale.

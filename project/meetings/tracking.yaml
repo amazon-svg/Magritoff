@@ -50,3 +50,14 @@ documents:
     owner: unassigned
     reviewedAt: null
     openItems: []
+  - id: REPORT-2026-10-05-REPRISE-PROJET
+    kind: report
+    path: project/meetings/reports/2026-10-05-synthese-reprise-projet.md
+    processingStatus: draft
+    owner: unassigned
+    reviewedAt: null
+    openItems:
+      - Confirmer le lot E4.4a et son découpage consultation puis édition.
+      - Définir la matrice des champs et actions modifiables par état et droit.
+      - Nommer les responsables d’approbation et de revue.
+      - Réconcilier les stories HopeStudio avec les lots déjà présents.
