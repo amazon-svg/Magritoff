@@ -78,7 +78,7 @@ Sortie attendue : règle produit ou questions attribuées, sans imposer implicit
 
 ## HopeStudio et priorité des stories
 
-Xavier porte le pilotage et la validation produit et technique de HopeStudio, selon sa précision du 5 octobre consignée dans les rôles. Les questions propres à ce périmètre lui sont soumises directement ; le WM traite les engagements et impacts communs à Magrit.
+Xavier porte le pilotage et la validation produit et technique de HopeStudio, ainsi que l’arbitrage d’E1.WM1/E1.WM2/E1.WM3, selon ses précisions du 5 octobre consignées dans les rôles. Les questions propres à ce périmètre lui sont soumises directement ; le WM traite les engagements et impacts communs à Magrit.
 
 Acter dans le cadrage que la bibliothèque JavaScript HopeStudio orchestre ; Magrit relaie et importe. Le point à discuter est le résultat utilisateur encore attendu, notamment le sens de « hors couche conversationnelle », et non le choix artificiel d’une nouvelle API de génération Magrit.
 
