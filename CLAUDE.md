@@ -5,7 +5,7 @@
 
 ## Lecture obligatoire avant toute action
 
-1. **[project/README.md](project/README.md)** puis **[project/governance/source-of-truth.md](project/governance/source-of-truth.md)** — organisation produit, hiérarchie des sources et règles de propagation. **Git est l unique source du projet.** La migration depuis Notion est terminée le 03/10/2026 : Notion n est plus saisi, plus consulté, plus synchronisé. Le backlog vit dans **[project/backlog/](project/backlog/)** — 18 epics, 205 stories.
+1. **[project/README.md](project/README.md)** puis **[project/governance/source-of-truth.md](project/governance/source-of-truth.md)** — organisation produit, hiérarchie des sources et règles de propagation. **Git est l unique source du projet.** La migration depuis Notion est terminée le 03/10/2026 : Notion n est plus saisi, plus consulté, plus synchronisé. Le backlog vit dans **[project/backlog/](project/backlog/)** — 18 epics, 24 fonctionnalités et 201 stories.
 2. **[docs/REGLES_ARCHITECTURE.md](docs/REGLES_ARCHITECTURE.md)** — règles R1-R8 de la session RP#070826 (Annexe A), **opposables à tout développement** : API-first, modularité, MCP différé, noyau minimal, souplesse encadrée sur l existant, workflow Git, design charte v2, rapport de fin de tâche.
    → **[docs/CONVENTION_GIT.md](docs/CONVENTION_GIT.md)** complète R6 : rôle des branches, cadence de remontée vers `main`, tags de version, séquence de synchronisation avec Expert Solutions.
 3. **[docs/project-context.md](docs/project-context.md)** — persistent facts BMAD (vision, stack, multi-tenancy, conventions, identifiants techniques).

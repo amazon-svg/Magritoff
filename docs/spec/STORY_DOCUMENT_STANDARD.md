@@ -51,7 +51,7 @@ Une simple mention « cette spec est invalidée » sans mise à jour de la sourc
 
 ## Héritage Notion — migration close
 
-La migration unique a eu lieu le 3 octobre 2026 : 205 stories, 18 epics et 19 fonctionnalités sont dans `project/backlog/`. Les sections encadrées par les marqueurs `notion-functional` dans les anciens story documents sont des instantanés figés. Elles sont conservées pour la traçabilité, mais :
+La migration unique a eu lieu le 3 octobre 2026 : 205 stories ont été importées. Après retrait documenté de quatre entrées qui ne décrivaient aucun comportement produit, le backlog courant contient 201 stories, 18 epics et 24 fonctionnalités. Les sections encadrées par les marqueurs `notion-functional` dans les anciens story documents sont des instantanés figés. Elles sont conservées pour la traçabilité, mais :
 
 - **elles sont remplacées par la story canonique du même identifiant** dans `project/backlog/stories/` ; en cas de divergence, c'est la story canonique qui s'applique ;
 - elles ne sont plus régénérées, ni relues comme spécification ;

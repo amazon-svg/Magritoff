@@ -9,6 +9,7 @@ const root = process.cwd();
 const projectRoot = path.join(root, 'project');
 const errors = [];
 const identifiers = new Map();
+const artifactCounts = new Map();
 
 const DOCUMENT_STATUSES = new Set(['draft', 'review', 'approved', 'deprecated']);
 const SPEC_STATUSES = new Set(['draft', 'review', 'approved', 'contradictory', 'superseded', 'deprecated']);
@@ -83,6 +84,7 @@ for (const absolute of files.sort()) {
   if (!type) continue;
 
   checked += 1;
+  artifactCounts.set(type, (artifactCounts.get(type) ?? 0) + 1);
   const content = await readFile(absolute, 'utf8');
   let data;
   try {
@@ -170,4 +172,9 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-console.log(`Gouvernance valide : ${checked} artefact(s), ${identifiers.size} identifiant(s) unique(s).`);
+console.log(
+  `Gouvernance valide : ${checked} artefact(s), ${identifiers.size} identifiant(s) unique(s) ; ` +
+  `${artifactCounts.get('epic') ?? 0} epics, ` +
+  `${artifactCounts.get('feature') ?? 0} fonctionnalités, ` +
+  `${artifactCounts.get('story') ?? 0} stories.`,
+);

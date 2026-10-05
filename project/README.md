@@ -2,7 +2,7 @@
 
 Ce dossier est la source Git canonique pour la vision produit, le backlog, les décisions, les comptes rendus et les sprints de Magrit.
 
-La décision a été prise lors de l'atelier du 1er octobre 2026. **La migration depuis Notion a été réalisée le 3 octobre 2026** : 18 epics, 19 fonctionnalités et 205 stories sont désormais dans ce dossier. Notion n'est plus saisi, plus consulté et plus synchronisé ; son export daté est conservé hors dépôt comme archive de provenance (voir le rapport de migration). Les éléments importés restent au statut `draft` jusqu'à approbation humaine.
+La décision a été prise lors de l'atelier du 1er octobre 2026. **La migration depuis Notion a été réalisée le 3 octobre 2026** : le backlog courant contient 18 epics, 24 fonctionnalités et 201 stories. La migration avait initialement produit 205 stories ; quatre entrées qui ne décrivaient aucun comportement produit ont ensuite été retirées et consignées dans le rapport de migration. Notion n'est plus saisi, plus consulté et plus synchronisé ; son export daté est conservé hors dépôt comme archive de provenance. Les éléments importés restent au statut `draft` jusqu'à approbation humaine.
 
 ## Organisation
 

@@ -28,7 +28,7 @@ Ce dossier conserve les productions historiques générées par les workflows BM
 
 ## État de la migration
 
-La vision, le périmètre, les principes et l'epic E10 ont été consolidés dans `project/` le 2 octobre 2026. Le backlog Notion a été migré le 3 octobre 2026 : `project/backlog/` porte désormais 18 epics, 19 fonctionnalités et 205 stories, chacune référençant son ou ses story documents de ce dossier en `implementationRecords`.
+La vision, le périmètre, les principes et l'epic E10 ont été consolidés dans `project/` le 2 octobre 2026. Le backlog Notion a été migré le 3 octobre 2026 : `project/backlog/` porte désormais 18 epics, 24 fonctionnalités et 201 stories, chacune référençant son ou ses story documents de ce dossier en `implementationRecords`. Le rapport de migration conserve le décompte historique des 205 stories initialement importées et motive les quatre retraits ultérieurs.
 
 Conséquences pour ce dossier :
 

@@ -24,7 +24,7 @@ source: MEET-2026-10-01-ATELIER
 |---|---:|
 | Lignes lues dans Notion | 206 — et non 197, le chiffre historique était périmé |
 | Stories dans le backlog | **201** après retrait de quatre entrées qui n'étaient pas des stories |
-| Epics · fonctionnalités | 18 · 19 |
+| Epics · fonctionnalités | 18 · 24 |
 | Statuts de livraison | `verified` 2 · `implemented` 47 · `in-progress` 8 · `not-started` 144 · `released` **0** |
 | Contenus `approved` | **0** — les rôles d'approbation ne sont pas attribués |
 

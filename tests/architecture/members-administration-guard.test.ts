@@ -81,10 +81,22 @@ describe('TF-16 — administration des utilisateurs réservée', () => {
         .filter((index) => index > start)
         .sort((a, b) => a - b)[0] ?? source.indexOf(`function ${INVITATION_GUARD}`);
       const body = source.slice(start, next);
+      const guardOffset = body.indexOf(INVITATION_GUARD);
       expect(
-        body.includes(INVITATION_GUARD),
+        guardOffset,
         `l opération ${operation} doit appeler ${INVITATION_GUARD} avant d agir`,
-      ).toBe(true);
+      ).toBeGreaterThan(-1);
+
+      const firstWrite = new RegExp(
+        String.raw`\b(?:insert\s+into|update\s+(?!of\b)(?:public\.)?[a-z_][a-z0-9_.]*|delete\s+from)\b`,
+        'i',
+      ).exec(body);
+      if (firstWrite !== null) {
+        expect(
+          guardOffset,
+          `l opération ${operation} doit vérifier la capacité avant sa première écriture SQL`,
+        ).toBeLessThan(firstWrite.index);
+      }
     }
   });
 
