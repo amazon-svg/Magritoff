@@ -1,6 +1,6 @@
 ---
 id: US-XXX
-title: Titre de la story
+title: "Titre de la story"
 epic: EPIC-XXX
 feature: FEAT-XXX
 specStatus: draft

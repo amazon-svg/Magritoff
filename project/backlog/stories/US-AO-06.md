@@ -1,6 +1,6 @@
 ---
 id: US-AO-06
-title: Pipeline AO : ingestion → chiffrage → restitution
+title: "Pipeline AO : ingestion → chiffrage → restitution"
 epic: EPIC-T08
 feature: FEAT-T08-UNCLASSIFIED
 specStatus: draft

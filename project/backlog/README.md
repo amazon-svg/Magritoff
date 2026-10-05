@@ -17,3 +17,20 @@ Les story documents historiques de `_bmad-output/implementation-artifacts` ne so
 `deliveryStatus` : `not-started`, `ready`, `in-progress`, `implemented`, `verified`, `released`, `blocked`, `cancelled`.
 
 Tout contenu importé ou produit par un agent commence à `draft`.
+
+## Frontmatter YAML
+
+Le bloc délimité par `---` en tête de chaque artefact doit être du YAML valide.
+Les chaînes libres, en particulier `title`, sont écrites entre guillemets doubles.
+Cette règle évite qu'un deux-points suivi d'une espace ou qu'un titre commençant
+par `[` soit interprété comme une structure YAML.
+
+Après toute création ou modification d'un artefact du projet, exécuter :
+
+```bash
+pnpm project:validate
+```
+
+La validation doit échouer si un frontmatter est absent ou syntaxiquement
+invalide. Une lecture partielle des champs par expression régulière ne constitue
+pas une validation YAML.

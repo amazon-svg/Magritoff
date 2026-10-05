@@ -44,6 +44,7 @@
     "test": "vitest run --maxWorkers=2",
     "specs:validate": "node ./scripts/validate-functional-specs.mjs",
     "project:validate": "node ./scripts/project/validate-project-docs.mjs",
+    "test:project": "vitest run tests/project --maxWorkers=2",
     "quality:audit": "node ./scripts/run-quality-audit.mjs",
     "quality:audit:diff": "pnpm quality:audit --mode diff",
     "quality:audit:full": "pnpm quality:audit --mode full",
