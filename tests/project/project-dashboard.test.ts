@@ -13,6 +13,8 @@ async function fixture() {
     'project/backlog/stories',
     'project/decisions/product',
     'project/decisions/architecture',
+    'project/meetings/2026',
+    'project/meetings/reports',
   ]) await mkdir(path.join(root, directory), { recursive: true });
 
   await writeFile(path.join(root, 'project/backlog/epics/EPIC-1.md'), `---
@@ -62,6 +64,24 @@ Le Kanban est généré depuis Git.
 |---|---|---|---|---|---|
 | OQ-1 | Quelle vue afficher ? | Atelier | Xavier | à fixer | ouverte |
 `);
+  await writeFile(path.join(root, 'project/meetings/reports/2026-10-05-rapport-pilote.md'), `---
+id: REPORT-2026-10-05-PILOTE
+title: "Rapport pilote"
+date: 2026-10-05
+---
+# Rapport pilote
+`);
+  await writeFile(path.join(root, 'project/meetings/tracking.yaml'), `version: 1
+documents:
+  - id: REPORT-2026-10-05-PILOTE
+    kind: report
+    path: project/meetings/reports/2026-10-05-rapport-pilote.md
+    processingStatus: review
+    owner: Xavier
+    reviewedAt: null
+    openItems:
+      - "Reporter la décision pilote"
+`);
   return root;
 }
 
@@ -74,18 +94,21 @@ describe('tableau de bord projet', () => {
       stories: 1,
       openQuestions: 1,
       contradictory: 1,
+      documentsToProcess: 1,
     });
     expect(model.stories[0]).toMatchObject({ id: 'US-1', deliveryStatus: 'in-progress' });
     expect(model.decisions[0]).toMatchObject({ id: 'PD-1', decisionStatus: 'adopted' });
+    expect(model.meetingDocuments[0]).toMatchObject({ id: 'REPORT-2026-10-05-PILOTE', processingStatus: 'review' });
   });
 
-  it('génère un document HTML autonome avec les quatre vues', async () => {
+  it('génère un document HTML autonome avec les cinq vues', async () => {
     const html = renderProjectDashboard(await buildProjectDashboardModel(await fixture()));
     expect(html).toContain('<!doctype html>');
     expect(html).toContain('Pilotage du projet Magrit');
     expect(html).toContain('data-view="kanban"');
     expect(html).toContain('data-view="hierarchy"');
     expect(html).toContain('data-view="decisions"');
+    expect(html).toContain('data-view="meetings"');
     expect(html).toContain('Afficher le Kanban');
     expect(html).not.toContain('https://cdn.');
   });
@@ -93,8 +116,8 @@ describe('tableau de bord projet', () => {
   it('neutralise une fermeture de balise script dans les données', () => {
     const html = renderProjectDashboard({
       repository: 'owner/repo', reference: 'main', epics: [], features: [],
-      stories: [{ title: '</script><script>alert(1)</script>' }], openQuestions: [], decisions: [],
-      metrics: { epics: 0, features: 0, stories: 1, openQuestions: 0, contradictory: 0, blocked: 0, specStatuses: {}, deliveryStatuses: {}, decisionStatuses: {} },
+      stories: [{ title: '</script><script>alert(1)</script>' }], openQuestions: [], decisions: [], meetingDocuments: [],
+      metrics: { epics: 0, features: 0, stories: 1, openQuestions: 0, contradictory: 0, blocked: 0, documentsToProcess: 0, meetingStatuses: {}, specStatuses: {}, deliveryStatuses: {}, decisionStatuses: {} },
     });
     expect(html).not.toContain('</script><script>alert(1)</script>');
   });

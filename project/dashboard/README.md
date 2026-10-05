@@ -6,7 +6,7 @@ Il ne stocke aucun statut et ne doit jamais être modifié manuellement.
 ## Génération locale
 
 ```bash
-pnpm project:dashboard
+pnpm project:refresh
 ```
 
 Ouvrir ensuite `project/dashboard/index.html` dans un navigateur. Le fichier est
@@ -28,16 +28,17 @@ prévisualiser une page contenant des données sensibles.
 - filtres par epic, fonctionnalité et `specStatus` ;
 - hiérarchie epic → fonctionnalité → story ;
 - décisions enregistrées et questions ouvertes.
+- comptes rendus et reports à analyser, avec responsable et points ouverts.
 
 Les liens ouvrent les fichiers canoniques sur la branche `main` du dépôt.
 
 ## Automatisation
 
-Le workflow `.github/workflows/project-dashboard.yml` régénère et teste le
-fichier à chaque pull request ou push qui modifie ses sources. Le HTML est joint
+Le workflow `.github/workflows/project-dashboard.yml` synchronise le registre
+des réunions, régénère et teste le fichier à chaque pull request ou push qui modifie ses sources. Le HTML est joint
 à l'exécution GitHub Actions sous forme d'artefact téléchargeable. La PR échoue
 si le fichier versionné ne correspond plus aux sources : il suffit alors de
-relancer `pnpm project:dashboard` et de committer le résultat.
+relancer `pnpm project:refresh` et de committer le résultat.
 
 La publication GitHub Pages reste optionnelle si une URL hébergée directement
 par le dépôt est préférée. Elle n'utilise aucun jeton personnel.

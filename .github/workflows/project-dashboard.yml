@@ -5,9 +5,11 @@ on:
     paths:
       - "project/backlog/**"
       - "project/decisions/**"
+      - "project/meetings/**"
       - "project/dashboard/**"
       - "scripts/project/project-dashboard-*.mjs"
       - "scripts/project/generate-project-dashboard.mjs"
+      - "scripts/project/meeting-tracking.mjs"
       - "scripts/project/project-frontmatter.mjs"
       - "tests/project/project-dashboard.test.ts"
       - "package.json"
@@ -16,8 +18,10 @@ on:
     paths:
       - "project/backlog/**"
       - "project/decisions/**"
+      - "project/meetings/**"
       - "scripts/project/project-dashboard-*.mjs"
       - "scripts/project/generate-project-dashboard.mjs"
+      - "scripts/project/meeting-tracking.mjs"
       - "scripts/project/project-frontmatter.mjs"
       - "package.json"
       - "pnpm-lock.yaml"
@@ -53,6 +57,9 @@ jobs:
       - name: Installer les dépendances
         run: pnpm install --frozen-lockfile
 
+      - name: Synchroniser le registre des réunions
+        run: pnpm project:meetings:sync
+
       - name: Valider les sources du projet
         run: pnpm project:validate
 
@@ -62,8 +69,8 @@ jobs:
       - name: Générer le tableau de bord
         run: pnpm project:dashboard
 
-      - name: Vérifier que la vue versionnée est à jour
-        run: git diff --exit-code -- project/dashboard/index.html
+      - name: Vérifier que le registre et la vue versionnés sont à jour
+        run: git diff --exit-code -- project/meetings/tracking.yaml project/dashboard/index.html
 
       - name: Joindre le fichier HTML
         uses: actions/upload-artifact@v4

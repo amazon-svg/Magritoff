@@ -1,6 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { parseProjectFrontmatter } from './project-frontmatter.mjs';
+import { validateMeetingTracking } from './meeting-tracking.mjs';
 
 const BACKLOG_TYPES = [
   ['epics', 'epic'],
@@ -158,6 +159,9 @@ export async function buildProjectDashboardModel(root) {
   const stories = backlog.filter((item) => item.type === 'story');
   const openQuestions = await loadOpenQuestions(root);
   const decisions = await loadDecisions(root);
+  const meetingTracking = await validateMeetingTracking(root);
+  if (meetingTracking.errors.length) throw new Error(meetingTracking.errors.join('\n'));
+  const meetingDocuments = meetingTracking.documents;
 
   return {
     repository: process.env.GITHUB_REPOSITORY || 'amazon-svg/Magritoff',
@@ -167,6 +171,7 @@ export async function buildProjectDashboardModel(root) {
     stories,
     openQuestions,
     decisions,
+    meetingDocuments,
     metrics: {
       epics: epics.length,
       features: features.length,
@@ -174,6 +179,8 @@ export async function buildProjectDashboardModel(root) {
       openQuestions: openQuestions.filter((question) => question.status === 'ouverte').length,
       contradictory: backlog.filter((item) => item.specStatus === 'contradictory').length,
       blocked: stories.filter((story) => story.deliveryStatus === 'blocked').length,
+      documentsToProcess: meetingDocuments.filter((document) => document.processingStatus !== 'done').length,
+      meetingStatuses: countBy(meetingDocuments, 'processingStatus'),
       specStatuses: countBy(stories, 'specStatus'),
       deliveryStatuses: countBy(stories, 'deliveryStatus'),
       decisionStatuses: countBy(decisions, 'decisionStatus'),
