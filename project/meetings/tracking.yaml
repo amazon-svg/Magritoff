@@ -50,6 +50,16 @@ documents:
     owner: unassigned
     reviewedAt: null
     openItems: []
+  - id: REPORT-2026-10-05-PREPARATION-WM
+    kind: report
+    path: project/meetings/reports/2026-10-05-preparation-prochain-wm.md
+    processingStatus: draft
+    owner: unassigned
+    reviewedAt: null
+    openItems:
+      - Fixer la date et confirmer les participants du prochain WM.
+      - Relire l’ordre du jour et les documents de préparation.
+      - Consigner après la réunion les décisions, responsables et échéances.
   - id: REPORT-2026-10-05-REPRISE-PROJET
     kind: report
     path: project/meetings/reports/2026-10-05-synthese-reprise-projet.md
