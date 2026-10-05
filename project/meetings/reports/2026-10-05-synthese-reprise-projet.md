@@ -37,7 +37,7 @@ Les preuves techniques et leurs limites sont détaillées dans [le diagnostic](.
 
 Le backlog contient 202 stories : 47 `implemented`, 2 `verified`, 8 `in-progress` et 145 `not-started`. Côté spécification, 197 sont `draft` et 5 `contradictory` ; aucune n’est `approved`. Ces chiffres viennent des métadonnées Git, pas d’un audit fonctionnel exhaustif exécuté aujourd’hui. Ils ne permettent pas de calculer un pourcentage d’avancement fiable.
 
-Les approbateurs restent à nommer dans `project/governance/roles.md`. Le dossier `project/sprints` ne contient encore que son README et son modèle : aucun sprint n’y sélectionne les prochains travaux. Le statut historique d’une story ne remplace ni sa relecture ni la recette de son parcours actuel.
+Xavier porte désormais le périmètre produit et technique HopeStudio, selon sa précision du 5 octobre enregistrée dans `project/governance/roles.md`. Les approbateurs généraux Magrit restent à préciser. Le dossier `project/sprints` ne contient encore que son README et son modèle : aucun sprint n’y sélectionne les prochains travaux. Le statut historique d’une story ne remplace ni sa relecture ni la recette de son parcours actuel.
 
 ## Réévaluation de HopeStudio
 

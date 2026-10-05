@@ -137,3 +137,7 @@ Cette recette est ajoutée au job navigateur portable de la CI. Les PDF et SVG n
 - Quelle valeur métier donner au prix importé : estimation ou prix engageant, et quelle validation est requise ?
 - Rattachement à une fonctionnalité produit à relire (`FEAT-E5-UNCLASSIFIED` est un regroupement de migration).
 - Relecture produit requise : cette story reste `draft` et n’est pas déclarée prête à implémenter.
+
+## Circuit de validation HopeStudio
+
+Xavier Péchoultres est le référent et approbateur produit et technique du périmètre HopeStudio, selon sa précision du 5 octobre 2026 consignée dans [les rôles](../../governance/roles.md). Les questions relatives au runtime, à ses contrats et au résultat attendu lui sont adressées. Les engagements communs à l’intégration Magrit restent à examiner avec l’équipe concernée ; la revue de code reste distincte. Cette attribution ne constitue pas une approbation de la présente story.
