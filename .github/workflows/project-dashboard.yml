@@ -1,0 +1,92 @@
+name: project-dashboard
+
+on:
+  pull_request:
+    paths:
+      - "project/backlog/**"
+      - "project/decisions/**"
+      - "project/dashboard/**"
+      - "scripts/project/project-dashboard-*.mjs"
+      - "scripts/project/generate-project-dashboard.mjs"
+      - "scripts/project/project-frontmatter.mjs"
+      - "tests/project/project-dashboard.test.ts"
+      - "package.json"
+      - "pnpm-lock.yaml"
+  push:
+    paths:
+      - "project/backlog/**"
+      - "project/decisions/**"
+      - "scripts/project/project-dashboard-*.mjs"
+      - "scripts/project/generate-project-dashboard.mjs"
+      - "scripts/project/project-frontmatter.mjs"
+      - "package.json"
+      - "pnpm-lock.yaml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: project-dashboard-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Générer le tableau de bord
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Installer Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Installer les dépendances
+        run: pnpm install --frozen-lockfile
+
+      - name: Valider les sources du projet
+        run: pnpm project:validate
+
+      - name: Tester le générateur
+        run: pnpm test:dashboard
+
+      - name: Générer le tableau de bord
+        run: pnpm project:dashboard
+
+      - name: Vérifier que la vue versionnée est à jour
+        run: git diff --exit-code -- project/dashboard/index.html
+
+      - name: Joindre le fichier HTML
+        uses: actions/upload-artifact@v4
+        with:
+          name: project-dashboard
+          path: project/dashboard/index.html
+          if-no-files-found: error
+
+      - name: Préparer la publication Pages
+        if: github.event_name == 'push' && vars.ENABLE_PROJECT_DASHBOARD_PAGES == 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: project/dashboard
+
+  deploy:
+    name: Publier sur GitHub Pages
+    if: github.event_name == 'push' && vars.ENABLE_PROJECT_DASHBOARD_PAGES == 'true'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Déployer
+        id: deployment
+        uses: actions/deploy-pages@v4
