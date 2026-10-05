@@ -46,6 +46,8 @@
 
   ## Documentation
 
+  - [Tableau de bord de pilotage du projet](https://amazon-svg.github.io/Magritoff/) — Kanban, métriques, epics, fonctionnalités, stories et décisions ouvertes
+    ([fichier HTML versionné](project/dashboard/index.html), [génération et publication](project/dashboard/README.md))
   - [Gestion de projet, backlog et décisions](project/README.md)
   - [Gouvernance produit](docs/GOUVERNANCE_PRODUIT_BACKLOG_SPECIFICATIONS.md)
 
