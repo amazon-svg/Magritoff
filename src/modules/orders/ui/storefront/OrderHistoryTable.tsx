@@ -908,11 +908,12 @@ export function OrderHistoryTable({
           }`}
         >
           <table
-            className={`w-full text-left ${isDashboardAppearance ? 'min-w-[1365px] table-fixed' : ''}`}
+            className={`w-full text-left ${isDashboardAppearance ? 'min-w-[1510px] table-fixed' : ''}`}
             style={{ fontSize: '13px' }}
           >
             {isDashboardAppearance && (
               <colgroup>
+                <col style={{ width: '145px' }} />
                 <col style={{ width: '175px' }} />
                 {extraColumn?.position === 'after-date' && <col style={{ width: '125px' }} />}
                 <col style={{ width: '125px' }} />
@@ -928,6 +929,15 @@ export function OrderHistoryTable({
             )}
             <thead>
               <tr className={`border-b border-line ${isDashboardAppearance ? 'bg-bg' : ''}`}>
+                {isDashboardAppearance && (
+                  <th
+                    scope="col"
+                    className="py-2.5 pr-4 font-mono uppercase text-ink-mute-2 whitespace-nowrap"
+                    style={{ fontSize: '10.5px', letterSpacing: '0.08em', fontWeight: 500 }}
+                  >
+                    N°
+                  </th>
+                )}
                 <th
                   scope="col"
                   aria-sort={ariaSortFor('date')}
@@ -1069,7 +1079,8 @@ export function OrderHistoryTable({
                 // Q17-c (point 12 (h)) — nombre de colonnes réel de CETTE
                 // ligne, pour que le `colSpan` du détail ne déborde ni ne
                 // laisse de cellules orphelines selon extraColumn/actions.
-                const columnCount = 1 // Date
+                const columnCount = (isDashboardAppearance ? 1 : 0) // N°
+                  + 1 // Date
                   + (extraColumn?.position === 'after-date' ? 1 : 0)
                   + 1 // Client
                   + 1 // Articles
@@ -1086,6 +1097,11 @@ export function OrderHistoryTable({
                     data-order-source={o.source}
                     className="border-b border-line hover:bg-bg transition-colors"
                   >
+                    {isDashboardAppearance && (
+                      <td className="py-3 pr-4 text-ink font-mono whitespace-nowrap font-medium">
+                        {o.number ?? `#${o.id.replace(/-/g, '').slice(0, 8).toUpperCase()}`}
+                      </td>
+                    )}
                     <td
                       className="py-3 pr-4 text-ink-2 font-mono whitespace-nowrap"
                       style={{ fontVariantNumeric: 'tabular-nums' }}

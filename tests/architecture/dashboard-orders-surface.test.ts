@@ -26,12 +26,21 @@ describe('surface du dashboard commandes', () => {
 
   it('rend le tableau dashboard dans une surface compacte, stable et scrollable', () => {
     expect(orderHistoryTable).toContain('rounded-md border border-line bg-paper');
-    expect(orderHistoryTable).toContain('min-w-[1365px] table-fixed');
+    expect(orderHistoryTable).toContain('min-w-[1510px] table-fixed');
     expect(orderHistoryTable).toContain('<colgroup>');
+    expect(orderHistoryTable).toContain('N°');
+    expect(orderHistoryTable).toContain('o.number ??');
     expect(orderHistoryTable).toContain("<col style={{ width: '390px' }} />");
     expect(orderHistoryTable).toContain('justify-start gap-1.5 whitespace-nowrap');
     expect(orderHistoryTable).toContain('text-[10.5px] tracking-[0.08em]');
     expect(orderHistoryTable).toContain('Actions');
     expect(orderHistoryTable).toContain('bg-bg px-4 py-3');
+  });
+
+  it('ne propose aucune transition directe depuis la grille dense', () => {
+    expect(dashboardOrders).not.toContain('onValidateOrder=');
+    expect(dashboardOrders).not.toContain('onStartProductionOrder=');
+    expect(dashboardOrders).not.toContain('onMarkShippedOrder=');
+    expect(dashboardOrders).not.toContain('onCancelOrder=');
   });
 });

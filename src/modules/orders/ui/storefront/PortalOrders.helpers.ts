@@ -24,6 +24,8 @@ export type OrderSource = 'legacy' | 'v1_1' | 'commercial';
 
 export interface OrderUI {
   id: string;
+  /** Numéro métier quand le workflow en attribue un (`CDE-AAAA-NNNNN`). */
+  number?: string | null;
   source: OrderSource;
   date: string; // ISO
   customer_name: string;

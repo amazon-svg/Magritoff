@@ -2,7 +2,7 @@
  * DashboardOrders — Vue agrégée des commandes du tenant.
  *
  * S-DASHBOARD-ORDERS-DUAL (Sprint 4 Phase 1 complement, 2026-05-18) :
- * remplace l ancien placeholder. Dual-read shop_orders + tenant_orders.
+ * remplace l'ancien placeholder et lit le stockage canonique tenant_orders.
  *
  * S3.1 (Sprint 5, 2026-05-23) : refactor pour deleguer rendu/filtres/tri
  * au composant <OrderHistoryTable>, avec extraColumn 'Boutique' pour
@@ -14,11 +14,7 @@ import { useNavigate } from 'react-router';
 import { useAuth } from '@/modules/account/ui/runtime';
 import { useTenant } from '@/modules/tenants/ui/runtime';
 import { useShops } from '@/modules/shops/ui/runtime';
-import { type OrderUI } from '@/modules/orders/ui/storefront/PortalOrders.helpers';
 import { OrderHistoryTable } from '@/modules/orders/ui/storefront/OrderHistoryTable';
-import { CancelOrderConfirmDialog } from '@/modules/orders/ui/storefront/CancelOrderConfirmDialog';
-import { ValidateOrderConfirmDialog } from '@/modules/orders/ui/storefront/ValidateOrderConfirmDialog';
-import { useUserCapability } from '@/modules/roles/ui/hooks';
 import { useTenantPath } from '@/modules/tenants/ui/hooks';
 import { CommercialOrdersApiClient, type CommercialOrderDto } from '@/modules/commercial-orders';
 import { CustomersApiClient, type CustomerDetailDto } from '@/modules/customers';
@@ -41,10 +37,6 @@ export function DashboardOrders() {
     orders,
     loading,
     error,
-    cancel,
-    validate,
-    startProduction,
-    markShipped,
     auditApi,
   } = useDashboardOrderManagement({
     enabled: Boolean(user),
@@ -121,54 +113,6 @@ export function DashboardOrders() {
     return info.name?.trim() || info.slug || '—';
   };
 
-  // S3.4 : modal annulation. orderToCancel = null → modal fermé.
-  const [orderToCancel, setOrderToCancel] = useState<DashboardOrderUI | null>(null);
-  // Fix 2026-05-25 : modal validation. orderToValidate = null → modal fermé.
-  const [orderToValidate, setOrderToValidate] = useState<DashboardOrderUI | null>(null);
-
-  // S-USERS-REFONTE Phase A (2026-05-25) : le bouton "Valider" est role-driven.
-  // Visible uniquement si l'utilisateur courant a la capability can_validate
-  // via au moins un rôle actif dans le tenant (preset Owner / Admin /
-  // Validateur par défaut). Évite que les Acheteurs voient un bouton qui
-  // serait refusé par le RPC (UX confusion).
-  const { hasIt: canValidate } = useUserCapability('can_validate');
-  // S-ORDER-ROLES-3-UI (2026-06-09) : Démarrer la production + Marquer
-  // expédiée gardes par can_modify (preset Owner / Admin / Validateur /
-  // Producteur). Cohérence avec PortalOrders tab "À produire" mais
-  // accessible à l'admin tenant sur l'ensemble des boutiques.
-  const { hasIt: canModifyProduction } = useUserCapability('can_modify');
-  // Les admins sont aussi autorisés par la commande serveur. Ce fallback
-  // évite de masquer le workflow si un tenant brownfield n'a pas encore son
-  // assignation de rôle fonctionnel synchronisée avec tenant_members.
-  const isTenantAdmin = currentTenant?.myRole === 'admin';
-
-  // S3.4 : handlers cancel (admin tenant peut annuler n'importe quelle draft).
-  const handleCancelOrderRequest = (order: OrderUI) => {
-    setOrderToCancel(order as DashboardOrderUI);
-  };
-
-  const handleCancelConfirm = async (orderId: string): Promise<string | null> => {
-    return cancel(orderId);
-  };
-
-  // Fix 2026-05-25 : handlers validation (admin tenant uniquement —
-  // RPC matrice draft→validated réservée au profil admin ou option Commandes).
-  const handleValidateOrderRequest = (order: OrderUI) => {
-    setOrderToValidate(order as DashboardOrderUI);
-  };
-
-  const handleValidateConfirm = async (
-    orderId: string,
-    acknowledgeUnverifiedPrices: boolean,
-  ): Promise<string | null> => {
-    return validate(orderId, acknowledgeUnverifiedPrices);
-  };
-
-  // S-ORDER-ROLES-3-UI : transitions production (admin tenant via can_modify).
-  // Sans modal de confirmation — actions tactiques rapides côté pilotage atelier.
-  const handleStartProduction = (order: OrderUI) => startProduction(order);
-  const handleMarkShipped = (order: OrderUI) => markShipped(order);
-
   return (
     <div
       className="max-w-[1400px]"
@@ -195,16 +139,6 @@ export function DashboardOrders() {
         appearance="dashboard"
         onOpenOrder={(order) => navigate(tenantPath(`/dashboard/orders/${order.id}`))}
         persistKey={currentTenant ? `orderHistory:dashboard:${currentTenant.id}` : undefined}
-        onCancelOrder={handleCancelOrderRequest}
-        // S-USERS-REFONTE Phase A : bouton Valider visible uniquement si
-        // l'utilisateur courant a la capability can_validate (via rôle actif).
-        // Sinon, undefined => OrderHistoryTable masque le bouton.
-        onValidateOrder={canValidate || isTenantAdmin ? handleValidateOrderRequest : undefined}
-        // S-ORDER-ROLES-3-UI : boutons Démarrer prod + Marquer expédiée
-        // role-driven via can_modify (preset Owner / Admin / Validateur /
-        // Producteur). Sans modal de confirmation côté admin tenant.
-        onStartProductionOrder={canModifyProduction || isTenantAdmin ? handleStartProduction : undefined}
-        onMarkShippedOrder={canModifyProduction || isTenantAdmin ? handleMarkShipped : undefined}
         extraColumn={{
           header: 'Origine',
           position: 'after-date',
@@ -227,20 +161,6 @@ export function DashboardOrders() {
         }}
       />
 
-      <CancelOrderConfirmDialog
-        orderId={orderToCancel?.id ?? null}
-        orderShortId={
-          orderToCancel?.id ? orderToCancel.id.replace(/-/g, '').slice(0, 8).toUpperCase() : undefined
-        }
-        onConfirm={handleCancelConfirm}
-        onClose={() => setOrderToCancel(null)}
-      />
-
-      <ValidateOrderConfirmDialog
-        order={orderToValidate}
-        onConfirm={handleValidateConfirm}
-        onClose={() => setOrderToValidate(null)}
-      />
     </div>
   );
 }
@@ -259,6 +179,7 @@ async function loadAllCommercialOrders(api: CommercialOrdersApiClient): Promise<
 function commercialOrderToDashboard(order: CommercialOrderDto, customer?: CustomerDetailDto): DashboardOrderUI {
   return {
     id: order.id,
+    number: order.number,
     source: 'commercial',
     date: order.created_at,
     customer_name: customer ? customerName(customer) : 'Client',
