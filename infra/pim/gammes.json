@@ -1,0 +1,899 @@
+{
+  "schema_version": 1,
+  "title": "Référentiel historique des gammes PIM Magrit",
+  "recovered_at": "2026-10-05",
+  "provenance": {
+    "repository": "amazon-svg/Magritoff",
+    "commit": "391dcdc4afedc42d3ca2a264225fef8af9bb9b4e",
+    "sources": [
+      {
+        "path": "supabase/migrations/20260420000002_pim.sql",
+        "sha256": "c224b86f82751b55eb791a7f5a35e1171a1e99ef495052b25850046f483b3bd6",
+        "statement_count": 1
+      },
+      {
+        "path": "supabase/migrations/20260517000100_pim_gammes_extension.sql",
+        "sha256": "260d1f2cafb64e5a853db8fd1187f02e664fa21bbf6a63572b61266eacd85ac4",
+        "statement_count": 1
+      },
+      {
+        "path": "supabase/migrations/20260707000150_add_packaging_gamme.sql",
+        "sha256": "ea663fbc54e1b2e7cb8d38b73d18f05c24b6bdcb4d1326c4844a1454c072c9b7",
+        "statement_count": 1
+      },
+      {
+        "path": "supabase/migrations/20260710000100_exaprint_gammes.sql",
+        "sha256": "2ac1fafc74abcff0c35f1d22fec43c4b51cc71259832b53a08407667603d7610",
+        "statement_count": 81
+      }
+    ]
+  },
+  "counts": {
+    "gammes": 81,
+    "root_families": 16
+  },
+  "gammes": [
+    {
+      "slug": "carterie",
+      "name": "Carterie",
+      "parent_slug": null,
+      "display_order": 100,
+      "matching_rules": {
+        "kind": "leaflet",
+        "size_range": {
+          "max_dim": 150
+        }
+      }
+    },
+    {
+      "slug": "carte_visite_standard",
+      "name": "Carte de visite standard",
+      "parent_slug": "carterie",
+      "display_order": 101,
+      "matching_rules": {
+        "kind": "leaflet",
+        "size_near": {
+          "tol": 3,
+          "width": 85,
+          "height": 55
+        }
+      }
+    },
+    {
+      "slug": "carte_visite_horizontale",
+      "name": "Carte de visite horizontale",
+      "parent_slug": "carterie",
+      "display_order": 102,
+      "matching_rules": {
+        "kind": "leaflet",
+        "size_near": {
+          "tol": 3,
+          "width": 90,
+          "height": 54
+        }
+      }
+    },
+    {
+      "slug": "carte_visite_carree",
+      "name": "Carte de visite carrée",
+      "parent_slug": "carterie",
+      "display_order": 103,
+      "matching_rules": {
+        "kind": "leaflet",
+        "size_near": {
+          "tol": 3,
+          "width": 55,
+          "height": 55
+        }
+      }
+    },
+    {
+      "slug": "carte_correspondance",
+      "name": "Carte de correspondance",
+      "parent_slug": "carterie",
+      "display_order": 104,
+      "matching_rules": {
+        "kind": "leaflet",
+        "size_near": {
+          "tol": 5,
+          "width": 148,
+          "height": 105
+        }
+      }
+    },
+    {
+      "slug": "carte_voeux",
+      "name": "Carte de vœux pliée",
+      "parent_slug": "carterie",
+      "display_order": 105,
+      "matching_rules": {
+        "kind": "folded",
+        "size_near": {
+          "tol": 10,
+          "width": 148,
+          "height": 210
+        }
+      }
+    },
+    {
+      "slug": "carte_postale",
+      "name": "Carte postale",
+      "parent_slug": "carterie",
+      "display_order": 106,
+      "matching_rules": {}
+    },
+    {
+      "slug": "carton_invitation",
+      "name": "Carton d'invitation / Faire-part",
+      "parent_slug": "carterie",
+      "display_order": 107,
+      "matching_rules": {}
+    },
+    {
+      "slug": "flyer",
+      "name": "Flyers",
+      "parent_slug": null,
+      "display_order": 120,
+      "matching_rules": {
+        "kind": "leaflet",
+        "size_range": {
+          "max_dim": 300,
+          "min_dim": 100
+        }
+      }
+    },
+    {
+      "slug": "flyer_a7",
+      "name": "Flyer A7",
+      "parent_slug": "flyer",
+      "display_order": 121,
+      "matching_rules": {
+        "kind": "leaflet",
+        "size_near": {
+          "tol": 3,
+          "width": 74,
+          "height": 105
+        }
+      }
+    },
+    {
+      "slug": "flyer_a6",
+      "name": "Flyer A6",
+      "parent_slug": "flyer",
+      "display_order": 122,
+      "matching_rules": {
+        "kind": "leaflet",
+        "size_near": {
+          "tol": 5,
+          "width": 105,
+          "height": 148
+        }
+      }
+    },
+    {
+      "slug": "flyer_a5",
+      "name": "Flyer A5",
+      "parent_slug": "flyer",
+      "display_order": 123,
+      "matching_rules": {
+        "kind": "leaflet",
+        "size_near": {
+          "tol": 5,
+          "width": 148,
+          "height": 210
+        }
+      }
+    },
+    {
+      "slug": "flyer_dl",
+      "name": "Flyer DL (long)",
+      "parent_slug": "flyer",
+      "display_order": 124,
+      "matching_rules": {
+        "kind": "leaflet",
+        "size_near": {
+          "tol": 5,
+          "width": 100,
+          "height": 210
+        }
+      }
+    },
+    {
+      "slug": "flyer_a4",
+      "name": "Flyer A4",
+      "parent_slug": "flyer",
+      "display_order": 125,
+      "matching_rules": {
+        "kind": "leaflet",
+        "size_near": {
+          "tol": 5,
+          "width": 210,
+          "height": 297
+        }
+      }
+    },
+    {
+      "slug": "flyer_carre",
+      "name": "Flyer carré",
+      "parent_slug": "flyer",
+      "display_order": 126,
+      "matching_rules": {
+        "kind": "leaflet",
+        "size_near": {
+          "tol": 5,
+          "width": 148,
+          "height": 148
+        }
+      }
+    },
+    {
+      "slug": "depliant",
+      "name": "Dépliants",
+      "parent_slug": null,
+      "display_order": 140,
+      "matching_rules": {
+        "kind": "folded"
+      }
+    },
+    {
+      "slug": "depliant_plie_dl",
+      "name": "Dépliant plié DL (3 volets)",
+      "parent_slug": "depliant",
+      "display_order": 141,
+      "matching_rules": {
+        "kind": "folded",
+        "size_near": {
+          "tol": 5,
+          "width": 210,
+          "height": 100
+        }
+      }
+    },
+    {
+      "slug": "depliant_2_volets",
+      "name": "Dépliant 2 volets",
+      "parent_slug": "depliant",
+      "display_order": 142,
+      "matching_rules": {}
+    },
+    {
+      "slug": "depliant_accordeon",
+      "name": "Dépliant accordéon",
+      "parent_slug": "depliant",
+      "display_order": 143,
+      "matching_rules": {}
+    },
+    {
+      "slug": "brochure",
+      "name": "Brochures",
+      "parent_slug": null,
+      "display_order": 160,
+      "matching_rules": {
+        "kind": "book"
+      }
+    },
+    {
+      "slug": "brochure_piquee",
+      "name": "Brochure piquée 2 points",
+      "parent_slug": "brochure",
+      "display_order": 161,
+      "matching_rules": {
+        "kind": "book",
+        "binding_in": [
+          "Stitching2",
+          "Stitching3",
+          "Stitching4",
+          "InlineStiching"
+        ]
+      }
+    },
+    {
+      "slug": "brochure_dos_carre",
+      "name": "Brochure dos carré collé",
+      "parent_slug": "brochure",
+      "display_order": 162,
+      "matching_rules": {
+        "kind": "book",
+        "binding_in": [
+          "PerfectBinding",
+          "PerfectBindingPUR",
+          "DCC",
+          "DCCPUR"
+        ]
+      }
+    },
+    {
+      "slug": "brochure_spirale",
+      "name": "Brochure spirale (WireO)",
+      "parent_slug": "brochure",
+      "display_order": 163,
+      "matching_rules": {
+        "kind": "book",
+        "binding_in": [
+          "WireO"
+        ]
+      }
+    },
+    {
+      "slug": "brochure_cousue",
+      "name": "Brochure cousue",
+      "parent_slug": "brochure",
+      "display_order": 164,
+      "matching_rules": {
+        "kind": "book",
+        "binding_in": [
+          "SewnBinding"
+        ]
+      }
+    },
+    {
+      "slug": "affiche",
+      "name": "Affiches",
+      "parent_slug": null,
+      "display_order": 180,
+      "matching_rules": {
+        "kind": "leaflet",
+        "size_range": {
+          "min_dim": 297
+        }
+      }
+    },
+    {
+      "slug": "affiche_a3",
+      "name": "Affiche A3",
+      "parent_slug": "affiche",
+      "display_order": 181,
+      "matching_rules": {
+        "kind": "leaflet",
+        "size_near": {
+          "tol": 8,
+          "width": 297,
+          "height": 420
+        }
+      }
+    },
+    {
+      "slug": "affiche_a2",
+      "name": "Affiche A2",
+      "parent_slug": "affiche",
+      "display_order": 182,
+      "matching_rules": {
+        "kind": "leaflet",
+        "size_near": {
+          "tol": 10,
+          "width": 420,
+          "height": 594
+        }
+      }
+    },
+    {
+      "slug": "affiche_40x60",
+      "name": "Affiche 40×60 cm",
+      "parent_slug": "affiche",
+      "display_order": 183,
+      "matching_rules": {
+        "kind": "leaflet",
+        "size_near": {
+          "tol": 10,
+          "width": 400,
+          "height": 600
+        }
+      }
+    },
+    {
+      "slug": "affiche_a1",
+      "name": "Affiche A1",
+      "parent_slug": "affiche",
+      "display_order": 184,
+      "matching_rules": {
+        "kind": "leaflet",
+        "size_near": {
+          "tol": 15,
+          "width": 594,
+          "height": 841
+        }
+      }
+    },
+    {
+      "slug": "affiche_a0",
+      "name": "Affiche A0",
+      "parent_slug": "affiche",
+      "display_order": 185,
+      "matching_rules": {
+        "kind": "leaflet",
+        "size_near": {
+          "tol": 20,
+          "width": 841,
+          "height": 1189
+        }
+      }
+    },
+    {
+      "slug": "affiche_abribus",
+      "name": "Affiche abribus 120×176 cm",
+      "parent_slug": "affiche",
+      "display_order": 186,
+      "matching_rules": {
+        "kind": "leaflet",
+        "size_near": {
+          "tol": 20,
+          "width": 1200,
+          "height": 1760
+        }
+      }
+    },
+    {
+      "slug": "affiche_dos_bleu",
+      "name": "Affiche dos bleu",
+      "parent_slug": "affiche",
+      "display_order": 187,
+      "matching_rules": {}
+    },
+    {
+      "slug": "kakemono",
+      "name": "Kakémonos / Roll-ups",
+      "parent_slug": null,
+      "display_order": 200,
+      "matching_rules": {
+        "kind": "leaflet",
+        "size_range": {
+          "min_dim": 1500
+        }
+      }
+    },
+    {
+      "slug": "roll_up_80x200",
+      "name": "Roll-up standard 80×200 cm",
+      "parent_slug": "kakemono",
+      "display_order": 201,
+      "matching_rules": {
+        "kind": "leaflet",
+        "size_near": {
+          "tol": 50,
+          "width": 800,
+          "height": 2000
+        }
+      }
+    },
+    {
+      "slug": "roll_up_100x200",
+      "name": "Roll-up 100×200 cm",
+      "parent_slug": "kakemono",
+      "display_order": 202,
+      "matching_rules": {
+        "kind": "leaflet",
+        "size_near": {
+          "tol": 50,
+          "width": 1000,
+          "height": 2000
+        }
+      }
+    },
+    {
+      "slug": "roll_up_120x200",
+      "name": "Roll-up 120×200 cm",
+      "parent_slug": "kakemono",
+      "display_order": 203,
+      "matching_rules": {
+        "kind": "leaflet",
+        "size_near": {
+          "tol": 50,
+          "width": 1200,
+          "height": 2000
+        }
+      }
+    },
+    {
+      "slug": "x_banner",
+      "name": "X-banner",
+      "parent_slug": "kakemono",
+      "display_order": 204,
+      "matching_rules": {}
+    },
+    {
+      "slug": "drapeau",
+      "name": "Drapeaux / Beach flags",
+      "parent_slug": null,
+      "display_order": 220,
+      "matching_rules": {
+        "kind": [
+          "drapeau",
+          "beach flag",
+          "beachflag",
+          "oriflamme",
+          "voile",
+          "flag"
+        ]
+      }
+    },
+    {
+      "slug": "beach_flag",
+      "name": "Beach flag / Oriflamme",
+      "parent_slug": "drapeau",
+      "display_order": 221,
+      "matching_rules": {}
+    },
+    {
+      "slug": "drapeau_mat",
+      "name": "Drapeau pour mât",
+      "parent_slug": "drapeau",
+      "display_order": 222,
+      "matching_rules": {}
+    },
+    {
+      "slug": "banderole",
+      "name": "Banderoles / Bâches",
+      "parent_slug": null,
+      "display_order": 240,
+      "matching_rules": {
+        "kind": "leaflet",
+        "size_range": {
+          "max_dim": 1500,
+          "min_dim": 1000
+        }
+      }
+    },
+    {
+      "slug": "bache_pvc",
+      "name": "Bâche PVC",
+      "parent_slug": "banderole",
+      "display_order": 241,
+      "matching_rules": {}
+    },
+    {
+      "slug": "banderole_microperforee",
+      "name": "Bâche micro-perforée",
+      "parent_slug": "banderole",
+      "display_order": 242,
+      "matching_rules": {}
+    },
+    {
+      "slug": "banderole_textile",
+      "name": "Banderole textile",
+      "parent_slug": "banderole",
+      "display_order": 243,
+      "matching_rules": {}
+    },
+    {
+      "slug": "panneau",
+      "name": "Panneaux rigides",
+      "parent_slug": null,
+      "display_order": 260,
+      "matching_rules": {
+        "kind": [
+          "panneau",
+          "dibond",
+          "forex",
+          "akylux",
+          "akilux",
+          "plexi",
+          "plexiglass",
+          "alu composite",
+          "pvc expanse"
+        ]
+      }
+    },
+    {
+      "slug": "panneau_akylux",
+      "name": "Panneau Akylux",
+      "parent_slug": "panneau",
+      "display_order": 261,
+      "matching_rules": {}
+    },
+    {
+      "slug": "panneau_dibond",
+      "name": "Panneau Dibond",
+      "parent_slug": "panneau",
+      "display_order": 262,
+      "matching_rules": {}
+    },
+    {
+      "slug": "panneau_forex",
+      "name": "Panneau Forex",
+      "parent_slug": "panneau",
+      "display_order": 263,
+      "matching_rules": {}
+    },
+    {
+      "slug": "panneau_plexi",
+      "name": "Plaque plexiglass",
+      "parent_slug": "panneau",
+      "display_order": 264,
+      "matching_rules": {}
+    },
+    {
+      "slug": "adhesif",
+      "name": "Adhésifs / Vitrophanie",
+      "parent_slug": null,
+      "display_order": 280,
+      "matching_rules": {
+        "kind": [
+          "adhesif",
+          "vinyle",
+          "vitrophanie",
+          "covering",
+          "autocollant vitrine",
+          "sticker vitrine"
+        ]
+      }
+    },
+    {
+      "slug": "vitrophanie",
+      "name": "Vitrophanie",
+      "parent_slug": "adhesif",
+      "display_order": 281,
+      "matching_rules": {}
+    },
+    {
+      "slug": "adhesif_sol",
+      "name": "Adhésif de sol",
+      "parent_slug": "adhesif",
+      "display_order": 282,
+      "matching_rules": {}
+    },
+    {
+      "slug": "plv",
+      "name": "PLV / Displays",
+      "parent_slug": null,
+      "display_order": 300,
+      "matching_rules": {
+        "kind": [
+          "plv",
+          "presentoir",
+          "totem",
+          "display",
+          "stop-trottoir",
+          "chevalet",
+          "stand",
+          "comptoir",
+          "photocall"
+        ]
+      }
+    },
+    {
+      "slug": "presentoir_comptoir",
+      "name": "Présentoir comptoir",
+      "parent_slug": "plv",
+      "display_order": 301,
+      "matching_rules": {}
+    },
+    {
+      "slug": "totem_carton",
+      "name": "Totem carton",
+      "parent_slug": "plv",
+      "display_order": 302,
+      "matching_rules": {}
+    },
+    {
+      "slug": "stop_trottoir",
+      "name": "Stop-trottoir / Chevalet",
+      "parent_slug": "plv",
+      "display_order": 303,
+      "matching_rules": {}
+    },
+    {
+      "slug": "stand_parapluie",
+      "name": "Stand parapluie",
+      "parent_slug": "plv",
+      "display_order": 304,
+      "matching_rules": {}
+    },
+    {
+      "slug": "etiquette",
+      "name": "Étiquettes / Stickers",
+      "parent_slug": null,
+      "display_order": 320,
+      "matching_rules": {
+        "kind": "leaflet",
+        "size_range": {
+          "max_dim": 100
+        }
+      }
+    },
+    {
+      "slug": "etiquette_planche",
+      "name": "Étiquettes en planche A4",
+      "parent_slug": "etiquette",
+      "display_order": 321,
+      "matching_rules": {}
+    },
+    {
+      "slug": "etiquette_rouleau",
+      "name": "Étiquettes en rouleau",
+      "parent_slug": "etiquette",
+      "display_order": 322,
+      "matching_rules": {}
+    },
+    {
+      "slug": "sticker_forme",
+      "name": "Sticker découpe forme",
+      "parent_slug": "etiquette",
+      "display_order": 323,
+      "matching_rules": {}
+    },
+    {
+      "slug": "papeterie",
+      "name": "Papeterie commerciale",
+      "parent_slug": null,
+      "display_order": 340,
+      "matching_rules": {
+        "kind": [
+          "papeterie",
+          "tete de lettre",
+          "en-tete",
+          "enveloppe",
+          "chemise",
+          "bloc-notes",
+          "bloc notes",
+          "carnet",
+          "autocopiant",
+          "sous-main",
+          "marque-page"
+        ]
+      }
+    },
+    {
+      "slug": "tete_lettre",
+      "name": "Tête de lettre / Papier en-tête",
+      "parent_slug": "papeterie",
+      "display_order": 341,
+      "matching_rules": {}
+    },
+    {
+      "slug": "enveloppe",
+      "name": "Enveloppe personnalisée",
+      "parent_slug": "papeterie",
+      "display_order": 342,
+      "matching_rules": {}
+    },
+    {
+      "slug": "chemise_rabats",
+      "name": "Chemise à rabats",
+      "parent_slug": "papeterie",
+      "display_order": 343,
+      "matching_rules": {}
+    },
+    {
+      "slug": "bloc_note",
+      "name": "Bloc-notes",
+      "parent_slug": "papeterie",
+      "display_order": 344,
+      "matching_rules": {}
+    },
+    {
+      "slug": "carnet_autocopiant",
+      "name": "Carnet autocopiant",
+      "parent_slug": "papeterie",
+      "display_order": 345,
+      "matching_rules": {}
+    },
+    {
+      "slug": "marque_page",
+      "name": "Marque-page",
+      "parent_slug": "papeterie",
+      "display_order": 346,
+      "matching_rules": {
+        "kind": "leaflet",
+        "size_near": {
+          "tol": 3,
+          "width": 50,
+          "height": 210
+        }
+      }
+    },
+    {
+      "slug": "sous_main",
+      "name": "Sous-main",
+      "parent_slug": "papeterie",
+      "display_order": 347,
+      "matching_rules": {}
+    },
+    {
+      "slug": "calendrier",
+      "name": "Calendriers",
+      "parent_slug": null,
+      "display_order": 360,
+      "matching_rules": {
+        "kind": [
+          "calendrier",
+          "almanach",
+          "ephemeride"
+        ]
+      }
+    },
+    {
+      "slug": "calendrier_souple",
+      "name": "Calendrier souple",
+      "parent_slug": "calendrier",
+      "display_order": 361,
+      "matching_rules": {}
+    },
+    {
+      "slug": "calendrier_spirale",
+      "name": "Calendrier mural spirale",
+      "parent_slug": "calendrier",
+      "display_order": 362,
+      "matching_rules": {}
+    },
+    {
+      "slug": "calendrier_bancaire",
+      "name": "Calendrier bancaire contrecollé",
+      "parent_slug": "calendrier",
+      "display_order": 363,
+      "matching_rules": {}
+    },
+    {
+      "slug": "restauration",
+      "name": "Menus / Restauration",
+      "parent_slug": null,
+      "display_order": 380,
+      "matching_rules": {
+        "kind": [
+          "menu",
+          "carte des vins",
+          "set de table",
+          "restauration"
+        ]
+      }
+    },
+    {
+      "slug": "menu",
+      "name": "Menu restaurant",
+      "parent_slug": "restauration",
+      "display_order": 381,
+      "matching_rules": {}
+    },
+    {
+      "slug": "set_de_table",
+      "name": "Set de table",
+      "parent_slug": "restauration",
+      "display_order": 382,
+      "matching_rules": {}
+    },
+    {
+      "slug": "packaging",
+      "name": "Packaging / Emballage",
+      "parent_slug": null,
+      "display_order": 400,
+      "matching_rules": {
+        "kind": [
+          "packaging",
+          "boite",
+          "emballage",
+          "carton",
+          "etui",
+          "coffret",
+          "pochette"
+        ]
+      }
+    },
+    {
+      "slug": "boite_pliante",
+      "name": "Boîte pliante carton",
+      "parent_slug": "packaging",
+      "display_order": 401,
+      "matching_rules": {}
+    },
+    {
+      "slug": "boite_expedition",
+      "name": "Boîte d'expédition e-commerce",
+      "parent_slug": "packaging",
+      "display_order": 402,
+      "matching_rules": {}
+    },
+    {
+      "slug": "coffret_premium",
+      "name": "Coffret premium / Boîte aimantée",
+      "parent_slug": "packaging",
+      "display_order": 403,
+      "matching_rules": {}
+    },
+    {
+      "slug": "sac_papier",
+      "name": "Sac papier kraft",
+      "parent_slug": "packaging",
+      "display_order": 404,
+      "matching_rules": {}
+    }
+  ]
+}

@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { hashPassword } from 'better-auth/crypto';
 import { databaseConfiguration } from './migrate.mjs';
+import { readPimReference, seedPimReference } from './seed-pim.mjs';
 
 const { Client } = pg;
 
@@ -145,9 +146,12 @@ export async function seedDevelopmentIdentity(client, configuration) {
 
 async function main() {
   const configuration = developmentSeedConfiguration();
+  const reference = await readPimReference();
   const client = new Client(databaseConfiguration());
   await client.connect();
   try {
+    const pim = await seedPimReference(client, reference);
+    process.stdout.write(`Referentiel PIM synchronise : ${pim.gammes} gammes.\n`);
     await seedDevelopmentIdentity(client, configuration);
     process.stdout.write(
       `Seed local pret : ${configuration.email}, tenant ${configuration.tenantSlug}, sujet ${configuration.subject}.\n`,

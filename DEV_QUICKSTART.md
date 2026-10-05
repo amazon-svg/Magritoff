@@ -18,8 +18,13 @@ pnpm dev:local
 - Vite sur `127.0.0.1:5176`.
 
 La commande applique les migrations PostgreSQL, le seed de développement et
-la configuration des neuf buckets S3. `Ctrl-C` arrête l'API et Vite ; les
+le référentiel de gammes `infra/pim/gammes.json`, ainsi que la configuration des neuf buckets S3. `Ctrl-C` arrête l'API et Vite ; les
 conteneurs et leurs volumes restent disponibles pour le prochain démarrage.
+
+Après modification du JSON des gammes, `pnpm db:seed:pim` applique les ajouts et
+mises à jour par slug, sans supprimer les gammes supplémentaires. Cet import
+global ne crée pas de produits tarifés dans les bibliothèques et n'active pas
+automatiquement les gammes d'un tenant.
 
 ## Vérifications et maintenance
 

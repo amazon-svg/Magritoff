@@ -31,6 +31,7 @@
     "infra:dev:reset": "./scripts/infra-dev.sh reset",
     "db:migrate": "node scripts/db/migrate.mjs",
     "db:seed": "node scripts/db/seed-development.mjs",
+    "db:seed:pim": "node scripts/db/seed-pim.mjs",
     "db:seed:ux": "./scripts/seed-ux-volume.sh",
     "dev:b5": "./scripts/dev-b5.sh",
     "dev:b5:bg": "./scripts/dev-b5.sh --bg",
