@@ -15,3 +15,11 @@
 | OQ-OUTILLAGE-RENDU | Le dépôt doit-il se doter d'une bibliothèque permettant d'observer ce qu'un écran affiche ? Il n'en a aucune : les vérifications lisent le texte du code source, et un commentaire les trompe. Quatre défauts de ce type sur le seul chantier boutique, dont un vivant dans la branche principale. | Session boutique 19-20/09/2026, relevé `Q-ARBITRAGES` | Xavier Péchoultres | à fixer | ouverte |
 | OQ-PIM-KAKEMONO | La gamme kakémono manque-t-elle réellement au référentiel produit, et le rattachement produit vers gamme est-il fiable au-delà du client pilote ? Part générique extraite de l'audit `E_PIM.audit-classification-ERAM`, retiré du backlog le 04/10/2026. | Constat ERAM du 11/05/2026 | à nommer | à fixer | ouverte |
 | OQ-MONETISATION-PALIERS | Le changement de palier d'offre est aujourd'hui ouvert à tout administrateur d'un espace, sans paiement : `magrit.update_tenant_settings` protège l'identifiant d'URL mais pas le champ `plan`. À fermer lors de l'implantation du modèle de monétisation. Tant que c'est ouvert, aucun plafond par offre n'est opposable (`E7.5`, `E7.WM1`, `E9.8`). | Passe de qualité du 03/10/2026 | Arnaud Mazon | implantation du modèle de monétisation | ouverte |
+
+## Suites HopeStudio après validation du parcours Magrit
+
+| ID | Question | Source | Responsable | Échéance | État |
+|---|---|---|---|---|---|
+| OQ-HS-PIM-FORM | Quelles données PIM et HopeStudio alimentent le formulaire produit, avec quelles priorités et quel comportement de mise à jour ? Rapprocher E1.2/Q20/B1 avant une nouvelle story. | PD-2026-10-05-HOPESTUDIO | Xavier Péchoultres | avant cadrage du lot formulaire | ouverte |
+| OQ-HS-SHOP-CHAT | Quel parcours de chat activer en boutique, pour quels utilisateurs et quelle destination des résultats : panier, devis ou autre ? Rapprocher E4.1/E4.2. | PD-2026-10-05-HOPESTUDIO | Xavier Péchoultres pour HopeStudio ; consulter le responsable boutique | avant cadrage du lot boutique | ouverte |
+| OQ-HS-MARGINS | Les coûts de production HopeStudio reçoivent-ils les marges attendues jusqu’au devis et, ensuite, en boutique ? Vérifier notamment le rattachement gamme absent de l’appel actuel du service de devis. | PD-2026-10-05-HOPESTUDIO | Xavier Péchoultres pour le diagnostic ; règles commerciales avec leur responsable | avant validation du parcours de prix concerné | ouverte |

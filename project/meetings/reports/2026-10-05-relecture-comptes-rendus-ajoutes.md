@@ -71,3 +71,9 @@ Travail documentaire uniquement : aucun module, contrat API, droit ou dérogatio
 Les statuts historiques des lots HSPQ sont des traces d’implémentation, pas une preuve de production actuelle. Les quatre stories canoniques restent dans leurs statuts de livraison existants. E1.WM1/E1.WM2/E1.WM3 sont référencées à cette relecture pour éviter de déduire de `not-started` une absence globale d’intégration.
 
 L’analyse d’impact et la matrice proposées pour la fiche commande sont désormais dans [E4.4a](../../backlog/stories/E4.4a.md). Elles distinguent les données déjà accessibles, les manques du détail, l’origine legacy et les limites de l’édition du brouillon. La proposition de consultation est prête à être examinée par Xavier ; l’édition reste conditionnée aux règles et garanties explicites.
+
+## Actualisation après acceptation du parcours par Xavier
+
+La [décision PD-2026-10-05-HOPESTUDIO](../../decisions/product/PD-2026-10-05-HopeStudio-parcours-valide-et-suite.md) actualise le rapprochement ci-dessus : Xavier confirme le parcours chat vers devis livré et validé côté Magrit, dont la reprise de chat projet et la ligne avec prix, descriptif et documents. Les mentions antérieures d’une recette réelle restant nécessaire ne constituent plus un préalable à cette acceptation. Elles décrivent les limites des preuves automatisées, qui restent simulées.
+
+US-CONV-02 et E1.WM2 sont désormais `implemented`. Les sujets restants sont distincts : formulaire PIM enrichi, chat boutique et vérification tarifaire. Le premier relevé du coût HopeStudio vers le moteur de prix et ses limites est consigné dans la décision ; aucune correction applicative n’est effectuée ici.

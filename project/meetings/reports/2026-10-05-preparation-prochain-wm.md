@@ -80,11 +80,15 @@ Sortie attendue : règle produit ou questions attribuées, sans imposer implicit
 
 Xavier porte le pilotage et la validation produit et technique de HopeStudio, ainsi que l’arbitrage d’E1.WM1/E1.WM2/E1.WM3, selon ses précisions du 5 octobre consignées dans les rôles. Les questions propres à ce périmètre lui sont soumises directement ; le WM traite les engagements et impacts communs à Magrit.
 
-Acter dans le cadrage que la bibliothèque JavaScript HopeStudio orchestre ; Magrit relaie et importe. Le point à discuter est le résultat utilisateur encore attendu, notamment le sens de « hors couche conversationnelle », et non le choix artificiel d’une nouvelle API de génération Magrit.
+Le [parcours chat vers devis est accepté par Xavier côté Magrit](../../decisions/product/PD-2026-10-05-HopeStudio-parcours-valide-et-suite.md). Le module configure les API et callbacks appelés par HopeStudio ; la reprise de chat projet et l’import des lignes avec prix, descriptif technique et documents sont validés. Ce parcours ne constitue plus un lot à engager.
 
-Relire le rapprochement initial de US-CONV-02 et E1.WM1/E1.WM2/E1.WM3 avec les lots HSPQ, consigné dans le rapport de relecture, et attribuer les vérifications restantes : exigence couverte avec preuve, capacité présente à recetter, ou manque confirmé. Décider ensuite si un lot de développement reste nécessaire. La recette fournisseur réelle doit passer par la bibliothèque ; les tests simulés ne prouvent pas le chiffrage réel.
+Préparer les suites indiquées par Xavier :
 
-Sortie attendue : besoin restant et responsable du rapprochement. Les clés de service et intégrations CMS/ERP sont des sujets séparés et ne deviennent pas des prérequis implicites de la fiche commande ou du widget.
+- formulaire produit provenant du PIM et enrichi de données HopeStudio ;
+- chat actif en boutique, avec son contexte et sa destination métier ;
+- vérification des marges : coûts de production reçus, règles appliquées, gamme, prix client et absence de double application.
+
+Sortie attendue : cadrage des suites et attribution des vérifications. La chaîne du devis applique déjà un moteur de prix ; son appel sans gamme constitue un point à vérifier, pas une preuve que toutes les marges manquent. Les autres critères historiques E1.WM* sont rapprochés du périmètre accepté sous l’arbitrage de Xavier, sans recréer l’intégration.
 
 ## Points préparés pour une validation de Xavier
 

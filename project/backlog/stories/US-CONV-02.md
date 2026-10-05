@@ -4,7 +4,7 @@ title: API copilote Studio (brief → product card → prix)
 epic: EPIC-E5
 feature: FEAT-E5-UNCLASSIFIED
 specStatus: draft
-deliveryStatus: not-started
+deliveryStatus: implemented
 owner: unassigned
 source:
   system: notion
@@ -22,7 +22,8 @@ source:
   lastEditedAt: "2026-06-04T13:30:00.000Z"
   importedAt: 2026-10-03
   archive: _archives-notion/2026-10-03/pages/US-CONV-02.md
-decisions: []
+decisions:
+  - PD-2026-10-05-HOPESTUDIO
 dependencies: []
 supersedes: []
 implementationRecords:
@@ -33,6 +34,13 @@ implementationRecords:
 # US-CONV-02 — API copilote Studio (brief → product card → prix)
 
 > Besoin d’origine : « API dédiée au copilote Magrit Studio traitant la requête métier : brief marketing → product card → prix. »
+
+## Validation humaine du 5 octobre 2026
+
+Xavier confirme que le parcours chat vers devis est livré et validé côté Magrit : reprise du chat d’un projet, création de ligne avec prix, descriptif technique et documents attachés. Le module configure les API et callbacks appelés par HopeStudio. La [décision PD-2026-10-05-HOPESTUDIO](../../decisions/product/PD-2026-10-05-HopeStudio-parcours-valide-et-suite.md) fait foi pour cette acceptation et les travaux restants : formulaire PIM enrichi, chat boutique et vérification des marges sur les tarifs de production.
+
+Cette mise à jour remplace les demandes de recette qui présentaient le parcours validé comme encore à livrer. Les critères historiques plus larges restent à réconcilier ; ils ne justifient pas de reconstruire le parcours. Les preuves simulées restent qualifiées comme telles.
+
 
 ## Relecture technique — 5 octobre 2026
 
@@ -128,12 +136,12 @@ Cette recette est ajoutée au job navigateur portable de la CI. Les PDF et SVG n
 - `openapi/magrit-core.v1.yaml` : import de carte dans le projet.
 - Lots historiques `HSPQ-1` et `HSPQ-2` : sessions par projet, import de cartes et fichiers fournisseur.
 
-`deliveryStatus: not-started` est conservé tant que le critère précis de cette story n’a pas été vérifié. Il ne remplace pas l’état des lots déjà livrés.
+`deliveryStatus: implemented` restitue l’intégration présente et l’acceptation humaine du parcours Magrit. Les réserves sur les preuves automatisées et les critères historiques plus larges restent visibles sans rouvrir ce parcours.
 
 ## Questions ouvertes
 
 - Que signifie exactement « hors couche conversationnelle » dans le besoin d’origine, compte tenu du runtime et de ses sessions existantes ?
-- Quelle partie du critère d’origine manque encore dans le parcours JavaScript déjà intégré ? Une recette de ce parcours doit le déterminer.
+- Rapprocher le libellé historique du parcours accepté ; les suites fonctionnelles relèvent des trois sujets distincts de PD-2026-10-05-HOPESTUDIO.
 - Quelle valeur métier donner au prix importé : estimation ou prix engageant, et quelle validation est requise ?
 - Rattachement à une fonctionnalité produit à relire (`FEAT-E5-UNCLASSIFIED` est un regroupement de migration).
 - Relecture produit requise : cette story reste `draft` et n’est pas déclarée prête à implémenter.

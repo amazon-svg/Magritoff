@@ -28,14 +28,14 @@ Référence du diagnostic technique initial : commit `8a3e1898`, sur la branche 
 | Catalogue PIM | Référentiel de 81 gammes stocké en JSON ; synchronisation initiale et mises à jour par slug. Dans Atelier Lumière, sélection locale des gammes et 81 produits affichés en boutique. | Le seed synchronise les gammes globales, pas des produits de bibliothèques tarifés. L’activation locale ne décide pas de la hiérarchie imposée aux autres tenants ou boutiques. |
 | Commandes boutique | Création et présence en liste confirmées par Xavier ; actions de validation, annulation et production présentes dans le module. | La liste ne fournit pas la fiche complète et l’édition demandées pendant la recette. Un détail dépliable partiel ne satisfait pas ce besoin. |
 | Commandes commerciales | E10.12 porte la conversion de devis ; E10.16 porte une fiche existante sur `commercial-orders/:orderId`. | Cette fiche ne prouve pas la couverture des commandes boutique. Réutiliser sa présentation exige de vérifier les données et règles de chaque origine. |
-| HopeStudio | Runtime JavaScript, sessions par projet, relais authentifié et callbacks d’import de cartes/fichiers présents. La recette navigateur avec réponses simulées vérifie la sélection d’une offre et l’appel d’import avec le bon prix. | Aucun chiffrage fournisseur réel validé dans cette recette. Son stockage projet est également simulé. Les tests locaux ne suffisent pas à déclarer US-CONV-02 terminée. |
+| HopeStudio | Runtime JavaScript, sessions par projet, relais authentifié et callbacks d’import de cartes/fichiers présents. La recette navigateur avec réponses simulées vérifie la sélection d’une offre et l’appel d’import avec le bon prix. | La recette automatisée demeure simulée ; Xavier confirme séparément le parcours chat vers devis livré et validé côté Magrit. US-CONV-02 et E1.WM2 passent à implemented pour refléter cet existant. Les suites sont le formulaire PIM, le chat boutique et les marges. |
 | Droits | Séparation des populations et options Boutiques/Commandes présentes ; contrôles applicatifs existants. | Des chemins d’édition legacy et des différences de garanties en base restent ouverts. Leur présence ne prouve pas à elle seule une exploitation possible. |
 
 Les preuves techniques et leurs limites sont détaillées dans [le diagnostic](../../../docs/governance-audit/diagnostic-reprise-2026-10-05.md). « Disponible dans le code » et « testé localement » ne signifient pas « livré en production ».
 
 ## Lecture du statut du projet
 
-Le backlog contient 202 stories : 47 `implemented`, 2 `verified`, 8 `in-progress` et 145 `not-started`. Côté spécification, 197 sont `draft` et 5 `contradictory` ; aucune n’est `approved`. Ces chiffres viennent des métadonnées Git, pas d’un audit fonctionnel exhaustif exécuté aujourd’hui. Ils ne permettent pas de calculer un pourcentage d’avancement fiable.
+Le backlog contient 202 stories : 49 `implemented`, 2 `verified`, 8 `in-progress` et 143 `not-started`. Côté spécification, 197 sont `draft` et 5 `contradictory` ; aucune n’est `approved`. Ces chiffres viennent des métadonnées Git, pas d’un audit fonctionnel exhaustif exécuté aujourd’hui. Ils ne permettent pas de calculer un pourcentage d’avancement fiable.
 
 Xavier porte désormais le périmètre produit et technique HopeStudio, selon sa précision du 5 octobre enregistrée dans `project/governance/roles.md`. Les approbateurs généraux Magrit restent à préciser. Le dossier `project/sprints` ne contient encore que son README et son modèle : aucun sprint n’y sélectionne les prochains travaux. Le statut historique d’une story ne remplace ni sa relecture ni la recette de son parcours actuel.
 
@@ -45,7 +45,7 @@ US-CONV-02 cesse d’être le candidat automatiquement retenu pour le prochain d
 
 La responsabilité des appels est désormais explicitée : la bibliothèque JavaScript HopeStudio orchestre ; Magrit relaie et importe. Créer une nouvelle API de génération Magrit ou des clés de service n’est pas un préalable de ce parcours. Les capacités d’intégration tierce d’E5.1/E5.2 restent des sujets distincts.
 
-Le [rapprochement initial avec les lots HSPQ](2026-10-05-relecture-comptes-rendus-ajoutes.md) est maintenant consigné pour US-CONV-02 et E1.WM1/E1.WM2/E1.WM3 ; il distingue couverture partielle et validations restantes. Avant toute nouvelle estimation, compléter les exigences encore non démontrées. Pour chaque exigence, consigner « couvert avec preuve », « présent à recetter » ou « manque confirmé ». Le statut `not-started` de ces stories ne permet pas d’en déduire que toute l’intégration est à reconstruire. Le sens fonctionnel de « hors couche conversationnelle » reste à préciser ; il ne supprime pas les sessions techniques du runtime.
+Le [rapprochement initial avec les lots HSPQ](2026-10-05-relecture-comptes-rendus-ajoutes.md) est maintenant consigné pour US-CONV-02 et E1.WM1/E1.WM2/E1.WM3 ; il distingue couverture partielle et validations restantes. La validation ultérieure de Xavier, consignée dans [PD-2026-10-05-HOPESTUDIO](../../decisions/product/PD-2026-10-05-HopeStudio-parcours-valide-et-suite.md), clôt le parcours chat vers devis côté Magrit ; les suites fonctionnelles sont cadrées séparément. Pour chaque exigence, consigner « couvert avec preuve », « présent à recetter » ou « manque confirmé ». Le statut `not-started` de ces stories ne permet pas d’en déduire que toute l’intégration est à reconstruire. Le libellé historique « hors couche conversationnelle » est à rapprocher du parcours accepté ; il ne sert plus à présenter ce parcours comme non livré et ne supprime pas les sessions techniques du runtime.
 
 ## Lot fonctionnel recommandé
 
@@ -70,7 +70,7 @@ L’existant expose déjà des transitions, un audit et une édition de brouillo
 | Modèle UM | Relire la proposition de décision et traiter les écarts confirmés. | Chantier séparé ; une extension de droits dans la fiche doit toutefois respecter la cible retenue. |
 | Deux listes de commandes | Examiner ultérieurement leur organisation ; rendre la fiche boutique accessible depuis sa liste actuelle. | Ne bloque pas la consultation d’une commande boutique. |
 | Politique PIM | Clarifier taxonomie globale, activation par tenant et choix des sources catalogue boutique. | Ne bloque pas la fiche de la commande déjà créée. |
-| Besoin restant HopeStudio | Réconcilier les stories avec l’existant et préciser le critère hors conversation. | Conditionne un éventuel futur lot HopeStudio, pas la fiche boutique. |
+| Suites HopeStudio | Formulaire PIM enrichi, chat boutique et vérification des marges sur coûts de production, selon PD-2026-10-05-HOPESTUDIO. | Parcours chat vers devis accepté ; cadrer séparément ces suites, sans refaire l’intégration. |
 
 ## Prochaine séquence de travail
 
