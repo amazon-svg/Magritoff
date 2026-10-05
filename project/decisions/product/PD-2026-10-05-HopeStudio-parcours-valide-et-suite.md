@@ -58,3 +58,15 @@ Lecture du code au commit `c584404e`, sans exécution métier supplémentaire :
 La vérification doit suivre un montant connu de l’import au devis, avec règle globale, règle client, règle de gamme et absence de règle ; contrôler l’absence de double application et la quantité du chiffrage. Pour la boutique, vérifier séparément le prix affiché puis transmis au panier et à la commande. Le prix de production ne doit pas être assimilé implicitement au prix de vente.
 
 Ce relevé constitue une analyse d’impact, pas une nouvelle règle de marge ni un correctif livré. La validation chat vers devis est conservée ; la vérification tarifaire constitue un sujet distinct demandé par Xavier.
+
+## Précisions de Xavier et vérification des lignes manuelles
+
+Xavier précise ensuite que HopeStudio ne fournit pas l’information de gamme. L’absence de gamme dans le calcul actuel n’est donc pas qualifiée d’oubli de transmission. Le rattachement éventuel à une gamme Magrit reste à définir, notamment pour le futur formulaire PIM ; aucune classification automatique n’est imposée au chat.
+
+Xavier demande aussi de garantir les marges lors de l’ajout manuel de lignes pendant l’édition d’un devis et souhaite que Magrit fournisse un callback permettant à HopeStudio d’afficher un prix intégrant les marges. Cette demande complète les suites tarifaires, sans rouvrir l’acceptation du parcours chat vers devis.
+
+Vérification locale : le formulaire de `QuoteEditorPage` transmet le montant saisi comme `production_price`. `CommercialQuotesService.addLine` soumet aussi bien les lignes libres que les lignes de projet à `priceLine`. Deux nouveaux tests de contrat vérifient une règle globale puis une règle client : coût HT de 100,00, majoration de 25 %, prix de vente HT de 125,00, coût conservé et mêmes valeurs à la relecture. Les 46 tests de `tests/contract/commercial-quotes.contract.test.ts` passent. Ils utilisent le vrai handler, les services et le moteur avec des repositories en mémoire ; ils ne constituent pas une recette PostgreSQL ou navigateur.
+
+Résultat : les marges globales/client sont appliquées à l’ajout manuel pour les cas testés. L’absence de règle laisse le comportement tarifaire existant ; cette vérification n’invente pas de marge de secours et ne prouve pas une marge de gamme sans rattachement.
+
+Le contrat proposé du callback d’affichage est préparé dans E1.WM1. Aucun callback de prix n’est implémenté ici : la recherche ciblée du bundle embarqué n’a pas trouvé de point dédié, et `callbackGetLocals`, générique au rendu, ne constitue pas à lui seul un contrat métier de tarification.

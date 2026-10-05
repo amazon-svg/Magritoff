@@ -86,7 +86,7 @@ Préparer les suites indiquées par Xavier :
 
 - formulaire produit provenant du PIM et enrichi de données HopeStudio ;
 - chat actif en boutique, avec son contexte et sa destination métier ;
-- vérification des marges : coûts de production reçus, règles appliquées, gamme, prix client et absence de double application.
+- tarification : ajout manuel vérifié pour les marges globales/client ; cadrer le callback de prix affiché préparé dans E1.WM1, préserver les coûts et éviter la double marge. HopeStudio ne fournit pas la gamme ; son rattachement éventuel via le PIM reste à définir.
 
 Sortie attendue : cadrage des suites et attribution des vérifications. La chaîne du devis applique déjà un moteur de prix ; son appel sans gamme constitue un point à vérifier, pas une preuve que toutes les marges manquent. Les autres critères historiques E1.WM* sont rapprochés du périmètre accepté sous l’arbitrage de Xavier, sans recréer l’intégration.
 
