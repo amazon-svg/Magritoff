@@ -8966,6 +8966,8 @@ paths:
       responses:
         '204':
           description: Export supprimé.
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -9271,6 +9273,8 @@ paths:
               $ref: '#/components/headers/OrderApiDeprecation'
             Link:
               $ref: '#/components/headers/OrderApiSuccessor'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
