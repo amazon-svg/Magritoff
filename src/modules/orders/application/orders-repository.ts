@@ -8,6 +8,7 @@ import type {
   DraftOrder,
   OrderDetail,
   UnifiedOrderDetail,
+  UpdateOrderMetadataCommand,
   UpdateDraftOrderCommand,
   UpdateDraftOrderResult,
   OrderRolesResponse,
@@ -144,6 +145,13 @@ export type ListOrdersParams = Readonly<{
 
 export interface OrdersRepository {
   getUnifiedOrderDetail(tenantId: import('../../../kernel/ids/index.ts').TenantId, orderId: string, actor: UserId | null): Promise<UnifiedOrderDetail | null>;
+  updateOrderMetadata(
+    tenantId: import('../../../kernel/ids/index.ts').TenantId,
+    orderId: string,
+    actor: UserId,
+    command: UpdateOrderMetadataCommand,
+    ifMatch: string,
+  ): Promise<UnifiedOrderDetail | null>;
   listOrders(tenantId: import('../../../kernel/ids/index.ts').TenantId, params: ListOrdersParams): Promise<readonly OrderListRecord[]>;
   getTenantTaxRegime(tenantId: string, actor: UserId): Promise<TaxRegime | null>;
   getShopTaxRegime(shopId: string, actor: UserId): Promise<TaxRegime | null>;

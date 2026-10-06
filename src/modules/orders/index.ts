@@ -67,3 +67,7 @@ export { ordersBackofficeContribution, ordersCustomerPortalContribution, ordersS
 export { orderListEntriesSchema, orderListEntrySchema, orderListFiltersSchema, type OrderListEntry, type OrderListFilters } from './api/contracts';
 
 export { unifiedOrderDetailSchema, type UnifiedOrderDetail } from './api/contracts';
+export {
+  updateOrderMetadataCommandSchema,
+  type UpdateOrderMetadataCommand,
+} from './api/contracts';

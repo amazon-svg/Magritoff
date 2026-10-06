@@ -42,11 +42,61 @@ Le test d'intégration PostgreSQL vérifie la migration, l'absence des deux anci
 
 - recette manuelle à effectuer avec la commande créée dans Atelier Lumière ;
 - revue indépendante avant passage à `verified` ;
-- les modifications de notes, coordonnées, lignes, quantités, configurations et montants restent à cadrer ;
+- les coordonnées, la livraison, les lignes, quantités, configurations et montants restent hors du contrat d'édition approuvé ;
 - la base portable ne conserve pas `shop_orders` : les données reprises doivent exister dans `tenant_orders`. Une ancienne façade qui renverrait encore une ligne `legacy` dans la liste ne propose pas l'action « Ouvrir » ; sa limitation reste visible dans la liste ;
-- la projection API commune paginée, les filtres serveur couvrant les deux origines et l'export commun restent à terminer dans E4.4b ;
+- la projection API commune paginée, les filtres serveur et l'export commun sont achevés par E4.4b ;
 - la numérotation métier des commandes boutique reste à arbitrer ; ce correctif n'invente pas rétroactivement des numéros comptables.
 
 ## Décision associée
 
 Le lot applique [PD-2026-10-05-COMMANDES-UNIQUE](../../project/decisions/product/PD-2026-10-05-commandes-objet-unique.md) : un objet Commande, deux workflows d'entrée, une liste, une fiche et une persistance canoniques. Les routes `commercial-orders` restent temporairement des projections de compatibilité, sans tables concurrentes.
+
+## Tranche d'édition du 6 octobre 2026
+
+Le périmètre approuvé ajoute la modification de la référence client et des
+notes depuis la fiche commune. Le contrat canonique
+`PATCH /api/v1/order-summaries/{orderId}` :
+
+- est réservé à un utilisateur disposant de `can_modify` ;
+- exige l'`ETag` lu sous forme d'`If-Match` et refuse une version périmée ;
+- n'accepte aucun champ de ligne, de quantité, de configuration ou de prix ;
+- renvoie la commande commune mise à jour et son nouvel `ETag` ;
+- journalise les anciennes et nouvelles valeurs avec l'auteur et la date dans
+  `tenant_order_metadata_events`.
+
+Le même formulaire est composé dans la fiche boutique et dans la fiche issue
+d'un devis. Les tests PostgreSQL isolés vérifient les deux origines, le gel des
+données financières, l'isolation tenant, le droit `can_modify`, le conflit
+concurrent et la restitution de l'événement dans l'historique.
+
+## Fichiers et liens de dépôt sur la fiche commune
+
+La recette du 6 octobre a montré que les panneaux existants restaient propres
+à la présentation historique des commandes issues d'un devis. Leur composition
+est remontée dans `UnifiedOrderDetailPage` : une commande boutique comme une
+commande issue d'un devis affiche maintenant ses fichiers et ses liens publics
+de dépôt. Le panneau de fichiers reçoit les lignes de la projection commune,
+permet de rattacher un nouveau fichier à l'une d'elles via `order_line_id` et
+rend cette association dans la liste. Le bouton historique `order_line` a été
+retiré de la fiche commerciale, car il appelait la ressource générique des
+fichiers commerciaux qui ne persiste que les pièces de `project_item`.
+
+Vérifications : typage modulaire réussi, 78 tests ciblés de contrats et de
+helpers réussis, et recette Playwright réussie sur les deux origines avec les
+panneaux de fichiers, le choix de ligne et les liens de dépôt visibles.
+
+## Vue de détail unique
+
+`UnifiedOrderDetailPage` ne branche plus vers deux présentations selon
+`origin`. Il monte une seule `UnifiedOrderDetailView`, qui normalise les lignes
+boutique et devis vers le même tableau et conserve une hiérarchie identique :
+en-tête, informations modifiables, identité, lignes, totaux, fichiers, bon de
+commande, liens de dépôt et actions. Les absences propres à une provenance sont
+affichées dans les mêmes champs (« Non renseignée », « Non applicable »).
+
+Les anciens `OrderDetailPage` des modules `orders` et `commercial-orders`,
+ainsi que le hook commercial dédié, ont été supprimés. Un test d'architecture
+interdit leur retour et la recette Playwright compare les titres de section des
+deux provenances. Le typage, le build et les tests d'architecture passent ; le
+build conserve uniquement l'avertissement Rollup déjà connu autour de
+`CheckoutPage`.

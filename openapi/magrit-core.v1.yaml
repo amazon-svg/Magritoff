@@ -8950,6 +8950,40 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
+    delete:
+      operationId: deleteUnifiedOrderExport
+      summary: "Supprime un export de commandes terminé"
+      description: >-
+        Supprime du registre un export termine appartenant a l appelant et
+        retire son fichier du stockage. Une demande `pending` ou `running`
+        ne peut pas etre supprimee.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      x-required-capabilities: [can_export_orders]
+      parameters:
+        - $ref: '#/components/parameters/CommercialOrderExportId'
+      responses:
+        '204':
+          description: Export supprimé.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ForbiddenCapability'
+        '404':
+          description: Export absent, hors tenant ou appartenant à un autre demandeur.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: La génération de l export est encore en cours (`order_export.in_progress`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
 
 
   /commercial-order-exports:
@@ -9219,6 +9253,44 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
+    delete:
+      operationId: deleteCommercialOrderExport
+      deprecated: true
+      summary: "Supprime un export de commandes terminé"
+      description: >-
+        Ancien chemin de suppression. Utiliser `DELETE /order-exports/{exportId}`.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      x-required-capabilities: [can_export_orders]
+      parameters:
+        - $ref: '#/components/parameters/CommercialOrderExportId'
+      responses:
+        '204':
+          description: Export supprimé.
+          headers:
+            Deprecation:
+              $ref: '#/components/headers/OrderApiDeprecation'
+            Link:
+              $ref: '#/components/headers/OrderApiSuccessor'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ForbiddenCapability'
+        '404':
+          description: Export absent, hors tenant ou appartenant à un autre demandeur.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: La génération de l export est encore en cours (`order_export.in_progress`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
 
 
 # ----------------------------------------------------------------------------
@@ -9339,6 +9411,9 @@ paths:
       responses:
         '200':
           description: Commande et extension correspondant à son origine.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
           content:
             application/json:
               schema:
@@ -9352,6 +9427,53 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+    patch:
+      operationId: updateOrderMetadata
+      summary: "Modifie la référence client et les notes d’une commande"
+      tags: [gestion-commerciale]
+      description: >-
+        Mutation commune aux commandes boutique et issues d'un devis. Seuls
+        la référence client et les notes sont acceptés ; les lignes, quantités,
+        configurations et montants restent gelés. Le droit can_modify et une
+        précondition If-Match sont exigés. Chaque changement est journalisé
+        avec son auteur et sa date.
+      security:
+        - bearerAuth: []
+      x-required-capabilities: [can_modify]
+      parameters:
+        - $ref: '#/components/parameters/MagritTenant'
+        - name: orderId
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/Uuid' }
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateOrderMetadataCommand' }
+      responses:
+        '200':
+          description: Commande mise à jour et nouvelle version de concurrence.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { $ref: '#/components/schemas/UnifiedOrderDetail' }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/ForbiddenCapability' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '428': { $ref: '#/components/responses/PreconditionRequired' }
 
   /orders:
     x-legacy-facade: true
@@ -12385,6 +12507,12 @@ components:
         a l espace — l isolation restant tenue par la RLS. L absence de
         declaration n est donc pas une ouverture : c est le regime normal.
       x-magrit-capabilities:
+        can_modify: >-
+          Modifier les informations opérationnelles autorisées d'une commande.
+          Pour E4.4a, ce droit couvre uniquement la référence client et les
+          notes ; il ne permet pas de changer les lignes, quantités,
+          configurations ou montants. Il peut provenir d'un rôle du tenant ou
+          d'une affectation active sur la commande.
         can_manage_pricing: >-
           Administrer la politique tarifaire commerciale du tenant (regles de
           prix E10.6/E10.7, marge publique standard par gamme) et consulter les
@@ -13481,7 +13609,7 @@ components:
     UnifiedStorefrontOrderDetail:
       type: object
       additionalProperties: false
-      required: [id, origin, number, shop_id, customer_id, quote_id, created_at, updated_at, status, currency, total_ht, total_ttc, has_unverified_prices, current_production_step_id, detail]
+      required: [id, origin, number, shop_id, customer_id, quote_id, customer_reference, notes, created_at, updated_at, status, currency, total_ht, total_ttc, has_unverified_prices, current_production_step_id, detail]
       properties:
         origin: { type: string, enum: [storefront] }
         detail: { $ref: '#/components/schemas/LegacyOrderDetail' }
@@ -13490,6 +13618,8 @@ components:
         shop_id: { type: [string, 'null'], format: uuid }
         customer_id: { type: [string, 'null'], format: uuid }
         quote_id: { type: [string, 'null'], format: uuid }
+        customer_reference: { type: [string, 'null'], maxLength: 500 }
+        notes: { type: string, maxLength: 5000 }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
         status: { type: string, enum: [draft, validated, in_production, shipped, delivered, invoiced, cancelled] }
@@ -13501,7 +13631,7 @@ components:
     UnifiedQuoteOrderDetail:
       type: object
       additionalProperties: false
-      required: [id, origin, number, shop_id, customer_id, quote_id, created_at, updated_at, status, currency, total_ht, total_ttc, has_unverified_prices, current_production_step_id, detail]
+      required: [id, origin, number, shop_id, customer_id, quote_id, customer_reference, notes, created_at, updated_at, status, currency, total_ht, total_ttc, has_unverified_prices, current_production_step_id, detail]
       properties:
         origin: { type: string, enum: [quote] }
         detail: { $ref: '#/components/schemas/CommercialOrderDetail' }
@@ -13510,6 +13640,8 @@ components:
         shop_id: { type: [string, 'null'], format: uuid }
         customer_id: { type: [string, 'null'], format: uuid }
         quote_id: { type: [string, 'null'], format: uuid }
+        customer_reference: { type: [string, 'null'], maxLength: 500 }
+        notes: { type: string, maxLength: 5000 }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
         status: { type: string, enum: [draft, validated, in_production, shipped, delivered, invoiced, cancelled] }
@@ -13518,6 +13650,13 @@ components:
         total_ttc: { $ref: '#/components/schemas/Money' }
         has_unverified_prices: { type: boolean }
         current_production_step_id: { type: [string, 'null'], format: uuid }
+    UpdateOrderMetadataCommand:
+      type: object
+      additionalProperties: false
+      required: [customer_reference, notes]
+      properties:
+        customer_reference: { type: [string, 'null'], minLength: 1, maxLength: 500 }
+        notes: { type: string, maxLength: 5000 }
     LegacyOrdersList:
       type: object
       additionalProperties: false
@@ -13674,7 +13813,7 @@ components:
       properties:
         eventId: { type: string, minLength: 1 }
         orderId: { type: string, minLength: 1 }
-        kind: { type: string, enum: [status, role] }
+        kind: { type: string, enum: [status, role, metadata] }
         eventType: { type: string }
         actorId: { type: [string, 'null'] }
         actorEmail: { type: [string, 'null'] }
@@ -21321,7 +21460,8 @@ components:
             cache au-dela de son expiration.
           oneOf:
             - type: string
-              format: uri
+              minLength: 1
+              maxLength: 2048
             - type: 'null'
         background_url_expires_at:
           description: >-
@@ -22662,6 +22802,8 @@ components:
       additionalProperties: false
       required:
         - printer_name
+        - shop_name
+        - shop_logo_url
         - order_number
         - label
         - expires_at
@@ -22678,12 +22820,29 @@ components:
           type: string
           minLength: 1
           maxLength: 200
+        shop_name:
+          description: >-
+            Nom de la boutique d origine, ou `null` pour une commande issue
+            d un devis.
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 200
+            - type: 'null'
+        shop_logo_url:
+          description: >-
+            URL publique du logo de la boutique d origine, ou `null` si la
+            commande ne vient pas d une boutique ou si elle n a pas de logo.
+          oneOf:
+            - type: string
+              format: uri
+            - type: 'null'
         order_number:
           description: >-
             Numero de la commande concernee. Le client le retrouve sur son
             accuse de commande.
           type: string
-          pattern: '^CDE-[0-9]{4}-[0-9]{5}$'
+          pattern: '^(?:CDE-[0-9]{4}-[0-9]{5}|[0-9A-F]{8})$'
         label:
           description: Consigne posee par l atelier, ou `null`.
           oneOf:

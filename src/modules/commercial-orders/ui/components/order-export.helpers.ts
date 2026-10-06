@@ -438,7 +438,8 @@ export type OrderExportRegistryAction =
   | Readonly<{ type: 'listLoaded'; items: readonly OrderExportDto[]; hasMore: boolean }>
   | Readonly<{ type: 'listLoadFailed'; message: string }>
   | Readonly<{ type: 'exportCreated'; item: OrderExportDto }>
-  | Readonly<{ type: 'exportUpdated'; item: OrderExportDto }>;
+  | Readonly<{ type: 'exportUpdated'; item: OrderExportDto }>
+  | Readonly<{ type: 'exportDeleted'; id: string }>;
 
 /**
  * MINEUR Q2, qa-review round 1 (2026-09-15) : `listLoaded` REMPLACAIT
@@ -464,6 +465,8 @@ export function orderExportRegistryReducer(
       return upsertsOrEmpty(state, action.item, 'prepend');
     case 'exportUpdated':
       return upsertsOrEmpty(state, action.item, 'in_place_only');
+    case 'exportDeleted':
+      return { ...state, items: state.items.filter((item) => item.id !== action.id) };
     default:
       return state;
   }

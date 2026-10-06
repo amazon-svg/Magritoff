@@ -63,4 +63,19 @@ describe('exports communs E4.4b', () => {
     principal = { kind: 'service', tenantId, serviceId: 'studio', scopes: ['orders:read'] };
     expect((await call('', { headers: { 'X-Magrit-Service-Key': 'test' } })).status).toBe(403);
   });
+  it('supprime uniquement un export terminé appartenant au demandeur', async () => {
+    const exportId = '00000000-0000-4000-9500-000000000099';
+    repository.seedForTest({ id: exportId, tenant_id: tenantId, requested_by: actor, status: 'ready' });
+    const removed = await call(`/${exportId}`, { method: 'DELETE' });
+    expect(removed.status).toBe(204);
+    expect(await checkResponseAgainstContract(removed, { status: 204 })).toEqual({ valid: true, errors: [] });
+    expect((await call(`/${exportId}`)).status).toBe(404);
+  });
+  it('refuse la suppression tant que la génération est en cours', async () => {
+    const created = await request();
+    const { data } = await created.json();
+    const response = await call(`/${data.id}`, { method: 'DELETE' });
+    expect(response.status).toBe(409);
+    expect((await response.json()).code).toBe('order_export.in_progress');
+  });
 });

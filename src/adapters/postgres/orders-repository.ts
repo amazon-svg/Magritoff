@@ -1,5 +1,10 @@
 import { readCommercialOrderDetail } from './commercial-orders-repository.ts';
-import { toIsoTimestamp } from '../../modules/_shared/application/index.ts';
+import {
+  assertPrecondition,
+  capabilityRequired,
+  computeEntityTag,
+  toIsoTimestamp,
+} from '../../modules/_shared/application/index.ts';
 import type { ListOrdersParams, OrderListRecord } from '../../modules/orders/application/orders-repository.ts';
 import type { PoolClient } from 'pg';
 import type { TenantId, UserId } from '../../kernel/ids/index.ts';
@@ -9,6 +14,7 @@ import type {
   DraftOrder,
   OrderDetail,
   UnifiedOrderDetail,
+  UpdateOrderMetadataCommand,
   OrderCapabilities,
   OrderRolesResponse,
   PortalOrdersCounters,
@@ -61,33 +67,63 @@ export class PostgresOrdersRepository implements OrdersRepository {
   ) {}
 
   getUnifiedOrderDetail(tenantId: TenantId, orderId: string, actor: UserId | null): Promise<UnifiedOrderDetail | null> {
-    return this.tx.run({ tenantId, ...(actor ? { userId: actor } : { actorKind: 'service' as const }) }, async (client) => {
-      const row = (await client.query<Row>(`
-        select id,order_origin,number,shop_id,customer_id,quote_id,current_production_step_id,currency,has_unverified_prices
-          from public.tenant_orders where tenant_id=$1 and id=$2
+    return this.tx.run(
+      { tenantId, ...(actor ? { userId: actor } : { actorKind: 'service' as const }) },
+      (client) => readUnifiedOrderDetail(client, tenantId, orderId),
+    );
+  }
+
+  updateOrderMetadata(
+    tenantId: TenantId,
+    orderId: string,
+    actor: UserId,
+    command: UpdateOrderMetadataCommand,
+    ifMatch: string,
+  ): Promise<UnifiedOrderDetail | null> {
+    return this.tx.run({ tenantId, userId: actor }, async (client) => {
+      const current = (await client.query<Row>(`
+        select id,tenant_id,shop_id,created_by,shop_customer_account_id,status,
+               customer_reference,notes
+          from public.tenant_orders where tenant_id=$1 and id=$2 for update
       `, [tenantId, orderId])).rows[0];
-      if (!row) return null;
-      const relations = {
-        id: String(row['id']), number: nullableString(row['number']),
-        shop_id: nullableString(row['shop_id']), customer_id: nullableString(row['customer_id']),
-        quote_id: nullableString(row['quote_id']),
-        current_production_step_id: nullableString(row['current_production_step_id']),
-      };
-      if (row['order_origin'] === 'quote') {
-        const detail = await readCommercialOrderDetail(client, tenantId, orderId);
-        if (!detail) return null;
-        return { ...relations, origin: 'quote', detail,
-          current_production_step_id: detail.current_production_step_id,
-          created_at: detail.created_at, updated_at: detail.updated_at, status: detail.status,
-          currency: String(row['currency']), total_ht: detail.totals.net_total, total_ttc: detail.totals.total_incl_tax,
-          has_unverified_prices: row['has_unverified_prices'] === true };
+      if (!current) return null;
+      const order = {
+        order_id: String(current['id']), tenant_id: String(current['tenant_id']),
+        shop_id: String(current['shop_id'] ?? ''), created_by: nullable(current['created_by']),
+        shop_customer_account_id: nullable(current['shop_customer_account_id']), status: String(current['status']),
+      } satisfies OrderContext;
+      if (!await hasOrderCapability(client, order, actor, 'can_modify')) {
+        throw capabilityRequired('can_modify', ['customer_reference', 'notes']);
       }
-      const detail = await readStorefrontOrderDetail(client, orderId);
-      return { ...relations, origin: 'storefront', detail,
-        created_at: detail.createdAt, updated_at: detail.updatedAt,
-        status: detail.status as UnifiedOrderDetail['status'], currency: detail.currency,
-        total_ht: detail.totalHt, total_ttc: detail.totalTtc,
-        has_unverified_prices: detail.hasUnverifiedPrices };
+      const currentDetail = await readUnifiedOrderDetail(client, tenantId, orderId);
+      if (!currentDetail) return null;
+      const currentTag = await computeEntityTag(currentDetail);
+      assertPrecondition(ifMatch, currentTag, currentDetail as unknown as Record<string, unknown>);
+
+      const before = {
+        customer_reference: nullableString(current['customer_reference']),
+        notes: String(current['notes'] ?? ''),
+      };
+      const after = {
+        customer_reference: command.customer_reference,
+        notes: command.notes,
+      };
+      const changes = Object.fromEntries(
+        (Object.keys(after) as (keyof typeof after)[])
+          .filter((field) => before[field] !== after[field])
+          .map((field) => [field, { before: before[field], after: after[field] }]),
+      );
+      if (Object.keys(changes).length > 0) {
+        await client.query(`
+          update public.tenant_orders set customer_reference=$3,notes=$4
+           where tenant_id=$1 and id=$2
+        `, [tenantId, orderId, after.customer_reference, after.notes]);
+        await client.query(`
+          insert into public.tenant_order_metadata_events(order_id,actor_id,changes)
+          values($1,$2,$3::jsonb)
+        `, [orderId, actor, JSON.stringify(changes)]);
+      }
+      return readUnifiedOrderDetail(client, tenantId, orderId);
     });
   }
 
@@ -293,6 +329,13 @@ export class PostgresOrdersRepository implements OrdersRepository {
           from public.tenant_order_role_events event
           left join public.app_users actor on actor.id=event.actor_user_id
           left join public.tenant_role_definitions role on role.id=event.role_definition_id
+         where event.order_id=$1
+        union all
+        select event.id,event.order_id,'metadata','metadata_updated',event.actor_id,
+               actor.email_normalized,null,null,null,
+               jsonb_build_object('changes',event.changes),event.occurred_at
+          from public.tenant_order_metadata_events event
+          left join public.app_users actor on actor.id=event.actor_id
          where event.order_id=$1
          order by occurred_at,event_id
       `, [orderId])).rows;
@@ -852,6 +895,42 @@ function detailTaxRate(regime: TaxRegime | null): number {
 function notifyPolicy(value: unknown): 'chain_next'|'all_roles'|'none' { return value === 'all_roles'||value === 'none' ? value : 'chain_next'; }
 function rejected(code: ConstructorParameters<typeof OrderCommandRejectedError>[0], message: string) { return new OrderCommandRejectedError(code, message); }
 function emptyCapabilities(): OrderCapabilities { return { can_quote:false,can_order:false,can_invite:false,can_validate:false,can_cancel:false,can_modify:false,can_export:false,can_manage_catalog:false,can_manage_roles:false }; }
+
+async function readUnifiedOrderDetail(
+  client: PoolClient,
+  tenantId: TenantId,
+  orderId: string,
+): Promise<UnifiedOrderDetail | null> {
+  const row = (await client.query<Row>(`
+    select id,order_origin,number,shop_id,customer_id,quote_id,current_production_step_id,
+           currency,has_unverified_prices,customer_reference,notes
+      from public.tenant_orders where tenant_id=$1 and id=$2
+  `, [tenantId, orderId])).rows[0];
+  if (!row) return null;
+  const relations = {
+    id: String(row['id']), number: nullableString(row['number']),
+    shop_id: nullableString(row['shop_id']), customer_id: nullableString(row['customer_id']),
+    quote_id: nullableString(row['quote_id']),
+    current_production_step_id: nullableString(row['current_production_step_id']),
+    customer_reference: nullableString(row['customer_reference']),
+    notes: String(row['notes'] ?? ''),
+  };
+  if (row['order_origin'] === 'quote') {
+    const detail = await readCommercialOrderDetail(client, tenantId, orderId);
+    if (!detail) return null;
+    return { ...relations, origin: 'quote', detail,
+      current_production_step_id: detail.current_production_step_id,
+      created_at: detail.created_at, updated_at: detail.updated_at, status: detail.status,
+      currency: String(row['currency']), total_ht: detail.totals.net_total, total_ttc: detail.totals.total_incl_tax,
+      has_unverified_prices: row['has_unverified_prices'] === true };
+  }
+  const detail = await readStorefrontOrderDetail(client, orderId);
+  return { ...relations, origin: 'storefront', detail,
+    created_at: detail.createdAt, updated_at: detail.updatedAt,
+    status: detail.status as UnifiedOrderDetail['status'], currency: detail.currency,
+    total_ht: detail.totalHt, total_ttc: detail.totalTtc,
+    has_unverified_prices: detail.hasUnverifiedPrices };
+}
 
 async function readStorefrontOrderDetail(client: PoolClient, orderId: string): Promise<OrderDetail> {
   const order = (await client.query<Row>(`

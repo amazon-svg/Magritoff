@@ -86,7 +86,7 @@ export const portalOrdersResponseSchema = z.object({
 export const orderAuditEventSchema = z.object({
   eventId: z.string().min(1),
   orderId: z.string().min(1),
-  kind: z.enum(['status', 'role']),
+  kind: z.enum(['status', 'role', 'metadata']),
   eventType: z.string(),
   actorId: z.string().nullable(),
   actorEmail: z.string().nullable(),
@@ -316,9 +316,21 @@ const unifiedOrderHeaderSchema = orderListEntrySchema.pick({
   id: true, number: true, shop_id: true, customer_id: true, created_at: true,
   status: true, currency: true, total_ht: true, total_ttc: true,
   has_unverified_prices: true, current_production_step_id: true,
-}).extend({ updated_at: z.iso.datetime(), quote_id: z.uuid().nullable() });
+}).extend({
+  updated_at: z.iso.datetime(),
+  quote_id: z.uuid().nullable(),
+  customer_reference: z.string().nullable(),
+  notes: z.string(),
+});
 export const unifiedOrderDetailSchema = z.discriminatedUnion('origin', [
   unifiedOrderHeaderSchema.extend({ origin: z.literal('storefront'), detail: orderDetailSchema }),
   unifiedOrderHeaderSchema.extend({ origin: z.literal('quote'), detail: commercialOrderDetailSchema }),
 ]);
 export type UnifiedOrderDetail = z.infer<typeof unifiedOrderDetailSchema>;
+
+/** E4.4a — seuls les champs non financiers explicitement arbitrés sont éditables. */
+export const updateOrderMetadataCommandSchema = z.object({
+  customer_reference: z.string().trim().min(1).max(500).nullable(),
+  notes: z.string().max(5000),
+}).strict();
+export type UpdateOrderMetadataCommand = z.infer<typeof updateOrderMetadataCommandSchema>;

@@ -4,6 +4,7 @@
  * Affiche une timeline UNION des events :
  *   - status transitions (tenant_order_status_events)
  *   - role events (tenant_order_role_events) : assigned/revoked/capability_updated
+ *   - metadata events (référence client et notes)
  *
  * Pattern : Dialog Radix (modal centré). Lecture seule. La modale est
  * ouverte depuis la liste des commandes (lien "Historique" ou clic sur
@@ -73,7 +74,7 @@ export function OrderAuditTrailModal({ orderId, orderShortId, onClose, ordersApi
             Historique commande{orderShortId ? ` #${orderShortId}` : ''}
           </DialogTitle>
           <DialogDescription>
-            Tous les événements de statut + assignations de rôles sur cette commande,
+            Tous les événements de statut, de rôles et d’informations sur cette commande,
             triés du plus récent au plus ancien.
           </DialogDescription>
         </DialogHeader>

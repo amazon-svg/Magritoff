@@ -69,7 +69,9 @@ export const createOrderUploadLinkCommandSchema = z
 export const orderUploadLinkContextSchema = z
   .object({
     printer_name: z.string().min(1).max(200),
-    order_number: z.string().regex(/^CDE-[0-9]{4}-[0-9]{5}$/),
+    shop_name: z.string().min(1).max(200).nullable(),
+    shop_logo_url: z.string().min(1).max(2048).nullable(),
+    order_number: z.string().regex(/^(?:CDE-[0-9]{4}-[0-9]{5}|[0-9A-F]{8})$/),
     label: z.string().min(1).max(200).nullable(),
     expires_at: timestampSchema,
     max_files: z.number().int().min(1).max(30),

@@ -154,9 +154,16 @@ async function expectContract(
   expect(check.errors, check.errors.join(' | ')).toEqual([]);
 }
 
-function seedOrder(): string {
+function seedOrder(branding?: Readonly<{ shopName: string; shopLogoUrl: string }>): string {
   const orderId = fakeOrderUuid();
-  repository.seedOrderForTest({ id: orderId, tenantId: TENANT, number: 'CDE-2026-08001', tenantName: 'Imprimerie Test' });
+  repository.seedOrderForTest({
+    id: orderId,
+    tenantId: TENANT,
+    number: branding ? orderId.slice(0, 8).toUpperCase() : 'CDE-2026-08001',
+    tenantName: 'Imprimerie Test',
+    shopName: branding?.shopName,
+    shopLogoUrl: branding?.shopLogoUrl,
+  });
   return orderId;
 }
 
@@ -288,6 +295,8 @@ describe('module Liens de depot publics (E10.20a) contre le contrat', () => {
     await expectContract(response, { status: 200, dataSchema: 'OrderUploadLinkContext' });
     const { data } = (await response.json()) as { data: OrderUploadLinkContextDto };
     expect(data.printer_name).toBe('Imprimerie Test');
+    expect(data.shop_name).toBeNull();
+    expect(data.shop_logo_url).toBeNull();
     expect(data.order_number).toBe('CDE-2026-08001');
     expect(data.label).toBe('votre BAT');
     expect(data.deposited_count).toBe(0);
@@ -297,6 +306,27 @@ describe('module Liens de depot publics (E10.20a) contre le contrat', () => {
     // client, URL) ne doit apparaitre dans ce contexte.
     expect(data).not.toHaveProperty('customer_name');
     expect(data).not.toHaveProperty('download_url');
+  });
+
+  it('getOrderUploadLinkContext : reprend l identité de la boutique d origine', async () => {
+    const orderId = seedOrder({
+      shopName: 'Atelier Lumière',
+      shopLogoUrl: 'https://assets.magrit.test/atelier-lumiere/logo.png',
+    });
+    const created = await createLink(orderId);
+    const { data: createdData } = (await created.json()) as { data: OrderUploadLinkCreatedDto };
+
+    const response = await call('/api/v1/order-upload-links/current', {
+      headers: { 'X-Magrit-Upload-Link': createdData.token },
+    });
+    await expectContract(response, { status: 200, dataSchema: 'OrderUploadLinkContext' });
+    const { data } = (await response.json()) as { data: OrderUploadLinkContextDto };
+    expect(data).toMatchObject({
+      printer_name: 'Imprimerie Test',
+      shop_name: 'Atelier Lumière',
+      shop_logo_url: 'https://assets.magrit.test/atelier-lumiere/logo.png',
+      order_number: orderId.slice(0, 8).toUpperCase(),
+    });
   });
 
   it('getOrderUploadLinkContext : jeton absent, inexistant, expire ou revoque rendent TOUS 401 upload_link.invalid, sans distinction', async () => {

@@ -67,7 +67,15 @@ export function fakeUploadLinkFileUuid(): string {
   return `41000000-0000-4000-9300-${String(fileSequence).padStart(12, '0')}`;
 }
 
-type StoredOrder = { id: string; tenantId: string; number: string; tenantName: string; customerId: string };
+type StoredOrder = {
+  id: string;
+  tenantId: string;
+  number: string;
+  tenantName: string;
+  customerId: string;
+  shopName: string | null;
+  shopLogoUrl: string | null;
+};
 
 type StoredLink = {
   id: string;
@@ -100,7 +108,15 @@ export class InMemoryOrderUploadLinksRepository implements OrderUploadLinksRepos
 
   /** TEST UNIQUEMENT — declare une commande. */
   seedOrderForTest(
-    order: Readonly<{ id: string; tenantId: string; number?: string; tenantName?: string; customerId?: string }>,
+    order: Readonly<{
+      id: string;
+      tenantId: string;
+      number?: string;
+      tenantName?: string;
+      customerId?: string;
+      shopName?: string | null;
+      shopLogoUrl?: string | null;
+    }>,
   ): void {
     this.orders.set(order.id, {
       id: order.id,
@@ -108,6 +124,8 @@ export class InMemoryOrderUploadLinksRepository implements OrderUploadLinksRepos
       number: order.number ?? 'CDE-2026-00001',
       tenantName: order.tenantName ?? 'Imprimerie Test',
       customerId: order.customerId ?? '60000000-0000-4000-9300-000000000001',
+      shopName: order.shopName ?? null,
+      shopLogoUrl: order.shopLogoUrl ?? null,
     });
   }
 
@@ -236,6 +254,8 @@ export class InMemoryOrderUploadLinksRepository implements OrderUploadLinksRepos
 
     return {
       printer_name: order.tenantName,
+      shop_name: order.shopName,
+      shop_logo_url: order.shopLogoUrl,
       order_number: order.number,
       label: row.label,
       expires_at: row.expires_at,

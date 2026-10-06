@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router';
-import { DashboardOrderDetail as CommercialOrderDetail } from '@/modules/commercial-orders/ui';
 import { OrdersApiClient, type UnifiedOrderDetail } from '@/modules/orders';
-import { DashboardShopOrderDetail } from '@/modules/orders/ui';
 import { useTenantPath } from '@/modules/tenants/ui/hooks';
 import { useWorkspaceApi } from '@/platform/runtime/workspace-ui-runtime';
+import { UnifiedOrderDetailView } from './UnifiedOrderDetailView';
 
 /**
  * Point d entree unique de la fiche Commande.
@@ -17,6 +16,7 @@ export function UnifiedOrderDetailPage() {
   const { orderId } = useParams<{ orderId: string }>();
   const ordersApi = useWorkspaceApi(OrdersApiClient);
   const [resolved, setResolved] = useState<UnifiedOrderDetail | null>(null);
+  const [etag, setEtag] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -29,9 +29,12 @@ export function UnifiedOrderDetailPage() {
       return () => { active = false; };
     }
 
-    void ordersApi.getUnifiedDetail(orderId, controller.signal).then(
-      (detail) => {
-        if (active) setResolved(detail);
+    void ordersApi.getUnifiedDetailWithEtag(orderId, controller.signal).then(
+      (result) => {
+        if (active) {
+          setResolved(result.data);
+          setEtag(result.etag);
+        }
       },
       (cause: unknown) => {
         if (!active) return;
@@ -44,8 +47,13 @@ export function UnifiedOrderDetailPage() {
 
   if (error) return <UnifiedOrderError message={error} />;
   if (!resolved) return <p className="text-sm text-ink-muted">Chargement de la commande…</p>;
-  if (resolved.origin === 'storefront') return <DashboardShopOrderDetail initialOrder={resolved.detail} />;
-  return <CommercialOrderDetail initialOrder={resolved.detail} />;
+  return <UnifiedOrderDetailView
+    key={`${resolved.id}:${resolved.updated_at}`}
+    order={resolved}
+    etag={etag}
+    api={ordersApi}
+    onChanged={(result) => { setResolved(result.data); setEtag(result.etag); }}
+  />;
 }
 
 /** L ancienne grille devient un alias vers la grille metier unique. */

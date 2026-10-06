@@ -33,6 +33,7 @@ import {
 import type { OrderExportsService } from '../../modules/order-exports/application/order-exports-service.ts';
 import {
   OrderExportAccessDeniedError,
+  OrderExportInProgressError,
   OrderExportNotFoundError,
   OrderExportPendingLimitReachedError,
 } from '../../modules/order-exports/application/order-exports-repository.ts';
@@ -150,6 +151,26 @@ export function createOrderExportsRoutes(
         return {
           status: 200,
           data: found,
+          ...(unified ? {} : { headers: deprecatedOrderRouteHeaders(`/api/v1/order-exports/${exportId}`) }),
+        };
+      },
+    }),
+
+    defineGescomRoute({
+      method: 'DELETE',
+      path: unified ? '/order-exports/{exportId}' : '/commercial-order-exports/{exportId}',
+      operationId: unified ? 'deleteUnifiedOrderExport' : 'deleteCommercialOrderExport',
+      authentication: 'user',
+      inputSchema: null,
+      dataSchema: z.null(),
+      async handle(context) {
+        const exportId = context.params['exportId']!;
+        await withOrderExportErrors(() =>
+          orderExports.remove(context.tenantId, requireUserId(context), exportId),
+        );
+        return {
+          status: 204,
+          data: null,
           ...(unified ? {} : { headers: deprecatedOrderRouteHeaders(`/api/v1/order-exports/${exportId}`) }),
         };
       },
@@ -285,6 +306,14 @@ async function withOrderExportErrors<T>(operation: () => Promise<T>): Promise<T>
         status: 422,
         title: 'Trop de demandes en file',
         code: 'order_export.pending_limit_reached',
+        detail: error.message,
+      });
+    }
+    if (error instanceof OrderExportInProgressError) {
+      throw problem({
+        status: 409,
+        title: 'Export en cours',
+        code: 'order_export.in_progress',
         detail: error.message,
       });
     }

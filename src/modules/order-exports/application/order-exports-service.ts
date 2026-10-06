@@ -57,6 +57,11 @@ export class OrderExportsService {
     return found;
   }
 
+  async remove(tenantId: TenantId, actor: UserId, exportId: string): Promise<void> {
+    await this.assertCanExportOrders(tenantId, actor);
+    if (!(await this.repository.remove(tenantId, actor, exportId))) throw new OrderExportNotFoundError();
+  }
+
   /**
    * Garde GARDEE PAR CAPABILITY, verifiee AVANT toute autre validation — meme
    * discipline que `DocumentTemplatesService.assertCanManageDocumentTemplates`

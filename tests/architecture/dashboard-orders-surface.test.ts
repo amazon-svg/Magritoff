@@ -19,8 +19,8 @@ const unifiedOrderDetail = readFileSync(
   resolve(process.cwd(), 'src/app/surfaces/UnifiedOrderDetailPage.tsx'),
   'utf8',
 );
-const commercialOrderDetailHook = readFileSync(
-  resolve(process.cwd(), 'src/modules/commercial-orders/ui/hooks/useOrderDetail.ts'),
+const unifiedOrderDetailView = readFileSync(
+  resolve(process.cwd(), 'src/app/surfaces/UnifiedOrderDetailView.tsx'),
   'utf8',
 );
 const orderStatusDialog = readFileSync(
@@ -71,9 +71,17 @@ describe('surface du dashboard commandes', () => {
   it('garde les écrans actifs sur la lecture commune', () => {
     expect(dashboardOrders).not.toContain('CommercialOrdersApiClient');
     expect(unifiedOrderDetail).toContain('getUnifiedDetail');
-    expect(commercialOrderDetailHook).toContain('getUnifiedDetail');
-    expect(commercialOrderDetailHook).not.toContain('ordersApi.getDetail');
+    expect(unifiedOrderDetail).toContain('UnifiedOrderDetailView');
+    expect(unifiedOrderDetail).not.toContain('resolved.origin');
     expect(orderStatusDialog).toContain('getUnifiedDetail');
     expect(orderStatusDialog).not.toContain('ordersApi.getDetail');
+  });
+
+  it('ne conserve qu une seule implementation de la fiche commande', () => {
+    expect(existsSync(resolve(process.cwd(), 'src/modules/orders/ui/workspace/OrderDetailPage.tsx'))).toBe(false);
+    expect(existsSync(resolve(process.cwd(), 'src/modules/commercial-orders/ui/workspace/OrderDetailPage.tsx'))).toBe(false);
+    expect(existsSync(resolve(process.cwd(), 'src/modules/commercial-orders/ui/hooks/useOrderDetail.ts'))).toBe(false);
+    expect(unifiedOrderDetailView).toContain('data-testid="unified-order-detail"');
+    expect(unifiedOrderDetailView).toContain('normalizeLines(order)');
   });
 });

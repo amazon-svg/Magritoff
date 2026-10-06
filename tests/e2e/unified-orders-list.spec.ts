@@ -107,16 +107,25 @@ test('les deux origines ouvrent leur fiche canonique et le client CRM est access
   const storefront = initial.data.find((row) => row.origin === 'storefront')!;
   await page.locator(`[data-testid="shop-orders-row"][data-order-id="${storefront.id}"]`).getByRole('button', { name: `Ouvrir la commande ${storefront.id}`, exact: true }).first().click();
   await expect(page).toHaveURL(new RegExp(`/dashboard/orders/${storefront.id}$`));
-  await expect(page.getByTestId('order-backoffice-detail')).toBeVisible();
+  await expect(page.getByTestId('unified-order-detail')).toBeVisible();
+  await expect(page.getByTestId('order-files-block')).toBeVisible();
+  await expect(page.getByTestId('order-files-line-select')).toContainText('Toute la commande');
+  await expect(page.getByTestId('order-upload-links-block')).toBeVisible();
+  const storefrontSections = await page.getByTestId('unified-order-detail').locator('h2').allTextContents();
   await page.reload();
-  await expect(page.getByTestId('order-backoffice-detail')).toBeVisible();
+  await expect(page.getByTestId('unified-order-detail')).toBeVisible();
   await readPage(page, () => page.getByRole('link', { name: 'Retour aux commandes' }).click());
 
   const quote = initial.data.find((row) => row.origin === 'quote')!;
   const quoteRow = page.locator(`[data-testid="shop-orders-row"][data-order-id="${quote.id}"]`);
   await quoteRow.getByRole('button', { name: `Ouvrir la commande ${quote.number}`, exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/dashboard/orders/${quote.id}$`));
+  await expect(page.getByTestId('unified-order-detail')).toBeVisible();
   await expect(page.getByRole('heading', { name: quote.number!, exact: true })).toBeVisible();
+  await expect(page.getByTestId('order-files-block')).toBeVisible();
+  await expect(page.getByTestId('order-files-line-select')).toContainText('Toute la commande');
+  await expect(page.getByTestId('order-upload-links-block')).toBeVisible();
+  expect(await page.getByTestId('unified-order-detail').locator('h2').allTextContents()).toEqual(storefrontSections);
   await page.reload();
   await expect(page.getByRole('heading', { name: quote.number!, exact: true })).toBeVisible();
   await readPage(page, () => page.getByRole('link', { name: 'Retour aux commandes' }).click());
@@ -135,8 +144,13 @@ test('export commun : utilise les filtres appliqués puis permet le télécharge
   expect(selected.data.length).toBeGreaterThan(0);
   // Un brouillon de filtre non appliqué ne doit pas modifier l'export.
   await page.getByLabel('Client', { exact: true }).fill('__non_applique__');
-  await page.getByRole('button', { name: 'Exporter', exact: true }).click();
-  const dialog = page.getByRole('dialog');
+  await expect(page.getByText('Historique des exports', { exact: true })).toBeHidden();
+  await page.getByRole('button', { name: 'Exports…', exact: true }).click();
+  const exportPanel = page.getByTestId('orders-export-panel');
+  await expect(exportPanel).toBeVisible();
+  await expect(page.getByText('Historique des exports', { exact: true })).toBeVisible();
+  await exportPanel.getByRole('button', { name: 'Nouvel export…', exact: true }).click();
+  const dialog = page.getByTestId('orders-export-dialog');
   await expect(dialog).toContainText('Boutique');
   await expect(dialog).not.toContainText('__non_applique__');
   await dialog.getByRole('radio', { name: 'CSV', exact: true }).check();
@@ -148,6 +162,7 @@ test('export commun : utilise les filtres appliqués puis permet le télécharge
   const { data } = await response.json();
   expect(data.layout_version).toBe(2);
   await expect(dialog).toBeHidden();
+  await expect(page.getByText('Historique des exports', { exact: true })).toBeVisible();
   console.log(`Export de recette : ${data.id}`);
   const downloadButton = page.locator(`[data-export-id="${data.id}"]`).getByRole('button', { name: 'Télécharger', exact: true });
   await expect(downloadButton).toBeVisible({ timeout: 60_000 });
@@ -161,4 +176,9 @@ test('export commun : utilise les filtres appliqués puis permet le télécharge
   expect(csv.split('\n')[0]).toContain('Boutique');
   expect(csv).toContain(selected.data[0].id);
   expect(csv).not.toContain(';Devis;');
+  page.once('dialog', (confirmation) => confirmation.accept());
+  await page.locator(`[data-export-id="${data.id}"]`).getByRole('button', { name: 'Supprimer', exact: true }).click();
+  await expect(page.locator(`[data-export-id="${data.id}"]`)).toHaveCount(0);
+  await exportPanel.getByRole('button', { name: 'Fermer', exact: true }).click();
+  await expect(page.getByText('Historique des exports', { exact: true })).toBeHidden();
 });

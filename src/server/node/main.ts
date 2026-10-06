@@ -329,6 +329,9 @@ const catalogRoutes = actorResolver === undefined
     ));
 const gescomAuthenticationEnabled = oidcJwtVerifier !== null || localAuthentication !== null;
 const s3Client = gescomAuthenticationEnabled ? createS3Client() : null;
+const s3PublicBaseUrl = process.env['S3_PUBLIC_BASE_URL']
+  ?? process.env['S3_ENDPOINT']
+  ?? `https://s3.${process.env['S3_REGION'] ?? 'us-east-1'}.amazonaws.com`;
 const mockupHandler = s3Client === null ? null : createMockupHandler(s3Client);
 const shopSitemapHandler = createShopSitemapHandler(
   new PostgresShopSitemapRepository(new PostgresTransactionRunner(postgresPool, 'magrit_api')),
@@ -339,6 +342,8 @@ const orderUploadLinksRepository = s3Client === null
   : new PostgresOrderUploadLinksRepository(
       new PostgresTransactionRunner(postgresPool, 'magrit_api'),
       s3Client,
+      undefined,
+      new S3ShopAssetStorage(s3Client, s3PublicBaseUrl),
     );
 const gescomPrincipalVerifier = !gescomAuthenticationEnabled
   ? null
@@ -361,9 +366,6 @@ const outboxPublisher = new OutboxPublisher({
   now: () => new Date(),
   newEventId: () => crypto.randomUUID(),
 });
-const s3PublicBaseUrl = process.env['S3_PUBLIC_BASE_URL']
-  ?? process.env['S3_ENDPOINT']
-  ?? `https://s3.${process.env['S3_REGION'] ?? 'us-east-1'}.amazonaws.com`;
 const priceRulesService = new PriceRulesService({
   repository: new PostgresPriceRulesRepository(
     new PostgresTransactionRunner(postgresPool, 'magrit_api'),

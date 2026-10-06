@@ -9,6 +9,7 @@ import type { TenantId, UserId } from '../../src/kernel/ids';
 import type { ListOrdersParams } from '../../src/modules/orders/application/orders-repository';
 import { orderListEntriesSchema, unifiedOrderDetailSchema } from '../../src/modules/orders/api/contracts';
 import { endOfDayInReferenceTimeZone } from '../../src/kernel/clock';
+import { computeEntityTag } from '../../src/modules/_shared/application';
 
 const suite = process.env.MAGRIT_POSTGRES_INTEGRATION === '1' ? describe : describe.skip;
 suite('Commandes communes — pagination et filtres PostgreSQL', () => {
@@ -17,6 +18,7 @@ suite('Commandes communes — pagination et filtres PostgreSQL', () => {
   const tenantId = randomUUID() as TenantId;
   const foreignTenantId = randomUUID() as TenantId;
   const actor = randomUUID() as UserId;
+  const viewer = randomUUID() as UserId;
   const customerId = randomUUID();
   const projectId = randomUUID();
   const quoteId = randomUUID();
@@ -37,9 +39,12 @@ suite('Commandes communes — pagination et filtres PostgreSQL', () => {
     });
     await pool.query('insert into public.app_users(id,email_normalized,display_name) values($1,$2,$3)',
       [actor, `unified-${actor}@example.invalid`, 'Acheteur Boutique']);
+    await pool.query('insert into public.app_users(id,email_normalized,display_name) values($1,$2,$3)',
+      [viewer, `unified-${viewer}@example.invalid`, 'Lecteur sans modification']);
     await pool.query("insert into public.tenants(id,slug,name) values($1,$2,'Liste commune'),($3,$4,'Autre tenant')",
       [tenantId, `unified-${tenantId}`, foreignTenantId, `unified-${foreignTenantId}`]);
     await pool.query("insert into public.tenant_members(tenant_id,user_id,role) values($1,$2,'owner')", [tenantId, actor]);
+    await pool.query("insert into public.tenant_members(tenant_id,user_id,role) values($1,$2,'member')", [tenantId, viewer]);
     await pool.query("insert into public.shops(id,tenant_id,owner_user_id,slug,name) values($1,$2,$3,$4,'Atelier Lumière')", [shopId, tenantId, actor, `unified-${shopId}`]);
     await pool.query("insert into public.customers(id,tenant_id,type,civility,first_name,last_name) values($1,$2,'individual','mr','Jean','Devis')", [customerId, tenantId]);
     await pool.query("insert into public.projects(id,tenant_id,customer_id,name,created_by) values($1,$2,$3,'Projet',$4)", [projectId, tenantId, customerId, actor]);
@@ -80,7 +85,7 @@ suite('Commandes communes — pagination et filtres PostgreSQL', () => {
     if (!pool) return;
     await pool.query('delete from public.tenant_orders where tenant_id=$1', [tenantId]);
     await pool.query('delete from public.tenants where id=any($1::uuid[])', [[tenantId, foreignTenantId]]);
-    await pool.query('delete from public.app_users where id=$1', [actor]);
+    await pool.query('delete from public.app_users where id=any($1::uuid[])', [[actor, viewer]]);
     await pool.end();
   });
 
@@ -149,6 +154,75 @@ suite('Commandes communes — pagination et filtres PostgreSQL', () => {
       id: quoteOrderId, origin: 'quote', quote_id: quoteId,
     });
     await expect(repository.listOrders(foreignTenantId, params({ actor: null, size: 10 }))).resolves.toEqual([]);
+  });
+
+  it.each([
+    ['storefront', storefrontIds[0]],
+    ['quote', quoteOrderId],
+  ] as const)('modifie et audite les informations non financières d une commande %s', async (_origin, orderId) => {
+    const before = (await repository.getUnifiedOrderDetail(tenantId, orderId, actor))!;
+    const tag = await computeEntityTag(before);
+    const updated = await repository.updateOrderMetadata(tenantId, orderId, actor, {
+      customer_reference: `REF-${_origin}`,
+      notes: `Note ${_origin}`,
+    }, tag);
+    expect(updated).toMatchObject({
+      id: orderId,
+      customer_reference: `REF-${_origin}`,
+      notes: `Note ${_origin}`,
+      total_ht: before.total_ht,
+      total_ttc: before.total_ttc,
+    });
+    if (updated!.origin === 'storefront' && before.origin === 'storefront') {
+      expect(updated!.detail.items).toEqual(before.detail.items);
+      expect(updated!.detail.totalHt).toBe(before.detail.totalHt);
+      expect(updated!.detail.totalTtc).toBe(before.detail.totalTtc);
+    } else if (updated!.origin === 'quote' && before.origin === 'quote') {
+      expect(updated!.detail.lines).toEqual(before.detail.lines);
+      expect(updated!.detail.totals).toEqual(before.detail.totals);
+    } else {
+      throw new Error('L origine de la commande a changé pendant la modification.');
+    }
+    expect(updated!.updated_at).not.toBe(before.updated_at);
+    const audit = (await pool.query(`select actor_id,changes from public.tenant_order_metadata_events
+      where order_id=$1 order by occurred_at desc limit 1`, [orderId])).rows[0];
+    expect(audit).toEqual({
+      actor_id: actor,
+      changes: {
+        customer_reference: { before: null, after: `REF-${_origin}` },
+        notes: { before: '', after: `Note ${_origin}` },
+      },
+    });
+    await expect(repository.listAuditEvents(orderId, {
+      storefrontToken: null, magritUserId: actor,
+    })).resolves.toEqual(expect.arrayContaining([expect.objectContaining({
+      kind: 'metadata', eventType: 'metadata_updated', actorId: actor,
+      payload: { changes: audit.changes },
+    })]));
+  });
+
+  it('refuse un ETag périmé sans écraser la version courante', async () => {
+    const orderId = storefrontIds[1];
+    const before = (await repository.getUnifiedOrderDetail(tenantId, orderId, actor))!;
+    const staleTag = await computeEntityTag(before);
+    await repository.updateOrderMetadata(tenantId, orderId, actor, { customer_reference: 'VERSION-1', notes: '' }, staleTag);
+    await expect(repository.updateOrderMetadata(
+      tenantId, orderId, actor, { customer_reference: 'ECRASEMENT', notes: '' }, staleTag,
+    )).rejects.toMatchObject({ init: { status: 409, code: 'api.resource_conflict' } });
+    await expect(repository.getUnifiedOrderDetail(tenantId, orderId, actor)).resolves.toMatchObject({
+      customer_reference: 'VERSION-1',
+    });
+  });
+
+  it('exige can_modify et ne traverse jamais la frontière du tenant', async () => {
+    const detail = (await repository.getUnifiedOrderDetail(tenantId, storefrontIds[2], actor))!;
+    const tag = await computeEntityTag(detail);
+    await expect(repository.updateOrderMetadata(tenantId, detail.id, viewer, {
+      customer_reference: null, notes: 'Interdit',
+    }, tag)).rejects.toMatchObject({ init: { status: 403, code: 'identity.capability_required' } });
+    await expect(repository.updateOrderMetadata(foreignTenantId, detail.id, actor, {
+      customer_reference: null, notes: 'Autre tenant',
+    }, tag)).resolves.toBeNull();
   });
 
   async function exportedRows(filters: ListOrdersParams['filters'], granularity = 'order', legacy = false) {
