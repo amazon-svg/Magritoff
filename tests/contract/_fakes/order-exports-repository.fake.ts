@@ -8,6 +8,7 @@ import type { TenantId, UserId } from '@/kernel';
 import type { OrderExportDto, OrderExportFiltersDto } from '@/modules/order-exports/api/contracts';
 import {
   OrderExportAccessDeniedError,
+  OrderExportInProgressError,
   OrderExportPendingLimitReachedError,
   type ListOrderExportsFilters,
   type OrderExportsRepository,
@@ -155,6 +156,13 @@ export class InMemoryOrderExportsRepository implements OrderExportsRepository {
     const row = this.exports.get(exportId);
     if (!row || row.tenant_id !== tenantId) return null;
     return this.toDto(row, actor);
+  }
+
+  async remove(tenantId: TenantId, actor: UserId, exportId: string): Promise<boolean> {
+    const row = this.exports.get(exportId);
+    if (!row || row.tenant_id !== tenantId || row.requested_by !== actor) return false;
+    if (row.status === 'pending' || row.status === 'running') throw new OrderExportInProgressError();
+    return this.exports.delete(exportId);
   }
 
   private toDto(row: StoredExport, actor: UserId): OrderExportDto {

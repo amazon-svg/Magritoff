@@ -172,6 +172,9 @@ test('export commun : utilise les filtres appliqués puis permet le télécharge
   expect(csv.split('\n')[0]).toContain('Boutique');
   expect(csv).toContain(selected.data[0].id);
   expect(csv).not.toContain(';Devis;');
+  page.once('dialog', (confirmation) => confirmation.accept());
+  await page.locator(`[data-export-id="${data.id}"]`).getByRole('button', { name: 'Supprimer', exact: true }).click();
+  await expect(page.locator(`[data-export-id="${data.id}"]`)).toHaveCount(0);
   await page.getByRole('button', { name: 'Masquer', exact: true }).click();
   await expect(page.getByText('Historique des exports', { exact: true })).toBeHidden();
 });

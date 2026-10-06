@@ -1,4 +1,5 @@
 import {
+  DeleteObjectCommand,
   DeleteObjectsCommand,
   GetObjectCommand,
   ListObjectsV2Command,
@@ -10,6 +11,7 @@ import type { TenantId, UserId } from '../../kernel/ids/index.ts';
 import { toIsoTimestamp, toIsoTimestampOrNull } from '../../modules/_shared/application/index.ts';
 import type { OrderExportDto, OrderExportFiltersDto } from '../../modules/order-exports/api/contracts.ts';
 import {
+  OrderExportInProgressError,
   OrderExportPendingLimitReachedError,
   type ListOrderExportsFilters,
   type OrderExportsRepository,
@@ -129,6 +131,35 @@ export class PostgresOrderExportsRepository implements OrderExportsRepository {
       )
     ).rows[0] ?? null);
     return row === null ? null : this.toDto(row, actor);
+  }
+
+  async remove(tenantId: TenantId, actor: UserId, exportId: string): Promise<boolean> {
+    const removed = await this.transactions.run({ tenantId, userId: actor }, async (client) => {
+      const found = (await client.query<Pick<ExportRow, 'status' | 'storage_path'>>(
+        `select status,storage_path from public.commercial_order_exports
+          where id=$1 and tenant_id=$2 and requested_by=$3`,
+        [exportId, tenantId, actor],
+      )).rows[0];
+      if (!found) return null;
+      if (found.status === 'pending' || found.status === 'running') throw new OrderExportInProgressError();
+      const deleted = await client.query(
+        `delete from public.commercial_order_exports
+          where id=$1 and tenant_id=$2 and requested_by=$3 and status in('ready','failed','expired')`,
+        [exportId, tenantId, actor],
+      );
+      return deleted.rowCount === 1 ? found.storage_path : null;
+    });
+    if (removed === null) return false;
+    if (removed) {
+      try {
+        await this.storage.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: removed }));
+      } catch (error) {
+        // La ligne est deja retiree. Le balayage d orphelins supprimera cet
+        // objet non reference apres son delai de securite.
+        console.error(`[order-exports] retrait S3 manuel impossible pour ${exportId}`, error);
+      }
+    }
+    return true;
   }
 
   private async toDto(row: ExportRow, actor: UserId): Promise<OrderExportDto> {

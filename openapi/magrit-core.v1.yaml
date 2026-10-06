@@ -8950,6 +8950,38 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
+    delete:
+      operationId: deleteUnifiedOrderExport
+      summary: "Supprime un export de commandes terminé"
+      description: >-
+        Supprime du registre un export termine appartenant a l appelant et
+        retire son fichier du stockage. Une demande `pending` ou `running`
+        ne peut pas etre supprimee.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      x-required-capabilities: [can_export_orders]
+      parameters:
+        - $ref: '#/components/parameters/CommercialOrderExportId'
+      responses:
+        '204':
+          description: Export supprimé.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ForbiddenCapability'
+        '404':
+          description: Export absent, hors tenant ou appartenant à un autre demandeur.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: La génération de l export est encore en cours (`order_export.in_progress`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
 
 
   /commercial-order-exports:
@@ -9215,6 +9247,42 @@ paths:
             (`order_export.not_found`). Meme reponse pour une demande
             inexistante et pour celle d un autre espace : le contraire
             revelerait l existence d exports chez un tiers.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+    delete:
+      operationId: deleteCommercialOrderExport
+      deprecated: true
+      summary: "Supprime un export de commandes terminé"
+      description: >-
+        Ancien chemin de suppression. Utiliser `DELETE /order-exports/{exportId}`.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      x-required-capabilities: [can_export_orders]
+      parameters:
+        - $ref: '#/components/parameters/CommercialOrderExportId'
+      responses:
+        '204':
+          description: Export supprimé.
+          headers:
+            Deprecation:
+              $ref: '#/components/headers/OrderApiDeprecation'
+            Link:
+              $ref: '#/components/headers/OrderApiSuccessor'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ForbiddenCapability'
+        '404':
+          description: Export absent, hors tenant ou appartenant à un autre demandeur.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: La génération de l export est encore en cours (`order_export.in_progress`).
           content:
             application/problem+json:
               schema:

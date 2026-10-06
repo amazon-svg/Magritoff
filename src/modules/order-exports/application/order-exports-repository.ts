@@ -52,6 +52,13 @@ export class OrderExportPendingLimitReachedError extends Error {
   }
 }
 
+export class OrderExportInProgressError extends Error {
+  constructor(message = "Un export en cours ne peut pas être supprimé.") {
+    super(message);
+    this.name = 'OrderExportInProgressError';
+  }
+}
+
 export type ListOrderExportsFilters = Readonly<{
   status: OrderExportStatus | null;
   format: OrderExportFormat | null;
@@ -95,4 +102,7 @@ export interface OrderExportsRepository {
    * resolu SEULEMENT si `actor` est le demandeur ET que le statut est `ready`.
    */
   findById(tenantId: TenantId, actor: UserId, exportId: string): Promise<OrderExportDto | null>;
+
+  /** Supprime un export termine appartenant a l acteur et son fichier stocke. */
+  remove(tenantId: TenantId, actor: UserId, exportId: string): Promise<boolean>;
 }

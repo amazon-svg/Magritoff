@@ -46,13 +46,14 @@
  */
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { TEST_IDS } from '@/shared/presentation/testIds';
-import { useWorkspaceApi } from '@/platform/runtime/workspace-ui-runtime';
+import { useWorkspaceApi, useWorkspaceUiRuntime } from '@/platform/runtime/workspace-ui-runtime';
 import { useAccessProfile } from '@/modules/roles/ui/runtime';
 import { OrderExportsApiClient, type OrderExportDto } from '@/modules/order-exports';
 import {
   CAN_EXPORT_ORDERS,
   describeOrderExportRow,
   INITIAL_ORDER_EXPORT_REGISTRY_STATE,
+  isOrderExportTerminalStatus,
   nonTerminalOrderExportIds,
   ORDER_EXPORT_REGISTRY_PAGE_SIZE,
   orderExportRegistryReducer,
@@ -111,12 +112,15 @@ export function OrderExportPanel({ filters = DEFAULT_ORDERS_LIST_FILTERS, select
   const unified = unifiedSelection !== undefined;
   const api = useMemo(() => unified ? legacyApi.forUnified() : legacyApi, [legacyApi, unified]);
   const { hasCapability } = useAccessProfile();
+  const { actor } = useWorkspaceUiRuntime();
   const canExport = hasCapability(CAN_EXPORT_ORDERS) === true;
 
   const [state, dispatch] = useReducer(orderExportRegistryReducer, INITIAL_ORDER_EXPORT_REGISTRY_STATE);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [registryOpen, setRegistryOpen] = useState(false);
   const [downloadErrorsById, setDownloadErrorsById] = useState<Readonly<Record<string, string>>>({});
+  const [deleteErrorsById, setDeleteErrorsById] = useState<Readonly<Record<string, string>>>({});
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   // BLOQUANT M1, qa-review round 2 (2026-09-15) : AVANT ce correctif, `onError`
   // du suivi ne faisait RIEN (voir le commentaire retire ci-dessous) — une
   // demande arretee sur un 401/403/404 (ou sur l echeance de duree, voir
@@ -236,6 +240,27 @@ export function OrderExportPanel({ filters = DEFAULT_ORDERS_LIST_FILTERS, select
     }
   };
 
+  const handleDeleteClick = async (item: OrderExportDto) => {
+    if (!window.confirm(`Supprimer l’export ${item.file_name ?? item.id} ?`)) return;
+    setDeletingId(item.id);
+    setDeleteErrorsById((current) => {
+      const next = { ...current };
+      delete next[item.id];
+      return next;
+    });
+    try {
+      await api.remove(item.id);
+      dispatch({ type: 'exportDeleted', id: item.id });
+    } catch {
+      setDeleteErrorsById((current) => ({
+        ...current,
+        [item.id]: "La suppression de l’export a échoué.",
+      }));
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   return (
     <div className="mt-6" data-testid={T.panel}>
       <div className="flex items-center justify-between mb-2">
@@ -327,6 +352,19 @@ export function OrderExportPanel({ filters = DEFAULT_ORDERS_LIST_FILTERS, select
                         <span className="text-ink-muted">{row.download.label}</span>
                       )}
                       {downloadErrorsById[item.id] && <div className="text-xs text-err-fg mt-0.5">{downloadErrorsById[item.id]}</div>}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      {item.requested_by === actor?.userId && isOrderExportTerminalStatus(item.status) && (
+                        <button
+                          type="button"
+                          onClick={() => void handleDeleteClick(item)}
+                          disabled={deletingId === item.id}
+                          className="text-sm text-err-fg hover:underline disabled:opacity-50"
+                        >
+                          {deletingId === item.id ? 'Suppression…' : 'Supprimer'}
+                        </button>
+                      )}
+                      {deleteErrorsById[item.id] && <div className="text-xs text-err-fg mt-0.5">{deleteErrorsById[item.id]}</div>}
                     </td>
                   </tr>
                 );

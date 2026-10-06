@@ -2538,7 +2538,11 @@ export interface paths {
         get: operations["getUnifiedOrderExport"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Supprime un export de commandes terminé
+         * @description Supprime du registre un export termine appartenant a l appelant et retire son fichier du stockage. Une demande `pending` ou `running` ne peut pas etre supprimee.
+         */
+        delete: operations["deleteUnifiedOrderExport"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2625,7 +2629,12 @@ export interface paths {
         get: operations["getCommercialOrderExport"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Supprime un export de commandes terminé
+         * @deprecated
+         * @description Ancien chemin de suppression. Utiliser `DELETE /order-exports/{exportId}`.
+         */
+        delete: operations["deleteCommercialOrderExport"];
         options?: never;
         head?: never;
         patch?: never;
@@ -16490,6 +16499,58 @@ export interface operations {
             };
         };
     };
+    deleteUnifiedOrderExport: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                /** @description Identifiant technique d une demande d export de commandes (`commercial_order_exports`, E10.18), dans le tenant du jeton. Alloue par `requestCommercialOrderExport` ; il designe la DEMANDE et son suivi, jamais le fichier — celui-ci n a pas d identifiant propre et ne s atteint que par l URL signee de courte duree portee par la demande. */
+                exportId: components["parameters"]["CommercialOrderExportId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Export supprimé. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["ForbiddenCapability"];
+            /** @description Export absent, hors tenant ou appartenant à un autre demandeur. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description La génération de l export est encore en cours (`order_export.in_progress`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     listCommercialOrderExports: {
         parameters: {
             query?: {
@@ -16641,6 +16702,60 @@ export interface operations {
             403: components["responses"]["ForbiddenCapability"];
             /** @description Aucune demande d export de cet identifiant dans le tenant du jeton (`order_export.not_found`). Meme reponse pour une demande inexistante et pour celle d un autre espace : le contraire revelerait l existence d exports chez un tiers. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    deleteCommercialOrderExport: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                /** @description Identifiant technique d une demande d export de commandes (`commercial_order_exports`, E10.18), dans le tenant du jeton. Alloue par `requestCommercialOrderExport` ; il designe la DEMANDE et son suivi, jamais le fichier — celui-ci n a pas d identifiant propre et ne s atteint que par l URL signee de courte duree portee par la demande. */
+                exportId: components["parameters"]["CommercialOrderExportId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Export supprimé. */
+            204: {
+                headers: {
+                    Deprecation: components["headers"]["OrderApiDeprecation"];
+                    Link: components["headers"]["OrderApiSuccessor"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["ForbiddenCapability"];
+            /** @description Export absent, hors tenant ou appartenant à un autre demandeur. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description La génération de l export est encore en cours (`order_export.in_progress`). */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

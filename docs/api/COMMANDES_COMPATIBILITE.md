@@ -8,7 +8,7 @@ fiche et les exports communs couvrent les origines boutique et devis.
 - `GET /api/v1/order-summaries`
 - `GET /api/v1/order-summaries/{orderId}`
 - `GET|POST /api/v1/order-exports`
-- `GET /api/v1/order-exports/{exportId}`
+- `GET|DELETE /api/v1/order-exports/{exportId}`
 - `/t/{tenantSlug}/dashboard/orders`
 - `/t/{tenantSlug}/dashboard/orders/{orderId}`
 
@@ -20,7 +20,7 @@ mais sont dépréciées depuis le 6 octobre 2026 :
 - `GET /api/v1/commercial-orders`
 - `GET /api/v1/commercial-orders/{orderId}`
 - `GET|POST /api/v1/commercial-order-exports`
-- `GET /api/v1/commercial-order-exports/{exportId}`
+- `GET|DELETE /api/v1/commercial-order-exports/{exportId}`
 
 Le contrat OpenAPI porte `deprecated: true`. Les réponses réussies portent un
 en-tête `Deprecation` conforme à RFC 9745 et un lien `successor-version` vers

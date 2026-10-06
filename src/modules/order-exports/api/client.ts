@@ -18,6 +18,7 @@
  * en PARAMETRE OBLIGATOIRE (voir `order-export.helpers.ts`,
  * `createOrderExportSubmitController`).
  */
+import { z } from 'zod';
 import { successEnvelopeSchema } from '../../_shared/api/index.ts';
 import { API_V1_BASE_PATH, FetchApiClient } from '../../../platform/api/index.ts';
 import {
@@ -102,5 +103,13 @@ export class OrderExportsApiClient {
       responseSchema: successEnvelopeSchema(orderExportSchema),
     });
     return envelope.data;
+  }
+
+  async remove(exportId: string): Promise<void> {
+    await this.client.request({
+      method: 'DELETE',
+      path: `${this.basePath}/${exportId}`,
+      responseSchema: z.null(),
+    });
   }
 }
