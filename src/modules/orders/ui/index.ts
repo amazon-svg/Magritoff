@@ -13,3 +13,4 @@ export { ResumeBanner, buildResumeChips } from './storefront/ResumeBanner';
 export type { AccountSection, BudgetInfo, CartLine, PortalView } from './storefront/types';
 export { DashboardOrders } from './workspace/OrdersPage';
 export { DashboardShopOrderDetail } from './workspace/OrderDetailPage';
+export { OrderMetadataEditor } from './workspace/OrderMetadataEditor';

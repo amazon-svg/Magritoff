@@ -12,6 +12,7 @@ import type {
   CreateOrderResult,
   DraftOrder,
   OrderDetail,
+  UpdateOrderMetadataCommand,
   UpdateDraftOrderCommand,
   UpdateDraftOrderResult,
   OrderRolesResponse,
@@ -35,6 +36,16 @@ export class OrdersService {
 
   getUnifiedDetail(tenantId: TenantId, orderId: string, actor: UserId | null) {
     return this.repository.getUnifiedOrderDetail(tenantId, orderId, actor);
+  }
+
+  updateMetadata(
+    tenantId: TenantId,
+    orderId: string,
+    actor: UserId,
+    command: UpdateOrderMetadataCommand,
+    ifMatch: string,
+  ) {
+    return this.repository.updateOrderMetadata(tenantId, orderId, actor, command, ifMatch);
   }
 
   listOrders(tenantId: TenantId, params: ListOrdersParams) {

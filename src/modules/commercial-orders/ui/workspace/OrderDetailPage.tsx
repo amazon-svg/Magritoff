@@ -45,6 +45,7 @@
  * PUBLIQUE du module `order-files` (`@/modules/order-files/ui`), jamais un
  * chemin profond — regle MUX.
  */
+import type { ReactNode } from 'react';
 import type { CommercialOrderDetailDto } from '../../api/contracts';
 import { Link, useParams } from 'react-router';
 import { ArrowLeft } from 'lucide-react';
@@ -68,7 +69,13 @@ const COLOR_SWATCH: Record<string, string> = {
   violet: 'bg-violet-500',
 };
 
-export function DashboardOrderDetail({ initialOrder = null }: { initialOrder?: CommercialOrderDetailDto | null }) {
+export function DashboardOrderDetail({
+  initialOrder = null,
+  metadataSlot = null,
+}: {
+  initialOrder?: CommercialOrderDetailDto | null;
+  metadataSlot?: ReactNode;
+}) {
   const { orderId } = useParams<{ orderId: string }>();
   const tp = useTenantPath();
   const { order, customer, quote, steps, lastStepChange, loading, error, refresh } = useOrderDetail(
@@ -135,6 +142,8 @@ export function DashboardOrderDetail({ initialOrder = null }: { initialOrder?: C
       </div>
 
       {error && <p className="text-sm text-err-fg">{error}</p>}
+
+      {metadataSlot}
 
       <section className="border border-line rounded-xl p-4 space-y-3" data-testid={TEST_IDS.commercialOrder.customerBlock}>
         <h2 className="text-sm font-bold text-ink-2 uppercase tracking-wider">Client</h2>

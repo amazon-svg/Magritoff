@@ -5,6 +5,7 @@ const relatedId = '00000000-0000-4000-9000-000000000004';
 const timestamp = '2026-10-05T12:00:00.000Z';
 const header = {
   id, number: null, shop_id: relatedId, customer_id: null, quote_id: null,
+  customer_reference: null, notes: '',
   created_at: timestamp, updated_at: timestamp, status: 'draft' as const, currency: 'EUR',
   total_ht: '25.00', total_ttc: '30.00', has_unverified_prices: true,
   current_production_step_id: null,

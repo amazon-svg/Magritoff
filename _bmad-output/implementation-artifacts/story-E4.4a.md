@@ -42,11 +42,29 @@ Le test d'intégration PostgreSQL vérifie la migration, l'absence des deux anci
 
 - recette manuelle à effectuer avec la commande créée dans Atelier Lumière ;
 - revue indépendante avant passage à `verified` ;
-- les modifications de notes, coordonnées, lignes, quantités, configurations et montants restent à cadrer ;
+- les coordonnées, la livraison, les lignes, quantités, configurations et montants restent hors du contrat d'édition approuvé ;
 - la base portable ne conserve pas `shop_orders` : les données reprises doivent exister dans `tenant_orders`. Une ancienne façade qui renverrait encore une ligne `legacy` dans la liste ne propose pas l'action « Ouvrir » ; sa limitation reste visible dans la liste ;
-- la projection API commune paginée, les filtres serveur couvrant les deux origines et l'export commun restent à terminer dans E4.4b ;
+- la projection API commune paginée, les filtres serveur et l'export commun sont achevés par E4.4b ;
 - la numérotation métier des commandes boutique reste à arbitrer ; ce correctif n'invente pas rétroactivement des numéros comptables.
 
 ## Décision associée
 
 Le lot applique [PD-2026-10-05-COMMANDES-UNIQUE](../../project/decisions/product/PD-2026-10-05-commandes-objet-unique.md) : un objet Commande, deux workflows d'entrée, une liste, une fiche et une persistance canoniques. Les routes `commercial-orders` restent temporairement des projections de compatibilité, sans tables concurrentes.
+
+## Tranche d'édition du 6 octobre 2026
+
+Le périmètre approuvé ajoute la modification de la référence client et des
+notes depuis la fiche commune. Le contrat canonique
+`PATCH /api/v1/order-summaries/{orderId}` :
+
+- est réservé à un utilisateur disposant de `can_modify` ;
+- exige l'`ETag` lu sous forme d'`If-Match` et refuse une version périmée ;
+- n'accepte aucun champ de ligne, de quantité, de configuration ou de prix ;
+- renvoie la commande commune mise à jour et son nouvel `ETag` ;
+- journalise les anciennes et nouvelles valeurs avec l'auteur et la date dans
+  `tenant_order_metadata_events`.
+
+Le même formulaire est composé dans la fiche boutique et dans la fiche issue
+d'un devis. Les tests PostgreSQL isolés vérifient les deux origines, le gel des
+données financières, l'isolation tenant, le droit `can_modify`, le conflit
+concurrent et la restitution de l'événement dans l'historique.

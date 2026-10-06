@@ -10,8 +10,8 @@ import { getStatusInfo } from '@/modules/orders/ui/helpers/orderStatus';
 export interface OrderAuditEvent {
   event_id: string;
   order_id: string;
-  /** 'status' = transition statut commande, 'role' = assignation/révocation/edit capability */
-  kind: 'status' | 'role';
+  /** Statut, rôles ou informations de suivi modifiées depuis la fiche. */
+  kind: 'status' | 'role' | 'metadata';
   /** 'status_transition' | 'assigned' | 'revoked' | 'capability_updated' */
   event_type: string;
   actor_id: string | null;
@@ -71,6 +71,14 @@ export function formatAuditEventTitle(event: OrderAuditEvent): string {
     const to = String(event.payload.to_status ?? '?');
     return `Statut : ${getStatusInfo(from).label} → ${getStatusInfo(to).label}`;
   }
+  if (event.kind === 'metadata') {
+    const changes = event.payload.changes;
+    const fields = changes && typeof changes === 'object' && !Array.isArray(changes)
+      ? Object.keys(changes as Record<string, unknown>)
+      : [];
+    const labels = fields.map((field) => field === 'customer_reference' ? 'référence client' : field === 'notes' ? 'notes' : field);
+    return labels.length > 0 ? `Informations modifiées : ${labels.join(', ')}` : 'Informations de suivi modifiées';
+  }
   // kind === 'role'
   switch (event.event_type) {
     case 'assigned':
@@ -95,6 +103,7 @@ export function formatAuditEventDescription(event: OrderAuditEvent): string {
     const reason = event.payload.reason ? ` — ${event.payload.reason}` : '';
     return `Par ${actor}${reason}`;
   }
+  if (event.kind === 'metadata') return `Modifié par ${actor}`;
   // role events
   if (event.event_type === 'capability_updated') {
     return `Modifié par ${actor}`;

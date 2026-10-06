@@ -2668,7 +2668,11 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Modifie la référence client et les notes d’une commande
+         * @description Mutation commune aux commandes boutique et issues d'un devis. Seuls la référence client et les notes sont acceptés ; les lignes, quantités, configurations et montants restent gelés. Le droit can_modify et une précondition If-Match sont exigés. Chaque changement est journalisé avec son auteur et sa date.
+         */
+        patch: operations["updateOrderMetadata"];
         trace?: never;
     };
     "/orders": {
@@ -4866,6 +4870,8 @@ export interface components {
             customer_id: string | null;
             /** Format: uuid */
             quote_id: string | null;
+            customer_reference: string | null;
+            notes: string;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -4891,6 +4897,8 @@ export interface components {
             customer_id: string | null;
             /** Format: uuid */
             quote_id: string | null;
+            customer_reference: string | null;
+            notes: string;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -4903,6 +4911,10 @@ export interface components {
             has_unverified_prices: boolean;
             /** Format: uuid */
             current_production_step_id: string | null;
+        };
+        UpdateOrderMetadataCommand: {
+            customer_reference: string | null;
+            notes: string;
         };
         LegacyOrdersList: {
             orders: components["schemas"]["LegacyOrderSummary"][];
@@ -5038,7 +5050,7 @@ export interface components {
             eventId: string;
             orderId: string;
             /** @enum {string} */
-            kind: "status" | "role";
+            kind: "status" | "role" | "metadata";
             eventType: string;
             actorId: string | null;
             actorEmail: string | null;
@@ -10314,6 +10326,7 @@ export type OrderListEntry = components['schemas']['OrderListEntry'];
 export type UnifiedOrderDetail = components['schemas']['UnifiedOrderDetail'];
 export type UnifiedStorefrontOrderDetail = components['schemas']['UnifiedStorefrontOrderDetail'];
 export type UnifiedQuoteOrderDetail = components['schemas']['UnifiedQuoteOrderDetail'];
+export type UpdateOrderMetadataCommand = components['schemas']['UpdateOrderMetadataCommand'];
 export type LegacyOrdersList = components['schemas']['LegacyOrdersList'];
 export type LegacyPortalOrdersCounters = components['schemas']['LegacyPortalOrdersCounters'];
 export type LegacyPortalOrdersResponse = components['schemas']['LegacyPortalOrdersResponse'];
@@ -16712,6 +16725,7 @@ export interface operations {
             /** @description Commande et extension correspondant à son origine. */
             200: {
                 headers: {
+                    ETag: components["headers"]["ETag"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -16726,6 +16740,60 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    updateOrderMetadata: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+                /**
+                 * @description Valeur d `ETag` de la representation lue, exigee sur tout PATCH (CA9). Absente -> 428 `api.if_match_required`. Differente de l etat courant -> 409 avec l etat courant dans `current_state`.
+                 *
+                 *     `If-Match: *` est REFUSE en 400 `api.if_match_invalid`, contrairement a la semantique RFC 7232 ou il signifie « pourvu que la ressource existe ». Ici il reviendrait a desactiver le controle de concurrence : deux modifications concurrentes s ecraseraient en silence, ce que le CA9 interdit. Le `pattern` ci-dessous n admet qu un ETag, faible ou fort.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                orderId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateOrderMetadataCommand"];
+            };
+        };
+        responses: {
+            /** @description Commande mise à jour et nouvelle version de concurrence. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["UnifiedOrderDetail"];
+                        meta: components["schemas"]["Meta"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["ForbiddenCapability"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+            428: components["responses"]["PreconditionRequired"];
         };
     };
     createLegacyOrder: {

@@ -9339,6 +9339,9 @@ paths:
       responses:
         '200':
           description: Commande et extension correspondant à son origine.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
           content:
             application/json:
               schema:
@@ -9352,6 +9355,53 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+    patch:
+      operationId: updateOrderMetadata
+      summary: "Modifie la référence client et les notes d’une commande"
+      tags: [gestion-commerciale]
+      description: >-
+        Mutation commune aux commandes boutique et issues d'un devis. Seuls
+        la référence client et les notes sont acceptés ; les lignes, quantités,
+        configurations et montants restent gelés. Le droit can_modify et une
+        précondition If-Match sont exigés. Chaque changement est journalisé
+        avec son auteur et sa date.
+      security:
+        - bearerAuth: []
+      x-required-capabilities: [can_modify]
+      parameters:
+        - $ref: '#/components/parameters/MagritTenant'
+        - name: orderId
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/Uuid' }
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateOrderMetadataCommand' }
+      responses:
+        '200':
+          description: Commande mise à jour et nouvelle version de concurrence.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { $ref: '#/components/schemas/UnifiedOrderDetail' }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/ForbiddenCapability' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '428': { $ref: '#/components/responses/PreconditionRequired' }
 
   /orders:
     x-legacy-facade: true
@@ -12385,6 +12435,12 @@ components:
         a l espace — l isolation restant tenue par la RLS. L absence de
         declaration n est donc pas une ouverture : c est le regime normal.
       x-magrit-capabilities:
+        can_modify: >-
+          Modifier les informations opérationnelles autorisées d'une commande.
+          Pour E4.4a, ce droit couvre uniquement la référence client et les
+          notes ; il ne permet pas de changer les lignes, quantités,
+          configurations ou montants. Il peut provenir d'un rôle du tenant ou
+          d'une affectation active sur la commande.
         can_manage_pricing: >-
           Administrer la politique tarifaire commerciale du tenant (regles de
           prix E10.6/E10.7, marge publique standard par gamme) et consulter les
@@ -13481,7 +13537,7 @@ components:
     UnifiedStorefrontOrderDetail:
       type: object
       additionalProperties: false
-      required: [id, origin, number, shop_id, customer_id, quote_id, created_at, updated_at, status, currency, total_ht, total_ttc, has_unverified_prices, current_production_step_id, detail]
+      required: [id, origin, number, shop_id, customer_id, quote_id, customer_reference, notes, created_at, updated_at, status, currency, total_ht, total_ttc, has_unverified_prices, current_production_step_id, detail]
       properties:
         origin: { type: string, enum: [storefront] }
         detail: { $ref: '#/components/schemas/LegacyOrderDetail' }
@@ -13490,6 +13546,8 @@ components:
         shop_id: { type: [string, 'null'], format: uuid }
         customer_id: { type: [string, 'null'], format: uuid }
         quote_id: { type: [string, 'null'], format: uuid }
+        customer_reference: { type: [string, 'null'], maxLength: 500 }
+        notes: { type: string, maxLength: 5000 }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
         status: { type: string, enum: [draft, validated, in_production, shipped, delivered, invoiced, cancelled] }
@@ -13501,7 +13559,7 @@ components:
     UnifiedQuoteOrderDetail:
       type: object
       additionalProperties: false
-      required: [id, origin, number, shop_id, customer_id, quote_id, created_at, updated_at, status, currency, total_ht, total_ttc, has_unverified_prices, current_production_step_id, detail]
+      required: [id, origin, number, shop_id, customer_id, quote_id, customer_reference, notes, created_at, updated_at, status, currency, total_ht, total_ttc, has_unverified_prices, current_production_step_id, detail]
       properties:
         origin: { type: string, enum: [quote] }
         detail: { $ref: '#/components/schemas/CommercialOrderDetail' }
@@ -13510,6 +13568,8 @@ components:
         shop_id: { type: [string, 'null'], format: uuid }
         customer_id: { type: [string, 'null'], format: uuid }
         quote_id: { type: [string, 'null'], format: uuid }
+        customer_reference: { type: [string, 'null'], maxLength: 500 }
+        notes: { type: string, maxLength: 5000 }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
         status: { type: string, enum: [draft, validated, in_production, shipped, delivered, invoiced, cancelled] }
@@ -13518,6 +13578,13 @@ components:
         total_ttc: { $ref: '#/components/schemas/Money' }
         has_unverified_prices: { type: boolean }
         current_production_step_id: { type: [string, 'null'], format: uuid }
+    UpdateOrderMetadataCommand:
+      type: object
+      additionalProperties: false
+      required: [customer_reference, notes]
+      properties:
+        customer_reference: { type: [string, 'null'], minLength: 1, maxLength: 500 }
+        notes: { type: string, maxLength: 5000 }
     LegacyOrdersList:
       type: object
       additionalProperties: false
@@ -13674,7 +13741,7 @@ components:
       properties:
         eventId: { type: string, minLength: 1 }
         orderId: { type: string, minLength: 1 }
-        kind: { type: string, enum: [status, role] }
+        kind: { type: string, enum: [status, role, metadata] }
         eventType: { type: string }
         actorId: { type: [string, 'null'] }
         actorEmail: { type: [string, 'null'] }

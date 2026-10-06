@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { ArrowLeft, Ban, Check, History, Loader2, Play, Truck } from 'lucide-react';
 import { Link, useParams } from 'react-router';
 import { OrdersApiClient } from '@/modules/orders/api/client';
@@ -17,7 +17,13 @@ import { TEST_IDS } from '@/shared/presentation/testIds';
 const dateFormatter = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', timeStyle: 'short' });
 const actionClass = 'inline-flex items-center gap-1.5 rounded border border-line bg-paper px-3 py-2 text-sm text-ink hover:border-brand disabled:cursor-not-allowed disabled:opacity-50';
 
-export function DashboardShopOrderDetail({ initialOrder = null }: { initialOrder?: OrderDetail | null }) {
+export function DashboardShopOrderDetail({
+  initialOrder = null,
+  metadataSlot = null,
+}: {
+  initialOrder?: OrderDetail | null;
+  metadataSlot?: ReactNode;
+}) {
   const { orderId } = useParams<{ orderId: string }>();
   const tenantPath = useTenantPath();
   const ordersApi = useWorkspaceApi(OrdersApiClient);
@@ -132,6 +138,8 @@ export function DashboardShopOrderDetail({ initialOrder = null }: { initialOrder
 
       {error && <p className="rounded border border-err-fg/30 bg-err-bg p-3 text-sm text-err-fg">{error}</p>}
 
+      {metadataSlot}
+
       <section className="grid grid-cols-1 gap-4 rounded-xl border border-line p-4 sm:grid-cols-2 lg:grid-cols-3">
         <Fact label="Boutique" value={order.shopName || 'Non renseignée'} />
         <Fact label="Client" value={order.customerName || 'Non identifié'} />
@@ -169,11 +177,7 @@ export function DashboardShopOrderDetail({ initialOrder = null }: { initialOrder
         )}
       </section>
 
-      <section className="grid gap-4 rounded-xl border border-line p-4 sm:grid-cols-2">
-        <div>
-          <h2 className="text-sm font-semibold text-ink">Notes</h2>
-          <p className="mt-2 whitespace-pre-wrap text-sm text-ink-muted">{order.notes.trim() || 'Aucune note.'}</p>
-        </div>
+      <section className="rounded-xl border border-line p-4">
         <dl className="space-y-2 sm:text-right">
           <Total label="Total HT" value={formatMoney(order.totalHt, order.currency)} />
           <Total label="TVA" value={formatMoney((Number(order.totalTtc) - Number(order.totalHt)).toFixed(2), order.currency)} />

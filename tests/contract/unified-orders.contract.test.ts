@@ -117,6 +117,59 @@ describe('GET /orders — contrat commun E4.4b', () => {
   });
 });
 
+describe('PATCH /order-summaries/{orderId} — informations de suivi', () => {
+  function metadataSetup(principal: ApiPrincipal = { kind: 'user', tenantId, userId } as ApiPrincipal) {
+    const updated = { ...storefrontDetail, customer_reference: 'BC-2026-42', notes: 'Livrer le matin.' };
+    const updateOrderMetadata = vi.fn().mockResolvedValue(updated);
+    const handler = createGescomApiHandler({
+      routes: createUnifiedOrdersRoutes(new OrdersService({ updateOrderMetadata } as unknown as OrdersRepository)),
+      principalVerifier: { verify: async () => principal }, idempotencyStore: new InMemoryIdempotencyStore(),
+    });
+    const request = (headers: Record<string, string>, body: unknown = {
+      customer_reference: 'BC-2026-42', notes: 'Livrer le matin.',
+    }) => handler(new Request(`https://example.invalid/api/v1/order-summaries/${base.id}`, {
+      method: 'PATCH', headers, body: JSON.stringify(body),
+    }));
+    return { request, updateOrderMetadata, updated };
+  }
+
+  it('modifie uniquement la référence et les notes sous If-Match', async () => {
+    const { request, updateOrderMetadata, updated } = metadataSetup();
+    const response = await request({ Authorization: 'Bearer test', 'If-Match': '"version-1"', 'Content-Type': 'application/json' });
+    expect(response.status).toBe(200);
+    expect(response.headers.get('etag')).toMatch(/^"[a-f0-9]+"$/);
+    expect(await checkResponseAgainstContract(response, { status: 200 })).toEqual({ valid: true, errors: [] });
+    expect((await response.json()).data).toEqual(updated);
+    expect(updateOrderMetadata).toHaveBeenCalledExactlyOnceWith(tenantId, base.id, userId, {
+      customer_reference: 'BC-2026-42', notes: 'Livrer le matin.',
+    }, '"version-1"');
+  });
+
+  it('exige If-Match avant toute mutation', async () => {
+    const { request, updateOrderMetadata } = metadataSetup();
+    expect((await request({ Authorization: 'Bearer test', 'Content-Type': 'application/json' })).status).toBe(428);
+    expect(updateOrderMetadata).not.toHaveBeenCalled();
+  });
+
+  it('refuse les champs financiers absents du contrat', async () => {
+    const { request, updateOrderMetadata } = metadataSetup();
+    const response = await request(
+      { Authorization: 'Bearer test', 'If-Match': '"version-1"', 'Content-Type': 'application/json' },
+      { customer_reference: null, notes: '', total_ht: '0.00' },
+    );
+    expect(response.status).toBe(422);
+    expect(updateOrderMetadata).not.toHaveBeenCalled();
+  });
+
+  it('refuse une clé de service même munie de orders:write', async () => {
+    const { request, updateOrderMetadata } = metadataSetup({
+      kind: 'service', serviceId: 'studio', tenantId, scopes: ['orders:write'],
+    } as ApiPrincipal);
+    expect((await request({ 'X-Magrit-Service-Key': 'test', 'If-Match': '"version-1"', 'Content-Type': 'application/json' })).status).toBe(403);
+    expect(updateOrderMetadata).not.toHaveBeenCalled();
+  });
+});
+
 
 describe('GET /order-summaries/{orderId} — détail commun', () => {
   function detailSetup(detail: unknown = storefrontDetail, principal: ApiPrincipal = { kind: 'user', tenantId, userId } as ApiPrincipal) {
@@ -133,6 +186,7 @@ describe('GET /order-summaries/{orderId} — détail commun', () => {
     const { request, getUnifiedOrderDetail } = detailSetup(detail);
     const response = await request();
     expect(response.status).toBe(200);
+    expect(response.headers.get('etag')).toMatch(/^"[a-f0-9]+"$/);
     expect(response.headers.get('deprecation')).toBeNull();
     expect(await checkResponseAgainstContract(response, { status: 200 })).toEqual({ valid: true, errors: [] });
     const body = await response.json();

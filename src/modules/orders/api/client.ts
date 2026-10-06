@@ -1,5 +1,13 @@
 import { successEnvelopeSchema } from '../../_shared/api/index.ts';
-import { orderListEntriesSchema, unifiedOrderDetailSchema, type UnifiedOrderDetail, type OrderListFilters } from './contracts.ts';
+import {
+  orderListEntriesSchema,
+  unifiedOrderDetailSchema,
+  updateOrderMetadataCommandSchema,
+  type UnifiedOrderDetail,
+  type UpdateOrderMetadataCommand,
+  type OrderListFilters,
+} from './contracts.ts';
+import type { ApiResponseWithEtag } from '../../../platform/api/index.ts';
 import { API_V1_BASE_PATH, FetchApiClient } from '../../../platform/api/index.ts';
 import {
   orderAuditTrailSchema,
@@ -47,12 +55,34 @@ export class OrdersApiClient {
   constructor(private readonly client: FetchApiClient) {}
 
   async getUnifiedDetail(orderId: string, signal?: AbortSignal): Promise<UnifiedOrderDetail> {
-    const response = await this.client.request({
+    return (await this.getUnifiedDetailWithEtag(orderId, signal)).data;
+  }
+
+  async getUnifiedDetailWithEtag(
+    orderId: string,
+    signal?: AbortSignal,
+  ): Promise<ApiResponseWithEtag<UnifiedOrderDetail>> {
+    const response = await this.client.requestWithEtag({
       path: `${API_V1_BASE_PATH}/order-summaries/${encodeURIComponent(orderId)}`,
       responseSchema: successEnvelopeSchema(unifiedOrderDetailSchema),
       ...(signal === undefined ? {} : { signal }),
     });
-    return response.data;
+    return { data: response.data.data, etag: response.etag };
+  }
+
+  async updateMetadata(
+    orderId: string,
+    command: UpdateOrderMetadataCommand,
+    etag: string,
+  ): Promise<ApiResponseWithEtag<UnifiedOrderDetail>> {
+    const response = await this.client.requestWithEtag({
+      method: 'PATCH',
+      path: `${API_V1_BASE_PATH}/order-summaries/${encodeURIComponent(orderId)}`,
+      headers: { 'If-Match': etag },
+      body: updateOrderMetadataCommandSchema.parse(command),
+      responseSchema: successEnvelopeSchema(unifiedOrderDetailSchema),
+    });
+    return { data: response.data.data, etag: response.etag };
   }
 
   listTenantOrders(tenantId: string, shopIds: readonly string[], signal?: AbortSignal): Promise<OrdersList> {
