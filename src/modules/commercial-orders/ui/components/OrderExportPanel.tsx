@@ -1,5 +1,5 @@
 /**
- * OrderExportPanel — bouton d export, modale et REGISTRE des demandes
+ * OrderExportPanel — bouton d export, modale et REGISTRE REPLIABLE des demandes
  * d export comptable (E10.18e-2, docs/api/CONVENTIONS.md §8.24, consigne
  * E10.18e-2, points 1, 2, 5, 6, 7, 9, 11 ; DURCI en qa-review round 1,
  * 2026-09-15).
@@ -115,6 +115,7 @@ export function OrderExportPanel({ filters = DEFAULT_ORDERS_LIST_FILTERS, select
 
   const [state, dispatch] = useReducer(orderExportRegistryReducer, INITIAL_ORDER_EXPORT_REGISTRY_STATE);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [registryOpen, setRegistryOpen] = useState(false);
   const [downloadErrorsById, setDownloadErrorsById] = useState<Readonly<Record<string, string>>>({});
   // BLOQUANT M1, qa-review round 2 (2026-09-15) : AVANT ce correctif, `onError`
   // du suivi ne faisait RIEN (voir le commentaire retire ci-dessous) — une
@@ -242,7 +243,12 @@ export function OrderExportPanel({ filters = DEFAULT_ORDERS_LIST_FILTERS, select
         <button
           type="button"
           data-testid={T.btn}
-          onClick={() => setDialogOpen(true)}
+          aria-expanded={registryOpen}
+          aria-controls="order-export-registry"
+          onClick={() => {
+            setRegistryOpen(true);
+            setDialogOpen(true);
+          }}
           className="px-3 py-1.5 border border-line-2 rounded-lg text-sm text-ink-2 hover:bg-bg hover:text-ink"
         >
           Exporter
@@ -260,19 +266,33 @@ export function OrderExportPanel({ filters = DEFAULT_ORDERS_LIST_FILTERS, select
         />
       )}
 
-      {state.status === 'error' && state.error && (
-        <p data-testid={T.loadErrorBanner} className="text-sm text-err-fg mb-2">
-          {state.error}
-        </p>
-      )}
+      {registryOpen && (
+        <div id="order-export-registry" className="rounded-xl border border-line bg-paper p-3">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <p className="text-sm font-medium text-ink">Historique des exports</p>
+            <button
+              type="button"
+              onClick={() => setRegistryOpen(false)}
+              className="text-sm text-ink-muted hover:text-ink"
+            >
+              Masquer
+            </button>
+          </div>
 
-      {state.status === 'loading' ? (
-        <p className="text-sm text-ink-muted">Chargement…</p>
-      ) : state.items.length === 0 ? (
-        <p className="text-sm text-ink-muted">Aucun export demandé pour l’instant.</p>
-      ) : (
-        <>
-          <table className="w-full text-sm bg-paper border border-line rounded-md overflow-hidden" style={{ borderCollapse: 'collapse' }}>
+          {state.status === 'error' && state.error && (
+            <p data-testid={T.loadErrorBanner} className="text-sm text-err-fg mb-2">
+              {state.error}
+            </p>
+          )}
+
+          {state.status === 'loading' ? (
+            <p className="text-sm text-ink-muted">Chargement…</p>
+          ) : state.items.length === 0 ? (
+            <p className="text-sm text-ink-muted">Aucun export demandé pour l’instant.</p>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm bg-paper border border-line rounded-md overflow-hidden" style={{ borderCollapse: 'collapse' }}>
             <tbody>
               {state.items.map((item) => {
                 const row = describeOrderExportRow(item);
@@ -312,14 +332,17 @@ export function OrderExportPanel({ filters = DEFAULT_ORDERS_LIST_FILTERS, select
                 );
               })}
             </tbody>
-          </table>
-          {state.hasMore && (
-            <p className="mt-2 text-xs text-ink-muted">
-              Registre limité aux {ORDER_EXPORT_REGISTRY_PAGE_SIZE} demandes les plus récentes — les demandes plus
-              anciennes ne sont pas listées.
-            </p>
+                </table>
+              </div>
+              {state.hasMore && (
+                <p className="mt-2 text-xs text-ink-muted">
+                  Registre limité aux {ORDER_EXPORT_REGISTRY_PAGE_SIZE} demandes les plus récentes — les demandes plus
+                  anciennes ne sont pas listées.
+                </p>
+              )}
+            </>
           )}
-        </>
+        </div>
       )}
     </div>
   );

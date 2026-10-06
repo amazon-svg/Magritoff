@@ -144,7 +144,9 @@ test('export commun : utilise les filtres appliqués puis permet le télécharge
   expect(selected.data.length).toBeGreaterThan(0);
   // Un brouillon de filtre non appliqué ne doit pas modifier l'export.
   await page.getByLabel('Client', { exact: true }).fill('__non_applique__');
+  await expect(page.getByText('Historique des exports', { exact: true })).toBeHidden();
   await page.getByRole('button', { name: 'Exporter', exact: true }).click();
+  await expect(page.getByText('Historique des exports', { exact: true })).toBeVisible();
   const dialog = page.getByRole('dialog');
   await expect(dialog).toContainText('Boutique');
   await expect(dialog).not.toContainText('__non_applique__');
@@ -170,4 +172,6 @@ test('export commun : utilise les filtres appliqués puis permet le télécharge
   expect(csv.split('\n')[0]).toContain('Boutique');
   expect(csv).toContain(selected.data[0].id);
   expect(csv).not.toContain(';Devis;');
+  await page.getByRole('button', { name: 'Masquer', exact: true }).click();
+  await expect(page.getByText('Historique des exports', { exact: true })).toBeHidden();
 });
