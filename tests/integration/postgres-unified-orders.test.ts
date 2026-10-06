@@ -142,6 +142,15 @@ suite('Commandes communes — pagination et filtres PostgreSQL', () => {
     await expect(repository.getUnifiedOrderDetail(tenantId, randomUUID(), actor)).resolves.toBeNull();
   });
 
+  it('lit la liste et le détail avec le seul contexte tenant d’une clé de service', async () => {
+    const rows = await repository.listOrders(tenantId, params({ actor: null, size: 10 }));
+    expect(rows).toHaveLength(4);
+    await expect(repository.getUnifiedOrderDetail(tenantId, quoteOrderId, null)).resolves.toMatchObject({
+      id: quoteOrderId, origin: 'quote', quote_id: quoteId,
+    });
+    await expect(repository.listOrders(foreignTenantId, params({ actor: null, size: 10 }))).resolves.toEqual([]);
+  });
+
   async function exportedRows(filters: ListOrdersParams['filters'], granularity = 'order', legacy = false) {
     const id = await new PostgresTransactionRunner(pool, 'magrit_api').run({ tenantId, userId: actor }, async (client) =>
       (await client.query<{ id: string }>(legacy

@@ -60,8 +60,8 @@ export class PostgresOrdersRepository implements OrdersRepository {
     private readonly notifications: OrdersNotificationGateway,
   ) {}
 
-  getUnifiedOrderDetail(tenantId: TenantId, orderId: string, actor: UserId): Promise<UnifiedOrderDetail | null> {
-    return this.tx.run({ tenantId, userId: actor }, async (client) => {
+  getUnifiedOrderDetail(tenantId: TenantId, orderId: string, actor: UserId | null): Promise<UnifiedOrderDetail | null> {
+    return this.tx.run({ tenantId, ...(actor ? { userId: actor } : { actorKind: 'service' as const }) }, async (client) => {
       const row = (await client.query<Row>(`
         select id,order_origin,number,shop_id,customer_id,quote_id,current_production_step_id,currency,has_unverified_prices
           from public.tenant_orders where tenant_id=$1 and id=$2
@@ -92,7 +92,7 @@ export class PostgresOrdersRepository implements OrdersRepository {
   }
 
   listOrders(tenantId: TenantId, params: ListOrdersParams): Promise<readonly OrderListRecord[]> {
-    return this.tx.run({ tenantId, userId: params.actor }, async (client) => {
+    return this.tx.run({ tenantId, ...(params.actor ? { userId: params.actor } : { actorKind: 'service' as const }) }, async (client) => {
       const values: unknown[] = [tenantId];
       const predicates = ['orders.tenant_id=$1'];
       const add = (column: string, value: unknown, operator = '=') => {

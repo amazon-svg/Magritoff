@@ -19,12 +19,13 @@ describe('PostgresTransactionRunner', () => {
 
     expect(query.mock.calls.map(([sql]) => sql.trim().replace(/\s+/g, ' '))).toEqual([
       'begin',
-      "select set_config('magrit.user_id', $1, true), set_config('magrit.tenant_id', $2, true)",
+      "select set_config('magrit.user_id', $1, true), set_config('magrit.tenant_id', $2, true), set_config('magrit.actor_kind', $3, true)",
       'commit',
     ]);
     expect(query.mock.calls[1]?.[1]).toEqual([
       '00000000-0000-4000-8000-000000000001',
       '00000000-0000-4000-8000-000000000002',
+      '',
     ]);
     expect(operation).toHaveBeenCalledWith(client);
     expect(release).toHaveBeenCalledOnce();
@@ -42,10 +43,10 @@ describe('PostgresTransactionRunner', () => {
 
     expect(query.mock.calls.map(([sql]) => sql.trim().replace(/\s+/g, ' '))).toEqual([
       'begin',
-      "select set_config('magrit.user_id', $1, true), set_config('magrit.tenant_id', $2, true)",
+      "select set_config('magrit.user_id', $1, true), set_config('magrit.tenant_id', $2, true), set_config('magrit.actor_kind', $3, true)",
       'rollback',
     ]);
-    expect(query.mock.calls[1]?.[1]).toEqual(['', '']);
+    expect(query.mock.calls[1]?.[1]).toEqual(['', '', '']);
     expect(release).toHaveBeenCalledOnce();
   });
 
@@ -60,7 +61,7 @@ describe('PostgresTransactionRunner', () => {
     expect(query.mock.calls.map(([sql]) => sql.trim().replace(/\s+/g, ' '))).toEqual([
       'begin',
       'set local role "magrit_api"',
-      "select set_config('magrit.user_id', $1, true), set_config('magrit.tenant_id', $2, true)",
+      "select set_config('magrit.user_id', $1, true), set_config('magrit.tenant_id', $2, true), set_config('magrit.actor_kind', $3, true)",
       'commit',
     ]);
     expect(() => new PostgresTransactionRunner(pool, 'role; reset role')).toThrow(/Role PostgreSQL invalide/);

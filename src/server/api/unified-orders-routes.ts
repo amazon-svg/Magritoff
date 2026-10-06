@@ -12,7 +12,7 @@ export function createUnifiedOrdersRoutes(orders: OrdersService): readonly Gesco
     method: 'GET',
     path: '/order-summaries',
     operationId: 'listOrders',
-    authentication: 'user',
+    requiredScopes: ['orders:read'],
     inputSchema: null,
     dataSchema: orderListEntriesSchema,
     async handle(context) {
@@ -35,7 +35,7 @@ export function createUnifiedOrdersRoutes(orders: OrdersService): readonly Gesco
         throw validationFailed([{ field: 'page[cursor]', message: 'Position de commande invalide.' }]);
       }
       const rows = await orders.listOrders(context.tenantId, {
-        actor: context.principal.kind === 'user' ? context.principal.userId : (() => { throw new Error('Utilisateur requis.'); })(),
+        actor: context.principal.kind === 'user' ? context.principal.userId : null,
         filters, size: context.page.size, cursor, createdAtFrom,
         // Minuit suivant exclusif inclut aussi les microsecondes du dernier jour.
         createdAtTo: createdAtTo ? new Date(Date.parse(createdAtTo) + 1).toISOString() : null,
@@ -50,7 +50,7 @@ export function createUnifiedOrdersRoutes(orders: OrdersService): readonly Gesco
     method: 'GET',
     path: '/order-summaries/{orderId}',
     operationId: 'getUnifiedOrder',
-    authentication: 'user',
+    requiredScopes: ['orders:read'],
     inputSchema: null,
     dataSchema: unifiedOrderDetailSchema,
     async handle(context) {
@@ -58,8 +58,8 @@ export function createUnifiedOrdersRoutes(orders: OrdersService): readonly Gesco
       if (!z.uuid().safeParse(orderId).success) {
         throw validationFailed([{ field: 'orderId', message: 'Identifiant de commande invalide.' }]);
       }
-      if (context.principal.kind !== 'user') throw new Error('Utilisateur requis.');
-      const detail = await orders.getUnifiedDetail(context.tenantId, orderId, context.principal.userId);
+      const actor = context.principal.kind === 'user' ? context.principal.userId : null;
+      const detail = await orders.getUnifiedDetail(context.tenantId, orderId, actor);
       if (!detail) throw problem({ status: 404, title: 'Commande introuvable', code: 'order.not_found' });
       return { status: 200, data: detail };
     },

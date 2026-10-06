@@ -132,7 +132,8 @@ export class OrderCommandRejectedError extends Error {
 export type OrderListRecord = OrderListEntry & { cursorCreatedAt?: string };
 
 export type ListOrdersParams = Readonly<{
-  actor: UserId;
+  /** Absent pour une clé de service : le tenant et le scope portent alors l'autorisation. */
+  actor: UserId | null;
   filters: OrderListFilters;
   size: number;
   cursor: CursorPosition | null;
@@ -142,7 +143,7 @@ export type ListOrdersParams = Readonly<{
 }>;
 
 export interface OrdersRepository {
-  getUnifiedOrderDetail(tenantId: import('../../../kernel/ids/index.ts').TenantId, orderId: string, actor: UserId): Promise<UnifiedOrderDetail | null>;
+  getUnifiedOrderDetail(tenantId: import('../../../kernel/ids/index.ts').TenantId, orderId: string, actor: UserId | null): Promise<UnifiedOrderDetail | null>;
   listOrders(tenantId: import('../../../kernel/ids/index.ts').TenantId, params: ListOrdersParams): Promise<readonly OrderListRecord[]>;
   getTenantTaxRegime(tenantId: string, actor: UserId): Promise<TaxRegime | null>;
   getShopTaxRegime(shopId: string, actor: UserId): Promise<TaxRegime | null>;

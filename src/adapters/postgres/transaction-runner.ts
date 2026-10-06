@@ -4,6 +4,8 @@ import type { TenantId, UserId } from '../../kernel/ids/index.ts';
 export type PostgresRequestContext = Readonly<{
   userId?: UserId;
   tenantId?: TenantId;
+  /** Identité technique déjà authentifiée par la façade HTTP. */
+  actorKind?: 'service';
 }>;
 
 /**
@@ -32,8 +34,9 @@ export class PostgresTransactionRunner {
       await client.query(
         `select
            set_config('magrit.user_id', $1, true),
-           set_config('magrit.tenant_id', $2, true)`,
-        [context.userId ?? '', context.tenantId ?? ''],
+           set_config('magrit.tenant_id', $2, true),
+           set_config('magrit.actor_kind', $3, true)`,
+        [context.userId ?? '', context.tenantId ?? '', context.actorKind ?? ''],
       );
       const result = await operation(client);
       await client.query('commit');

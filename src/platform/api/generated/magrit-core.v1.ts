@@ -2640,7 +2640,7 @@ export interface paths {
         };
         /**
          * Liste les commandes de toutes origines
-         * @description Lecture back-office commune du tenant résolu depuis le jeton utilisateur. Ordre stable par date de création décroissante puis identifiant décroissant. Les filtres portent sur toutes les commandes, avant pagination. Les bornes civiles created_from et created_to sont inclusives dans Europe/Paris. Les routes historiques restent disponibles pendant la convergence E4.4b.
+         * @description Lecture back-office commune du tenant résolu depuis le jeton utilisateur ou la clé de service. Ordre stable par date de création décroissante puis identifiant décroissant. Les filtres portent sur toutes les commandes, avant pagination. Les bornes civiles created_from et created_to sont inclusives dans Europe/Paris. Les routes historiques restent disponibles pendant la convergence E4.4b.
          */
         get: operations["listOrders"];
         put?: never;
@@ -2660,7 +2660,7 @@ export interface paths {
         };
         /**
          * Ouvre une commande de toute origine
-         * @description Lecture back-office commune, réservée au tenant du jeton utilisateur. L'origine est résolue côté serveur, sans sondage de routes historiques. L'en-tête commun porte les relations facultatives et les montants ; detail conserve les lignes, la configuration et la provenance des prix boutique ou la copie tarifaire et les marges figées du devis. Les routes historiques restent disponibles pendant la convergence E4.4b.
+         * @description Lecture back-office commune, réservée au tenant du jeton utilisateur ou de la clé de service. L'origine est résolue côté serveur, sans sondage de routes historiques. L'en-tête commun porte les relations facultatives et les montants ; detail conserve les lignes, la configuration et la provenance des prix boutique ou la copie tarifaire et les marges figées du devis. Les routes historiques restent disponibles pendant la convergence E4.4b.
          */
         get: operations["getUnifiedOrder"];
         put?: never;

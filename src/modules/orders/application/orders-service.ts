@@ -33,7 +33,7 @@ const PORTAL_TABS: readonly PortalOrdersTab[] = ['mine', 'to_validate', 'to_appr
 export class OrdersService {
   constructor(private readonly repository: OrdersRepository) {}
 
-  getUnifiedDetail(tenantId: TenantId, orderId: string, actor: UserId) {
+  getUnifiedDetail(tenantId: TenantId, orderId: string, actor: UserId | null) {
     return this.repository.getUnifiedOrderDetail(tenantId, orderId, actor);
   }
 

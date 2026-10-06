@@ -96,10 +96,20 @@ describe('GET /orders — contrat commun E4.4b', () => {
     expect(body.meta.next_cursor).toBeNull();
   });
 
-  it('exige une identité utilisateur Magrit', async () => {
+  it('accepte une clé de service limitée à orders:read sans inventer d’utilisateur', async () => {
     const { listOrders } = setup();
     const handler = createGescomApiHandler({ routes: createUnifiedOrdersRoutes(new OrdersService({ listOrders } as unknown as OrdersRepository)),
       principalVerifier: { verify: async () => ({ kind: 'service', serviceId: 'studio', tenantId, scopes: ['orders:read'] }) as ApiPrincipal },
+      idempotencyStore: new InMemoryIdempotencyStore(),
+    });
+    expect((await handler(new Request('https://example.invalid/api/v1/order-summaries', { headers: { 'X-Magrit-Service-Key': 'test' } }))).status).toBe(200);
+    expect(listOrders).toHaveBeenCalledWith(tenantId, expect.objectContaining({ actor: null }));
+  });
+
+  it('refuse une clé de service privée du scope orders:read', async () => {
+    const { listOrders } = setup();
+    const handler = createGescomApiHandler({ routes: createUnifiedOrdersRoutes(new OrdersService({ listOrders } as unknown as OrdersRepository)),
+      principalVerifier: { verify: async () => ({ kind: 'service', serviceId: 'studio', tenantId, scopes: [] }) as ApiPrincipal },
       idempotencyStore: new InMemoryIdempotencyStore(),
     });
     expect((await handler(new Request('https://example.invalid/api/v1/order-summaries', { headers: { 'X-Magrit-Service-Key': 'test' } }))).status).toBe(403);
@@ -144,9 +154,16 @@ describe('GET /order-summaries/{orderId} — détail commun', () => {
     expect(getUnifiedOrderDetail).not.toHaveBeenCalled();
   });
 
-  it('refuse les clés de service même avec le scope orders:read', async () => {
+  it('accepte une clé de service limitée à orders:read', async () => {
     const { request, getUnifiedOrderDetail } = detailSetup(storefrontDetail,
       { kind: 'service', serviceId: 'studio', tenantId, scopes: ['orders:read'] } as ApiPrincipal);
+    expect((await request(base.id, { 'X-Magrit-Service-Key': 'test' })).status).toBe(200);
+    expect(getUnifiedOrderDetail).toHaveBeenCalledExactlyOnceWith(tenantId, base.id, null);
+  });
+
+  it('refuse le détail à une clé de service privée du scope orders:read', async () => {
+    const { request, getUnifiedOrderDetail } = detailSetup(storefrontDetail,
+      { kind: 'service', serviceId: 'studio', tenantId, scopes: [] } as ApiPrincipal);
     expect((await request(base.id, { 'X-Magrit-Service-Key': 'test' })).status).toBe(403);
     expect(getUnifiedOrderDetail).not.toHaveBeenCalled();
   });

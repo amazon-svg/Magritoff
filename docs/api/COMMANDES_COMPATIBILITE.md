@@ -62,3 +62,7 @@ requises par l'export version 1 vivent désormais dans un module dédié, sans
 appel à l'ancienne lecture. Aucun écran Magrit actif ne dépend donc de
 `GET /commercial-orders`. Les méthodes correspondantes ont aussi été retirées
 du client HTTP interne ; la façade serveur reste disponible aux intégrations.
+Les deux lectures communes acceptent aussi les clés de service munies du scope
+`orders:read`, comme les anciennes lectures. Une intégration peut donc migrer
+sans remplacer son mode d'authentification ; sans ce scope, la réponse reste
+`403 Forbidden`.
