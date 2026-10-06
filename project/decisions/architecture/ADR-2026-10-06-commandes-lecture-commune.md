@@ -2,8 +2,8 @@
 id: ADR-2026-10-06-COMMANDES-LECTURE
 title: Lecture commune des commandes — pagination, détail et export
 date: 2026-10-06
-documentStatus: draft
-decisionStatus: proposed
+documentStatus: approved
+decisionStatus: adopted
 source: user-request
 owners: []
 supersedes: []
@@ -13,6 +13,8 @@ affectedArtifacts:
   - src/modules/orders/
   - src/adapters/postgres/orders-repository.ts
   - infra/postgres/migrations/0087_unified_order_exports.sql
+  - infra/postgres/migrations/0088_service_order_reads.sql
+  - infra/postgres/migrations/0089_unified_order_quote_filter.sql
   - src/modules/order-exports/
 ---
 
@@ -26,14 +28,16 @@ les clients des commandes devis séparément, limite les commandes boutique à
 100 résultats et applique les filtres côté navigateur. Xavier demande le
 6 octobre de poursuivre la liste unique, les filtres et la pagination.
 
-## Choix implémenté à relire
+## Choix adopté
 
 `GET /api/v1/order-summaries` expose les deux origines via la façade commerciale,
-avec son enveloppe, sa résolution tenant et une identité utilisateur Magrit.
+avec son enveloppe et sa résolution tenant. Les utilisateurs Magrit y accèdent
+selon leurs droits ; les clés de service doivent porter `orders:read` et leur
+transaction PostgreSQL est explicitement marquée puis bornée au tenant.
 Le chemin `/orders` appartient à la façade historique pour la création : le
 routeur interdit volontairement de partager un chemin entre façades. Une
 projection de lecture additive préserve ce contrat sans changer le routeur.
-Les relations client et boutique sont facultatives dans le DTO. Les noms sont
+Les relations client, devis et boutique sont facultatives dans le DTO. Les noms sont
 joints dans la requête PostgreSQL ; aucun appel client par commande n'est requis.
 
 Les filtres précèdent la limite SQL. La pagination ordonne date décroissante puis
@@ -86,17 +90,18 @@ exports existants restent disponibles. Le prix TTC des devis provient de sa
 copie figée ; celui des commandes boutique suit la projection existante liée
 au régime TVA du tenant. Cette lecture n'ajoute aucun droit de mutation.
 
-Les clés de service ne sont pas ouvertes par ce lot back-office. La fenêtre de
-retrait des anciennes routes reste suivie par E4.4b. Le détail et l'export
-communs sont développés, mais attendent leur recette humaine et une revue
-distincte. Ce document ne vaut pas approbation humaine.
+Les clés de service disposent de la lecture commune avec `orders:read`, sans
+accès aux exports. La fenêtre de retrait des anciennes routes reste une décision
+opérationnelle distincte : aucune échéance n'est publiée sans inventaire des
+consommateurs. E4.4b est vérifiée avec cette politique de compatibilité active.
 
 ## Vérifications attendues
 
 Tests de contrat et de transport, pagination PostgreSQL à dates égales et à
 microsecondes distinctes, conservation des montants devis, relations facultatives,
-filtres avant limite et isolation tenant. Recette Chromium effectuée pour liste et détail ; revue distincte et recette
-humaine du détail et de l'export à effectuer avant validation de livraison.
+filtres avant limite et isolation tenant. La reprise réelle est testée en
+créant un agrégat historique avant `0086`, puis en vérifiant ses données et
+dépendances après migration. Recette Chromium effectuée pour liste et détail.
 Les quatre combinaisons CSV/XLSX et commande/ligne sont vérifiées avec le
 worker et le stockage réels en tests isolés. La recette Chromium télécharge
 un CSV et vérifie que les filtres non appliqués ne changent pas la sélection.

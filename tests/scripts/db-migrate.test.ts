@@ -52,6 +52,20 @@ describe('runner de migrations PostgreSQL', () => {
     expect(client.statements.filter((statement) => statement === 'commit')).toHaveLength(1);
   });
 
+  it('peut s arrêter à une version pour vérifier une reprise de données', async () => {
+    const directory = await temporaryDirectory();
+    await writeFile(join(directory, '0001_first.sql'), 'select 1;\n');
+    await writeFile(join(directory, '0002_second.sql'), 'select 2;\n');
+    const client = new FakeMigrationClient();
+
+    await expect(applyMigrations(client, directory, { through: '0001_first' })).resolves.toMatchObject({
+      applied: ['0001_first'], total: 1,
+    });
+    await expect(applyMigrations(client, directory)).resolves.toMatchObject({
+      applied: ['0002_second'], total: 2,
+    });
+  });
+
   it('refuse la modification d une migration deja appliquee et libere le verrou', async () => {
     const directory = await temporaryDirectory();
     const path = join(directory, '0001_first.sql');

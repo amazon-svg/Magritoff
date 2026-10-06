@@ -52,4 +52,9 @@ Le vocabulaire et les routes `commercial-orders` peuvent subsister comme project
 
 ## Suite technique
 
-[E4.4b](../../backlog/stories/E4.4b.md) suit la convergence. Le stockage et la reprise des dépendances sont réalisés ; la liste commune, sa pagination et ses filtres sont développés le 6 octobre. Les ajustements d'affichage de la grille sont validés par Xavier ; le détail et l'export communs sont développés et attendent leur recette humaine. L'export CSV/XLSX reprend les filtres appliqués sur toutes les pages et indique l'origine et la boutique ; les exports historiques restent compatibles. La fenêtre de retrait des anciennes routes reste à définir.
+[E4.4b](../../backlog/stories/E4.4b.md) livre et vérifie la convergence : stockage
+et dépendances repris, liste et détail communs, filtres paginés, actions depuis
+la fiche canonique et export CSV/XLSX des deux origines. Les ajustements
+d'affichage de la grille sont validés par Xavier. Les façades historiques sont
+maintenues pendant la fenêtre de compatibilité documentée ; leur date de retrait
+reste une décision opérationnelle ultérieure.

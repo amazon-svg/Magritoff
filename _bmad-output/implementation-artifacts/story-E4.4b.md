@@ -233,3 +233,20 @@ ou une commande. Ce filtre est transmis par le client commun, appliqué avant
 pagination et repris par les exports communs grâce à la migration additive
 `0089_unified_order_quote_filter.sql`. Les anciennes routes restent servies
 pendant la fenêtre documentée ; aucune date `Sunset` n'est encore fixée.
+
+## Clôture technique
+
+L'audit final a renforcé AC-04 avec une reprise réelle à travers la frontière de
+migration. Le runner PostgreSQL s'arrête d'abord à `0085`, crée une commande
+historique issue d'un devis avec sa ligne, son auteur, ses dates et montants,
+un changement d'étape, un fichier lié à la ligne, un document, un lien de dépôt
+et une notification. Il applique ensuite `0086` à `0089`. Les assertions
+comparent les valeurs après reprise, les clés étrangères rebranchées, l'absence
+de doublon et la suppression des deux anciennes tables.
+
+Les six critères d'acceptation disposent désormais d'une preuve directe. La
+story canonique passe à `deliveryStatus: verified` et l'ADR de lecture commune
+est adoptée. La conservation temporaire des façades historiques est le résultat
+de la politique de compatibilité, pas un second modèle Commande. Leur retrait
+reste conditionné à l'inventaire des consommateurs et à une date `Sunset`
+explicitement annoncée.

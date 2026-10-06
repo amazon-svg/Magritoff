@@ -25,7 +25,7 @@ export async function discoverMigrations(directory = migrationsDirectory) {
   }));
 }
 
-export async function applyMigrations(client, directory = migrationsDirectory) {
+export async function applyMigrations(client, directory = migrationsDirectory, options = {}) {
   await client.query('select pg_advisory_lock(hashtext($1))', [advisoryLockName]);
   try {
     await client.query(`
@@ -40,7 +40,10 @@ export async function applyMigrations(client, directory = migrationsDirectory) {
       'select version, checksum from public.magrit_schema_migrations order by version',
     );
     const applied = new Map(appliedRows.rows.map((row) => [row.version, row.checksum]));
-    const migrations = await discoverMigrations(directory);
+    const discovered = await discoverMigrations(directory);
+    const migrations = options.through
+      ? discovered.filter((migration) => migration.version <= options.through)
+      : discovered;
     const newlyApplied = [];
 
     for (const migration of migrations) {
