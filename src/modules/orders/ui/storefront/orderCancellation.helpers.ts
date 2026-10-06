@@ -20,15 +20,17 @@
  * serialise en RFC 7807 par `toHttpError()` (src/server/api/orders-routes.ts).
  * Le texte brut sous-jacent utilise le tiret bas ('order_not_found: <uuid>',
  * 'permission_denied: ...', 'transition_not_allowed: <from> -> <to>'),
- * jamais l'espace de l'ancien RPC. La classification (code metier prefere au
- * texte, compatibilite avec les deux formes) est mutualisee dans le module
- * neutre `orderTransitionErrors.helpers.ts` (qa-review round 2, 2026-09-16,
- * dette D3b) — importe aussi par `orderValidation.helpers.ts`, qui a le meme
- * defaut.
+ * jamais l'espace de l'ancien RPC. La classification par code métier est
+ * mutualisée dans le module neutre `orderTransitionErrors.helpers.ts`
+ * (qa-review round 2, 2026-09-16,
+ * dette D3b) — importé aussi par `orderValidation.helpers.ts`. Le chemin
+ * portable classe désormais exclusivement les codes RFC 7807 et n'affiche
+ * jamais le détail serveur.
  */
 
 import { getStatusLabelLowerFirst } from '@/modules/orders/ui/helpers/orderStatus';
 import {
+  isAuthenticationRequired,
   isOrderNotFound,
   isOrderNotEditable,
   isPermissionDenied,
@@ -39,7 +41,7 @@ import {
 export function formatCancelErrorMessage(err: RpcLikeError | null | undefined): string {
   const msg = String(err?.message ?? '').toLowerCase();
 
-  if (msg.includes('authentication required') || msg.includes('auth.uid()')) {
+  if (isAuthenticationRequired(err)) {
     return 'Votre session a expire. Reconnectez-vous puis reessayez.';
   }
   if (isOrderNotFound(err, msg)) {
@@ -59,8 +61,7 @@ export function formatCancelErrorMessage(err: RpcLikeError | null | undefined): 
     // libelle est tire de la table unique, jamais recopie a la main.
     return `Cette commande n'est plus ${getStatusLabelLowerFirst('draft')} (peut-etre validee ou annulee dans une autre fenetre).`;
   }
-  if (msg.length > 0) {
-    return `Erreur lors de l'annulation : ${err?.message}`;
-  }
-  return 'Erreur reseau lors de l\'annulation. Reessayez.';
+  return msg.length > 0
+    ? "L'annulation a échoué. Rechargez la page puis réessayez."
+    : "Erreur réseau lors de l'annulation. Réessayez.";
 }

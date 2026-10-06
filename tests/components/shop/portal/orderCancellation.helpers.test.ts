@@ -33,49 +33,28 @@ function apiError(code: string, detail: string, status = 409) {
 
 describe('formatCancelErrorMessage', () => {
   it('null / undefined → message reseau generique', () => {
-    expect(formatCancelErrorMessage(null)).toContain('reseau');
-    expect(formatCancelErrorMessage(undefined)).toContain('reseau');
-    expect(formatCancelErrorMessage({})).toContain('reseau');
+    expect(formatCancelErrorMessage(null)).toContain('réseau');
+    expect(formatCancelErrorMessage(undefined)).toContain('réseau');
+    expect(formatCancelErrorMessage({})).toContain('réseau');
   });
 
-  it("pattern 'Authentication required' → message session expiree", () => {
-    expect(formatCancelErrorMessage({ message: 'Authentication required (auth.uid() is null)' }))
+  it("code identity.authentication_required → message session expiree", () => {
+    expect(formatCancelErrorMessage({ code: 'identity.authentication_required', message: 'detail interne' }))
       .toContain('session a expire');
   });
 
-  it("pattern 'not found' (ancien texte espace) → message commande supprimee race condition", () => {
-    expect(formatCancelErrorMessage({ message: 'Tenant order abc-123 not found' }))
-      .toContain("n'existe plus");
-  });
-
-  it("pattern 'Permission denied' (ancien texte espace) → message droits insuffisants", () => {
-    expect(formatCancelErrorMessage({ message: 'Permission denied: cancel requires owner or admin tenant' }))
-      .toContain('droits pour annuler');
-  });
-
-  it("pattern 'Transition not allowed' (ancien texte espace) → message status change race condition", () => {
-    expect(formatCancelErrorMessage({ message: 'Transition draft -> cancelled not allowed in v1.1' }))
-      .toContain("plus en attente de validation");
-  });
-
-  it("message inconnu non-vide → fallback avec message brut", () => {
-    expect(formatCancelErrorMessage({ message: 'Custom DB error xyz' }))
-      .toContain('Custom DB error xyz');
-  });
-
-  it("match insensible à la casse + tolère espaces", () => {
-    expect(formatCancelErrorMessage({ message: 'AUTHENTICATION REQUIRED' }))
-      .toContain('session a expire');
-    expect(formatCancelErrorMessage({ message: '  Permission Denied  ' }))
-      .toContain('droits pour annuler');
+  it("message sans code → message générique sans texte serveur", () => {
+    const result = formatCancelErrorMessage({ message: 'Custom DB error xyz' });
+    expect(result).toContain("annulation a échoué");
+    expect(result).not.toContain('Custom DB error xyz');
   });
 
   // BCP-5 (recette 2026-09-15/16) : forme ACTUELLE renvoyee par
   // POST /orders/{id}/transitions ('transition_not_allowed: from -> to',
   // tiret bas). Avant le fix, ce message tombait dans le fallback brut.
-  it("forme actuelle 'transition_not_allowed: validated -> cancelled' -> message clair (pas le texte technique)", () => {
+  it("texte seul 'transition_not_allowed' -> message générique", () => {
     const result = formatCancelErrorMessage({ message: 'transition_not_allowed: validated -> cancelled' });
-    expect(result).toContain("plus en attente de validation");
+    expect(result).toContain("annulation a échoué");
     expect(result).not.toContain('transition_not_allowed');
   });
 
@@ -86,11 +65,6 @@ describe('formatCancelErrorMessage', () => {
     expect(result).not.toContain('transition_not_allowed');
   });
 
-  it("ancienne forme RPC ('Transition ... not allowed', espace) continue de marcher", () => {
-    expect(formatCancelErrorMessage({ message: 'Transition draft -> cancelled not allowed in v1.1' }))
-      .toContain("plus en attente de validation");
-  });
-
   // qa-review round 2 (2026-09-16) — 404 : reproduction EXACTE du texte
   // rapporte en recette. `order_not_found: <uuid>` (tiret bas, UUID inclus)
   // ne matchait ni 'not found' (espace) ni aucun code -> fuyait a l'ecran.
@@ -99,7 +73,7 @@ describe('formatCancelErrorMessage', () => {
 
     it(`texte brut exact 'order_not_found: ${uuid}' -> message clair, jamais l'UUID`, () => {
       const result = formatCancelErrorMessage({ message: `order_not_found: ${uuid}` });
-      expect(result).toContain("n'existe plus");
+      expect(result).toContain("annulation a échoué");
       expect(result).not.toContain('order_not_found');
       expect(result).not.toContain(uuid);
     });
@@ -119,7 +93,7 @@ describe('formatCancelErrorMessage', () => {
   describe('403 permission_denied (qa-review round 2)', () => {
     it("texte brut exact 'permission_denied: order identity mismatch' -> message clair, jamais le texte technique", () => {
       const result = formatCancelErrorMessage({ message: 'permission_denied: order identity mismatch' });
-      expect(result).toContain('droits pour annuler');
+      expect(result).toContain("annulation a échoué");
       expect(result).not.toContain('permission_denied');
     });
 

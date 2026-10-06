@@ -3,8 +3,8 @@ id: FIX-GARDE
 title: Correctif — La règle du panier d'Arnaud était neutralisable par un commentaire
 epic: EPIC-E10
 feature: FEAT-E10-UNCLASSIFIED
-specStatus: contradictory
-deliveryStatus: not-started
+specStatus: draft
+deliveryStatus: verified
 owner: unassigned
 source:
   system: notion
@@ -26,7 +26,9 @@ decisions: []
 dependencies:
   - Q14-a
 supersedes: []
-implementationRecords: []
+implementationRecords:
+  - ../../../tests/_helpers/stripComments.ts
+  - ../../../tests/_helpers/stripComments.test.ts
 ---
 
 # Correctif — La règle du panier d'Arnaud était neutralisable par un commentaire
@@ -107,20 +109,58 @@ Aucun effet visible pour l'acheteur ni pour l'atelier. Le destinataire de ce lot
 - `Q14-a` — règle protégée par cette vérification, et origine du durcissement fautif (dépendance déclarée en frontmatter).
 - Règle métier structurante, arbitrage d'Arnaud du 16/09/2026 : « Dans la mesure où le produit comporte les caractéristiques ayant permis de le chiffrer il peut être mis au panier tel quel, sinon il faut le configurer. » C'est cette règle que le défaut neutralisait.
 - `Q17-c` — le défaut de la cinquième version a été trouvé par le développeur de ce lot ; la réponse de fond qu'il a appliquée (extraction en fonctions pures) est la méthode de référence.
-- **Écart story / dépôt, à trancher.** Le frontmatter porte `deliveryStatus: not-started` et `specStatus: contradictory`, et la section de preuves ne relève aucun fichier. La relecture du dépôt dit le contraire : le correctif **existe**, sous la forme de `tests/_helpers/stripComments.ts` (analyseur syntaxique complet, remplacement par des espaces, comptage indépendant) et de `tests/_helpers/stripComments.test.ts`, qui exerce bien **cinq vrais fichiers du dépôt** et la marque injectée en fin de fichier. Ces deux fichiers ont été rattachés par le balayage de migration à `Q17-c`, qui les cite dans ses preuves. Quatre vérifications l'importent aujourd'hui. La contradiction porte sur l'**attribution**, pas sur l'existence.
+- **Écart de migration résolu.** L'import avait conservé `deliveryStatus: not-started`
+  alors que le correctif existe dans `tests/_helpers/stripComments.ts` et
+  `tests/_helpers/stripComments.test.ts`. Le premier fournit l'analyse par le
+  parseur TypeScript et préserve les positions ; le second exerce cinq vrais
+  fichiers et une marque injectée en fin de fichier. Cinq gardes importent le
+  helper partagé. Ces preuves établissent l'état de livraison indépendamment
+  de l'attribution historique à `Q17-c`.
 
 ## Vérification
+
+Le 6 octobre 2026, la vérification ciblée du parseur et de ses cinq
+consommateurs a exécuté 75 tests avec succès :
+
+```text
+pnpm exec vitest run \
+  tests/_helpers/stripComments.test.ts \
+  tests/app/hooks/useDashboardOrderManagement.test.ts \
+  tests/components/shop/ShopProductCard.addAsIsWiring.test.ts \
+  tests/architecture/order-status-single-source.test.ts \
+  tests/components/shop/portal/OrderHistoryTable.wiring.test.ts \
+  tests/components/shop/portal/ValidateOrderConfirmDialog.text.test.ts
+```
+
+La suite dédiée exerce les commentaires de ligne, de bloc et JSX, les blocs
+accolés à la ponctuation, la conservation de la longueur et des sauts de ligne,
+les faux positifs connus, cinq fichiers réels et une aiguille injectée en fin de
+fichier. Elle épingle aussi la limite assumée d'une chaîne placée dans un
+attribut JSX. La recherche des usages confirme que tous les gardes textuels du
+dépôt importent le même helper.
 
 _Aucun cahier de tests Notion ne référence cette story._
 
 ## Preuves relevées dans le dépôt
 
-`deliveryStatus: not-started` — aucune preuve trouvée après balayage du dépôt.
+`deliveryStatus: verified` — 1 helper partagé · 1 suite dédiée · 5 consommateurs
+· 75 tests ciblés passants.
+
+Fichiers d'implémentation :
+
+- `tests/_helpers/stripComments.ts`
+- `tests/_helpers/stripComments.test.ts`
+
+Consommateurs vérifiés :
+
+- `tests/app/hooks/useDashboardOrderManagement.test.ts`
+- `tests/components/shop/ShopProductCard.addAsIsWiring.test.ts`
+- `tests/architecture/order-status-single-source.test.ts`
+- `tests/components/shop/portal/OrderHistoryTable.wiring.test.ts`
+- `tests/components/shop/portal/ValidateOrderConfirmDialog.text.test.ts`
 
 ## Questions ouvertes
 
-- Le `deliveryStatus` doit-il passer à `implemented` au vu de `tests/_helpers/stripComments.ts` et de son test, ou ces fichiers restent-ils attribués à `Q17-c` et cette fiche est-elle retirée du backlog ?
-- Combien de vérifications textuelles reposent aujourd'hui sur ce point unique, et laquelle protège une règle arbitrée par Arnaud ? Sans cet inventaire, l'étendue du risque n'est pas connue.
 - Faut-il poser une règle de projet interdisant toute nouvelle vérification textuelle quand une vérification de comportement est possible ?
 - La limite assumée (chaîne replacée dans un attribut) est-elle acceptable pour une règle métier arbitrée, ou exige-t-elle une protection qui ne soit pas textuelle ?
 - Rattachement à une fonctionnalité produit à arbitrer (`FEAT-E10-UNCLASSIFIED` est un regroupement de migration).

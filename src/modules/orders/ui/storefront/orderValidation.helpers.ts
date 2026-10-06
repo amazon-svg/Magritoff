@@ -15,11 +15,14 @@
  * `transition_not_allowed: <from> -> <to>`), plus le texte espace de
  * l'ancien RPC. La classification est mutualisee dans le module neutre
  * `orderTransitionErrors.helpers.ts` (qa-review round 2, 2026-09-16, dette
- * D3b), partage avec `orderCancellation.helpers.ts`.
+ * D3b), partagé avec `orderCancellation.helpers.ts`. Le chemin portable
+ * classe désormais exclusivement les codes RFC 7807 et n'affiche jamais le
+ * détail serveur.
  */
 
 import { getStatusLabelLowerFirst } from '@/modules/orders/ui/helpers/orderStatus';
 import {
+  isAuthenticationRequired,
   isOrderNotFound,
   isOrderNotEditable,
   isPermissionDenied,
@@ -33,14 +36,11 @@ export type { RpcLikeError };
 export function formatValidateErrorMessage(err: RpcLikeError | null | undefined): string {
   const msg = String(err?.message ?? '').toLowerCase();
 
-  if (msg.includes('authentication required') || msg.includes('auth.uid()')) {
+  if (isAuthenticationRequired(err)) {
     return 'Votre session a expire. Reconnectez-vous puis reessayez.';
   }
   if (isOrderNotFound(err, msg)) {
     return "Cette commande n'existe plus (peut-etre supprimee dans une autre fenetre).";
-  }
-  if (isPermissionDenied(err, msg) && msg.includes('admin tenant')) {
-    return "Seul un administrateur tenant peut valider une commande. Contactez l'administrateur.";
   }
   if (isPermissionDenied(err, msg)) {
     return "Vous n'avez pas les droits pour valider cette commande.";
@@ -62,8 +62,7 @@ export function formatValidateErrorMessage(err: RpcLikeError | null | undefined)
   if (isUnverifiedPrices(err, msg)) {
     return 'Cette commande porte au moins une ligne dont le prix n a pas pu etre verifie. Rechargez la page puis validez a nouveau pour confirmer explicitement.';
   }
-  if (msg.length > 0) {
-    return `Erreur lors de la validation : ${err?.message}`;
-  }
-  return "Erreur reseau lors de la validation. Reessayez.";
+  return msg.length > 0
+    ? 'La validation a échoué. Rechargez la page puis réessayez.'
+    : 'Erreur réseau lors de la validation. Réessayez.';
 }

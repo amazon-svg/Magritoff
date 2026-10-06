@@ -29,49 +29,28 @@ function apiError(code: string, detail: string, status = 409) {
 
 describe('formatValidateErrorMessage', () => {
   it('null / undefined → message reseau generique', () => {
-    expect(formatValidateErrorMessage(null)).toContain('reseau');
-    expect(formatValidateErrorMessage(undefined)).toContain('reseau');
-    expect(formatValidateErrorMessage({})).toContain('reseau');
+    expect(formatValidateErrorMessage(null)).toContain('réseau');
+    expect(formatValidateErrorMessage(undefined)).toContain('réseau');
+    expect(formatValidateErrorMessage({})).toContain('réseau');
   });
 
-  it("pattern 'Authentication required' → message session expiree", () => {
-    expect(formatValidateErrorMessage({ message: 'Authentication required' }))
+  it("code identity.authentication_required → message session expiree", () => {
+    expect(formatValidateErrorMessage({ code: 'identity.authentication_required', message: 'detail interne' }))
       .toContain('session a expire');
   });
 
-  it("pattern 'not found' (ancien texte espace) → message commande supprimee", () => {
-    expect(formatValidateErrorMessage({ message: 'Tenant order xyz not found' }))
-      .toContain("n'existe plus");
-  });
-
-  it("pattern 'Permission denied: validate requires admin tenant' (ancien texte espace) → message specifique admin", () => {
-    expect(formatValidateErrorMessage({
-      message: 'Permission denied: validate requires admin tenant',
-    })).toContain("administrateur tenant peut valider");
-  });
-
-  it("pattern 'Transition draft -> validated not allowed' (ancien texte espace) → message status non draft", () => {
-    expect(formatValidateErrorMessage({
-      message: 'Transition draft -> validated not allowed in v1.1',
-    })).toContain("plus en attente de validation");
-  });
-
-  it("message inconnu non-vide → fallback avec message brut", () => {
-    expect(formatValidateErrorMessage({ message: 'Custom DB error xyz' }))
-      .toContain('Custom DB error xyz');
-  });
-
-  it("match insensible casse", () => {
-    expect(formatValidateErrorMessage({ message: 'PERMISSION DENIED: VALIDATE REQUIRES ADMIN TENANT' }))
-      .toContain("administrateur tenant peut valider");
+  it("message sans code → message générique sans texte serveur", () => {
+    const result = formatValidateErrorMessage({ message: 'Custom DB error xyz' });
+    expect(result).toContain('validation a échoué');
+    expect(result).not.toContain('Custom DB error xyz');
   });
 
   // BCP-5 (recette 2026-09-15/16) : forme ACTUELLE renvoyee par
   // POST /orders/{id}/transitions ('transition_not_allowed: from -> to',
   // tiret bas). Avant le fix, ce message tombait dans le fallback brut.
-  it("forme actuelle 'transition_not_allowed: cancelled -> validated' -> message clair (pas le texte technique)", () => {
+  it("texte seul 'transition_not_allowed' -> message générique", () => {
     const result = formatValidateErrorMessage({ message: 'transition_not_allowed: cancelled -> validated' });
-    expect(result).toContain("plus en attente de validation");
+    expect(result).toContain('validation a échoué');
     expect(result).not.toContain('transition_not_allowed');
   });
 
@@ -82,12 +61,6 @@ describe('formatValidateErrorMessage', () => {
     expect(result).not.toContain('transition_not_allowed');
   });
 
-  it("ancienne forme RPC ('Transition ... not allowed', espace) continue de marcher", () => {
-    expect(formatValidateErrorMessage({
-      message: 'Transition draft -> validated not allowed in v1.1',
-    })).toContain("plus en attente de validation");
-  });
-
   // qa-review round 2 (2026-09-16) — meme defaut cote validation, meme
   // reproduction EXACTE que cote annulation.
   describe('404 order_not_found (qa-review round 2)', () => {
@@ -95,7 +68,7 @@ describe('formatValidateErrorMessage', () => {
 
     it(`texte brut exact 'order_not_found: ${uuid}' -> message clair, jamais l'UUID`, () => {
       const result = formatValidateErrorMessage({ message: `order_not_found: ${uuid}` });
-      expect(result).toContain("n'existe plus");
+      expect(result).toContain('validation a échoué');
       expect(result).not.toContain('order_not_found');
       expect(result).not.toContain(uuid);
     });
@@ -112,14 +85,14 @@ describe('formatValidateErrorMessage', () => {
   describe('403 permission_denied (qa-review round 2)', () => {
     it("texte brut exact 'permission_denied: order identity mismatch' (sans 'admin tenant') -> message generique, jamais le texte technique", () => {
       const result = formatValidateErrorMessage({ message: 'permission_denied: order identity mismatch' });
-      expect(result).toContain('droits pour valider');
+      expect(result).toContain('validation a échoué');
       expect(result).not.toContain('permission_denied');
     });
 
     it("code metier orders.permission_denied + 'admin tenant' dans le detail -> message specifique admin", () => {
       const err = apiError('orders.permission_denied', 'permission_denied: transition requires admin tenant', 403);
       const result = formatValidateErrorMessage(toRpcLikeError(err));
-      expect(result).toContain('administrateur tenant peut valider');
+      expect(result).toContain('droits pour valider');
       expect(result).not.toContain('permission_denied');
     });
 
@@ -153,7 +126,7 @@ describe('formatValidateErrorMessage', () => {
   describe('409 orders.unverified_prices (Q17-c, repli defensif)', () => {
     it("texte brut 'unverified_prices: [\"Flyers\"]' -> message clair, jamais le texte technique", () => {
       const result = formatValidateErrorMessage({ message: 'unverified_prices: ["Flyers"]' });
-      expect(result).toContain('Rechargez la page');
+      expect(result).toContain('validation a échoué');
       expect(result).not.toContain('unverified_prices');
     });
 

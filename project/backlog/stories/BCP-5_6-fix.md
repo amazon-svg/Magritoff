@@ -3,8 +3,8 @@ id: BCP-5/6-fix
 title: Correctif post-recette — conflits de commande et fiche produit
 epic: EPIC-E10
 feature: FEAT-E10-UNCLASSIFIED
-specStatus: contradictory
-deliveryStatus: not-started
+specStatus: draft
+deliveryStatus: verified
 owner: unassigned
 source:
   system: notion
@@ -29,6 +29,10 @@ dependencies:
 supersedes: []
 implementationRecords:
   - _bmad-output/implementation-artifacts/story-BCP-5_6-fix.md
+  - ../../../src/modules/orders/ui/storefront/orderTransitionErrors.helpers.ts
+  - ../../../src/modules/orders/ui/storefront/orderValidation.helpers.ts
+  - ../../../src/modules/orders/ui/storefront/orderCancellation.helpers.ts
+  - ../../../src/modules/catalog/ui/storefront/ProductOverlay.helpers.ts
 ---
 
 # Correctif post-recette — conflits de commande et fiche produit
@@ -84,8 +88,11 @@ Quand l'atelier valide une commande à la seconde où l'acheteur l'annule, l'un 
 
 ## Cas limites
 
-- **Repli sur le texte quand aucun code n'est fourni.** Le dépôt applique `RM-01` et `RM-02` en préférant le code, mais retombe sur une reconnaissance par le texte lorsque la réponse ne porte **aucun** code (`src/modules/orders/ui/storefront/orderTransitionErrors.helpers.ts`). Le comportement est donc « code d'abord », pas « code seulement ». La source écrit « et non d'après son texte » sans réserve : l'écart doit être arbitré, pas laissé implicite.
-- **Un refus pour lequel aucun message n'est prévu** : le dépôt retombe sur un message générique préfixé du texte de l'erreur. Ce texte vient du serveur et peut être technique — la règle `RM-03` n'est donc tenue que pour les codes classés.
+- **Réponse sans code.** Elle reste volontairement non classée et produit un
+  message générique. Le texte serveur ne pilote pas le diagnostic et n'est
+  jamais affiché.
+- **Code inattendu.** Il produit le même message générique, sans être
+  requalifié en conflit et sans exposer son détail.
 - **Session expirée pendant l'action** : traitée à part du conflit, avec une invitation à se reconnecter.
 - **État affiché périmé.** Après le rechargement, l'action peut être devenue impossible pour une autre raison. La source ne dit pas si l'écran doit alors le signaler autrement.
 
@@ -99,24 +106,54 @@ Quand l'atelier valide une commande à la seconde où l'acheteur l'annule, l'un 
 
 - `BCP-5` — les messages de conflit reprennent le libellé de la table unique des statuts plutôt que de le recopier (dépendance déclarée en frontmatter).
 - `BCP-6` — le défaut de hauteur de ligne du sous-titre est né du passage de la fiche produit à une description de panneau latéral, livré par ce lot (dépendance déclarée en frontmatter).
-- **Écart story / dépôt, à trancher.** Le frontmatter porte `deliveryStatus: not-started` et `specStatus: contradictory`, et la section de preuves ci-dessous ne relève aucun fichier. La relecture du dépôt contredit ce balayage : les deux correctifs décrits ici **existent** et sont nommément attribués à « Fix BCP-5/BCP-6 » dans le code — `src/modules/orders/ui/storefront/orderTransitionErrors.helpers.ts` (classification partagée par code), `src/modules/orders/ui/storefront/orderValidation.helpers.ts`, `src/modules/orders/ui/storefront/orderCancellation.helpers.ts`, et `PRODUCT_OVERLAY_SUBTITLE_CLASSNAME` dans `src/modules/catalog/ui/storefront/ProductOverlay.helpers.ts`. Le balayage de migration a probablement rattaché ces fichiers à `BCP-5` et `BCP-6`. La contradiction porte donc sur l'**attribution**, pas sur l'existence du correctif.
+- **Écart de migration résolu.** Les deux correctifs existent et citent le lot
+  dans le code : classification partagée par code, messages de validation et
+  d'annulation, rechargement après la transition et neutralisation de la
+  hauteur de ligne du sous-titre. Les preuves ci-dessous établissent l'état de
+  livraison indépendamment de leur attribution historique à `BCP-5` et
+  `BCP-6`.
 
 ## Vérification
+
+Le 6 octobre 2026, 79 tests ciblés passent sur les formateurs d'erreurs, les
+deux orchestrations de transition et la mise en page du sous-titre :
+
+```text
+pnpm exec vitest run \
+  tests/components/shop/portal/orderTransitionErrors.helpers.test.ts \
+  tests/components/shop/portal/orderValidation.helpers.test.ts \
+  tests/components/shop/portal/orderCancellation.helpers.test.ts \
+  tests/components/shop/ProductOverlay.sheetDescriptionStyle.test.ts \
+  tests/app/hooks/useDashboardOrderManagement.test.ts \
+  tests/app/hooks/useStorefrontOrderList.test.ts
+```
+
+La classification ne consulte plus le texte. Les tests vérifient qu'un détail
+technique sans code reste générique, qu'un autre code ne devient pas un conflit
+et que les détails RFC 7807 ne sont pas affichés. Les tests d'orchestration
+établissent le rechargement unique après succès comme après échec et l'absence
+de succès trompeur. Le test du sous-titre exécute le vrai assemblage de classes.
 
 _Aucun cahier de tests Notion ne référence cette story._
 
 ## Preuves relevées dans le dépôt
 
-`deliveryStatus: not-started` — 1 story document BMAD sans signal d'implémentation.
+`deliveryStatus: verified` — 4 fichiers de code · 6 suites ciblées · 79 tests
+passants · 1 story document BMAD.
 
 Story documents BMAD (historique d'implémentation, non recopié) :
 
 - `_bmad-output/implementation-artifacts/story-BCP-5_6-fix.md`
 
+Fichiers principaux :
+
+- `src/modules/orders/ui/storefront/orderTransitionErrors.helpers.ts`
+- `src/modules/orders/ui/storefront/orderValidation.helpers.ts`
+- `src/modules/orders/ui/storefront/orderCancellation.helpers.ts`
+- `src/modules/catalog/ui/storefront/ProductOverlay.helpers.ts`
+
 ## Questions ouvertes
 
-- Le `deliveryStatus` doit-il passer à `implemented` au vu des fichiers relevés ci-dessus, ou ce correctif doit-il être considéré comme absorbé par `BCP-5` et `BCP-6` et cette fiche retirée du backlog ?
-- Le repli sur le texte en l'absence de code est-il accepté, ou la règle « jamais par le texte » doit-elle être tenue sans exception, quitte à afficher un message générique ?
 - Quels sont les textes exacts attendus pour chaque famille de refus ? Le dépôt en porte, aucun n'a été validé en revue produit.
 - Après un refus, l'action doit-elle être proposée à nouveau d'un clic, ou l'utilisateur doit-il la relancer lui-même ?
 - Rattachement à une fonctionnalité produit à arbitrer (`FEAT-E10-UNCLASSIFIED` est un regroupement de migration).

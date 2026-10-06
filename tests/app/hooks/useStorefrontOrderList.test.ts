@@ -8,6 +8,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
+import { ApiClientError } from '@/platform/api';
 import { runCancelOrder, type CancelOrderDeps } from '@/modules/orders/ui/hooks/useStorefrontOrderList';
 import type { OrderUI } from '@/modules/orders/ui/storefront/PortalOrders.helpers';
 
@@ -81,7 +82,14 @@ describe('runCancelOrder', () => {
 
   it('echec (transition rejetee) -> retourne le message formate (pas le texte technique)', async () => {
     const order = makeOrder();
-    const transition = vi.fn().mockRejectedValue(new Error('order_not_found: 7c1f1a4e-0000-0000-0000-000000000000'));
+    const transition = vi.fn().mockRejectedValue(new ApiClientError({
+      type: 'about:blank',
+      title: 'Commande introuvable',
+      status: 404,
+      code: 'orders.order_not_found',
+      detail: 'order_not_found: 7c1f1a4e-0000-0000-0000-000000000000',
+      requestId: 'req-test',
+    }));
     const reload = vi.fn().mockResolvedValue(undefined);
     const onSuccess = vi.fn();
     const result = await runCancelOrder(order.id, { findOrder: () => order, transition, reload, onSuccess });
