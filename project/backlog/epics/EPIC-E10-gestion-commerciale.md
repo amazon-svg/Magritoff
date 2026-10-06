@@ -17,6 +17,7 @@ features:
   - FEAT-E10-PRICING
   - FEAT-E10-ORDERS
   - FEAT-E10-EXPORTS
+  - FEAT-E10-INVOICING
 decisions:
   - PD-2026-10-01-B5
 ---
@@ -37,12 +38,14 @@ Permettre à une équipe commerciale de gérer ses clients, projets, devis, règ
 - conversion d'un devis en commande ;
 - consultation et documents de commande ;
 - exports comptables fondés sur les valeurs figées.
+- préparation des données fiscales nécessaires à la facturation électronique.
 
 ## Hors périmètre
 
 - recalcul d'un prix lors d'un export ;
 - comptabilité générale ;
-- facturation réglementaire complète ;
+- émission, transmission et réception des factures par une plateforme agréée,
+  tant que l'intégration correspondante n'est pas spécifiée ;
 - décomposition Clariprint par poste tant que E10.8 reste gelée.
 
 ## État de migration

@@ -8,6 +8,7 @@ owner: unassigned
 source: docs/spec/backlog.md
 stories:
   - E10.18
+  - E10.23
 decisions: []
 ---
 
