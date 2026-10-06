@@ -145,8 +145,12 @@ test('export commun : utilise les filtres appliqués puis permet le télécharge
   // Un brouillon de filtre non appliqué ne doit pas modifier l'export.
   await page.getByLabel('Client', { exact: true }).fill('__non_applique__');
   await expect(page.getByText('Historique des exports', { exact: true })).toBeHidden();
-  await page.getByRole('button', { name: 'Exporter', exact: true }).click();
+  await page.getByRole('button', { name: 'Voir les exports', exact: true }).click();
   await expect(page.getByText('Historique des exports', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Masquer les exports', exact: true }).click();
+  await expect(page.getByText('Historique des exports', { exact: true })).toBeHidden();
+  await page.getByRole('button', { name: 'Exporter', exact: true }).click();
+  await expect(page.getByText('Historique des exports', { exact: true })).toBeHidden();
   const dialog = page.getByRole('dialog');
   await expect(dialog).toContainText('Boutique');
   await expect(dialog).not.toContainText('__non_applique__');
@@ -159,6 +163,7 @@ test('export commun : utilise les filtres appliqués puis permet le télécharge
   const { data } = await response.json();
   expect(data.layout_version).toBe(2);
   await expect(dialog).toBeHidden();
+  await expect(page.getByText('Historique des exports', { exact: true })).toBeVisible();
   console.log(`Export de recette : ${data.id}`);
   const downloadButton = page.locator(`[data-export-id="${data.id}"]`).getByRole('button', { name: 'Télécharger', exact: true });
   await expect(downloadButton).toBeVisible({ timeout: 60_000 });

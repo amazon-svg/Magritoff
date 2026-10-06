@@ -263,21 +263,27 @@ export function OrderExportPanel({ filters = DEFAULT_ORDERS_LIST_FILTERS, select
 
   return (
     <div className="mt-6" data-testid={T.panel}>
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between gap-3 mb-2">
         <h2 className="text-sm font-semibold text-ink-2 uppercase tracking-wide">Exports</h2>
-        <button
-          type="button"
-          data-testid={T.btn}
-          aria-expanded={registryOpen}
-          aria-controls="order-export-registry"
-          onClick={() => {
-            setRegistryOpen(true);
-            setDialogOpen(true);
-          }}
-          className="px-3 py-1.5 border border-line-2 rounded-lg text-sm text-ink-2 hover:bg-bg hover:text-ink"
-        >
-          Exporter
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            aria-expanded={registryOpen}
+            aria-controls="order-export-registry"
+            onClick={() => setRegistryOpen((open) => !open)}
+            className="px-3 py-1.5 text-sm text-ink-muted hover:text-ink"
+          >
+            {registryOpen ? 'Masquer les exports' : 'Voir les exports'}
+          </button>
+          <button
+            type="button"
+            data-testid={T.btn}
+            onClick={() => setDialogOpen(true)}
+            className="px-3 py-1.5 border border-line-2 rounded-lg text-sm text-ink-2 hover:bg-bg hover:text-ink"
+          >
+            Exporter
+          </button>
+        </div>
       </div>
 
       {dialogOpen && (
@@ -287,7 +293,10 @@ export function OrderExportPanel({ filters = DEFAULT_ORDERS_LIST_FILTERS, select
           selectedCustomerLabel={selectedCustomerLabel}
           stepCatalog={stepCatalog}
           onClose={() => setDialogOpen(false)}
-          onCreated={(item: OrderExportDto) => dispatch({ type: 'exportCreated', item })}
+          onCreated={(item: OrderExportDto) => {
+            dispatch({ type: 'exportCreated', item });
+            setRegistryOpen(true);
+          }}
         />
       )}
 
