@@ -5637,11 +5637,15 @@ paths:
         close) : le choix est acquis pour la duree de v1, l exiger plus tard
         serait cassant (428 sur un appelant existant).
 
-        Publie `order.step_changed` dans `outbox_events` — et RIEN d autre au
-        titre des notifications (CA7). Ce lot ne fait que DEPOSER l evenement ;
-        son evaluation (a qui notifier, avec quel modele) est E10.15, non
-        livree. Aucun appel direct a un moteur de notification, jamais, meme
-        patron que `quote.sent` / `quote.accepted` / `quote.converted`.
+        Pour une commande numerotee et rattachee a un client CRM, publie
+        `order.step_changed` dans `outbox_events` — et RIEN d autre au titre des
+        notifications (CA7). Une commande boutique non encore rapprochee ne
+        fabrique pas une charge utile incomplete : son mouvement reste
+        journalise, mais aucun evenement de notification n est emis. Ce lot ne
+        fait que DEPOSER l evenement ; son evaluation (a qui notifier, avec quel
+        modele) appartient a E10.15. Aucun appel direct a un moteur de
+        notification, jamais, meme patron que `quote.sent` / `quote.accepted` /
+        `quote.converted`.
       tags: [gestion-commerciale]
       security:
         - bearerAuth: []
@@ -5701,8 +5705,10 @@ paths:
         '409':
           description: >-
             Soit la commande est DEJA sur cette etape
-            (`order.step_unchanged`), soit la cle d idempotence a ete rejouee
-            avec une requete differente (`api.idempotency_key_reused`).
+            (`order.step_unchanged`), soit son statut administratif interdit
+            tout mouvement de production (`order.administrative_status_blocked`),
+            soit la cle d idempotence a ete rejouee avec une requete differente
+            (`api.idempotency_key_reused`).
 
 
             `order.step_unchanged` est un REFUS, pas un succes silencieux, et ce

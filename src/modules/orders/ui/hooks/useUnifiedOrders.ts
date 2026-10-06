@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { OrdersApiClient, type OrderListEntry, type OrderListFilters } from '@/modules/orders';
+import { CommercialOrdersApiClient } from '@/modules/commercial-orders';
 import { useWorkspaceApi } from '@/platform/runtime/workspace-ui-runtime';
 import { ProductionStepsApiClient, type ProductionStepDto } from '@/modules/production-steps';
 import type { OrderUI } from '../storefront/PortalOrders.helpers';
@@ -13,6 +14,7 @@ export function orderListEntryToUi(order: OrderListEntry): OrderUI & { shop_name
     items: order.items.map((item) => ({ name: item.name, qty: item.quantity, price_ht: Number(item.unit_price_ht), priceOrigin: item.price_origin })),
     total_ht: Number(order.total_ht), total_ttc: Number(order.total_ttc),
     status: order.status, hasUnverifiedPrices: order.has_unverified_prices,
+    currentProductionStepId: order.current_production_step_id,
     shop_name: order.shop_name,
   };
 }
@@ -20,6 +22,7 @@ export function orderListEntryToUi(order: OrderListEntry): OrderUI & { shop_name
 /** Une page par requête ; une nouvelle sélection invalide les réponses précédentes. */
 export function useUnifiedOrders(tenantId: string | null, enabled: boolean) {
   const api = useWorkspaceApi(OrdersApiClient);
+  const commercialOrdersApi = useWorkspaceApi(CommercialOrdersApiClient);
   const stepsApi = useWorkspaceApi(ProductionStepsApiClient);
   const [steps, setSteps] = useState<readonly ProductionStepDto[]>([]);
   const [stepsError, setStepsError] = useState(false);
@@ -70,6 +73,13 @@ export function useUnifiedOrders(tenantId: string | null, enabled: boolean) {
     orders: result.items.map(orderListEntryToUi), loading, error, auditApi: api, steps, stepsError,
     page: selection.cursors.length, hasNext: result.nextCursor !== null,
     applyFilters, activeFilters: selection.filters,
+    validateOrder: (order: Pick<OrderUI, 'id' | 'hasUnverifiedPrices'>) => api.transition(order.id, {
+      toStatus: 'validated',
+      reason: null,
+      idempotencyKey: `orders-bulk-validation:${order.id}:${crypto.randomUUID()}`,
+      acknowledgeUnverifiedPrices: order.hasUnverifiedPrices === true,
+    }),
+    changeProductionStep: (orderId: string, stepId: string) => commercialOrdersApi.changeProductionStep(orderId, { step_id: stepId }),
     reload: () => setRevision((value) => value + 1),
     next: () => {
       if (loading || !result.nextCursor) return;

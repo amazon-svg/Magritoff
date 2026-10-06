@@ -165,6 +165,13 @@ export interface OrderHistoryTableProps {
   onOpenOrder?: ((order: OrderUI) => void) | undefined;
   /** Ouvre la fiche du client CRM associé à la commande. */
   onOpenCustomer?: ((order: OrderUI) => void) | undefined;
+  /** Présentation du statut propre au back-office unifié. */
+  renderStatus?: ((order: OrderUI) => ReactNode) | undefined;
+  /** Action de statut commune à la grille et à la fiche. */
+  renderStatusAction?: ((order: OrderUI) => ReactNode) | undefined;
+  /** Sélection contrôlée des lignes visibles pour les actions en lot. */
+  selectedOrderIds?: ReadonlySet<string> | undefined;
+  onSelectedOrderIdsChange?: ((ids: ReadonlySet<string>) => void) | undefined;
 }
 
 interface TableState {
@@ -441,6 +448,10 @@ export function OrderHistoryTable({
   onMarkShippedOrder,
   onOpenOrder,
   onOpenCustomer,
+  renderStatus,
+  renderStatusAction,
+  selectedOrderIds,
+  onSelectedOrderIdsChange,
 }: OrderHistoryTableProps) {
   const isDashboardAppearance = appearance === 'dashboard';
   // S3.3 : une commande est renouvelable si v1.1 + status workflow/terminal
@@ -488,7 +499,7 @@ export function OrderHistoryTable({
   // S3.5 wire-up (2026-06-01) : bouton Historique disponible sur toutes
   // les commandes v1.1 (cohort post-bascule ADR-ORDERS-1). Ouvre la modale
   // OrderAuditTrailModal qui UNION les events status + roles.
-  const canShowHistory = (o: OrderUI) => o.source === 'v1_1';
+  const canShowHistory = (o: OrderUI) => !renderStatusAction && o.source === 'v1_1';
   const [orderForHistory, setOrderForHistory] = useState<OrderUI | null>(null);
 
   // Q17-c (point 12 (h)) — détail de commande : par ligne, le prix reçu et,
@@ -509,7 +520,8 @@ export function OrderHistoryTable({
   const hasAnyV11 = orders.some((o) => o.source === 'v1_1');
   const showActionsColumn = !!onRenewOrder || !!onCancelOrder || !!onEditOrder
     || !!onValidateOrder || !!onRejectOrder || !!onStartProductionOrder
-    || !!onMarkShippedOrder || !!onOpenOrder || hasAnyV11;
+    || !!onMarkShippedOrder || !!onOpenOrder || !!renderStatusAction || hasAnyV11;
+  const selectable = selectedOrderIds !== undefined && onSelectedOrderIdsChange !== undefined;
   const [state, setState] = useState<TableState>(() => loadState(persistKey));
 
   useEffect(() => {
@@ -532,6 +544,23 @@ export function OrderHistoryTable({
     () => serverManaged ? filtered : applySort(filtered, state, extraColumn?.sortValue),
     [filtered, state, extraColumn?.sortValue, serverManaged],
   );
+  const allVisibleSelected = selectable && sorted.length > 0
+    && sorted.every((order) => selectedOrderIds.has(order.id));
+
+  const toggleSelectedOrder = (orderId: string) => {
+    if (!selectable) return;
+    const next = new Set(selectedOrderIds);
+    if (next.has(orderId)) next.delete(orderId); else next.add(orderId);
+    onSelectedOrderIdsChange(next);
+  };
+
+  const toggleAllVisibleOrders = () => {
+    if (!selectable) return;
+    const next = new Set(selectedOrderIds);
+    if (allVisibleSelected) sorted.forEach((order) => next.delete(order.id));
+    else sorted.forEach((order) => next.add(order.id));
+    onSelectedOrderIdsChange(next);
+  };
 
   // Options du filtre catégoriel extra : déduplication par clé stable, label
   // humain depuis la 1re occurrence. Trié alpha par label pour UX prévisible.
@@ -920,6 +949,7 @@ export function OrderHistoryTable({
           >
             {isDashboardAppearance && (
               <colgroup>
+                {selectable && <col style={{ width: '48px' }} />}
                 <col style={{ width: '175px' }} />
                 <col style={{ width: '175px' }} />
                 {extraColumn?.position === 'after-date' && <col style={{ width: '125px' }} />}
@@ -936,6 +966,17 @@ export function OrderHistoryTable({
             )}
             <thead>
               <tr className={`border-b border-line ${isDashboardAppearance ? 'bg-bg' : ''}`}>
+                {selectable && (
+                  <th scope="col" className="w-10 py-2.5 pr-3 text-left">
+                    <input
+                      type="checkbox"
+                      checked={allVisibleSelected}
+                      onChange={toggleAllVisibleOrders}
+                      aria-label="Sélectionner toutes les commandes de cette page"
+                      className="h-4 w-4 rounded border-line-2 accent-brand"
+                    />
+                  </th>
+                )}
                 {isDashboardAppearance && (
                   <th
                     scope="col"
@@ -1093,6 +1134,7 @@ export function OrderHistoryTable({
                 // ligne, pour que le `colSpan` du détail ne déborde ni ne
                 // laisse de cellules orphelines selon extraColumn/actions.
                 const columnCount = (isDashboardAppearance ? 1 : 0) // N°
+                  + (selectable ? 1 : 0) // sélection
                   + 1 // Date
                   + (extraColumn?.position === 'after-date' ? 1 : 0)
                   + 1 // Client
@@ -1110,6 +1152,17 @@ export function OrderHistoryTable({
                     data-order-source={o.source}
                     className="border-b border-line hover:bg-bg transition-colors"
                   >
+                    {selectable && (
+                      <td className="w-10 py-3 pr-3">
+                        <input
+                          type="checkbox"
+                          checked={selectedOrderIds.has(o.id)}
+                          onChange={() => toggleSelectedOrder(o.id)}
+                          aria-label={`Sélectionner la commande ${o.number ?? o.id}`}
+                          className="h-4 w-4 rounded border-line-2 accent-brand"
+                        />
+                      </td>
+                    )}
                     {isDashboardAppearance && (
                       <td className="py-3 pr-4 text-ink font-mono whitespace-nowrap font-medium">
                         {onOpenOrder && o.source !== 'legacy' ? (
@@ -1206,13 +1259,15 @@ export function OrderHistoryTable({
                             <span className="sr-only">Commande au format antérieur. </span>
                           </>
                         )}
-                        <span
-                          aria-label={`Statut: ${statusInfo.label}`}
-                          className={`inline-block max-w-full whitespace-normal px-2 py-0.5 rounded border font-mono uppercase ${statusInfo.className}`}
-                          style={{ fontSize: '10px', letterSpacing: '0.06em', fontWeight: 500 }}
-                        >
-                          {statusInfo.label}
-                        </span>
+                        {renderStatus ? renderStatus(o) : (
+                          <span
+                            aria-label={`Statut: ${statusInfo.label}`}
+                            className={`inline-block max-w-full whitespace-normal px-2 py-0.5 rounded border font-mono uppercase ${statusInfo.className}`}
+                            style={{ fontSize: '10px', letterSpacing: '0.06em', fontWeight: 500 }}
+                          >
+                            {statusInfo.label}
+                          </span>
+                        )}
                         {showsUnverifiedPriceBadge(o, appearance) && (
                           <span
                             data-testid={TEST_IDS.shop.orderUnverifiedPriceBadge}
@@ -1348,6 +1403,7 @@ export function OrderHistoryTable({
                               Annuler
                             </button>
                           )}
+                          {renderStatusAction?.(o)}
                           {canShowHistory(o) && (
                             <button
                               type="button"

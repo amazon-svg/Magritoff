@@ -35,6 +35,7 @@ import { deprecatedOrderRouteHeaders } from './order-compatibility.ts';
 import type { CommercialOrdersService } from '../../modules/commercial-orders/application/commercial-orders-service.ts';
 import {
   CommercialOrderNotFoundError,
+  OrderAdministrativeStatusBlockedError,
   OrderStepUnchangedError,
   ProductionStepInactiveError,
   QuoteConversionForbiddenStatusError,
@@ -232,11 +233,12 @@ export function createCommercialOrdersRoutes(
       async handle(context) {
         return withCommercialOrderErrors(async () => {
           const orderId = context.params['orderId']!;
+          const actor = context.principal.kind === 'user' ? context.principal.userId : null;
           const cursor = context.page.cursor ? decodeCursor(context.page.cursor) : null;
           const result = await orders.listStepChanges(context.tenantId, orderId, {
             size: context.page.size,
             cursor,
-          });
+          }, actor);
           const page = buildPage(result.rows, context.page, (row) => ({
             sort: row.occurred_at,
             id: row.id,
@@ -279,8 +281,8 @@ export function createCommercialOrdersRoutes(
           // `current_state` sur 409 `order.step_unchanged` — RELU APRES
           // l echec, jamais avant (meme discipline B2 qu E10.12).
           async () => {
-            const order = await orders.getSummary(context.tenantId, orderId);
-            return { current_production_step_id: order.current_production_step_id };
+            const order = await orders.getStepChangeContext(context.tenantId, orderId, actor);
+            return { status: order.status, current_production_step_id: order.currentProductionStepId };
           },
         );
       },
@@ -524,6 +526,16 @@ async function withCommercialOrderErrors<T>(
         status: 409,
         title: 'Étape déjà atteinte',
         code: 'order.step_unchanged',
+        detail: error.message,
+        ...(currentState ? { currentState } : {}),
+      });
+    }
+    if (error instanceof OrderAdministrativeStatusBlockedError) {
+      const currentState = await readCurrentStateSafely(getCurrentState);
+      throw problem({
+        status: 409,
+        title: 'Statut administratif incompatible',
+        code: 'order.administrative_status_blocked',
         detail: error.message,
         ...(currentState ? { currentState } : {}),
       });

@@ -38,7 +38,7 @@ import { Loader2, X } from 'lucide-react';
 import { TEST_IDS } from '@/shared/presentation/testIds';
 import { useWorkspaceApi } from '@/platform/runtime/workspace-ui-runtime';
 import { CommercialOrdersApiClient } from '@/modules/commercial-orders/api/client';
-import { OrdersApiClient } from '@/modules/orders';
+import { getStatusInfo, OrdersApiClient } from '@/modules/orders';
 import type { OrderStepChangeDto } from '@/modules/commercial-orders/api/contracts';
 // Import PAR LA FACADE PUBLIQUE du module (`@/modules/production-steps`),
 // jamais un chemin profond `api/client`/`api/contracts` — regle des
@@ -57,11 +57,14 @@ const btnPrimary =
 export interface OrderStatusDialogProps {
   orderId: string;
   onClose: () => void;
+  readOnlyReason?: string;
+  currentStatusLabel?: string;
+  onAdministrativeChanged?: () => void;
   /** Notifie l appelant (grille, fiche) qu une transition a reussi — pour qu il rafraichisse son propre etat sans le recalculer ici. */
   onChanged?: (entry: OrderStepChangeDto) => void;
 }
 
-export function OrderStatusDialog({ orderId, onClose, onChanged }: OrderStatusDialogProps) {
+export function OrderStatusDialog({ orderId, onClose, onChanged, readOnlyReason, currentStatusLabel, onAdministrativeChanged }: OrderStatusDialogProps) {
   const ordersApi = useWorkspaceApi(CommercialOrdersApiClient);
   const unifiedOrdersApi = useWorkspaceApi(OrdersApiClient);
   const stepsApi = useWorkspaceApi(ProductionStepsApiClient);
@@ -69,36 +72,54 @@ export function OrderStatusDialog({ orderId, onClose, onChanged }: OrderStatusDi
   const [steps, setSteps] = useState<readonly ProductionStepDto[]>([]);
   const [history, setHistory] = useState<readonly OrderStepChangeDto[]>([]);
   const [currentStepId, setCurrentStepId] = useState<string | null>(null);
+  const [administrativeStatus, setAdministrativeStatus] = useState<string | null>(null);
+  const [displayStatusLabel, setDisplayStatusLabel] = useState(currentStatusLabel ?? '');
+  const [hasUnverifiedPrices, setHasUnverifiedPrices] = useState(false);
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   const [note, setNote] = useState('');
   const [loading, setLoading] = useState(true);
   const [confirming, setConfirming] = useState(false);
+  const [validating, setValidating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      // Trois lectures independantes : le catalogue COMPLET des etapes
-      // (`listProductionSteps`, actives ET desactivees — une etape
-      // desactivee reste lisible dans l historique, decision #8/#11 du
-      // contrat), l etape COURANTE de la commande (lecture commune) et le
-      // journal ANTICHRONOLOGIQUE (`listOrderStepChanges`).
-      const [order, stepsResponse, historyResponse] = await Promise.all([
+      // Les trois lectures restent indépendantes : une panne de l'historique
+      // ne doit jamais masquer le catalogue des étapes ni le statut courant.
+      const [orderResult, stepsResult, historyResult] = await Promise.allSettled([
         unifiedOrdersApi.getUnifiedDetail(orderId),
         stepsApi.list(),
         ordersApi.listStepChanges(orderId, { pageSize: 50 }),
       ]);
-      setCurrentStepId(order.current_production_step_id);
-      setSteps([...stepsResponse.data].sort((a, b) => a.position - b.position));
-      setHistory(historyResponse.items);
+      const errors: string[] = [];
+      if (orderResult.status === 'fulfilled') {
+        setCurrentStepId(orderResult.value.current_production_step_id);
+        setAdministrativeStatus(orderResult.value.status);
+        setHasUnverifiedPrices(orderResult.value.has_unverified_prices);
+        const currentStep = stepsResult.status === 'fulfilled'
+          ? stepsResult.value.data.find((step) => step.id === orderResult.value.current_production_step_id)
+          : undefined;
+        setDisplayStatusLabel(currentStep?.label ?? getStatusInfo(orderResult.value.status).label);
+      }
+      else errors.push(orderResult.reason instanceof Error ? orderResult.reason.message : 'Statut courant indisponible.');
+      if (stepsResult.status === 'fulfilled') setSteps([...stepsResult.value.data].sort((a, b) => a.position - b.position));
+      else { setSteps([]); errors.push(stepsResult.reason instanceof Error ? stepsResult.reason.message : 'Étapes indisponibles.'); }
+      if (historyResult.status === 'fulfilled') setHistory(historyResult.value.items);
+      else { setHistory([]); errors.push(historyResult.reason instanceof Error ? historyResult.reason.message : 'Historique indisponible.'); }
       setSelectedStepId(null);
+      setError(errors.length > 0 ? [...new Set(errors)].join(' ') : null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Lecture du statut de la commande impossible.');
     } finally {
       setLoading(false);
     }
   }, [ordersApi, unifiedOrdersApi, stepsApi, orderId]);
+
+  useEffect(() => {
+    if (currentStatusLabel) setDisplayStatusLabel(currentStatusLabel);
+  }, [currentStatusLabel]);
 
   useEffect(() => {
     void load();
@@ -108,6 +129,31 @@ export function OrderStatusDialog({ orderId, onClose, onChanged }: OrderStatusDi
     () => currentStepPosition(steps, currentStepId),
     [steps, currentStepId],
   );
+  const effectiveReadOnlyReason = administrativeStatus === null || administrativeStatus === 'draft' || administrativeStatus === 'cancelled' || administrativeStatus === 'closed'
+    ? readOnlyReason
+    : undefined;
+
+  const handleValidate = async () => {
+    if (administrativeStatus !== 'draft' || validating) return;
+    setValidating(true);
+    setError(null);
+    try {
+      await unifiedOrdersApi.transition(orderId, {
+        toStatus: 'validated',
+        reason: null,
+        idempotencyKey: `order-status-dialog:${orderId}:validated:${crypto.randomUUID()}`,
+        acknowledgeUnverifiedPrices: hasUnverifiedPrices,
+      });
+      setAdministrativeStatus('validated');
+      setDisplayStatusLabel(getStatusInfo('validated').label);
+      onAdministrativeChanged?.();
+      await load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Validation de la commande impossible.');
+    } finally {
+      setValidating(false);
+    }
+  };
 
   const handleConfirm = async () => {
     if (!selectedStepId || selectedStepId === currentStepId) return;
@@ -147,6 +193,8 @@ export function OrderStatusDialog({ orderId, onClose, onChanged }: OrderStatusDi
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {displayStatusLabel && <p className="mb-3 text-sm text-ink-2">Statut actuel : <strong>{displayStatusLabel}</strong></p>}
 
         {error && (
           <p className="text-sm text-err-fg mb-3" data-testid={TEST_IDS.orderStatus.errorBanner}>
@@ -207,6 +255,20 @@ export function OrderStatusDialog({ orderId, onClose, onChanged }: OrderStatusDi
             {/* Colonne DROITE — etapes du tenant, ordre configure (CA1/CA4). */}
             <div className="space-y-1.5">
               <h4 className="text-sm font-semibold text-ink-2 uppercase tracking-wide">Étapes</h4>
+              {effectiveReadOnlyReason && <div className="rounded border border-line bg-bg p-3 text-sm text-ink-muted">
+                <p>{effectiveReadOnlyReason}</p>
+                {administrativeStatus === 'draft' && <>
+                  {hasUnverifiedPrices && <p className="mt-2 text-warn-fg">Cette commande contient un prix non vérifié. La validation l’acceptera explicitement.</p>}
+                  <button
+                    type="button"
+                    className="mt-3 rounded-lg bg-ok-fg px-4 py-2 font-medium text-paper disabled:opacity-50"
+                    disabled={validating}
+                    onClick={() => void handleValidate()}
+                  >
+                    {validating ? 'Validation…' : hasUnverifiedPrices ? 'Valider malgré le prix non vérifié' : 'Valider la commande'}
+                  </button>
+                </>}
+              </div>}
               <div className="space-y-1.5">
                 {steps.map((step) => {
                   const state = stepVisualState(step, currentStepId, currentPosition);
@@ -215,7 +277,8 @@ export function OrderStatusDialog({ orderId, onClose, onChanged }: OrderStatusDi
                     <button
                       key={step.id}
                       type="button"
-                      onClick={() => setSelectedStepId(step.id)}
+                      onClick={() => { if (!effectiveReadOnlyReason) setSelectedStepId(step.id); }}
+                      disabled={Boolean(effectiveReadOnlyReason)}
                       data-testid={TEST_IDS.orderStatus.option}
                       data-step-id={step.id}
                       data-state={state}
@@ -243,12 +306,13 @@ export function OrderStatusDialog({ orderId, onClose, onChanged }: OrderStatusDi
                 rows={2}
                 placeholder="Note (facultative) — ex. fichier repassé en PAO, fond perdu manquant"
                 className={`${inputCls} mt-3`}
+                disabled={Boolean(effectiveReadOnlyReason)}
               />
 
               <button
                 type="button"
                 onClick={() => void handleConfirm()}
-                disabled={!selectedStepId || selectedStepId === currentStepId || confirming}
+                disabled={Boolean(effectiveReadOnlyReason) || !selectedStepId || selectedStepId === currentStepId || confirming}
                 className={`${btnPrimary} mt-2`}
                 data-testid={TEST_IDS.orderStatus.confirmBtn}
               >

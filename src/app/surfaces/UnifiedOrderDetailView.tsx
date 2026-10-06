@@ -5,13 +5,14 @@ import { CustomersApiClient, type CustomerDetailDto } from '@/modules/customers'
 import { OrderDocumentPanel, OrderStatusButton } from '@/modules/commercial-orders/ui';
 import { OrderFilesBlock } from '@/modules/order-files/ui';
 import { OrdersApiClient, type UnifiedOrderDetail } from '@/modules/orders';
-import { getStatusInfo } from '@/modules/orders/ui/helpers/orderStatus';
 import { OrderAuditTrailModal } from '@/modules/orders/ui/storefront/OrderAuditTrailModal';
 import { CancelOrderConfirmDialog } from '@/modules/orders/ui/storefront/CancelOrderConfirmDialog';
 import { ValidateOrderConfirmDialog } from '@/modules/orders/ui/storefront/ValidateOrderConfirmDialog';
 import type { OrderUI } from '@/modules/orders/ui/storefront/PortalOrders.helpers';
 import { OrderMetadataEditor } from '@/modules/orders/ui/workspace/OrderMetadataEditor';
+import { productionStepReadOnlyReason, resolveVisibleOrderStatus } from '@/modules/orders/ui/workspace/order-status-presentation';
 import { OrderUploadLinksPanel } from '@/modules/order-upload-links/ui';
+import { ProductionStepsApiClient, type ProductionStepDto } from '@/modules/production-steps';
 import { useUserCapability } from '@/modules/roles/ui/hooks';
 import { useTenantPath } from '@/modules/tenants/ui/hooks';
 import { useTenant } from '@/modules/tenants/ui/runtime';
@@ -45,10 +46,12 @@ export function UnifiedOrderDetailView({
 }>) {
   const tenantPath = useTenantPath();
   const customersApi = useWorkspaceApi(CustomersApiClient);
+  const productionStepsApi = useWorkspaceApi(ProductionStepsApiClient);
   const { currentTenant } = useTenant();
   const { hasIt: canValidate } = useUserCapability('can_validate');
   const { hasIt: canModify } = useUserCapability('can_modify');
   const [customer, setCustomer] = useState<CustomerDetailDto | null>(null);
+  const [productionSteps, setProductionSteps] = useState<readonly ProductionStepDto[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -66,8 +69,19 @@ export function UnifiedOrderDetailView({
     return () => { active = false; };
   }, [customersApi, order]);
 
+  useEffect(() => {
+    let active = true;
+    void productionStepsApi.list().then(
+      (result) => { if (active) setProductionSteps(result.data); },
+      () => { if (active) setProductionSteps([]); },
+    );
+    return () => { active = false; };
+  }, [productionStepsApi, order.id]);
+
   const lines = useMemo(() => normalizeLines(order), [order]);
-  const status = getStatusInfo(order.status as Parameters<typeof getStatusInfo>[0]);
+  const status = resolveVisibleOrderStatus(order.status, order.current_production_step_id, productionSteps);
+  const statusTone = status.tone === 'error' ? 'border-err-fg/30 bg-err-bg text-err-fg' : status.tone === 'info' ? 'border-brand/30 bg-brand/5 text-brand' : 'border-line bg-bg text-ink-2';
+  const statusReadOnlyReason = productionStepReadOnlyReason(order.status);
   const isAdmin = currentTenant?.myRole === 'admin';
   const shortId = order.id.replace(/-/g, '').slice(0, 8).toUpperCase();
   const customerName = order.origin === 'storefront'
@@ -123,8 +137,8 @@ export function UnifiedOrderDetailView({
           <p className="mt-1 text-sm text-ink-muted">Référence complète : {order.id}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className={`rounded border px-2.5 py-1 text-xs font-mono uppercase ${status.className}`}>{status.label}</span>
-          <OrderStatusButton orderId={order.id} label="Étape de production" onChanged={() => void reload()} />
+          <span className={`rounded border px-2.5 py-1 text-xs font-mono uppercase ${statusTone}`}>{status.label}</span>
+          <OrderStatusButton orderId={order.id} label="Statut" currentStatusLabel={status.label} {...(statusReadOnlyReason === undefined ? {} : { readOnlyReason: statusReadOnlyReason })} onChanged={() => void reload()} onAdministrativeChanged={() => void reload()} />
         </div>
       </header>
 

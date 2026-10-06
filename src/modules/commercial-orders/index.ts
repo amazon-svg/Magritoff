@@ -34,6 +34,7 @@ export type {
 export { CommercialOrdersService } from './application/commercial-orders-service';
 export {
   CommercialOrderNotFoundError,
+  OrderAdministrativeStatusBlockedError,
   OrderStepUnchangedError,
   ProductionStepInactiveError,
   QuoteConversionForbiddenStatusError,
@@ -44,6 +45,7 @@ export type {
   ListCommercialOrdersResult,
   ListOrderStepChangesParams,
   ListOrderStepChangesResult,
+  OrderStepChangeContext,
 } from './application/commercial-orders-repository';
 export { commercialOrdersModuleManifest } from './manifest';
 export { commercialOrdersWorkspaceContribution } from './surface-contributions';

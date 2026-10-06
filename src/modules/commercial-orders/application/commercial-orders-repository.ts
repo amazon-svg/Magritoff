@@ -53,6 +53,14 @@ export class OrderStepUnchangedError extends Error {
   }
 }
 
+/** Une étape opérationnelle ne peut être posée que sur une commande administrativement active. */
+export class OrderAdministrativeStatusBlockedError extends Error {
+  constructor(message = 'Le statut administratif de la commande interdit un changement d’étape de production.') {
+    super(message);
+    this.name = 'OrderAdministrativeStatusBlockedError';
+  }
+}
+
 /**
  * E10.14 — l etape visee existe mais est DESACTIVEE (422
  * `production_step.inactive`, code NEUF, decision #8). Distinct de
@@ -102,6 +110,13 @@ export type ListCommercialOrdersParams = Readonly<{
   sort: CommercialOrderSort;
   size: number;
   cursor: Readonly<{ sort: string; id: string }> | null;
+}>;
+
+export type OrderStepChangeContext = Readonly<{
+  number: string | null;
+  customerId: string | null;
+  status: string;
+  currentProductionStepId: string | null;
 }>;
 
 export type ListCommercialOrdersResult = Readonly<{
@@ -187,6 +202,9 @@ export interface CommercialOrdersRepository {
 
   findDetailById(tenantId: TenantId, orderId: string): Promise<CommercialOrderDetailDto | null>;
 
+  /** Projection minimale commune aux commandes boutique et devis pour le pilotage de production. */
+  findStepChangeContext(tenantId: TenantId, orderId: string, actor: UserId | null): Promise<OrderStepChangeContext | null>;
+
   /**
    * VALIDE le devis `quoteId` et le transforme en commande — delegue
    * ENTIEREMENT a `api_convert_commercial_quote` (`security definer`,
@@ -209,6 +227,7 @@ export interface CommercialOrdersRepository {
     tenantId: TenantId,
     orderId: string,
     params: ListOrderStepChangesParams,
+    actor: UserId | null,
   ): Promise<ListOrderStepChangesResult>;
 
   /**
@@ -233,7 +252,7 @@ export interface CommercialOrdersRepository {
    *
    * Leve `CommercialOrderNotFoundError` (404), `ProductionStepNotFoundError`
    * (E10.13, reutilise, 422), `ProductionStepInactiveError` (422, code neuf),
-   * `OrderStepUnchangedError` (409).
+   * `OrderStepUnchangedError` (409), `OrderAdministrativeStatusBlockedError` (409).
    */
   changeProductionStep(
     tenantId: TenantId,
