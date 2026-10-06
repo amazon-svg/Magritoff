@@ -40,7 +40,7 @@ Xavier Péchoultres confirme que cette séparation visible n'est pas acceptable 
 
 La migration `0086_orders_unification.sql` conserve `tenant_orders` et `tenant_order_items` comme tables canoniques. Elle y ajoute une origine (`storefront` ou `quote`) et les extensions facultatives propres aux devis, reprend les données sans recalculer les montants, repointe les documents, fichiers, étapes, notifications et exports, puis supprime `commercial_orders` et `commercial_order_lines`.
 
-Le vocabulaire et les routes `commercial-orders` peuvent subsister comme projections de compatibilité du workflow devis. Ils n'ont plus de stockage propre et l'interface ne doit pas les présenter comme un second type de commande. La prochaine étape d'E4.4b consiste à remplacer ces deux projections API par un contrat de lecture commun paginé.
+Le vocabulaire et les routes `commercial-orders` peuvent subsister comme projections de compatibilité du workflow devis. Ils n'ont plus de stockage propre et l'interface ne doit pas les présenter comme un second type de commande. Le lot du 6 octobre d'E4.4b remplace la lecture de la grille par une projection commune paginée sous `/api/v1/order-summaries` ; le détail commun sous `/api/v1/order-summaries/{orderId}` est également développé. Les routes historiques restent des projections de compatibilité.
 
 ## Vérifications attendues
 
@@ -52,4 +52,4 @@ Le vocabulaire et les routes `commercial-orders` peuvent subsister comme project
 
 ## Suite technique
 
-[E4.4b](../../backlog/stories/E4.4b.md) suit la convergence. Le stockage et la reprise des dépendances sont réalisés ; le contrat API commun, la pagination globale, les filtres et l'export commun restent à livrer.
+[E4.4b](../../backlog/stories/E4.4b.md) suit la convergence. Le stockage et la reprise des dépendances sont réalisés ; la liste commune, sa pagination et ses filtres sont développés le 6 octobre. Les ajustements d'affichage de la grille sont validés par Xavier ; le détail et l'export communs sont développés et attendent leur recette humaine. L'export CSV/XLSX reprend les filtres appliqués sur toutes les pages et indique l'origine et la boutique ; les exports historiques restent compatibles. La fenêtre de retrait des anciennes routes reste à définir.

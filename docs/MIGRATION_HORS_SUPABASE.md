@@ -246,7 +246,7 @@ pnpm infra:dev:reset    # destruction explicite des seules donnees locales
 pnpm db:migrate         # applique les migrations PostgreSQL Magrit
 pnpm db:seed            # identite, tenant et appartenance de developpement
 pnpm db:seed:ux         # donnees UX volumiques (clients, devis, commandes)
-pnpm dev:local          # services locaux, API Node et Vite
+pnpm dev:local          # services locaux, API Node, Vite et worker d'export des commandes
 ```
 
 Le seed UX est idempotent et reserve par defaut a PostgreSQL local. Sans

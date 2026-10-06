@@ -14,7 +14,8 @@
 
   Cette commande démarre PostgreSQL 17, SeaweedFS (API S3), Mailpit, applique
   les migrations et le seed, puis lance l'API Node sur `127.0.0.1:8787` et
-  Vite sur `localhost:5176`.
+  Vite sur `localhost:5176`, ainsi que le worker de génération des exports
+  de commandes avec le stockage S3 local.
 
   Commandes utiles :
 
