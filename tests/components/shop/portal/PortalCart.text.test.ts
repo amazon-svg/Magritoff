@@ -39,9 +39,9 @@ describe('PortalCart — textes corrigés (BCP-5)', () => {
   });
 
   it('le badge prix marché ne mentionne plus Clariprint et engage l imprimeur à la validation', () => {
-    expect(source).toContain(
-      "Prix marché</strong> — au moins une ligne est une estimation Magrit. Le prix définitif sera confirmé par l&apos;imprimeur à la validation de la commande.",
-    );
+    expect(source).toContain('MARKET_PRICE_BADGE_LABEL');
+    expect(source).toContain('MARKET_PRICE_BADGE_TOOLTIP');
+    expect(source).toContain('role="note"');
     expect(source).not.toContain('Clariprint pas encore intégré');
   });
 

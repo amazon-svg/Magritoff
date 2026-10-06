@@ -1,6 +1,7 @@
 import { resolvePrice, type PriceResolution } from '@/modules/clariprint/ui/helpers';
 import type { ClariprintQuoteResult } from '@/modules/clariprint';
 import type { CartLine } from '@/modules/orders/ui/storefront/types';
+import { applyTax, extractTaxAmount } from '@/modules/orders/ui/helpers/tax';
 
 export interface CartLinePricing {
   resolution: PriceResolution;
@@ -30,4 +31,29 @@ export function resolveCartLinePricing(line: CartLine): CartLinePricing {
 
 export function computePortalCartTotalHt(cart: readonly CartLine[]): number {
   return cart.reduce((total, line) => total + resolveCartLinePricing(line).lineTotalHt, 0);
+}
+
+export interface PortalCartPricingSummary {
+  subtotalHt: number;
+  taxAmount: number;
+  totalTtc: number;
+  hasMarketPriceLine: boolean;
+}
+
+/**
+ * Résumé pur utilisé par le panier : l'avertissement sur un prix estimé est
+ * dérivé des mêmes résolutions que les montants, sans modifier les totaux.
+ */
+export function computePortalCartPricingSummary(
+  cart: readonly CartLine[],
+  taxRate: number,
+): PortalCartPricingSummary {
+  const pricing = cart.map(resolveCartLinePricing);
+  const subtotalHt = pricing.reduce((total, line) => total + line.lineTotalHt, 0);
+  return {
+    subtotalHt,
+    taxAmount: extractTaxAmount(subtotalHt, taxRate),
+    totalTtc: applyTax(subtotalHt, taxRate),
+    hasMarketPriceLine: pricing.some((line) => line.resolution.isMarketPrice),
+  };
 }

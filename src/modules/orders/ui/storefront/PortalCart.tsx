@@ -5,9 +5,16 @@ import type { Gamme, ProductDefinition } from '@/modules/catalog/ui/helpers';
 import { resolveProductGamme } from '@/modules/catalog/ui/helpers';
 import { ProductMockup } from '@/modules/mockups/ui/components';
 import { TEST_IDS } from '@/shared/presentation/testIds';
-import { applyTax, extractTaxAmount, formatTaxLabel } from '@/modules/orders/ui/helpers/tax';
-import { resolveCartLinePricing } from '@/modules/orders/ui/storefront/cartPricing';
+import { applyTax, formatTaxLabel } from '@/modules/orders/ui/helpers/tax';
+import {
+  computePortalCartPricingSummary,
+  resolveCartLinePricing,
+} from '@/modules/orders/ui/storefront/cartPricing';
 import { renewalBannerSections } from '@/modules/orders/ui/storefront/orderRenewal.helpers';
+import {
+  MARKET_PRICE_BADGE_LABEL,
+  MARKET_PRICE_BADGE_TOOLTIP,
+} from '@/modules/catalog/ui/storefront';
 
 interface Props {
   cart: CartLine[];
@@ -96,10 +103,12 @@ export function PortalCart({
     const { resolution, lineTotalHt: lineTotal } = resolveCartLinePricing(l);
     return { line: l, resolution, lineTotal };
   });
-  const subtotalHT = cartLines.reduce((s, c) => s + c.lineTotal, 0);
-  const tva = extractTaxAmount(subtotalHT, taxRate);
-  const totalFinal = applyTax(subtotalHT, taxRate);
-  const hasMarketPriceLine = cartLines.some((c) => c.resolution.isMarketPrice);
+  const {
+    subtotalHt: subtotalHT,
+    taxAmount: tva,
+    totalTtc: totalFinal,
+    hasMarketPriceLine,
+  } = computePortalCartPricingSummary(cart, taxRate);
 
   const budgetPctAfter = budget
     ? Math.min(100, Math.round(((budget.used + totalFinal) / budget.total) * 100))
@@ -387,10 +396,11 @@ export function PortalCart({
           </div>
           {hasMarketPriceLine && (
             <div
+              role="note"
               className="mt-3 px-3 py-2 bg-orange-50 border border-orange-200 rounded text-orange-800"
               style={{ fontSize: '12px', lineHeight: '1.4' }}
             >
-              ⚠️ <strong>Prix marché</strong> — au moins une ligne est une estimation Magrit. Le prix définitif sera confirmé par l&apos;imprimeur à la validation de la commande.
+              ⚠️ <strong>{MARKET_PRICE_BADGE_LABEL}</strong> — {MARKET_PRICE_BADGE_TOOLTIP}
             </div>
           )}
         </div>
