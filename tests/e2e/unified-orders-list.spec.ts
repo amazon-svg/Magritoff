@@ -67,6 +67,10 @@ test('liste réelle : pagination, filtres communs et absence de chevauchement', 
   const statusBounds = await rows(page).first().locator('td').nth(8).locator('span').first().boundingBox();
   const actionsBounds = await rows(page).first().locator('td').nth(9).boundingBox();
   expect(statusBounds!.x + statusBounds!.width).toBeLessThanOrEqual(actionsBounds!.x);
+  await rows(page).first().getByRole('button', { name: 'Statut', exact: true }).click();
+  await expect(page.getByText('Statut actuel :')).toContainText('En attente de validation');
+  await expect(page.getByRole('button', { name: /Valider (la commande|malgré le prix non vérifié)/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Fermer', exact: true }).click();
   await reset(page);
 
   const firstRow = rows(page).first();

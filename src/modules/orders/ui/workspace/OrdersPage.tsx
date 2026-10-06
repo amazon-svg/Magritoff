@@ -193,6 +193,7 @@ export function DashboardOrders() {
             currentStatusLabel={currentStatusLabel}
             {...(readOnlyReason === undefined ? {} : { readOnlyReason })}
             onChanged={() => void management.reload()}
+            onAdministrativeChanged={() => management.reload()}
           />;
         }}
         extraColumn={{ header: 'Origine', position: 'after-date', render: (order) => (

@@ -30,9 +30,10 @@ export interface OrderStatusButtonProps {
   /** Affiche l'historique sans autoriser une étape pour un état administratif bloquant. */
   readOnlyReason?: string;
   currentStatusLabel?: string;
+  onAdministrativeChanged?: () => void;
 }
 
-export function OrderStatusButton({ orderId, label = 'Statut', className, onChanged, readOnlyReason, currentStatusLabel }: OrderStatusButtonProps) {
+export function OrderStatusButton({ orderId, label = 'Statut', className, onChanged, readOnlyReason, currentStatusLabel, onAdministrativeChanged }: OrderStatusButtonProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -51,6 +52,7 @@ export function OrderStatusButton({ orderId, label = 'Statut', className, onChan
           onClose={() => setOpen(false)}
           {...(readOnlyReason === undefined ? {} : { readOnlyReason })}
           {...(currentStatusLabel === undefined ? {} : { currentStatusLabel })}
+          {...(onAdministrativeChanged === undefined ? {} : { onAdministrativeChanged })}
           {...(onChanged === undefined ? {} : { onChanged })}
         />
       )}
