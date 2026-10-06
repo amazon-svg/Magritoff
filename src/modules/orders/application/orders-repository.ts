@@ -1,3 +1,5 @@
+import type { CursorPosition } from '../../_shared/application/index.ts';
+import type { OrderListEntry, OrderListFilters } from '../api/contracts.ts';
 import type { UserId } from '../../../kernel/ids/index.ts';
 import type { PortalOrdersCounters, PortalOrdersTab } from '../api/contracts.ts';
 import type {
@@ -5,6 +7,7 @@ import type {
   CreateOrderResult,
   DraftOrder,
   OrderDetail,
+  UnifiedOrderDetail,
   UpdateDraftOrderCommand,
   UpdateDraftOrderResult,
   OrderRolesResponse,
@@ -125,7 +128,22 @@ export class OrderCommandRejectedError extends Error {
   }
 }
 
+/** Position SQL exacte : PostgreSQL conserve les microsecondes, Date les tronque. */
+export type OrderListRecord = OrderListEntry & { cursorCreatedAt?: string };
+
+export type ListOrdersParams = Readonly<{
+  actor: UserId;
+  filters: OrderListFilters;
+  size: number;
+  cursor: CursorPosition | null;
+  createdAtFrom: string | null;
+  /** Borne exclusive : minuit suivant le dernier jour civil choisi. */
+  createdAtTo: string | null;
+}>;
+
 export interface OrdersRepository {
+  getUnifiedOrderDetail(tenantId: import('../../../kernel/ids/index.ts').TenantId, orderId: string, actor: UserId): Promise<UnifiedOrderDetail | null>;
+  listOrders(tenantId: import('../../../kernel/ids/index.ts').TenantId, params: ListOrdersParams): Promise<readonly OrderListRecord[]>;
   getTenantTaxRegime(tenantId: string, actor: UserId): Promise<TaxRegime | null>;
   getShopTaxRegime(shopId: string, actor: UserId): Promise<TaxRegime | null>;
   listTenantOrders(tenantId: string, actor: UserId): Promise<readonly TenantOrderRecord[]>;

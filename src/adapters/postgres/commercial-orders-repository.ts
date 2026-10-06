@@ -1,3 +1,4 @@
+import type { PoolClient } from 'pg';
 import type { TenantId, UserId } from '../../kernel/ids/index.ts';
 import { toIsoTimestamp } from '../../modules/_shared/application/index.ts';
 import { QuoteNotFoundError } from '../../modules/commercial-quotes/application/commercial-quotes-repository.ts';
@@ -129,29 +130,7 @@ export class PostgresCommercialOrdersRepository implements CommercialOrdersRepos
   }
 
   findDetailById(tenantId: TenantId, orderId: string): Promise<CommercialOrderDetailDto | null> {
-    return this.transactions.run({ tenantId }, async (client) => {
-      const orderResult = await client.query(
-        `select orders.*, orders.expected_delivery_date::text as expected_delivery_date
-         from public.tenant_orders orders
-         where orders.tenant_id = $1 and orders.id = $2 and orders.order_origin = 'quote'`,
-        [tenantId, orderId],
-      );
-      const order = orderResult.rows[0];
-      if (!order) return null;
-
-      const lines = await client.query(
-        `select items.*, items.product_label as label, items.clariprint_options as product_config,
-                items.line_origin as origin
-           from public.tenant_order_items items where order_id = $1 order by position`,
-        [orderId],
-      );
-      return {
-        ...toCommercialOrder(order),
-        customer_contact_id: order.customer_contact_id ?? null,
-        expected_delivery_date: order.expected_delivery_date ?? null,
-        lines: lines.rows.map(toCommercialOrderLine),
-      };
-    });
+    return this.transactions.run({ tenantId }, (client) => readCommercialOrderDetail(client, tenantId, orderId));
   }
 
   async convertQuote(tenantId: TenantId, actor: UserId, quoteId: string): Promise<CommercialOrderDetailDto> {
@@ -381,4 +360,29 @@ function mapProductionStepChangeError(error: unknown): Error {
   if (message.includes('production_step.inactive')) return new ProductionStepInactiveError(message);
   if (message.includes('step_unchanged')) return new OrderStepUnchangedError(message);
   return error instanceof Error ? error : new Error(message);
+}
+
+/** Shared by the historical façade and the unified order projection. */
+export async function readCommercialOrderDetail(client: PoolClient, tenantId: TenantId, orderId: string): Promise<CommercialOrderDetailDto | null> {
+  const orderResult = await client.query(
+    `select orders.*, orders.expected_delivery_date::text as expected_delivery_date
+     from public.tenant_orders orders
+     where orders.tenant_id = $1 and orders.id = $2 and orders.order_origin = 'quote'`,
+    [tenantId, orderId],
+  );
+  const order = orderResult.rows[0];
+  if (!order) return null;
+
+  const lines = await client.query(
+    `select items.*, items.product_label as label, items.clariprint_options as product_config,
+            items.line_origin as origin
+       from public.tenant_order_items items where order_id = $1 order by position`,
+    [orderId],
+  );
+  return {
+    ...toCommercialOrder(order),
+    customer_contact_id: order.customer_contact_id ?? null,
+    expected_delivery_date: order.expected_delivery_date ?? null,
+    lines: lines.rows.map(toCommercialOrderLine),
+  };
 }

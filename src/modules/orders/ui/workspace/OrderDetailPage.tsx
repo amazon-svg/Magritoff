@@ -41,7 +41,9 @@ export function DashboardShopOrderDetail({ initialOrder = null }: { initialOrder
     setLoading(true);
     setError(null);
     try {
-      setOrder(await ordersApi.getDetail(orderId));
+      const resolved = await ordersApi.getUnifiedDetail(orderId);
+      if (resolved.origin !== 'storefront') throw new Error('Cette commande doit être rechargée depuis la liste.');
+      setOrder(resolved.detail);
     } catch (cause) {
       setOrder(null);
       setError(cause instanceof Error ? cause.message : 'Chargement de la commande impossible.');

@@ -19,6 +19,7 @@
 import { z } from 'zod';
 import { problemCodeSchema, timestampSchema, uuidSchema } from '../../_shared/api/index.ts';
 import { dateOnlySchema } from '../../commercial-quotes/api/contracts.ts';
+import { orderListFiltersSchema, orderListStatusSchema, orderOriginSchema } from '../../orders/api/contracts.ts';
 import { commercialOrderStatusSchema } from '../../commercial-orders/api/contracts.ts';
 
 export const orderExportFormatSchema = z.enum(['xlsx', 'csv']);
@@ -30,7 +31,7 @@ export const orderExportStatusSchema = z.enum(['pending', 'running', 'ready', 'f
  * requete de `listCommercialOrders` — meme nom, meme type. `{}` est valide
  * (« tout l historique de l espace »).
  */
-export const orderExportFiltersSchema = z
+export const legacyOrderExportFiltersSchema = z
   .object({
     customer_id: uuidSchema.nullable().optional(),
     quote_id: uuidSchema.nullable().optional(),
@@ -41,11 +42,25 @@ export const orderExportFiltersSchema = z
   })
   .strict();
 
+/** Response filters accept both layout versions; legacy requests remain strict. */
+export const orderExportFiltersSchema = legacyOrderExportFiltersSchema.extend({
+  origin: orderOriginSchema.nullable().optional(),
+  status: orderListStatusSchema.nullable().optional(),
+  customer_search: z.string().trim().min(1).max(200).nullable().optional(),
+  shop_id: uuidSchema.nullable().optional(),
+});
+export const requestUnifiedOrderExportCommandSchema = z.object({
+  format: orderExportFormatSchema,
+  granularity: orderExportGranularitySchema,
+  filters: orderListFiltersSchema.strict().optional(),
+}).strict();
+export type RequestUnifiedOrderExportCommand = z.infer<typeof requestUnifiedOrderExportCommandSchema>;
+
 export const requestOrderExportCommandSchema = z
   .object({
     format: orderExportFormatSchema,
     granularity: orderExportGranularitySchema,
-    filters: orderExportFiltersSchema.optional(),
+    filters: legacyOrderExportFiltersSchema.optional(),
   })
   .strict();
 

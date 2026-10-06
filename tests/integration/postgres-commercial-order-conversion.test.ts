@@ -1,3 +1,5 @@
+import { PostgresOrdersRepository } from '../../src/adapters/postgres/orders-repository.ts';
+import { unifiedOrderDetailSchema } from '../../src/modules/orders/api/contracts.ts';
 import { randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -61,7 +63,7 @@ const enabled = process.env['MAGRIT_POSTGRES_INTEGRATION'] === '1';
          public_price, customer_price, applied_margin_rate, sale_price, breakdown
        ) values (
          $1, $2, 'free', 'Impression', '{}', 1, 0, 50, 120, 100, .5000, 100,
-         '[{"label":"base","amount":"100.00"}]'
+         '[{"post":"printing","cost":"50.00","margin_rate":"0.5000","price":"100.00","source":"prix_marche"}]'
        )`,
       [line, quote],
     );
@@ -120,6 +122,15 @@ const enabled = process.env['MAGRIT_POSTGRES_INTEGRATION'] === '1';
       expected_delivery_date: null,
       lines: [{ source_quote_line_id: line }],
     });
+
+    const unifiedRepository = new PostgresOrdersRepository(transactions, {
+      transition: async () => undefined, created: async () => undefined,
+    });
+    const unified = await unifiedRepository.getUnifiedOrderDetail(tenant, orderId, actor);
+    expect(unifiedOrderDetailSchema.safeParse(unified).success).toBe(true);
+    expect(unified).toMatchObject({ origin: 'quote', quote_id: quote, customer_id: customer,
+      total_ht: '90.00', total_ttc: '108.00', detail: converted });
+    expect(unified?.detail).toEqual(await repository.findDetailById(tenant, orderId));
 
     const document = await repository.findForDocumentGeneration(tenant, orderId);
     expect(document).toMatchObject({

@@ -44,7 +44,7 @@
  * echec transitoire, qa-review round 1 M1 — voir `order-export.helpers.ts`),
  * et TOUS les pollers actifs sont arretes au demontage de ce composant.
  */
-import { useEffect, useReducer, useRef, useState } from 'react';
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { TEST_IDS } from '@/shared/presentation/testIds';
 import { useWorkspaceApi } from '@/platform/runtime/workspace-ui-runtime';
 import { useAccessProfile } from '@/modules/roles/ui/runtime';
@@ -61,17 +61,19 @@ import {
   resolveOrderExportListLoadErrorMessage,
   startOrderExportPolling,
   type OrderExportPollingHandle,
+  type UnifiedOrderExportSelection,
 } from './order-export.helpers';
 import { OrderExportDialog } from './OrderExportDialog';
-import type { OrdersListFilters, ProductionStepCatalog } from '../workspace/orders-list.helpers';
+import { DEFAULT_ORDERS_LIST_FILTERS, EMPTY_PRODUCTION_STEP_CATALOG, type OrdersListFilters, type ProductionStepCatalog } from '../workspace/orders-list.helpers';
 
 const T = TEST_IDS.orderExport;
 
 export interface OrderExportPanelProps {
   /** Filtres ACTIFS de la grille, transmis tels quels a la modale (point 3). */
-  filters: OrdersListFilters;
-  selectedCustomerLabel: string;
-  stepCatalog: ProductionStepCatalog;
+  filters?: OrdersListFilters;
+  selectedCustomerLabel?: string;
+  stepCatalog?: ProductionStepCatalog;
+  unifiedSelection?: UnifiedOrderExportSelection;
 }
 
 /**
@@ -104,8 +106,10 @@ function triggerBrowserDownload(url: string): void {
   anchor.remove();
 }
 
-export function OrderExportPanel({ filters, selectedCustomerLabel, stepCatalog }: OrderExportPanelProps) {
-  const api = useWorkspaceApi(OrderExportsApiClient);
+export function OrderExportPanel({ filters = DEFAULT_ORDERS_LIST_FILTERS, selectedCustomerLabel = '', stepCatalog = EMPTY_PRODUCTION_STEP_CATALOG, unifiedSelection }: OrderExportPanelProps) {
+  const legacyApi = useWorkspaceApi(OrderExportsApiClient);
+  const unified = unifiedSelection !== undefined;
+  const api = useMemo(() => unified ? legacyApi.forUnified() : legacyApi, [legacyApi, unified]);
   const { hasCapability } = useAccessProfile();
   const canExport = hasCapability(CAN_EXPORT_ORDERS) === true;
 
@@ -247,6 +251,7 @@ export function OrderExportPanel({ filters, selectedCustomerLabel, stepCatalog }
 
       {dialogOpen && (
         <OrderExportDialog
+          {...(unifiedSelection ? { unifiedSelection } : {})}
           filters={filters}
           selectedCustomerLabel={selectedCustomerLabel}
           stepCatalog={stepCatalog}

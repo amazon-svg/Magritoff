@@ -24,6 +24,8 @@ import {
   orderExportSchema,
   orderExportsListSchema,
   requestOrderExportCommandSchema,
+  requestUnifiedOrderExportCommandSchema,
+  type OrderExportFiltersDto,
   type OrderExportDto,
   type OrderExportFormat,
   type OrderExportGranularity,
@@ -47,7 +49,10 @@ export type ListCommercialOrderExportsResponse = Readonly<{
 }>;
 
 export class OrderExportsApiClient {
-  constructor(private readonly client: FetchApiClient) {}
+  constructor(private readonly client: FetchApiClient, private readonly unified = false) {}
+
+  forUnified(): OrderExportsApiClient { return new OrderExportsApiClient(this.client, true); }
+  private get basePath() { return this.unified ? `${API_V1_BASE_PATH}/order-exports` : ORDER_EXPORTS_BASE_PATH; }
 
   /**
    * REGISTRE TENANT-LARGE (contrat) : rend les demandes de TOUS les membres
@@ -64,7 +69,7 @@ export class OrderExportsApiClient {
     const suffix = params.toString();
 
     const envelope = await this.client.request({
-      path: suffix ? `${ORDER_EXPORTS_BASE_PATH}?${suffix}` : ORDER_EXPORTS_BASE_PATH,
+      path: suffix ? `${this.basePath}?${suffix}` : this.basePath,
       responseSchema: successEnvelopeSchema(orderExportsListSchema),
     });
     return { items: envelope.data, nextCursor: envelope.meta.next_cursor ?? null };
@@ -74,11 +79,11 @@ export class OrderExportsApiClient {
    * `idempotencyKey` OBLIGATOIRE — voir en-tete de fichier : ce client ne
    * genere jamais lui-meme cette cle, contrairement au reste du depot.
    */
-  async request(command: RequestOrderExportCommand, idempotencyKey: string): Promise<OrderExportDto> {
+  async request(command: Omit<RequestOrderExportCommand, 'filters'> & { filters?: OrderExportFiltersDto }, idempotencyKey: string): Promise<OrderExportDto> {
     const envelope = await this.client.request({
       method: 'POST',
-      path: ORDER_EXPORTS_BASE_PATH,
-      body: requestOrderExportCommandSchema.parse(command),
+      path: this.basePath,
+      body: (this.unified ? requestUnifiedOrderExportCommandSchema : requestOrderExportCommandSchema).parse(command),
       headers: { 'Idempotency-Key': idempotencyKey },
       responseSchema: successEnvelopeSchema(orderExportSchema),
     });
@@ -93,7 +98,7 @@ export class OrderExportsApiClient {
    */
   async get(exportId: string): Promise<OrderExportDto> {
     const envelope = await this.client.request({
-      path: `${ORDER_EXPORTS_BASE_PATH}/${exportId}`,
+      path: `${this.basePath}/${exportId}`,
       responseSchema: successEnvelopeSchema(orderExportSchema),
     });
     return envelope.data;

@@ -63,6 +63,7 @@ export type ListOrderExportsFilters = Readonly<{
 }>;
 
 export type RequestOrderExportParams = Readonly<{
+  layoutVersion?: 1 | 2;
   format: OrderExportFormat;
   granularity: OrderExportGranularity;
   filters: OrderExportFiltersDto;

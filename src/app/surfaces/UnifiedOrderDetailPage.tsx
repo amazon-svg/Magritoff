@@ -1,32 +1,27 @@
 import { useEffect, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router';
 import { DashboardOrderDetail as CommercialOrderDetail } from '@/modules/commercial-orders/ui';
-import { OrdersApiClient, type OrderDetail } from '@/modules/orders';
+import { OrdersApiClient, type UnifiedOrderDetail } from '@/modules/orders';
 import { DashboardShopOrderDetail } from '@/modules/orders/ui';
 import { useTenantPath } from '@/modules/tenants/ui/hooks';
-import { ApiClientError } from '@/platform/api';
 import { useWorkspaceApi } from '@/platform/runtime/workspace-ui-runtime';
-
-type ResolvedOrder =
-  | Readonly<{ origin: 'storefront'; detail: OrderDetail }>
-  | Readonly<{ origin: 'quote'; detail: null }>;
 
 /**
  * Point d entree unique de la fiche Commande.
  *
- * Les commandes partagent la persistance canonique `tenant_orders`. Les deux
- * projections API distinguent encore leur workflow d'origine pour rendre la
- * fiche adaptée. La route canonique reste `/orders/:id` ; l'ancien chemin
+ * La projection serveur commune résout l'origine et fournit le détail complet.
+ * La route canonique reste `/orders/:id` ; l'ancien chemin
  * `/commercial-orders/:id` monte ce même composant.
  */
 export function UnifiedOrderDetailPage() {
   const { orderId } = useParams<{ orderId: string }>();
   const ordersApi = useWorkspaceApi(OrdersApiClient);
-  const [resolved, setResolved] = useState<ResolvedOrder | null>(null);
+  const [resolved, setResolved] = useState<UnifiedOrderDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
+    const controller = new AbortController();
     setResolved(null);
     setError(null);
     if (!orderId) {
@@ -34,27 +29,23 @@ export function UnifiedOrderDetailPage() {
       return () => { active = false; };
     }
 
-    void ordersApi.getDetail(orderId).then(
+    void ordersApi.getUnifiedDetail(orderId, controller.signal).then(
       (detail) => {
-        if (active) setResolved({ origin: 'storefront', detail });
+        if (active) setResolved(detail);
       },
       (cause: unknown) => {
         if (!active) return;
-        if (cause instanceof ApiClientError && cause.problem.status === 404) {
-          setResolved({ origin: 'quote', detail: null });
-          return;
-        }
         setError(cause instanceof Error ? cause.message : 'Chargement de la commande impossible.');
       },
     );
 
-    return () => { active = false; };
+    return () => { active = false; controller.abort(); };
   }, [orderId, ordersApi]);
 
   if (error) return <UnifiedOrderError message={error} />;
   if (!resolved) return <p className="text-sm text-ink-muted">Chargement de la commande…</p>;
   if (resolved.origin === 'storefront') return <DashboardShopOrderDetail initialOrder={resolved.detail} />;
-  return <CommercialOrderDetail />;
+  return <CommercialOrderDetail initialOrder={resolved.detail} />;
 }
 
 /** L ancienne grille devient un alias vers la grille metier unique. */

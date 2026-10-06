@@ -10,6 +10,7 @@ import type { OrderExportFiltersDto, OrderExportFormat, OrderExportGranularity }
 import type { OrderExportRawRow } from './order-export-columns.ts';
 
 export type ClaimedOrderExport = Readonly<{
+  layoutVersion?: 1 | 2;
   id: string;
   tenantId: TenantId;
   format: OrderExportFormat;

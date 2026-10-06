@@ -1,3 +1,4 @@
+import { createUnifiedOrdersRoutes } from '../api/unified-orders-routes.ts';
 import { createApiV1Application } from '../api/composition.ts';
 import { createCommercialSettingsRoutes } from '../api/commercial-settings-routes.ts';
 import { createCommercialRoutes } from '../api/commercial-routes.ts';
@@ -506,14 +507,13 @@ const orderFilesRoutes = s3Client === null
         s3Client,
       ),
     }));
-const orderExportsRoutes = s3Client === null || commercialQuotesService === null
-  ? []
-  : createOrderExportsRoutes(new OrderExportsService({
-      repository: new PostgresOrderExportsRepository(
-        new PostgresTransactionRunner(postgresPool, 'magrit_api'),
-        s3Client,
-      ),
-    }), customersService, commercialQuotesService, productionStepsService);
+const orderExportsService = s3Client === null ? null : new OrderExportsService({
+  repository: new PostgresOrderExportsRepository(new PostgresTransactionRunner(postgresPool, 'magrit_api'), s3Client),
+});
+const orderExportsRoutes = orderExportsService === null || commercialQuotesService === null ? [] : [
+  ...createOrderExportsRoutes(orderExportsService, customersService, commercialQuotesService, productionStepsService),
+  ...createOrderExportsRoutes(orderExportsService, customersService, commercialQuotesService, productionStepsService, true),
+];
 const orderUploadLinksRoutes = orderUploadLinksRepository === null
   ? []
   : createOrderUploadLinksRoutes(new OrderUploadLinksService({
@@ -543,17 +543,14 @@ const storefrontSessions = new StorefrontSessionService(storefrontAuthentication
 const storefrontCookiePolicy = storefrontSessionCookiePolicy(
   (process.env['APP_BASE_URL'] ?? '').startsWith('https://') || process.env['NODE_ENV'] === 'production',
 );
-const ordersRoutes = createOrdersRoutes(
-  new OrdersService(new PostgresOrdersRepository(
+const ordersService = new OrdersService(new PostgresOrdersRepository(
+  new PostgresTransactionRunner(postgresPool, 'magrit_api'),
+  new PostgresOrdersNotificationGateway(
     new PostgresTransactionRunner(postgresPool, 'magrit_api'),
-    new PostgresOrdersNotificationGateway(
-      new PostgresTransactionRunner(postgresPool, 'magrit_api'),
-      notificationEmailSender,
-    ),
-  )),
-  storefrontSessions,
-  storefrontCookiePolicy,
-);
+    notificationEmailSender,
+  ),
+));
+const ordersRoutes = createOrdersRoutes(ordersService, storefrontSessions, storefrontCookiePolicy);
 const clariprintRoutes = createClariprintRoutes(clariprintService, {
   isMember: (userId) => clariprintMembership.isMember(userId),
   storefrontSessions,
@@ -698,6 +695,7 @@ const gescomHandler = gescomPrincipalVerifier === null
   ? null
   : createGescomApiHandler({
       routes: [
+        ...createUnifiedOrdersRoutes(ordersService),
         ...commercialSettingsRoutes,
         ...productionStepsRoutes,
         ...notificationTemplatesRoutes,
@@ -867,6 +865,7 @@ function isCommercialSettingsPath(pathname: string): boolean {
 
 function isLocalGescomPath(pathname: string): boolean {
   return isCommercialSettingsPath(pathname)
+    || /^\/api\/v1\/order-summaries(?:\/[^/]+)?\/?$/.test(pathname)
     || /^\/api\/v1\/production-steps(?:\/[^/]+)?\/?$/.test(pathname)
     || pathname === '/api/v1/production-step-positions'
     || /^\/api\/v1\/project-tags(?:\/[^/]+)?\/?$/.test(pathname)
@@ -879,6 +878,7 @@ function isLocalGescomPath(pathname: string): boolean {
     || pathname.startsWith('/api/v1/quotes/')
     || pathname === '/api/v1/commercial-orders'
     || pathname.startsWith('/api/v1/commercial-orders/')
+    || /^\/api\/v1\/order-exports(?:\/[^/]+)?\/?$/.test(pathname)
     || pathname === '/api/v1/commercial-order-exports'
     || pathname.startsWith('/api/v1/commercial-order-exports/')
     || pathname === '/api/v1/order-upload-links/current'

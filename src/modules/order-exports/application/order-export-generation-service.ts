@@ -162,7 +162,7 @@ export class OrderExportGenerationService {
       after = page.nextAfter;
     }
 
-    const rendered = await renderer.render({ granularity: item.granularity, rows });
+    const rendered = await renderer.render({ granularity: item.granularity, rows, ...(item.layoutVersion ? { layoutVersion: item.layoutVersion } : {}) });
     if (!rendered.ok) {
       await this.dependencies.repository.markFailed(item.id, rendered.code, rendered.detail, this.now().toISOString());
       return false;

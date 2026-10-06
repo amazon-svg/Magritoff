@@ -334,6 +334,8 @@ function repositoryStub(): OrdersRepository & Record<'listLegacyOrders', ReturnT
     totalHt: 100, status: 'draft', hasUnverifiedPrices: false,
   };
   return {
+    listOrders: async () => [],
+    getUnifiedOrderDetail: async () => null,
     getTenantTaxRegime: vi.fn(async () => 'dom_tom' as const),
     getShopTaxRegime: vi.fn(async () => 'dom_tom' as const),
     listTenantOrders: vi.fn(async () => [v11]),

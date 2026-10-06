@@ -131,7 +131,7 @@ export class InMemoryOrderExportsRepository implements OrderExportsRepository {
       format: params.format,
       granularity: params.granularity,
       filters: params.filters,
-      layout_version: 1,
+      layout_version: params.layoutVersion ?? 1,
       requested_by: actor,
       requested_by_label: `${actor}@example.test`,
       requested_at: now,

@@ -265,3 +265,26 @@ describe('csvOrderExportRenderer — date de commande (conversion Europe/Paris, 
     expect(text).not.toContain('2026-09-01');
   });
 });
+
+
+describe('CSV commun version 2', () => {
+  it('ajoute Origine/Boutique et traduit les statuts boutique sans altérer les anciens en-têtes', async () => {
+    const result = await csvOrderExportRenderer.render({ granularity: 'order', layoutVersion: 2,
+      rows: [headerRow({ order_origin: 'storefront', shop_name: 'Atelier Lumière', order_status: 'draft',
+        quote_number: null, customer_type: null, customer_name: 'Acheteur boutique' }),
+        headerRow({ order_origin: 'quote', shop_name: null })] });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const lines = new TextDecoder('utf-8', { ignoreBOM: true }).decode(result.bytes).split('\r\n');
+    expect(lines[0].split(';').slice(-2)).toEqual(['Origine', 'Boutique']);
+    expect(lines[1]).toContain('En attente de validation');
+    expect(lines[1]).toContain('Boutique;Atelier Lumière');
+    expect(lines[2]).toContain('Devis;');
+    expect(lines[1]).toContain('1308,00');
+  });
+  it('garde les deux nouvelles colonnes pour une sélection vide', async () => {
+    const result = await csvOrderExportRenderer.render({ granularity: 'line', layoutVersion: 2, rows: [] });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(new TextDecoder().decode(result.bytes)).toContain('Origine;Boutique');
+  });
+});

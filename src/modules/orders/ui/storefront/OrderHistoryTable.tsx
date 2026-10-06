@@ -85,6 +85,8 @@ export interface ExtraFilter {
 }
 
 export interface OrderHistoryTableProps {
+  /** La sélection et son ordre sont déjà calculés par le serveur. */
+  serverManaged?: boolean;
   /** Orders deja fetches + normalises par le parent. */
   orders: OrderUI[];
   /** Loading state remonte par le parent. */
@@ -429,6 +431,7 @@ export function OrderHistoryTable({
   persistKey,
   auditApi,
   appearance = 'portal',
+  serverManaged = false,
   onRenewOrder,
   onCancelOrder,
   onEditOrder,
@@ -522,12 +525,12 @@ export function OrderHistoryTable({
   }, [orders]);
 
   const filtered = useMemo(
-    () => applyFilters(orders, state, extraFilter),
-    [orders, state, extraFilter],
+    () => serverManaged ? orders : applyFilters(orders, state, extraFilter),
+    [orders, state, extraFilter, serverManaged],
   );
   const sorted = useMemo(
-    () => applySort(filtered, state, extraColumn?.sortValue),
-    [filtered, state, extraColumn?.sortValue],
+    () => serverManaged ? filtered : applySort(filtered, state, extraColumn?.sortValue),
+    [filtered, state, extraColumn?.sortValue, serverManaged],
   );
 
   // Options du filtre catégoriel extra : déduplication par clé stable, label
@@ -595,12 +598,13 @@ export function OrderHistoryTable({
   }
 
   function ariaSortFor(col: SortableColumn): 'ascending' | 'descending' | 'none' {
+    if (serverManaged) return col === 'date' ? 'descending' : 'none';
     if (state.sortBy !== col) return 'none';
     return state.sortDir === 'asc' ? 'ascending' : 'descending';
   }
 
   function SortIndicator({ col }: { col: SortableColumn }) {
-    if (state.sortBy !== col) return null;
+    if (serverManaged || state.sortBy !== col) return null;
     return state.sortDir === 'asc' ? (
       <ArrowUp className="inline w-3 h-3 ml-1" strokeWidth={2} aria-hidden="true" />
     ) : (
@@ -651,7 +655,7 @@ export function OrderHistoryTable({
       }
     >
       {/* ─── Barre de filtres ──────────────────────────────────────────── */}
-      <div
+      {!serverManaged && <div
         className={`flex flex-wrap items-end gap-4 border-b border-line ${
           isDashboardAppearance ? 'bg-bg px-4 py-3' : 'mb-5 pb-4'
         }`}
@@ -878,7 +882,7 @@ export function OrderHistoryTable({
         >
           {sorted.length} / {orders.length} commande{orders.length > 1 ? 's' : ''}
         </div>
-      </div>
+      </div>}
 
       {/* ─── Empty state filtre ───────────────────────────────────────── */}
       {sorted.length === 0 && (
@@ -911,12 +915,12 @@ export function OrderHistoryTable({
           }`}
         >
           <table
-            className={`w-full text-left ${isDashboardAppearance ? 'min-w-[1510px] table-fixed' : ''}`}
+            className={`w-full text-left ${isDashboardAppearance ? 'min-w-[1610px] table-fixed' : ''}`}
             style={{ fontSize: '13px' }}
           >
             {isDashboardAppearance && (
               <colgroup>
-                <col style={{ width: '145px' }} />
+                <col style={{ width: '175px' }} />
                 <col style={{ width: '175px' }} />
                 {extraColumn?.position === 'after-date' && <col style={{ width: '125px' }} />}
                 <col style={{ width: '125px' }} />
@@ -926,7 +930,7 @@ export function OrderHistoryTable({
                 {(extraColumn?.position === 'before-status' || (extraColumn && !extraColumn.position)) && (
                   <col style={{ width: '125px' }} />
                 )}
-                <col style={{ width: '150px' }} />
+                <col style={{ width: '220px' }} />
                 {showActionsColumn && <col style={{ width: '390px' }} />}
               </colgroup>
             )}
@@ -949,6 +953,7 @@ export function OrderHistoryTable({
                 >
                   <button
                     type="button"
+                    disabled={serverManaged}
                     onClick={() => handleSortClick('date')}
                     data-testid={TEST_IDS.shop.orderSortHeaderDate}
                     className="inline-flex items-center font-mono uppercase text-[10.5px] tracking-[0.08em] font-medium hover:text-ink transition-colors"
@@ -967,7 +972,8 @@ export function OrderHistoryTable({
                     {extraColumn.sortValue ? (
                       <button
                         type="button"
-                        onClick={() => handleSortClick('extra')}
+                        disabled={serverManaged}
+                    onClick={() => handleSortClick('extra')}
                         data-testid={TEST_IDS.shop.orderSortHeaderExtra}
                         className="inline-flex items-center font-mono uppercase text-[10.5px] tracking-[0.08em] font-medium hover:text-ink transition-colors"
                       >
@@ -987,6 +993,7 @@ export function OrderHistoryTable({
                 >
                   <button
                     type="button"
+                    disabled={serverManaged}
                     onClick={() => handleSortClick('customer_name')}
                     data-testid={TEST_IDS.shop.orderSortHeaderClient}
                     className="inline-flex items-center font-mono uppercase text-[10.5px] tracking-[0.08em] font-medium hover:text-ink transition-colors"
@@ -1010,6 +1017,7 @@ export function OrderHistoryTable({
                 >
                   <button
                     type="button"
+                    disabled={serverManaged}
                     onClick={() => handleSortClick('total_ht')}
                     data-testid={TEST_IDS.shop.orderSortHeaderTotalHt}
                     className="inline-flex w-full items-center justify-end font-mono uppercase text-[10.5px] tracking-[0.08em] font-medium hover:text-ink transition-colors"
@@ -1026,6 +1034,7 @@ export function OrderHistoryTable({
                 >
                   <button
                     type="button"
+                    disabled={serverManaged}
                     onClick={() => handleSortClick('total_ttc')}
                     data-testid={TEST_IDS.shop.orderSortHeaderTotalTtc}
                     className="inline-flex w-full items-center justify-end font-mono uppercase text-[10.5px] tracking-[0.08em] font-medium hover:text-ink transition-colors"
@@ -1044,7 +1053,8 @@ export function OrderHistoryTable({
                     {extraColumn.sortValue ? (
                       <button
                         type="button"
-                        onClick={() => handleSortClick('extra')}
+                        disabled={serverManaged}
+                    onClick={() => handleSortClick('extra')}
                         data-testid={TEST_IDS.shop.orderSortHeaderExtra}
                         className="inline-flex items-center font-mono uppercase text-[10.5px] tracking-[0.08em] font-medium hover:text-ink transition-colors"
                       >
@@ -1183,8 +1193,8 @@ export function OrderHistoryTable({
                     {(extraColumn?.position === 'before-status' || (extraColumn && !extraColumn.position)) && (
                       <td className="py-3 pr-4 text-ink-muted">{extraColumn.render(o)}</td>
                     )}
-                    <td className="py-3 pr-4 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
+                    <td className="py-3 pr-4">
+                      <div className="flex min-w-0 flex-wrap items-center gap-2">
                         {o.source === 'legacy' && (
                           <>
                             <span
@@ -1198,7 +1208,7 @@ export function OrderHistoryTable({
                         )}
                         <span
                           aria-label={`Statut: ${statusInfo.label}`}
-                          className={`inline-block px-2 py-0.5 rounded border font-mono uppercase ${statusInfo.className}`}
+                          className={`inline-block max-w-full whitespace-normal px-2 py-0.5 rounded border font-mono uppercase ${statusInfo.className}`}
                           style={{ fontSize: '10px', letterSpacing: '0.06em', fontWeight: 500 }}
                         >
                           {statusInfo.label}
@@ -1208,7 +1218,7 @@ export function OrderHistoryTable({
                             data-testid={TEST_IDS.shop.orderUnverifiedPriceBadge}
                             data-order-id={o.id}
                             title="Le serveur n a pas pu vérifier le prix d au moins une ligne de cette commande"
-                            className="inline-block px-2 py-0.5 rounded border font-mono uppercase border-warn-fg/20 bg-warn-bg text-warn-fg"
+                            className="inline-block max-w-full whitespace-normal px-2 py-0.5 rounded border font-mono uppercase border-warn-fg/20 bg-warn-bg text-warn-fg"
                             style={{ fontSize: '10px', letterSpacing: '0.06em', fontWeight: 500 }}
                           >
                             Prix non vérifié

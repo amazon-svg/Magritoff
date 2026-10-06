@@ -152,10 +152,7 @@ export function resolveOrderExportDownloadRefreshErrorMessage(cause: unknown): s
 // ---------------------------------------------------------------------------
 
 /** Les quatre seuls axes que la grille ET l export partagent (point (i) : ni `quote_id` ni `status`, la grille ne les montre pas). */
-export type OrderExportRequestFilters = Pick<
-  OrderExportFiltersDto,
-  'customer_id' | 'current_production_step_id' | 'created_from' | 'created_to'
->;
+export type OrderExportRequestFilters = OrderExportFiltersDto;
 
 /**
  * Tire les filtres d export EXACTEMENT du meme etat et de la meme fonction
@@ -167,7 +164,7 @@ export type OrderExportRequestFilters = Pick<
  */
 export function buildOrderExportFilters(filters: OrdersListFilters): OrderExportRequestFilters {
   const gridQuery = buildOrdersListQuery(filters);
-  const result: { -readonly [K in keyof OrderExportRequestFilters]?: string } = {};
+  const result: OrderExportRequestFilters = {};
   if (gridQuery.customerId) result.customer_id = gridQuery.customerId;
   if (gridQuery.currentProductionStepId) result.current_production_step_id = gridQuery.currentProductionStepId;
   if (gridQuery.createdFrom) result.created_from = gridQuery.createdFrom;
@@ -851,3 +848,10 @@ export async function refreshOrderExportDownloadUrl(
   const state = resolveOrderExportDownloadState(item);
   return { item, url: state.kind === 'available' ? state.url : null };
 }
+
+
+/** E4.4b: supplied directly from the applied common-grid selection. */
+export type UnifiedOrderExportSelection = Readonly<{
+  filters: import('@/modules/orders').OrderListFilters;
+  summary: readonly OrderExportFilterSummaryItem[];
+}>;

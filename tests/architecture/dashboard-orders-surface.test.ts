@@ -13,8 +13,8 @@ const orderHistoryTable = readFileSync(
 );
 
 describe('surface du dashboard commandes', () => {
-  it('reprend la largeur de lecture du dashboard et demande explicitement son apparence', () => {
-    expect(dashboardOrders).toContain('max-w-[1400px]');
+  it('utilise la largeur disponible du dashboard et demande explicitement son apparence', () => {
+    expect(dashboardOrders).toContain('w-full min-w-0');
     expect(dashboardOrders).toContain('appearance="dashboard"');
   });
 
@@ -26,7 +26,7 @@ describe('surface du dashboard commandes', () => {
 
   it('rend le tableau dashboard dans une surface compacte, stable et scrollable', () => {
     expect(orderHistoryTable).toContain('rounded-md border border-line bg-paper');
-    expect(orderHistoryTable).toContain('min-w-[1510px] table-fixed');
+    expect(orderHistoryTable).toContain('min-w-[1610px] table-fixed');
     expect(orderHistoryTable).toContain('<colgroup>');
     expect(orderHistoryTable).toContain('N°');
     expect(orderHistoryTable).toContain('o.number ??');

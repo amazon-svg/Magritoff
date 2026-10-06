@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { commercialOrderDetailSchema } from '../../commercial-orders/api/contracts.ts';
 
 /**
  * Q17-a (docs/api/CONVENTIONS.md §8.25 point 12 (c)) — provenance du prix
@@ -269,3 +270,54 @@ export type OrderCapability = z.infer<typeof orderCapabilitySchema>;
 export type OrderCapabilities = z.infer<typeof orderCapabilitiesSchema>;
 export type OrderRoleAssignment = z.infer<typeof orderRoleAssignmentSchema>;
 export type OrderRolesResponse = z.infer<typeof orderRolesResponseSchema>;
+
+/** E4.4b — projection commune, montants décimaux et relations facultatives. */
+export const orderOriginSchema = z.enum(['storefront', 'quote']);
+export const orderListStatusSchema = z.enum(['draft', 'validated', 'in_production', 'shipped', 'delivered', 'invoiced', 'cancelled']);
+export const orderListEntryItemSchema = z.object({
+  name: z.string(), quantity: z.number().int().positive(),
+  unit_price_ht: nonNegativeMoneySchema, price_origin: priceOriginSchema.nullable(),
+});
+export const orderListEntrySchema = z.object({
+  id: z.uuid(),
+  origin: orderOriginSchema,
+  items: z.array(orderListEntryItemSchema),
+  number: z.string().nullable(),
+  shop_id: z.uuid().nullable(),
+  shop_name: z.string().nullable(),
+  customer_id: z.uuid().nullable(),
+  customer_name: z.string().nullable(),
+  customer_email: z.string().nullable(),
+  created_at: z.iso.datetime(),
+  status: orderListStatusSchema,
+  currency: z.string().regex(/^[A-Z]{3}$/),
+  total_ht: nonNegativeMoneySchema,
+  total_ttc: nonNegativeMoneySchema,
+  has_unverified_prices: z.boolean(),
+  current_production_step_id: z.uuid().nullable(),
+});
+export const orderListEntriesSchema = z.array(orderListEntrySchema);
+export const orderListFiltersSchema = z.object({
+  origin: orderOriginSchema.optional(),
+  status: orderListStatusSchema.optional(),
+  customer_id: z.uuid().optional(),
+  customer_search: z.string().trim().min(1).max(200).optional(),
+  shop_id: z.uuid().optional(),
+  current_production_step_id: z.uuid().optional(),
+  created_from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  created_to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+});
+export type OrderListEntry = z.infer<typeof orderListEntrySchema>;
+export type OrderListFilters = z.infer<typeof orderListFiltersSchema>;
+
+/** E4.4b — en-tête commun et copie complète du workflow d'origine. */
+const unifiedOrderHeaderSchema = orderListEntrySchema.pick({
+  id: true, number: true, shop_id: true, customer_id: true, created_at: true,
+  status: true, currency: true, total_ht: true, total_ttc: true,
+  has_unverified_prices: true, current_production_step_id: true,
+}).extend({ updated_at: z.iso.datetime(), quote_id: z.uuid().nullable() });
+export const unifiedOrderDetailSchema = z.discriminatedUnion('origin', [
+  unifiedOrderHeaderSchema.extend({ origin: z.literal('storefront'), detail: orderDetailSchema }),
+  unifiedOrderHeaderSchema.extend({ origin: z.literal('quote'), detail: commercialOrderDetailSchema }),
+]);
+export type UnifiedOrderDetail = z.infer<typeof unifiedOrderDetailSchema>;

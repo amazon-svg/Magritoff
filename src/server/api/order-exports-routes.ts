@@ -17,6 +17,7 @@
  *
  * Enregistrement obligatoire dans `gescom-routes.ts` (CA1).
  */
+import { z } from 'zod';
 import {
   orderExportFormatSchema,
   orderExportGranularitySchema,
@@ -24,7 +25,10 @@ import {
   orderExportSchema,
   orderExportStatusSchema,
   requestOrderExportCommandSchema,
+  requestUnifiedOrderExportCommandSchema,
   type OrderExportFiltersDto,
+  type RequestUnifiedOrderExportCommand,
+  type RequestOrderExportCommand,
 } from '../../modules/order-exports/api/contracts.ts';
 import type { OrderExportsService } from '../../modules/order-exports/application/order-exports-service.ts';
 import {
@@ -54,12 +58,13 @@ export function createOrderExportsRoutes(
   customers: CustomersService,
   commercialQuotes: CommercialQuotesService,
   productionSteps: ProductionStepsService,
+  unified = false,
 ): readonly GescomRoute[] {
   return [
     defineGescomRoute({
       method: 'GET',
-      path: '/commercial-order-exports',
-      operationId: 'listCommercialOrderExports',
+      path: unified ? '/order-exports' : '/commercial-order-exports',
+      operationId: unified ? 'listUnifiedOrderExports' : 'listCommercialOrderExports',
       // Aucune cle de service (contrat §8.24 point 6 : « un module tiers qui
       // veut les commandes a orders:read, lui offrir un classeur serait
       // publier un siphon ») : reservee aux jetons UTILISATEUR.
@@ -97,14 +102,15 @@ export function createOrderExportsRoutes(
 
     defineGescomRoute({
       method: 'POST',
-      path: '/commercial-order-exports',
-      operationId: 'requestCommercialOrderExport',
+      path: unified ? '/order-exports' : '/commercial-order-exports',
+      operationId: unified ? 'requestUnifiedOrderExport' : 'requestCommercialOrderExport',
       authentication: 'user',
       createsResource: true,
-      inputSchema: requestOrderExportCommandSchema,
+      inputSchema: (unified ? requestUnifiedOrderExportCommandSchema : requestOrderExportCommandSchema) as z.ZodType<RequestOrderExportCommand | RequestUnifiedOrderExportCommand>,
       dataSchema: orderExportSchema,
       async handle(context, input) {
-        const filters = await resolveOrderExportFilters(context.tenantId, input.filters ?? {}, {
+        const filters = unified ? resolveUnifiedExportFilters(input.filters ?? {})
+          : await resolveOrderExportFilters(context.tenantId, input.filters ?? {}, {
           customers,
           commercialQuotes,
           productionSteps,
@@ -112,6 +118,7 @@ export function createOrderExportsRoutes(
 
         const created = await withOrderExportErrors(() =>
           orderExports.request(context.tenantId, requireUserId(context), {
+            ...(unified ? { layoutVersion: 2 as const } : {}),
             format: input.format,
             granularity: input.granularity,
             filters,
@@ -124,8 +131,8 @@ export function createOrderExportsRoutes(
 
     defineGescomRoute({
       method: 'GET',
-      path: '/commercial-order-exports/{exportId}',
-      operationId: 'getCommercialOrderExport',
+      path: unified ? '/order-exports/{exportId}' : '/commercial-order-exports/{exportId}',
+      operationId: unified ? 'getUnifiedOrderExport' : 'getCommercialOrderExport',
       authentication: 'user',
       inputSchema: null,
       dataSchema: orderExportSchema,
@@ -273,4 +280,14 @@ async function withOrderExportErrors<T>(operation: () => Promise<T>): Promise<T>
     }
     throw error;
   }
+}
+
+/** Same civil-day validation as the common grid; unknown references select no rows. */
+function resolveUnifiedExportFilters(filters: OrderExportFiltersDto): OrderExportFiltersDto {
+  const from = filters.created_from;
+  const to = filters.created_to;
+  if (from && to && from > to) throw validationFailed([{ field: 'filters.created_to', message: 'La fin doit suivre le début de la période.' }]);
+  if (from) resolveCalendarBoundOrThrow('filters.created_from', from, startOfDayInReferenceTimeZone);
+  if (to) resolveCalendarBoundOrThrow('filters.created_to', to, endOfDayInReferenceTimeZone);
+  return filters;
 }

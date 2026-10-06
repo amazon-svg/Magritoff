@@ -2476,6 +2476,72 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/order-exports": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Liste les exports de commandes
+         * @description Exports communs des commandes boutique et devis. Les filtres appliqués à la grille sélectionnent toutes les pages. Le registre couvre le tenant, et le téléchargement reste réservé au demandeur. Les fichiers communs utilisent layout_version 2, avec Origine et Boutique en fin de fichier. Ordre croissant par date puis identifiant, et position pour les lignes.
+         */
+        get: operations["listUnifiedOrderExports"];
+        put?: never;
+        /**
+         * Demande un export de commandes
+         * @description Exports communs des commandes boutique et devis. Les filtres appliqués à la grille sélectionnent toutes les pages. Le registre couvre le tenant, et le téléchargement reste réservé au demandeur. Les fichiers communs utilisent layout_version 2, avec Origine et Boutique en fin de fichier. Ordre croissant par date puis identifiant, et position pour les lignes.
+         */
+        post: operations["requestUnifiedOrderExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/order-exports/{exportId}": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Récupère un export de commandes
+         * @description Exports communs des commandes boutique et devis. Les filtres appliqués à la grille sélectionnent toutes les pages. Le registre couvre le tenant, et le téléchargement reste réservé au demandeur. Les fichiers communs utilisent layout_version 2, avec Origine et Boutique en fin de fichier. Ordre croissant par date puis identifiant, et position pour les lignes.
+         */
+        get: operations["getUnifiedOrderExport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/commercial-order-exports": {
         parameters: {
             query?: never;
@@ -2552,6 +2618,46 @@ export interface paths {
          *     LE TELECHARGEMENT EST RESERVE AU DEMANDEUR, et ce n est pas une regle de confort. La donnee exportee est, ligne a ligne, deja lisible par tout membre habilite ; mais un fichier plat qui la porte TOUTE est autre chose — il s envoie, il se copie, il ne se rappelle pas. Lier chaque fichier a un porteur nomme ne retire aucune capacite (un autre membre habilite relance son propre export, et cet export-la porte SON nom au registre) et garantit qu aucun fichier ne circule sans que le registre dise a qui il a ete remis. Un appelant qui n est pas le demandeur recoit la demande avec `download_url: null` — pas un 403 : il a bien le droit de voir qu elle existe.
          */
         get: operations["getCommercialOrderExport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/order-summaries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Liste les commandes de toutes origines
+         * @description Lecture back-office commune du tenant résolu depuis le jeton utilisateur. Ordre stable par date de création décroissante puis identifiant décroissant. Les filtres portent sur toutes les commandes, avant pagination. Les bornes civiles created_from et created_to sont inclusives dans Europe/Paris. Les routes historiques restent disponibles pendant la convergence E4.4b.
+         */
+        get: operations["listOrders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/order-summaries/{orderId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ouvre une commande de toute origine
+         * @description Lecture back-office commune, réservée au tenant du jeton utilisateur. L'origine est résolue côté serveur, sans sondage de routes historiques. L'en-tête commun porte les relations facultatives et les montants ; detail conserve les lignes, la configuration et la provenance des prix boutique ou la copie tarifaire et les marges figées du devis. Les routes historiques restent disponibles pendant la convergence E4.4b.
+         */
+        get: operations["getUnifiedOrder"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4711,6 +4817,87 @@ export interface components {
             totalTtc: number;
             status: string;
             hasUnverifiedPrices: boolean;
+        };
+        OrderListEntry: {
+            items: {
+                name: string;
+                quantity: number;
+                unit_price_ht: components["schemas"]["Money"];
+                /** @enum {string|null} */
+                price_origin: "catalog" | "quoted" | "client_unverified" | "legacy" | null;
+            }[];
+            id: components["schemas"]["Uuid"];
+            /** @enum {string} */
+            origin: "storefront" | "quote";
+            number: string | null;
+            /** Format: uuid */
+            shop_id: string | null;
+            shop_name: string | null;
+            /** Format: uuid */
+            customer_id: string | null;
+            customer_name: string | null;
+            customer_email: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** @enum {string} */
+            status: "draft" | "validated" | "in_production" | "shipped" | "delivered" | "invoiced" | "cancelled";
+            currency: string;
+            total_ht: components["schemas"]["Money"];
+            total_ttc: components["schemas"]["Money"];
+            has_unverified_prices: boolean;
+            /** Format: uuid */
+            current_production_step_id: string | null;
+        };
+        UnifiedOrderDetail: components["schemas"]["UnifiedStorefrontOrderDetail"] | components["schemas"]["UnifiedQuoteOrderDetail"];
+        UnifiedStorefrontOrderDetail: {
+            /** @enum {string} */
+            origin: "storefront";
+            detail: components["schemas"]["LegacyOrderDetail"];
+            id: components["schemas"]["Uuid"];
+            number: string | null;
+            /** Format: uuid */
+            shop_id: string | null;
+            /** Format: uuid */
+            customer_id: string | null;
+            /** Format: uuid */
+            quote_id: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** @enum {string} */
+            status: "draft" | "validated" | "in_production" | "shipped" | "delivered" | "invoiced" | "cancelled";
+            currency: string;
+            total_ht: components["schemas"]["Money"];
+            total_ttc: components["schemas"]["Money"];
+            has_unverified_prices: boolean;
+            /** Format: uuid */
+            current_production_step_id: string | null;
+        };
+        UnifiedQuoteOrderDetail: {
+            /** @enum {string} */
+            origin: "quote";
+            detail: components["schemas"]["CommercialOrderDetail"];
+            id: components["schemas"]["Uuid"];
+            number: string | null;
+            /** Format: uuid */
+            shop_id: string | null;
+            /** Format: uuid */
+            customer_id: string | null;
+            /** Format: uuid */
+            quote_id: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** @enum {string} */
+            status: "draft" | "validated" | "in_production" | "shipped" | "delivered" | "invoiced" | "cancelled";
+            currency: string;
+            total_ht: components["schemas"]["Money"];
+            total_ttc: components["schemas"]["Money"];
+            has_unverified_prices: boolean;
+            /** Format: uuid */
+            current_production_step_id: string | null;
         };
         LegacyOrdersList: {
             orders: components["schemas"]["LegacyOrderSummary"][];
@@ -9409,7 +9596,8 @@ export interface components {
         OrderExportFormat: "xlsx" | "csv";
         /**
          * OrderExportGranularity
-         * @description Niveau de detail du fichier (CA3). Deux jeux de colonnes distincts, tous deux figes, tous deux ordonnes comme ci-dessous.
+         * @description E4.4b : layout_version 2 conserve les colonnes ci-dessous et ajoute Origine (Boutique ou Devis) puis Boutique. Les références absentes restent vides ; les commandes boutique sans numéro portent leur UUID. Les totaux boutique suivent la projection de grille et les montants devis restent ceux de la copie figée. Les fichiers layout_version 1 et les demandes historiques conservent leur périmètre devis.
+         *     Niveau de detail du fichier (CA3). Deux jeux de colonnes distincts, tous deux figes, tous deux ordonnes comme ci-dessous.
          *
          *     CETTE DESCRIPTION EST LA SOURCE D ORDRE, ET ELLE EST LA SEULE. Une macro comptable compte les colonnes : l ordre EST le contrat, au meme titre que les intitules. Tout catalogue recopie ailleurs — en-tete de migration, commentaire de vue, document de story — est une COPIE DE CONFORT, jamais une seconde source : en cas d ecart, c est ici qu on lit la verite et c est la copie qui se corrige. La regle est ecrite parce qu elle a ete enfreinte : au lot E10.18c, le fichier reellement produit rendait trois colonnes a d autres positions que celles annoncees ici, et AUCUNE DES DEUX SOURCES NE SE SAVAIT FAUSSE.
          *
@@ -9430,7 +9618,7 @@ export interface components {
          *
          *     « Designation » et non « Libelle produit » : c est le mot des pieces commerciales francaises (devis, facture), donc celui que le destinataire attend.
          *
-         *     DEUX COLONNES ONT ETE RETIREES DE CE CATALOGUE LE 2026-09-13, AVANT QU AUCUN FICHIER N AIT JAMAIS ETE PRODUIT AVEC ELLES — ce n est donc pas une rupture de v1 (§7) : aucun serveur ne les a emises, aucun destinataire n en depend, et `layout_version` vaut toujours `1`.
+         *     DEUX COLONNES ONT ETE RETIREES DE CE CATALOGUE LE 2026-09-13, AVANT QU AUCUN FICHIER N AIT JAMAIS ETE PRODUIT AVEC ELLES — ce n est donc pas une rupture de v1 (§7) : aucun serveur ne les a emises, aucun destinataire n en depend. Les demandes historiques gardent `layout_version: 1` ; les demandes communes utilisent `2`.
          *     - **« Date de livraison prevue »** (`CommercialOrder.
          *       expected_delivery_date`). Retiree parce qu AUCUN chemin d ecriture ne
          *       la renseigne — le contrat le dit lui-meme sur `CommercialOrderDetail`.
@@ -9515,14 +9703,14 @@ export interface components {
          */
         OrderExportStatus: "pending" | "running" | "ready" | "failed" | "expired";
         /**
-         * OrderExportFilters
+         * LegacyOrderExportFilters
          * @description Perimetre de l export. CHAQUE CHAMP EST LE JUMEAU EXACT D UN PARAMETRE DE REQUETE DE `listCommercialOrders` — meme nom, meme type, meme interpretation, memes refus. C est la forme que prend, dans le contrat, la consigne « les filtres acceptes sont exactement ceux de la grille » : rien ici ne peut elargir ce qu un ecran ne sait pas montrer.
          *
          *     Absent ou vide -> AUCUN filtre sur cet axe. Un objet entierement vide (`{}`) est valide et signifie « tout l historique de l espace » : c est l usage d une reprise initiale ou d un changement de cabinet, et il ne merite ni avertissement ni refus. Le seul garde-fou est le plafond de volume, constate a l execution.
          *
          *     NE REPREND PAS `sort`, `page[size]` ni `page[cursor]`. Un export a son ordre propre, impose : par date de commande croissante puis par numero, et par `position` de ligne en granularite `line` — l ordre qu attend une lecture comptable, pas celui d un ecran. Et il n a pas de pages.
          */
-        OrderExportFilters: {
+        LegacyOrderExportFilters: {
             /** @description Meme filtre que `listCommercialOrders.customer_id`. */
             customer_id?: components["schemas"]["Uuid"] | null;
             /** @description Meme filtre que `listCommercialOrders.quote_id`. Retient zero ou UNE commande ; d un interet limite a l export, repris malgre tout pour que la regle « exactement les filtres de la grille » n ait aucune exception a retenir. */
@@ -9540,6 +9728,45 @@ export interface components {
             /** @description Meme filtre que `listCommercialOrders.created_to` : dernier jour INCLUS, journee entiere, fuseau de reference `Europe/Paris`. */
             created_to?: string | null;
         };
+        UnifiedOrderExportFilters: {
+            /** @enum {string} */
+            origin?: "storefront" | "quote";
+            /** @enum {string} */
+            status?: "draft" | "validated" | "in_production" | "shipped" | "delivered" | "invoiced" | "cancelled";
+            customer_id?: components["schemas"]["Uuid"];
+            customer_search?: string;
+            shop_id?: components["schemas"]["Uuid"];
+            current_production_step_id?: components["schemas"]["Uuid"];
+            /** Format: date */
+            created_from?: string;
+            /** Format: date */
+            created_to?: string;
+        };
+        /** @description Filtres conservés sur une demande historique ou commune. */
+        OrderExportFilters: {
+            /** @enum {string|null} */
+            origin?: "storefront" | "quote" | null;
+            /** @enum {string|null} */
+            status?: "draft" | "validated" | "in_production" | "shipped" | "delivered" | "invoiced" | "cancelled" | null;
+            /** Format: uuid */
+            customer_id?: string | null;
+            /** Format: uuid */
+            quote_id?: string | null;
+            customer_search?: string | null;
+            /** Format: uuid */
+            shop_id?: string | null;
+            /** Format: uuid */
+            current_production_step_id?: string | null;
+            /** Format: date */
+            created_from?: string | null;
+            /** Format: date */
+            created_to?: string | null;
+        };
+        RequestUnifiedOrderExportCommand: {
+            format: components["schemas"]["OrderExportFormat"];
+            granularity: components["schemas"]["OrderExportGranularity"];
+            filters?: components["schemas"]["UnifiedOrderExportFilters"];
+        };
         /**
          * RequestOrderExportCommand
          * @description Demande d export. Trois champs, dont deux obligatoires : le format et la granularite sont des CHOIX, pas des defauts — servir un XLSX par entetes a qui n a rien precise, c est produire un fichier que personne n a demande et que la comptabilite devra redemander.
@@ -9548,7 +9775,7 @@ export interface components {
             format: components["schemas"]["OrderExportFormat"];
             granularity: components["schemas"]["OrderExportGranularity"];
             /** @description Perimetre. Omis -> equivalent a `{}`, donc tout l historique de l espace. */
-            filters?: components["schemas"]["OrderExportFilters"];
+            filters?: components["schemas"]["LegacyOrderExportFilters"];
         };
         /**
          * OrderExport
@@ -9565,7 +9792,7 @@ export interface components {
             filters: components["schemas"]["OrderExportFilters"];
             /**
              * Format: int32
-             * @description Version de la MISE EN PAGE du fichier : nombre, ordre et intitules des colonnes pour la granularite demandee. Vaut `1` pour la forme decrite par `OrderExportGranularity`.
+             * @description Version de la MISE EN PAGE du fichier : nombre, ordre et intitules des colonnes pour la granularite demandee. Vaut `1` pour la forme historique décrite par `OrderExportGranularity`. Vaut `2` pour les exports communs, qui ajoutent Origine puis Boutique.
              *
              *     CE CHAMP EXISTE PARCE QU UN CLASSEUR CONSOMME PAR UN TIERS EST UNE INTERFACE, meme s il n a pas de schema. Une macro comptable ou un import parametre se cassent silencieusement quand une colonne se deplace, et personne du cote Magrit ne le verra. Publier la version donne au destinataire un moyen de detecter le changement au lieu de le subir ; l incrementer sera la seule facon d annoncer un ajout ou un deplacement de colonne, et c est additif au sens du §7.
              */
@@ -10073,6 +10300,10 @@ export interface components {
 export type LegacyPriceOrigin = components['schemas']['LegacyPriceOrigin'];
 export type LegacyOrderItem = components['schemas']['LegacyOrderItem'];
 export type LegacyOrderSummary = components['schemas']['LegacyOrderSummary'];
+export type OrderListEntry = components['schemas']['OrderListEntry'];
+export type UnifiedOrderDetail = components['schemas']['UnifiedOrderDetail'];
+export type UnifiedStorefrontOrderDetail = components['schemas']['UnifiedStorefrontOrderDetail'];
+export type UnifiedQuoteOrderDetail = components['schemas']['UnifiedQuoteOrderDetail'];
 export type LegacyOrdersList = components['schemas']['LegacyOrdersList'];
 export type LegacyPortalOrdersCounters = components['schemas']['LegacyPortalOrdersCounters'];
 export type LegacyPortalOrdersResponse = components['schemas']['LegacyPortalOrdersResponse'];
@@ -10413,7 +10644,10 @@ export type NotificationLog = components['schemas']['NotificationLog'];
 export type OrderExportFormat = components['schemas']['OrderExportFormat'];
 export type OrderExportGranularity = components['schemas']['OrderExportGranularity'];
 export type OrderExportStatus = components['schemas']['OrderExportStatus'];
+export type LegacyOrderExportFilters = components['schemas']['LegacyOrderExportFilters'];
+export type UnifiedOrderExportFilters = components['schemas']['UnifiedOrderExportFilters'];
 export type OrderExportFilters = components['schemas']['OrderExportFilters'];
+export type RequestUnifiedOrderExportCommand = components['schemas']['RequestUnifiedOrderExportCommand'];
 export type RequestOrderExportCommand = components['schemas']['RequestOrderExportCommand'];
 export type OrderExport = components['schemas']['OrderExport'];
 export type Library = components['schemas']['Library'];
@@ -16069,6 +16303,160 @@ export interface operations {
             422: components["responses"]["UnprocessableEntity"];
         };
     };
+    listUnifiedOrderExports: {
+        parameters: {
+            query?: {
+                /** @description Filtre sur l etat de la demande. */
+                status?: components["schemas"]["OrderExportStatus"];
+                /** @description Filtre sur le format demande. */
+                format?: components["schemas"]["OrderExportFormat"];
+                /** @description Filtre sur la granularite demandee. */
+                granularity?: components["schemas"]["OrderExportGranularity"];
+                /** @description Nombre d elements par page. Defaut 50, maximum 200. */
+                "page[size]"?: components["parameters"]["PageSize"];
+                /** @description Curseur opaque renvoye par `meta.next_cursor` de la page precedente. Absent sur la premiere page. Ne jamais construire un curseur cote client : sa structure interne n est pas contractuelle. */
+                "page[cursor]"?: components["parameters"]["PageCursor"];
+            };
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Page de demandes d export, de la plus recente a la plus ancienne. `download_url` n est servi que sur les entrees `ready` DEMANDEES PAR L APPELANT ; il vaut `null` partout ailleurs, y compris sur une entree `ready` d un autre membre. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["OrderExport"][];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["ForbiddenCapability"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    requestUnifiedOrderExport: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+                /**
+                 * @description Cle d idempotence fournie par l appelant sur tout POST creant une ressource metier (CA8). Rejouer la meme cle avec la meme requete renvoie la reponse initiale, accompagnee de l en-tete `Idempotency-Replayed: true` ; la rejouer avec une requete differente renvoie 409 `api.idempotency_key_reused`.
+                 *
+                 *     L identite d une requete couvre la methode, le chemin, LA QUERY et le corps : deux POST au meme chemin avec des query differentes ne sont pas la meme requete.
+                 *
+                 *     Sur un rejeu, seul `meta.request_id` est recale sur la requete courante ; `data` est rendu inchange.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestUnifiedOrderExportCommand"];
+            };
+        };
+        responses: {
+            /** @description Demande enregistree, etat `pending`. `download_url` vaut `null` : le fichier n existe pas encore. L appelant interroge `getUnifiedOrderExport` jusqu a `ready` ou `failed` — toutes les deux secondes est une cadence raisonnable, en espacant au-dela d une minute. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["OrderExport"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["ForbiddenCapability"];
+            409: components["responses"]["Conflict"];
+            /** @description Corps invalide (`api.validation_failed`) : `created_from` posterieure a `created_to`, etape de production inconnue de l espace, client ou devis inconnu. Egalement `order_export.pending_limit_reached` quand l appelant a deja TROIS demandes non terminees : la file est partagee, et un membre qui enchaine les clics ne doit pas faire attendre tout l espace. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getUnifiedOrderExport: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                /** @description Identifiant technique d une demande d export de commandes (`commercial_order_exports`, E10.18), dans le tenant du jeton. Alloue par `requestCommercialOrderExport` ; il designe la DEMANDE et son suivi, jamais le fichier — celui-ci n a pas d identifiant propre et ne s atteint que par l URL signee de courte duree portee par la demande. */
+                exportId: components["parameters"]["CommercialOrderExportId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Etat de la demande. Sur `ready` et pour le demandeur, `download_url` est une URL signee de courte duree, REEMISE A CHAQUE APPEL : un lien perime se rafraichit en rappelant cette operation, il n y a rien d autre a faire. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["OrderExport"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["ForbiddenCapability"];
+            /** @description Aucune demande d export de cet identifiant dans le tenant du jeton (`order_export.not_found`). Meme reponse pour une demande inexistante et pour celle d un autre espace : le contraire revelerait l existence d exports chez un tiers. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     listCommercialOrderExports: {
         parameters: {
             query?: {
@@ -16221,6 +16609,99 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+        };
+    };
+    listOrders: {
+        parameters: {
+            query?: {
+                /** @description Nombre d elements par page. Defaut 50, maximum 200. */
+                "page[size]"?: components["parameters"]["PageSize"];
+                /** @description Curseur opaque renvoye par `meta.next_cursor` de la page precedente. Absent sur la premiere page. Ne jamais construire un curseur cote client : sa structure interne n est pas contractuelle. */
+                "page[cursor]"?: components["parameters"]["PageCursor"];
+                origin?: "storefront" | "quote";
+                status?: "draft" | "validated" | "in_production" | "shipped" | "delivered" | "invoiced" | "cancelled";
+                customer_id?: components["schemas"]["Uuid"];
+                /** @description Recherche littérale insensible à la casse dans le nom ou courriel du client. */
+                customer_search?: string;
+                shop_id?: components["schemas"]["Uuid"];
+                current_production_step_id?: components["schemas"]["Uuid"];
+                created_from?: string;
+                created_to?: string;
+            };
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Page des commandes du tenant. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["OrderListEntry"][];
+                        meta: components["schemas"]["Meta"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getUnifiedOrder: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                orderId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Commande et extension correspondant à son origine. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["UnifiedOrderDetail"];
+                        meta: components["schemas"]["Meta"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
         };
     };
     createLegacyOrder: {

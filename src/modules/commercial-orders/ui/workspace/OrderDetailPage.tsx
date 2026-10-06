@@ -45,6 +45,7 @@
  * PUBLIQUE du module `order-files` (`@/modules/order-files/ui`), jamais un
  * chemin profond — regle MUX.
  */
+import type { CommercialOrderDetailDto } from '../../api/contracts';
 import { Link, useParams } from 'react-router';
 import { ArrowLeft } from 'lucide-react';
 import { useTenantPath } from '@/modules/tenants/ui/hooks';
@@ -67,11 +68,12 @@ const COLOR_SWATCH: Record<string, string> = {
   violet: 'bg-violet-500',
 };
 
-export function DashboardOrderDetail() {
+export function DashboardOrderDetail({ initialOrder = null }: { initialOrder?: CommercialOrderDetailDto | null }) {
   const { orderId } = useParams<{ orderId: string }>();
   const tp = useTenantPath();
   const { order, customer, quote, steps, lastStepChange, loading, error, refresh } = useOrderDetail(
     orderId ?? null,
+    initialOrder,
   );
 
   if (loading) return <p className="text-sm text-ink-muted">Chargement…</p>;

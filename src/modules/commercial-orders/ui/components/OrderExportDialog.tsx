@@ -22,7 +22,7 @@
  * Le TRI N EST PAS REPRIS (point (ii) du cadrage) — ce texte est affiche EN
  * CLAIR ici, jamais laisse a deviner.
  */
-import { useEffect, useReducer, useRef } from 'react';
+import { useEffect, useMemo, useReducer, useRef } from 'react';
 import { X } from 'lucide-react';
 import { TEST_IDS } from '@/shared/presentation/testIds';
 import { useWorkspaceApi } from '@/platform/runtime/workspace-ui-runtime';
@@ -37,6 +37,7 @@ import {
   ORDER_EXPORT_FORMAT_OPTIONS,
   ORDER_EXPORT_GRANULARITY_OPTIONS,
   orderExportDialogReducer,
+  type UnifiedOrderExportSelection,
 } from './order-export.helpers';
 import type { OrdersListFilters, ProductionStepCatalog } from '../workspace/orders-list.helpers';
 
@@ -49,13 +50,16 @@ export interface OrderExportDialogProps {
   filters: OrdersListFilters;
   selectedCustomerLabel: string;
   stepCatalog: ProductionStepCatalog;
+  unifiedSelection?: UnifiedOrderExportSelection;
   onClose: () => void;
   /** Notifie l appelant (panneau) qu une demande a ete creee — jamais recalculee ici. */
   onCreated: (item: OrderExportDto) => void;
 }
 
-export function OrderExportDialog({ filters, selectedCustomerLabel, stepCatalog, onClose, onCreated }: OrderExportDialogProps) {
-  const api = useWorkspaceApi(OrderExportsApiClient);
+export function OrderExportDialog({ filters, selectedCustomerLabel, stepCatalog, unifiedSelection, onClose, onCreated }: OrderExportDialogProps) {
+  const legacyApi = useWorkspaceApi(OrderExportsApiClient);
+  const unified = unifiedSelection !== undefined;
+  const api = useMemo(() => unified ? legacyApi.forUnified() : legacyApi, [legacyApi, unified]);
   const [state, dispatch] = useReducer(orderExportDialogReducer, CLOSED_ORDER_EXPORT_DIALOG_STATE);
   // Un SEUL controleur pour la duree de vie de la modale (le double-clic ne
   // doit pas creer un second controleur, dont le `inFlight` repartirait de
@@ -70,10 +74,10 @@ export function OrderExportDialog({ filters, selectedCustomerLabel, stepCatalog,
   }, []);
 
   const disabled = isOrderExportSubmitDisabled(state);
-  const summary = buildOrderExportFilterSummary(filters, selectedCustomerLabel, stepCatalog);
+  const summary = unifiedSelection?.summary ?? buildOrderExportFilterSummary(filters, selectedCustomerLabel, stepCatalog);
 
   const handleSubmit = async () => {
-    const created = await controllerRef.current!.submit(state, buildOrderExportFilters(filters));
+    const created = await controllerRef.current!.submit(state, unifiedSelection?.filters ?? buildOrderExportFilters(filters));
     if (created) {
       onCreated(created);
       onClose();
@@ -88,9 +92,12 @@ export function OrderExportDialog({ filters, selectedCustomerLabel, stepCatalog,
         className="bg-paper rounded-2xl shadow-2xl w-full max-w-lg p-6"
         onClick={(event) => event.stopPropagation()}
         data-testid={T.dialog}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="order-export-dialog-title"
       >
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-bold text-ink">Exporter les commandes</h3>
+          <h3 id="order-export-dialog-title" className="text-xl font-bold text-ink">Exporter les commandes</h3>
           <button type="button" onClick={onClose} aria-label="Fermer" className="p-1 hover:bg-bg rounded">
             <X className="w-5 h-5" />
           </button>
@@ -110,7 +117,7 @@ export function OrderExportDialog({ filters, selectedCustomerLabel, stepCatalog,
             </ul>
           )}
           <p className="mt-2 italic">
-            Le fichier est trié par date de commande puis par numéro — le tri de la grille n’est pas repris.
+            {unified ? 'Toutes les commandes correspondant aux filtres appliqués sont exportées, y compris les autres pages. Le fichier est trié par date puis par référence.' : 'Le fichier est trié par date de commande puis par numéro — le tri de la grille n’est pas repris.'}
           </p>
         </div>
 

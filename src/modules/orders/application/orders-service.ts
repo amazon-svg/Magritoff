@@ -1,3 +1,5 @@
+import type { TenantId } from '../../../kernel/ids/index.ts';
+import type { ListOrdersParams } from './orders-repository.ts';
 import type {
   OrderAuditTrail,
   OrdersList,
@@ -30,6 +32,14 @@ const PORTAL_TABS: readonly PortalOrdersTab[] = ['mine', 'to_validate', 'to_appr
 
 export class OrdersService {
   constructor(private readonly repository: OrdersRepository) {}
+
+  getUnifiedDetail(tenantId: TenantId, orderId: string, actor: UserId) {
+    return this.repository.getUnifiedOrderDetail(tenantId, orderId, actor);
+  }
+
+  listOrders(tenantId: TenantId, params: ListOrdersParams) {
+    return this.repository.listOrders(tenantId, params);
+  }
 
   async listTenantOrders(actor: UserId, tenantId: string, shopIds: readonly string[]): Promise<OrdersList> {
     const taxRate = taxRateFor(await this.repository.getTenantTaxRegime(tenantId, actor));

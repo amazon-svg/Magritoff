@@ -1,203 +1,113 @@
-/**
- * DashboardOrders — Vue agrégée des commandes du tenant.
- *
- * S-DASHBOARD-ORDERS-DUAL (Sprint 4 Phase 1 complement, 2026-05-18) :
- * remplace l'ancien placeholder et lit le stockage canonique tenant_orders.
- *
- * S3.1 (Sprint 5, 2026-05-23) : refactor pour deleguer rendu/filtres/tri
- * au composant <OrderHistoryTable>, avec extraColumn 'Boutique' pour
- * afficher le slug par ligne.
- */
-
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '@/modules/account/ui/runtime';
 import { useTenant } from '@/modules/tenants/ui/runtime';
 import { useShops } from '@/modules/shops/ui/runtime';
-import { OrderHistoryTable } from '@/modules/orders/ui/storefront/OrderHistoryTable';
 import { useTenantPath } from '@/modules/tenants/ui/hooks';
-import { CommercialOrdersApiClient, type CommercialOrderDto } from '@/modules/commercial-orders';
-import { CustomersApiClient, type CustomerDetailDto } from '@/modules/customers';
-import { useWorkspaceApi } from '@/platform/runtime/workspace-ui-runtime';
-import {
-  type DashboardOrderUI,
-  useDashboardOrderManagement,
-} from '@/modules/orders/ui/hooks/useDashboardOrderManagement';
+import { type OrderListFilters } from '@/modules/orders';
+import { OrderHistoryTable } from '../storefront/OrderHistoryTable';
+import { STATUS_LABELS } from '../helpers/orderStatus';
+import { OrderExportPanel } from '@/modules/commercial-orders/ui';
+import { useUnifiedOrders } from '../hooks/useUnifiedOrders';
+
+const inputClass = 'rounded border border-line bg-paper px-2.5 py-2 text-sm text-ink';
+const filterControlClass = `${inputClass} h-9 w-full min-w-0`;
+const filterLabelClass = 'flex min-w-0 flex-col gap-1.5 text-xs font-medium text-ink-muted';
 
 export function DashboardOrders() {
   const navigate = useNavigate();
   const tenantPath = useTenantPath();
   const { user } = useAuth();
   const { currentTenant } = useTenant();
-  const commercialOrdersApi = useWorkspaceApi(CommercialOrdersApiClient);
-  const customersApi = useWorkspaceApi(CustomersApiClient);
   const { shops } = useShops();
-  const shopIds = useMemo(() => shops.map((shop) => shop.id), [shops]);
-  const {
-    orders,
-    loading,
-    error,
-    auditApi,
-  } = useDashboardOrderManagement({
-    enabled: Boolean(user),
-    tenantId: currentTenant?.id ?? null,
-    shopIds,
-  });
+  const tenantId = currentTenant?.id ?? null;
+  const management = useUnifiedOrders(tenantId, Boolean(user));
+  const { auditApi, steps, stepsError } = management;
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  const [filterError, setFilterError] = useState<string | null>(null);
 
-  const [quoteOrders, setQuoteOrders] = useState<DashboardOrderUI[]>([]);
-  const [quoteOrdersLoading, setQuoteOrdersLoading] = useState(true);
-  const [quoteOrdersError, setQuoteOrdersError] = useState<string | null>(null);
-
-  // Modèle de lecture commun : les deux workflows partagent désormais les
-  // tables orders. Les deux API restent des projections de compatibilité le
-  // temps d'unifier leurs contrats de détail et de transition.
   useEffect(() => {
-    let active = true;
-    if (!user || !currentTenant) {
-      setQuoteOrders([]);
-      setQuoteOrdersLoading(false);
-      setQuoteOrdersError(null);
-      return () => { active = false; };
+    setFilters({}); setFilterError(null);
+  }, [tenantId]);
+
+  const change = (key: string, value: string) => setFilters((current) => ({ ...current, [key]: value }));
+  const apply = (event: FormEvent) => {
+    event.preventDefault();
+    if (filters.created_from && filters.created_to && filters.created_from > filters.created_to) {
+      setFilterError('La fin doit suivre le début de la période.'); return;
     }
-
-    setQuoteOrdersLoading(true);
-    setQuoteOrdersError(null);
-    void loadAllCommercialOrders(commercialOrdersApi).then(async (commercialOrders) => {
-      const customerIds = [...new Set(commercialOrders.map((order) => order.customer_id))];
-      const customers = await Promise.all(
-        customerIds.map(async (customerId) => {
-          try {
-            return [customerId, await customersApi.getDetail(customerId)] as const;
-          } catch {
-            return null;
-          }
-        }),
-      );
-      if (!active) return;
-      const customersById = new Map<string, CustomerDetailDto>();
-      for (const entry of customers) {
-        if (entry) customersById.set(entry[0], entry[1]);
-      }
-      setQuoteOrders(commercialOrders.map((order) => commercialOrderToDashboard(order, customersById.get(order.customer_id))));
-    }).catch((cause: unknown) => {
-      if (!active) return;
-      setQuoteOrders([]);
-      setQuoteOrdersError(cause instanceof Error ? cause.message : 'Chargement des commandes issues de devis impossible.');
-    }).finally(() => {
-      if (active) setQuoteOrdersLoading(false);
-    });
-
-    return () => { active = false; };
-  }, [commercialOrdersApi, currentTenant, customersApi, user]);
-
-  const unifiedOrders = useMemo(
-    () => [...orders, ...quoteOrders].sort((left, right) => Date.parse(right.date) - Date.parse(left.date)),
-    [orders, quoteOrders],
-  );
-
-  // Fix 2026-05-25 : Map shop_id -> { name, slug } pour afficher le NOM
-  // humain dans la colonne Boutique (et plus le slug technique qui ressemble
-  // à wuqezh-8ggfvk pour les boutiques créées sans slug humain explicite).
-  const shopInfoById = useMemo(() => {
-    const map = new Map<string, { name: string; slug: string }>();
-    for (const s of shops) {
-      map.set(s.id, { name: s.name, slug: s.slug });
-    }
-    return map;
-  }, [shops]);
-
-  // Helper : retourne le label humain à afficher (name préféré, fallback slug puis '—').
-  const shopDisplayLabel = (shopId: string): string => {
-    const info = shopInfoById.get(shopId);
-    if (!info) return '—';
-    return info.name?.trim() || info.slug || '—';
+    setFilterError(null);
+    management.applyFilters(Object.fromEntries(Object.entries(filters).map(([key, value]) => [key, value.trim()]).filter(([, value]) => value)) as OrderListFilters);
   };
 
   return (
-    <div
-      className="max-w-[1400px]"
-      style={{ fontFamily: 'var(--font-ui)' }}
-      data-testid="dashboard-orders-page"
-    >
+    <div className="w-full min-w-0" style={{ fontFamily: 'var(--font-ui)' }} data-testid="dashboard-orders-page">
       <div className="mb-6">
-        <h1
-          className="text-ink m-0"
-          style={{ fontWeight: 300, fontSize: '34px', letterSpacing: '-0.025em', lineHeight: 1.05 }}
-        >
-          Commandes
-        </h1>
-        <p className="mt-2 mb-0 text-ink-muted" style={{ fontSize: '13.5px' }}>
-          {unifiedOrders.length} commande{unifiedOrders.length > 1 ? 's' : ''} enregistrée{unifiedOrders.length > 1 ? 's' : ''}, toutes origines confondues.
-        </p>
+        <h1 className="text-ink m-0" style={{ fontWeight: 300, fontSize: '34px', letterSpacing: '-0.025em', lineHeight: 1.05 }}>Commandes</h1>
+        <p className="mt-2 mb-0 text-ink-muted text-sm">Toutes origines confondues, de la plus récente à la plus ancienne.</p>
       </div>
-
+      <form onSubmit={apply} className="mb-4 flex flex-wrap items-end gap-3 rounded-md border border-line bg-bg p-4" aria-label="Filtres des commandes">
+        <label className={`${filterLabelClass} flex-[1_1_160px]`}> Client
+          <input className={filterControlClass} value={filters.customer_search ?? ''} maxLength={200} placeholder="Nom ou courriel" onChange={(event) => change('customer_search', event.target.value)} />
+        </label>
+        <label className={`${filterLabelClass} flex-[1_1_100px]`}> Origine
+          <select className={filterControlClass} value={filters.origin ?? ''} onChange={(event) => change('origin', event.target.value)}>
+            <option value="">Toutes</option><option value="storefront">Boutique</option><option value="quote">Devis</option>
+          </select>
+        </label>
+        <label className={`${filterLabelClass} flex-[1_1_150px]`}> Statut
+          <select className={filterControlClass} value={filters.status ?? ''} onChange={(event) => change('status', event.target.value)}>
+            <option value="">Tous</option>
+            {Object.entries(STATUS_LABELS).filter(([, info]) => info.group !== 'legacy').map(([key, label]) => <option key={key} value={key}>{label.label}</option>)}
+          </select>
+        </label>
+        <label className={`${filterLabelClass} flex-[1_1_180px]`}> Boutique
+          <select className={filterControlClass} value={filters.shop_id ?? ''} onChange={(event) => change('shop_id', event.target.value)}>
+            <option value="">Toutes</option>{shops.map((shop) => <option key={shop.id} value={shop.id}>{shop.name || shop.slug}</option>)}
+          </select>
+        </label>
+        <label className={`${filterLabelClass} flex-[1_1_170px]`}> Étape de production
+          <select className={filterControlClass} disabled={stepsError} value={filters.current_production_step_id ?? ''} onChange={(event) => change('current_production_step_id', event.target.value)}>
+            <option value="">Toutes</option>{steps.map((step) => <option key={step.id} value={step.id}>{step.label}</option>)}
+          </select>
+        </label>
+        <label className={`${filterLabelClass} flex-[1_1_145px]`}> Du
+          <input className={filterControlClass} type="date" value={filters.created_from ?? ''} onChange={(event) => change('created_from', event.target.value)} />
+        </label>
+        <label className={`${filterLabelClass} flex-[1_1_145px]`}> Au
+          <input className={filterControlClass} type="date" value={filters.created_to ?? ''} onChange={(event) => change('created_to', event.target.value)} />
+        </label>
+        <div className="flex shrink-0 items-center gap-2">
+          <button className={`${inputClass} h-9 whitespace-nowrap disabled:opacity-50`} type="submit" disabled={management.loading}>Appliquer</button>
+          <button className={`${inputClass} h-9 whitespace-nowrap`} type="button" onClick={() => { setFilters({}); setFilterError(null); management.applyFilters({}); }}>Réinitialiser</button>
+        </div>
+      </form>
+      {stepsError && <p className="text-sm text-err-fg" role="status">Les étapes de production sont indisponibles. Les autres filtres restent utilisables.</p>}
+      {filterError && <p className="text-sm text-err-fg" role="alert">{filterError}</p>}
+      <OrderExportPanel key={tenantId} unifiedSelection={{ filters: management.activeFilters, summary: [
+        ...(management.activeFilters.origin ? [{ label: 'Origine', value: management.activeFilters.origin === 'quote' ? 'Devis' : 'Boutique' }] : []),
+        ...(management.activeFilters.status ? [{ label: 'Statut', value: STATUS_LABELS[management.activeFilters.status].label }] : []),
+        ...(management.activeFilters.customer_search ? [{ label: 'Client', value: management.activeFilters.customer_search }] : []),
+        ...(management.activeFilters.customer_id ? [{ label: 'Client', value: management.activeFilters.customer_id }] : []),
+        ...(management.activeFilters.shop_id ? [{ label: 'Boutique', value: shops.find((shop) => shop.id === management.activeFilters.shop_id)?.name ?? management.activeFilters.shop_id }] : []),
+        ...(management.activeFilters.current_production_step_id ? [{ label: 'Étape', value: steps.find((step) => step.id === management.activeFilters.current_production_step_id)?.label ?? management.activeFilters.current_production_step_id }] : []),
+        ...(management.activeFilters.created_from || management.activeFilters.created_to ? [{ label: 'Période', value: `${management.activeFilters.created_from ?? '…'} → ${management.activeFilters.created_to ?? '…'}` }] : []),
+      ] }} />
       <OrderHistoryTable
-        orders={unifiedOrders}
-        loading={loading || quoteOrdersLoading}
-        error={[error, quoteOrdersError].filter(Boolean).join(' · ') || null}
-        auditApi={auditApi}
-        appearance="dashboard"
+        orders={management.orders} loading={management.loading} error={management.error}
+        auditApi={auditApi} appearance="dashboard" serverManaged
         onOpenOrder={(order) => navigate(tenantPath(`/dashboard/orders/${order.id}`))}
-        onOpenCustomer={(order) => {
-          if (order.customer_id) navigate(tenantPath(`/dashboard/customers/${order.customer_id}`));
-        }}
-        persistKey={currentTenant ? `orderHistory:dashboard:${currentTenant.id}` : undefined}
-        extraColumn={{
-          header: 'Origine',
-          position: 'after-date',
-          render: (o) => (
-            <span className="text-xs">
-              {(o as DashboardOrderUI).source === 'commercial'
-                ? 'Devis'
-                : shopDisplayLabel((o as DashboardOrderUI).shop_id)}
-            </span>
-          ),
-          // Fix 2026-05-25 : retrait du sortValue (lesson : sur colonne
-          // catégorielle, l'usage primaire est le filtre, pas le tri).
-        }}
-        extraFilter={{
-          label: 'Origine',
-          getOptionKey: (o) => (o as DashboardOrderUI).shop_id,
-          getOptionLabel: (o) => (o as DashboardOrderUI).source === 'commercial'
-            ? 'Devis'
-            : shopDisplayLabel((o as DashboardOrderUI).shop_id),
-        }}
+        onOpenCustomer={(order) => { if (order.customer_id) navigate(tenantPath(`/dashboard/customers/${order.customer_id}`)); }}
+        extraColumn={{ header: 'Origine', position: 'after-date', render: (order) => (
+          <span className="text-xs">{order.source === 'commercial' ? 'Devis' : management.orders.find((item) => item.id === order.id)?.shop_name ?? 'Boutique'}</span>
+        ) }}
       />
-
+      {management.error && <button className={`${inputClass} mt-3`} type="button" onClick={management.reload}>Réessayer</button>}
+      <nav className="mt-4 flex items-center gap-4 text-sm" aria-label="Pagination des commandes">
+        <button className={inputClass} type="button" disabled={management.loading || management.page === 1} onClick={management.previous}>Précédente</button>
+        <span aria-live="polite">Page {management.page} · {management.orders.length} commande{management.orders.length > 1 ? 's' : ''}</span>
+        <button className={inputClass} type="button" disabled={management.loading || !management.hasNext} onClick={management.next}>Suivante</button>
+      </nav>
     </div>
   );
-}
-
-async function loadAllCommercialOrders(api: CommercialOrdersApiClient): Promise<readonly CommercialOrderDto[]> {
-  const orders: CommercialOrderDto[] = [];
-  let pageCursor: string | undefined;
-  do {
-    const page = await api.list({ pageSize: 100, ...(pageCursor ? { pageCursor } : {}) });
-    orders.push(...page.items);
-    pageCursor = page.nextCursor ?? undefined;
-  } while (pageCursor);
-  return orders;
-}
-
-function commercialOrderToDashboard(order: CommercialOrderDto, customer?: CustomerDetailDto): DashboardOrderUI {
-  return {
-    id: order.id,
-    number: order.number,
-    customer_id: order.customer_id,
-    source: 'commercial',
-    date: order.created_at,
-    customer_name: customer ? customerName(customer) : 'Client',
-    customer_email: '',
-    items: [],
-    total_ht: Number(order.totals.net_total),
-    total_ttc: Number(order.totals.total_incl_tax),
-    status: order.status,
-    hasUnverifiedPrices: false,
-    shop_id: '__quote__',
-  };
-}
-
-function customerName(customer: CustomerDetailDto): string {
-  if (customer.type === 'company') return customer.company_name ?? 'Client';
-  return [customer.first_name, customer.last_name].filter(Boolean).join(' ') || 'Client';
 }

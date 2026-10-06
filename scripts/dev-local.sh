@@ -30,6 +30,7 @@ export S3_REGION="${MAGRIT_DEV_S3_REGION:-us-east-1}"
 export S3_ACCESS_KEY_ID="${MAGRIT_DEV_S3_ACCESS_KEY_ID:-magrit-local}"
 export S3_SECRET_ACCESS_KEY="${MAGRIT_DEV_S3_SECRET_ACCESS_KEY:-magrit-local-secret}"
 export S3_FORCE_PATH_STYLE="true"
+export MAGRIT_ORDER_EXPORT_WORKER_INTERVAL_MS="${MAGRIT_ORDER_EXPORT_WORKER_INTERVAL_MS:-1000}"
 export MAIL_HOST="127.0.0.1"
 export MAIL_PORT="${MAGRIT_DEV_MAIL_SMTP_PORT:-51025}"
 export MAIL_SECURE="false"
@@ -37,10 +38,12 @@ export MAGRIT_FROM_EMAIL="${MAGRIT_FROM_EMAIL:-Magrit <noreply@magrit.local>}"
 
 MAGRIT_API_PID=''
 MAGRIT_VITE_PID=''
+MAGRIT_ORDER_EXPORT_WORKER_PID=''
 
 cleanup() {
   if [[ -n "$MAGRIT_API_PID" ]]; then kill "$MAGRIT_API_PID" 2>/dev/null || true; fi
   if [[ -n "$MAGRIT_VITE_PID" ]]; then kill "$MAGRIT_VITE_PID" 2>/dev/null || true; fi
+  if [[ -n "$MAGRIT_ORDER_EXPORT_WORKER_PID" ]]; then kill "$MAGRIT_ORDER_EXPORT_WORKER_PID" 2>/dev/null || true; fi
 }
 trap cleanup EXIT INT TERM
 
@@ -48,5 +51,7 @@ pnpm api:dev &
 MAGRIT_API_PID=$!
 pnpm dev &
 MAGRIT_VITE_PID=$!
+pnpm worker:order-exports &
+MAGRIT_ORDER_EXPORT_WORKER_PID=$!
 
-wait "$MAGRIT_API_PID" "$MAGRIT_VITE_PID"
+wait "$MAGRIT_API_PID" "$MAGRIT_VITE_PID" "$MAGRIT_ORDER_EXPORT_WORKER_PID"

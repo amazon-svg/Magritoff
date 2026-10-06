@@ -235,8 +235,9 @@ type RenderedWorkbook = Readonly<{
 async function renderAndUnzip(
   granularity: OrderExportGranularity,
   rows: readonly OrderExportRawRow[],
+  layoutVersion?: 1 | 2,
 ): Promise<RenderedWorkbook> {
-  const result = await xlsxOrderExportRenderer.render({ granularity, rows });
+  const result = await xlsxOrderExportRenderer.render({ granularity, rows, ...(layoutVersion ? { layoutVersion } : {}) });
   if (!result.ok) throw new Error(`rendu attendu OK, obtenu echec : ${result.code} ${result.detail}`);
 
   const files = unzipSync(result.bytes);
@@ -639,3 +640,16 @@ describe.each([
     });
   },
 );
+
+
+describe('XLSX commun version 2', () => {
+  it('écrit les nouvelles colonnes et conserve les montants numériques dans le XML réel', async () => {
+    const book = await renderAndUnzip('order', [orderRow({ order_origin: 'storefront', shop_name: 'Atelier Lumière',
+      order_status: 'draft', quote_number: null, customer_type: null })], 2);
+    expect(book.rows[0].slice(-2).map((cell) => resolveCellText(cell, book.sharedStrings))).toEqual(['Origine', 'Boutique']);
+    expect(book.rows[1].slice(-2).map((cell) => resolveCellText(cell, book.sharedStrings))).toEqual(['Boutique', 'Atelier Lumière']);
+    const status = book.rows[1].find((cell) => cell.ref === 'J2');
+    expect(status ? resolveCellText(status, book.sharedStrings) : null).toBe('En attente de validation');
+    expect(book.sheetXml).toContain('<v>1308.5</v>');
+  });
+});

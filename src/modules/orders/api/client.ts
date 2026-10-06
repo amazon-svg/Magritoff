@@ -1,3 +1,5 @@
+import { successEnvelopeSchema } from '../../_shared/api/index.ts';
+import { orderListEntriesSchema, unifiedOrderDetailSchema, type UnifiedOrderDetail, type OrderListFilters } from './contracts.ts';
 import { API_V1_BASE_PATH, FetchApiClient } from '../../../platform/api/index.ts';
 import {
   orderAuditTrailSchema,
@@ -27,7 +29,31 @@ import {
 } from './contracts.ts';
 
 export class OrdersApiClient {
+  async list(query: OrderListFilters & { pageSize?: number; pageCursor?: string } = {}) {
+    const params = new URLSearchParams();
+    const { pageSize, pageCursor, ...filters } = query;
+    if (pageSize !== undefined) params.set('page[size]', String(pageSize));
+    if (pageCursor) params.set('page[cursor]', pageCursor);
+    for (const [key, value] of Object.entries(filters)) {
+      if (value !== undefined && value !== '') params.set(key, value);
+    }
+    const response = await this.client.request({
+      path: `${API_V1_BASE_PATH}/order-summaries?${params}`,
+      responseSchema: successEnvelopeSchema(orderListEntriesSchema),
+    });
+    return { items: response.data, nextCursor: response.meta.next_cursor ?? null };
+  }
+
   constructor(private readonly client: FetchApiClient) {}
+
+  async getUnifiedDetail(orderId: string, signal?: AbortSignal): Promise<UnifiedOrderDetail> {
+    const response = await this.client.request({
+      path: `${API_V1_BASE_PATH}/order-summaries/${encodeURIComponent(orderId)}`,
+      responseSchema: successEnvelopeSchema(unifiedOrderDetailSchema),
+      ...(signal === undefined ? {} : { signal }),
+    });
+    return response.data;
+  }
 
   listTenantOrders(tenantId: string, shopIds: readonly string[], signal?: AbortSignal): Promise<OrdersList> {
     const query = new URLSearchParams();

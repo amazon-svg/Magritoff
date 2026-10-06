@@ -475,6 +475,8 @@ function repositoryStub(): OrdersRepository {
     items: [], totalHt: 10, status: 'draft', hasUnverifiedPrices: false,
   };
   return {
+    listOrders: async () => [],
+    getUnifiedOrderDetail: async () => null,
     getTenantTaxRegime: async () => 'metropole_fr',
     getShopTaxRegime: async () => 'metropole_fr',
     listTenantOrders: async () => [order],

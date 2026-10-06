@@ -1,3 +1,4 @@
+import { unzipSync } from 'fflate';
 import { randomUUID } from 'node:crypto';
 import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import type { Pool } from 'pg';
@@ -26,6 +27,7 @@ describeIntegration('exports de commandes PostgreSQL/S3', () => {
   const orderId = randomUUID();
   const orderLineId = randomUUID();
   let exportId: string | null = null;
+  const commonFiles: string[] = [];
   const storage = createS3Client({
     S3_ENDPOINT: process.env['S3_ENDPOINT'] ?? 'http://127.0.0.1:58333',
     S3_REGION: 'us-east-1',
@@ -95,6 +97,9 @@ describeIntegration('exports de commandes PostgreSQL/S3', () => {
   });
 
   afterAll(async () => {
+    for (const key of commonFiles) {
+      await storage.send(new DeleteObjectCommand({ Bucket: 'order-exports', Key: key })).catch(() => undefined);
+    }
     if (exportId !== null) {
       await storage.send(new DeleteObjectCommand({
         Bucket: 'order-exports',
@@ -191,4 +196,46 @@ describeIntegration('exports de commandes PostgreSQL/S3', () => {
       'select * from magrit.claim_order_exports(1,3,900)',
     ))).rejects.toMatchObject({ code: '42501' });
   });
+  it('génère les deux origines en CSV et XLSX, par commande et par ligne, avec fichiers réels signés', async () => {
+    const shop = randomUUID();
+    const storefront = randomUUID();
+    await pool.query("insert into public.shops(id,tenant_id,owner_user_id,slug,name) values($1,$2,$3,$4,'Atelier export')",
+      [shop, tenantId, actorId, `export-${shop}`]);
+    await pool.query("insert into public.tenant_orders(id,tenant_id,shop_id,created_by,total_ht) values($1,$2,$3,$4,20)",
+      [storefront, tenantId, shop, actorId]);
+    await pool.query(`insert into public.tenant_order_items(order_id,product_label,quantity,unit_price_ht,line_total_ht,price_origin)
+      values($1,'Ligne boutique',1,10,10,'catalog'),($1,'Deuxième ligne boutique',1,10,10,'catalog')`, [storefront]);
+    const repository = new PostgresOrderExportsRepository(new PostgresTransactionRunner(pool, 'magrit_api'), storage, 'order-exports');
+    const application = createPostgresOrderExportRunApplication({ transactions: new PostgresTransactionRunner(pool, 'magrit_worker'), storage });
+    for (const format of ['csv', 'xlsx'] as const) {
+      for (const granularity of ['order', 'line'] as const) {
+        const requested = await repository.request(tenantId, actorId, { layoutVersion: 2, format, granularity, filters: {} });
+        const key = `${tenantId}/${requested.id}.${format}`;
+        commonFiles.push(key);
+        expect(requested.layout_version).toBe(2);
+        await expect(application.runOnce()).resolves.toEqual({ claimed: 1, ready: 1, failed: 0 });
+        const ready = await repository.findById(tenantId, actorId, requested.id);
+        expect(ready).toMatchObject({ status: 'ready', layout_version: 2,
+          row_count: granularity === 'order' ? 2 : 3, download_url: expect.stringContaining(key) });
+        const object = await storage.send(new GetObjectCommand({ Bucket: 'order-exports', Key: key }));
+        const bytes = await object.Body!.transformToByteArray();
+        expect(bytes.byteLength).toBe(ready!.byte_size);
+        if (format === 'csv') {
+          const csv = new TextDecoder().decode(bytes);
+          expect(csv).toContain('Origine;Boutique');
+          expect(csv).toContain('Boutique;Atelier export');
+          expect(csv).toContain('Devis;');
+          if (granularity === 'order') { expect(csv).toContain('216,00'); expect(csv).toContain('24,00'); }
+        } else {
+          const files = unzipSync(bytes);
+          const xml = Object.entries(files).filter(([name]) => name.endsWith('.xml'))
+            .map(([, value]) => new TextDecoder().decode(value)).join('');
+          expect(xml).toContain('Origine'); expect(xml).toContain('Atelier export'); expect(xml).toContain('Devis');
+          if (granularity === 'order') { expect(xml).toContain('<v>216</v>'); expect(xml).toContain('<v>24</v>'); }
+        }
+      }
+    }
+  });
+
+
 });
