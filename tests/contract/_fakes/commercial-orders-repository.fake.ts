@@ -24,6 +24,7 @@ import type {
 } from '@/modules/commercial-orders/api/contracts';
 import {
   CommercialOrderNotFoundError,
+  OrderAdministrativeStatusBlockedError,
   OrderStepUnchangedError,
   ProductionStepInactiveError,
   QuoteConversionForbiddenStatusError,
@@ -152,6 +153,12 @@ export class InMemoryCommercialOrdersRepository implements CommercialOrdersRepos
     const current = this.orders.get(orderId);
     if (!current) return;
     this.orders.set(orderId, { ...current, current_production_step_id: stepId });
+  }
+
+  setStatusForTest(orderId: string, status: CommercialOrderDto['status']): void {
+    const current = this.orders.get(orderId);
+    if (!current) throw new Error('Commande de test introuvable.');
+    this.orders.set(orderId, { ...current, status });
   }
 
   /**
@@ -371,6 +378,16 @@ export class InMemoryCommercialOrdersRepository implements CommercialOrdersRepos
     return { rows: rows.slice(0, params.size + 1) };
   }
 
+  async findStepChangeContext(tenantId: TenantId, orderId: string) {
+    const order = await this.findById(tenantId, orderId);
+    return order ? {
+      number: order.number,
+      customerId: order.customer_id,
+      status: order.status,
+      currentProductionStepId: order.current_production_step_id,
+    } : null;
+  }
+
   /**
    * REIMPLEMENTE FIDELEMENT le patron verrou -> validations -> transition de
    * `api_change_commercial_order_production_step` (migration 20260909000000) :
@@ -387,6 +404,9 @@ export class InMemoryCommercialOrdersRepository implements CommercialOrdersRepos
   ): Promise<OrderStepChangeDto> {
     const order = await this.findById(tenantId, orderId);
     if (!order) throw new CommercialOrderNotFoundError();
+    if (!['validated', 'in_production', 'shipped', 'delivered', 'invoiced'].includes(order.status)) {
+      throw new OrderAdministrativeStatusBlockedError();
+    }
 
     const step = this.steps.get(command.step_id);
     if (!step || step.tenantId !== tenantId) throw new ProductionStepNotFoundError();

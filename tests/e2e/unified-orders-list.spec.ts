@@ -47,8 +47,8 @@ test('liste réelle : pagination, filtres communs et absence de chevauchement', 
   expect(quotePage.data.length).toBeGreaterThan(0);
   expect(quotePage.data.every((row) => row.origin === 'quote')).toBe(true);
   const quote = quotePage.data[0];
-  const numberBounds = await rows(page).first().locator('td').nth(0).locator('button').boundingBox();
-  const dateBounds = await rows(page).first().locator('td').nth(1).boundingBox();
+  const numberBounds = await rows(page).first().locator('td').nth(1).locator('button').boundingBox();
+  const dateBounds = await rows(page).first().locator('td').nth(2).boundingBox();
   expect(numberBounds!.x + numberBounds!.width).toBeLessThanOrEqual(dateBounds!.x);
 
   await page.getByLabel('Client', { exact: true }).fill(quote.customer_name!);
@@ -58,20 +58,31 @@ test('liste réelle : pagination, filtres communs et absence de chevauchement', 
   await reset(page);
 
   await page.getByRole('combobox', { name: 'Origine', exact: true }).selectOption('storefront');
-  await page.getByRole('combobox', { name: 'Statut', exact: true }).selectOption('draft');
+  await page.getByRole('combobox', { name: 'Statut', exact: true }).selectOption('admin:draft');
   const storefront = initial.data.find((row) => row.origin === 'storefront')!;
   await page.getByRole('combobox', { name: 'Boutique', exact: true }).selectOption(storefront.shop_id!);
   const storefrontPage = await apply(page);
   expect(storefrontPage.data.length).toBeGreaterThan(0);
   expect(storefrontPage.data.every((row) => row.origin === 'storefront' && row.status === 'draft' && row.shop_id === storefront.shop_id)).toBe(true);
-  const statusBounds = await rows(page).first().locator('td').nth(7).locator('span').first().boundingBox();
-  const actionsBounds = await rows(page).first().locator('td').nth(8).boundingBox();
+  const statusBounds = await rows(page).first().locator('td').nth(8).locator('span').first().boundingBox();
+  const actionsBounds = await rows(page).first().locator('td').nth(9).boundingBox();
   expect(statusBounds!.x + statusBounds!.width).toBeLessThanOrEqual(actionsBounds!.x);
   await reset(page);
 
-  const stepId = await page.getByRole('combobox', { name: 'Étape de production', exact: true }).locator('option').nth(1).getAttribute('value');
-  expect(stepId).toBeTruthy();
-  await page.getByRole('combobox', { name: 'Étape de production', exact: true }).selectOption(stepId!);
+  const firstRow = rows(page).first();
+  await firstRow.getByRole('checkbox').check();
+  await expect(page.getByRole('region', { name: 'Changement de statut en lot' })).toContainText('1 commande sélectionnée');
+  await page.getByRole('button', { name: 'Effacer la sélection', exact: true }).click();
+  await firstRow.getByRole('button', { name: 'Statut', exact: true }).click();
+  await expect(page.getByTestId('order-status-dialog')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Historique', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Fermer', exact: true }).click();
+
+  await expect(page.getByRole('combobox', { name: 'Étape de production', exact: true })).toHaveCount(0);
+  const stepValue = await page.getByRole('combobox', { name: 'Statut', exact: true }).locator('optgroup[label="Production"] option').first().getAttribute('value');
+  expect(stepValue).toMatch(/^step:/);
+  const stepId = stepValue!.slice('step:'.length);
+  await page.getByRole('combobox', { name: 'Statut', exact: true }).selectOption(stepValue!);
   const productionPage = await apply(page);
   expect(productionPage.data.length).toBeGreaterThan(0);
   expect(productionPage.data.every((row) => row.current_production_step_id === stepId)).toBe(true);
@@ -139,7 +150,7 @@ test('export commun : utilise les filtres appliqués puis permet le télécharge
   test.setTimeout(90_000);
   await readPage(page, () => page.goto(path));
   await page.getByRole('combobox', { name: 'Origine', exact: true }).selectOption('storefront');
-  await page.getByRole('combobox', { name: 'Statut', exact: true }).selectOption('draft');
+  await page.getByRole('combobox', { name: 'Statut', exact: true }).selectOption('admin:draft');
   const selected = await apply(page);
   expect(selected.data.length).toBeGreaterThan(0);
   // Un brouillon de filtre non appliqué ne doit pas modifier l'export.

@@ -71,4 +71,46 @@ const fixture = (name: string) => process.env[`MAGRIT_E44B_${name}_ID`] ?? '';
     [fixture('ORDER'), fixture('ORDER_LINE')])).rows[0];
     expect(state).toEqual({ old_orders_removed: true, old_lines_removed: true, order_count: 1, line_count: 1 });
   });
+
+  it('refuse une étape de production quand le statut administratif est bloquant', async () => {
+    const client = await pool.connect();
+    try {
+      await client.query('begin');
+      await client.query(`select set_config('magrit.tenant_id',$1,true),
+        set_config('magrit.user_id',$2,true),set_config('magrit.order_transition','on',true)`,
+      [fixture('TENANT'), fixture('USER')]);
+      await client.query("update public.tenant_orders set status='cancelled' where id=$1", [fixture('ORDER')]);
+      await expect(client.query(
+        'select * from magrit.change_commercial_order_step($1,$2,$3,$4,$5,$6)',
+        [fixture('TENANT'), fixture('ORDER'), fixture('STEP'), fixture('USER'), null, null],
+      )).rejects.toThrow('order.administrative_status_blocked');
+    } finally {
+      await client.query('rollback');
+      client.release();
+    }
+  });
+
+  it('applique et journalise une étape sur une commande boutique', async () => {
+    const client = await pool.connect();
+    try {
+      await client.query('begin');
+      await client.query("select set_config('magrit.tenant_id',$1,true),set_config('magrit.user_id',$2,true)",
+        [fixture('TENANT'), fixture('USER')]);
+      const entry = (await client.query(
+        'select * from magrit.change_commercial_order_step($1,$2,$3,$4,$5,$6)',
+        [fixture('TENANT'), fixture('STOREFRONT_ORDER'), fixture('STEP'), fixture('USER'), null, null],
+      )).rows[0];
+      expect(entry).toMatchObject({
+        order_id: fixture('STOREFRONT_ORDER'), from_step_id: null, to_step_id: fixture('STEP'),
+      });
+      const order = (await client.query(
+        'select order_origin,current_production_step_id from public.tenant_orders where id=$1',
+        [fixture('STOREFRONT_ORDER')],
+      )).rows[0];
+      expect(order).toEqual({ order_origin: 'storefront', current_production_step_id: fixture('STEP') });
+    } finally {
+      await client.query('rollback');
+      client.release();
+    }
+  });
 });

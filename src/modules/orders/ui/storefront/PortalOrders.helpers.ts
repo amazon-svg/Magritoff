@@ -46,6 +46,8 @@ export interface OrderUI {
   total_ht: number;
   total_ttc: number;
   status: string; // raw status (mapping vers label UI fait dans STATUS_LABELS)
+  /** Étape opérationnelle courante, présentée comme statut sur le back-office. */
+  currentProductionStepId?: string | null;
   /**
    * Q17-c (point 12 (h)) — miroir de `tenant_orders.has_unverified_prices`
    * (Q17-a). `false`/absent pour la cohorte legacy `shop_orders`.

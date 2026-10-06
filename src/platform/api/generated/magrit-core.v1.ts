@@ -1555,7 +1555,7 @@ export interface paths {
          *     `Idempotency-Key` EXIGEE, et elle sert ici plus qu ailleurs : le geste part d une grille dense, ou le double-clic et le re-envoi apres timeout sont la norme. Rejouee a l identique, elle rend la reponse initiale sans creer de seconde entree au journal.
          *
          *     AUCUNE PRECONDITION DE CONCURRENCE. `If-Match` n est ni exige, ni honore : le dernier ecrivain gagne, et deux operateurs qui deplacent la meme commande produisent DEUX entrees de journal, dans l ordre, avec leurs auteurs — ce qui est plus informatif qu un 409. Le contrat le dit plutot que de se taire, parce qu un silence ne se distingue pas d un oubli. ARBITRE PAR ARNAUD LE 2026-09-09 (cadrage E10.14, reserve (a), close) : le choix est acquis pour la duree de v1, l exiger plus tard serait cassant (428 sur un appelant existant).
-         *     Publie `order.step_changed` dans `outbox_events` — et RIEN d autre au titre des notifications (CA7). Ce lot ne fait que DEPOSER l evenement ; son evaluation (a qui notifier, avec quel modele) est E10.15, non livree. Aucun appel direct a un moteur de notification, jamais, meme patron que `quote.sent` / `quote.accepted` / `quote.converted`.
+         *     Pour une commande numerotee et rattachee a un client CRM, publie `order.step_changed` dans `outbox_events` — et RIEN d autre au titre des notifications (CA7). Une commande boutique non encore rapprochee ne fabrique pas une charge utile incomplete : son mouvement reste journalise, mais aucun evenement de notification n est emis. Ce lot ne fait que DEPOSER l evenement ; son evaluation (a qui notifier, avec quel modele) appartient a E10.15. Aucun appel direct a un moteur de notification, jamais, meme patron que `quote.sent` / `quote.accepted` / `quote.converted`.
          */
         post: operations["changeOrderProductionStep"];
         delete?: never;
@@ -14315,7 +14315,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             /**
-             * @description Soit la commande est DEJA sur cette etape (`order.step_unchanged`), soit la cle d idempotence a ete rejouee avec une requete differente (`api.idempotency_key_reused`).
+             * @description Soit la commande est DEJA sur cette etape (`order.step_unchanged`), soit son statut administratif interdit tout mouvement de production (`order.administrative_status_blocked`), soit la cle d idempotence a ete rejouee avec une requete differente (`api.idempotency_key_reused`).
              *
              *     `order.step_unchanged` est un REFUS, pas un succes silencieux, et ce choix se defend : accepter le no-op ecrirait au journal append-only une entree « X -> X » que plus rien ne pourrait retirer, et ferait de l historique le compte-rendu des clics plutot que celui des mouvements. Le corps porte `current_state` (l etape courante) pour que l appelant se resynchronise sans relire — c est en general le signe qu un collegue vient de faire le meme geste.
              *

@@ -71,13 +71,19 @@ export class CommercialOrdersService {
     return order;
   }
 
+  async getStepChangeContext(tenantId: TenantId, orderId: string) {
+    const context = await this.repository.findStepChangeContext(tenantId, orderId);
+    if (!context) throw new CommercialOrderNotFoundError();
+    return context;
+  }
+
   /** E10.14 — journal antichronologique. 404 `CommercialOrderNotFoundError` si la commande est absente/hors tenant, verifie AVANT la lecture du journal. */
   async listStepChanges(
     tenantId: TenantId,
     orderId: string,
     params: ListOrderStepChangesParams,
   ): Promise<ListOrderStepChangesResult> {
-    await this.getSummary(tenantId, orderId);
+    await this.getStepChangeContext(tenantId, orderId);
     return this.repository.listStepChanges(tenantId, orderId, params);
   }
 
@@ -104,27 +110,33 @@ export class CommercialOrdersService {
   ): Promise<OrderStepChangeDto> {
     const entry = await this.repository.changeProductionStep(tenantId, orderId, actor, command, serviceActorLabel);
 
-    const order = await this.repository.findById(tenantId, orderId);
+    const order = await this.repository.findStepChangeContext(tenantId, orderId);
     if (!order) {
       // Ne devrait jamais arriver : la transition vient de committer sur
       // cette meme commande (meme discipline defensive que `convertQuote`).
       throw new CommercialOrderNotFoundError();
     }
 
-    await this.outbox.publish({
-      name: 'order.step_changed',
-      tenantId,
-      aggregateType: 'order',
-      aggregateId: orderId,
-      payload: {
-        step_change_id: entry.id,
-        order_id: orderId,
-        order_number: order.number,
-        customer_id: order.customer_id,
-        from_step_id: entry.from_step_id,
-        to_step_id: entry.to_step_id,
-      },
-    });
+    // Le contrat historique de notification exige un numéro commercial et
+    // un client CRM. Une commande boutique peut ne porter ni l'un ni l'autre :
+    // son étape et son journal restent bien enregistrés, sans publier une
+    // charge utile mensongère que le consommateur rejetterait.
+    if (order.number && order.customerId) {
+      await this.outbox.publish({
+        name: 'order.step_changed',
+        tenantId,
+        aggregateType: 'order',
+        aggregateId: orderId,
+        payload: {
+          step_change_id: entry.id,
+          order_id: orderId,
+          order_number: order.number,
+          customer_id: order.customerId,
+          from_step_id: entry.from_step_id,
+          to_step_id: entry.to_step_id,
+        },
+      });
+    }
 
     return entry;
   }

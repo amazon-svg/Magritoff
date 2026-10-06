@@ -57,11 +57,12 @@ const btnPrimary =
 export interface OrderStatusDialogProps {
   orderId: string;
   onClose: () => void;
+  readOnlyReason?: string;
   /** Notifie l appelant (grille, fiche) qu une transition a reussi — pour qu il rafraichisse son propre etat sans le recalculer ici. */
   onChanged?: (entry: OrderStepChangeDto) => void;
 }
 
-export function OrderStatusDialog({ orderId, onClose, onChanged }: OrderStatusDialogProps) {
+export function OrderStatusDialog({ orderId, onClose, onChanged, readOnlyReason }: OrderStatusDialogProps) {
   const ordersApi = useWorkspaceApi(CommercialOrdersApiClient);
   const unifiedOrdersApi = useWorkspaceApi(OrdersApiClient);
   const stepsApi = useWorkspaceApi(ProductionStepsApiClient);
@@ -207,6 +208,7 @@ export function OrderStatusDialog({ orderId, onClose, onChanged }: OrderStatusDi
             {/* Colonne DROITE — etapes du tenant, ordre configure (CA1/CA4). */}
             <div className="space-y-1.5">
               <h4 className="text-sm font-semibold text-ink-2 uppercase tracking-wide">Étapes</h4>
+              {readOnlyReason && <p className="rounded border border-line bg-bg p-2 text-sm text-ink-muted">{readOnlyReason}</p>}
               <div className="space-y-1.5">
                 {steps.map((step) => {
                   const state = stepVisualState(step, currentStepId, currentPosition);
@@ -215,7 +217,8 @@ export function OrderStatusDialog({ orderId, onClose, onChanged }: OrderStatusDi
                     <button
                       key={step.id}
                       type="button"
-                      onClick={() => setSelectedStepId(step.id)}
+                      onClick={() => { if (!readOnlyReason) setSelectedStepId(step.id); }}
+                      disabled={Boolean(readOnlyReason)}
                       data-testid={TEST_IDS.orderStatus.option}
                       data-step-id={step.id}
                       data-state={state}
@@ -243,12 +246,13 @@ export function OrderStatusDialog({ orderId, onClose, onChanged }: OrderStatusDi
                 rows={2}
                 placeholder="Note (facultative) — ex. fichier repassé en PAO, fond perdu manquant"
                 className={`${inputCls} mt-3`}
+                disabled={Boolean(readOnlyReason)}
               />
 
               <button
                 type="button"
                 onClick={() => void handleConfirm()}
-                disabled={!selectedStepId || selectedStepId === currentStepId || confirming}
+                disabled={Boolean(readOnlyReason) || !selectedStepId || selectedStepId === currentStepId || confirming}
                 className={`${btnPrimary} mt-2`}
                 data-testid={TEST_IDS.orderStatus.confirmBtn}
               >

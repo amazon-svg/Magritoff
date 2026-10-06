@@ -60,7 +60,7 @@ try {
 
 async function seedOrderUnificationFixture(client, targetEnvironment) {
   const ids = Object.fromEntries([
-    'USER', 'TENANT', 'CUSTOMER', 'PROJECT', 'QUOTE', 'QUOTE_LINE', 'ORDER', 'ORDER_LINE',
+    'USER', 'TENANT', 'SHOP', 'STOREFRONT_ORDER', 'CUSTOMER', 'PROJECT', 'QUOTE', 'QUOTE_LINE', 'ORDER', 'ORDER_LINE',
     'STEP_CHANGE', 'FILE', 'TEMPLATE', 'DOCUMENT', 'UPLOAD_LINK', 'NOTIFICATION_TEMPLATE', 'NOTIFICATION',
   ].map((name) => [name, randomUUID()]));
   for (const [name, value] of Object.entries(ids)) targetEnvironment[`MAGRIT_E44B_${name}_ID`] = value;
@@ -70,6 +70,10 @@ async function seedOrderUnificationFixture(client, targetEnvironment) {
   await client.query("insert into public.tenants(id,slug,name) values($1,$2,'Reprise E4.4b')",
     [ids.TENANT, `migration-${ids.TENANT}`]);
   await client.query("insert into public.tenant_members(tenant_id,user_id,role) values($1,$2,'owner')", [ids.TENANT, ids.USER]);
+  await client.query("insert into public.shops(id,tenant_id,owner_user_id,slug,name) values($1,$2,$3,$4,'Boutique reprise')",
+    [ids.SHOP, ids.TENANT, ids.USER, `migration-shop-${ids.SHOP}`]);
+  await client.query("insert into public.tenant_orders(id,tenant_id,shop_id,created_by,status,total_ht) values($1,$2,$3,$4,'validated',25)",
+    [ids.STOREFRONT_ORDER, ids.TENANT, ids.SHOP, ids.USER]);
   const step = (await client.query('select id from public.production_steps where tenant_id=$1 order by position limit 1', [ids.TENANT])).rows[0].id;
   targetEnvironment.MAGRIT_E44B_STEP_ID = step;
   await client.query("insert into public.customers(id,tenant_id,type,civility,first_name,last_name,created_by) values($1,$2,'individual','mr','Client','Historique',$3)",

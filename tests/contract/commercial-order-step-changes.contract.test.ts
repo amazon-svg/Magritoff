@@ -308,6 +308,19 @@ describe('Journal des changements d etape de production (E10.14)', () => {
     expect(body.current_state?.current_production_step_id).toBe(STEP_RECU);
   });
 
+  it('changeOrderProductionStep — une commande annulee refuse une etape operationnelle', async () => {
+    const order = await createOrderOnStepRecu();
+    ordersRepository.setStatusForTest(order.id, 'cancelled');
+    const response = await call(`/api/v1/commercial-orders/${order.id}/step-changes`, {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'Idempotency-Key': `step-${uuid()}` },
+      body: JSON.stringify({ step_id: STEP_PAO }),
+    });
+    expect(response.status).toBe(409);
+    const body = (await response.json()) as { code: string };
+    expect(body.code).toBe('order.administrative_status_blocked');
+  });
+
   it('changeOrderProductionStep — rejeu de la MEME cle d idempotence : 201 identique, AUCUNE seconde entree, jamais le 409 step_unchanged', async () => {
     const order = await createOrderOnStepRecu();
     const key = `step-${uuid()}`;
