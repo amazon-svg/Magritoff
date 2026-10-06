@@ -107,22 +107,25 @@ test('les deux origines ouvrent leur fiche canonique et le client CRM est access
   const storefront = initial.data.find((row) => row.origin === 'storefront')!;
   await page.locator(`[data-testid="shop-orders-row"][data-order-id="${storefront.id}"]`).getByRole('button', { name: `Ouvrir la commande ${storefront.id}`, exact: true }).first().click();
   await expect(page).toHaveURL(new RegExp(`/dashboard/orders/${storefront.id}$`));
-  await expect(page.getByTestId('order-backoffice-detail')).toBeVisible();
+  await expect(page.getByTestId('unified-order-detail')).toBeVisible();
   await expect(page.getByTestId('order-files-block')).toBeVisible();
   await expect(page.getByTestId('order-files-line-select')).toContainText('Toute la commande');
   await expect(page.getByTestId('order-upload-links-block')).toBeVisible();
+  const storefrontSections = await page.getByTestId('unified-order-detail').locator('h2').allTextContents();
   await page.reload();
-  await expect(page.getByTestId('order-backoffice-detail')).toBeVisible();
+  await expect(page.getByTestId('unified-order-detail')).toBeVisible();
   await readPage(page, () => page.getByRole('link', { name: 'Retour aux commandes' }).click());
 
   const quote = initial.data.find((row) => row.origin === 'quote')!;
   const quoteRow = page.locator(`[data-testid="shop-orders-row"][data-order-id="${quote.id}"]`);
   await quoteRow.getByRole('button', { name: `Ouvrir la commande ${quote.number}`, exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/dashboard/orders/${quote.id}$`));
+  await expect(page.getByTestId('unified-order-detail')).toBeVisible();
   await expect(page.getByRole('heading', { name: quote.number!, exact: true })).toBeVisible();
   await expect(page.getByTestId('order-files-block')).toBeVisible();
   await expect(page.getByTestId('order-files-line-select')).toContainText('Toute la commande');
   await expect(page.getByTestId('order-upload-links-block')).toBeVisible();
+  expect(await page.getByTestId('unified-order-detail').locator('h2').allTextContents()).toEqual(storefrontSections);
   await page.reload();
   await expect(page.getByRole('heading', { name: quote.number!, exact: true })).toBeVisible();
   await readPage(page, () => page.getByRole('link', { name: 'Retour aux commandes' }).click());

@@ -1,12 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router';
-import { DashboardOrderDetail as CommercialOrderDetail } from '@/modules/commercial-orders/ui';
 import { OrdersApiClient, type UnifiedOrderDetail } from '@/modules/orders';
-import { DashboardShopOrderDetail, OrderMetadataEditor } from '@/modules/orders/ui';
-import { OrderFilesBlock } from '@/modules/order-files/ui';
-import { OrderUploadLinksPanel } from '@/modules/order-upload-links/ui';
 import { useTenantPath } from '@/modules/tenants/ui/hooks';
 import { useWorkspaceApi } from '@/platform/runtime/workspace-ui-runtime';
+import { UnifiedOrderDetailView } from './UnifiedOrderDetailView';
 
 /**
  * Point d entree unique de la fiche Commande.
@@ -50,31 +47,13 @@ export function UnifiedOrderDetailPage() {
 
   if (error) return <UnifiedOrderError message={error} />;
   if (!resolved) return <p className="text-sm text-ink-muted">Chargement de la commande…</p>;
-  const metadataSlot = (
-    <OrderMetadataEditor
-      key={`${resolved.id}:${resolved.updated_at}`}
-      order={resolved}
-      etag={etag}
-      api={ordersApi}
-      onSaved={(result) => {
-        setResolved(result.data);
-        setEtag(result.etag);
-      }}
-    />
-  );
-  const lines = resolved.origin === 'storefront'
-    ? resolved.detail.items.map((line) => ({ id: line.id, label: line.productLabel }))
-    : resolved.detail.lines.map((line) => ({ id: line.id, label: line.label }));
-  const filesSlot = (
-    <>
-      <OrderFilesBlock orderId={resolved.id} lines={lines} />
-      <OrderUploadLinksPanel orderId={resolved.id} />
-    </>
-  );
-  if (resolved.origin === 'storefront') {
-    return <DashboardShopOrderDetail key={resolved.updated_at} initialOrder={resolved.detail} metadataSlot={metadataSlot} filesSlot={filesSlot} />;
-  }
-  return <CommercialOrderDetail key={resolved.updated_at} initialOrder={resolved.detail} metadataSlot={metadataSlot} filesSlot={filesSlot} />;
+  return <UnifiedOrderDetailView
+    key={`${resolved.id}:${resolved.updated_at}`}
+    order={resolved}
+    etag={etag}
+    api={ordersApi}
+    onChanged={(result) => { setResolved(result.data); setEtag(result.etag); }}
+  />;
 }
 
 /** L ancienne grille devient un alias vers la grille metier unique. */

@@ -84,3 +84,19 @@ fichiers commerciaux qui ne persiste que les pièces de `project_item`.
 Vérifications : typage modulaire réussi, 78 tests ciblés de contrats et de
 helpers réussis, et recette Playwright réussie sur les deux origines avec les
 panneaux de fichiers, le choix de ligne et les liens de dépôt visibles.
+
+## Vue de détail unique
+
+`UnifiedOrderDetailPage` ne branche plus vers deux présentations selon
+`origin`. Il monte une seule `UnifiedOrderDetailView`, qui normalise les lignes
+boutique et devis vers le même tableau et conserve une hiérarchie identique :
+en-tête, informations modifiables, identité, lignes, totaux, fichiers, bon de
+commande, liens de dépôt et actions. Les absences propres à une provenance sont
+affichées dans les mêmes champs (« Non renseignée », « Non applicable »).
+
+Les anciens `OrderDetailPage` des modules `orders` et `commercial-orders`,
+ainsi que le hook commercial dédié, ont été supprimés. Un test d'architecture
+interdit leur retour et la recette Playwright compare les titres de section des
+deux provenances. Le typage, le build et les tests d'architecture passent ; le
+build conserve uniquement l'avertissement Rollup déjà connu autour de
+`CheckoutPage`.
