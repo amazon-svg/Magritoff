@@ -77,11 +77,11 @@ describe('formatFrenchPurgeDate', () => {
 
 describe('buildOrderDetailLink — parité avec le registre de surfaces (qa-review round 1, B2)', () => {
   it("produit EXACTEMENT le chemin monte par routes.tsx (/t/:tenantSlug/dashboard/<route registre>)", () => {
-    const route = workspaceSurface.routes.find((r) => r.id === 'commercial-orders.workspace.detail');
-    if (!route) throw new Error('Route commercial-orders.workspace.detail absente du registre workspace.');
+    const route = workspaceSurface.routes.find((r) => r.id === 'orders.workspace.detail');
+    if (!route) throw new Error('Route orders.workspace.detail absente du registre workspace.');
     // Si quelqu un renomme la route ou son chemin dans le registre sans
     // mettre a jour le littéral serveur ci-dessous, cette assertion tombe.
-    expect(route.path).toBe('commercial-orders/:orderId');
+    expect(route.path).toBe('orders/:orderId');
 
     const link = buildOrderDetailLink(BASE_URL, 'atelier-test', 'order-1');
     const expectedPath = `/t/atelier-test/dashboard/${route.path.replace(':orderId', 'order-1')}`;
@@ -90,12 +90,12 @@ describe('buildOrderDetailLink — parité avec le registre de surfaces (qa-revi
     // Meme discipline que buildAccountQuotesLink (E10.10b-3) : le littéral
     // COMPLET, hardcode, pour que renommer /t/:tenantSlug ou /dashboard dans
     // routes.tsx SANS mettre a jour ce test soit visible.
-    expect(expectedPath).toBe('/t/atelier-test/dashboard/commercial-orders/order-1');
+    expect(expectedPath).toBe('/t/atelier-test/dashboard/orders/order-1');
   });
 
   it('retire les barres obliques finales de la base et encode le slug/l id de commande', () => {
     expect(buildOrderDetailLink('https://magritapp.com/', 'un slug', 'order avec espace')).toBe(
-      'https://magritapp.com/t/un%20slug/dashboard/commercial-orders/order%20avec%20espace',
+      'https://magritapp.com/t/un%20slug/dashboard/orders/order%20avec%20espace',
     );
   });
 });
@@ -182,7 +182,7 @@ describe('PurgeNoticeNotificationConsumer', () => {
       orderCount: 1,
       purgeAtLabel: '12 octobre 2026',
       daysBeforePurge: 20,
-      orderLinks: ['https://magritapp.com/t/atelier-test/dashboard/commercial-orders/order-1'],
+      orderLinks: ['https://magritapp.com/t/atelier-test/dashboard/orders/order-1'],
     });
 
     expect(recordDeliveryAttempt).toHaveBeenCalledTimes(2);
@@ -204,9 +204,9 @@ describe('PurgeNoticeNotificationConsumer', () => {
     expect(send).toHaveBeenCalledWith(
       expect.objectContaining({
         orderLinks: [
-          'https://magritapp.com/t/atelier-test/dashboard/commercial-orders/order-1',
-          'https://magritapp.com/t/atelier-test/dashboard/commercial-orders/order-2',
-          'https://magritapp.com/t/atelier-test/dashboard/commercial-orders/order-3',
+          'https://magritapp.com/t/atelier-test/dashboard/orders/order-1',
+          'https://magritapp.com/t/atelier-test/dashboard/orders/order-2',
+          'https://magritapp.com/t/atelier-test/dashboard/orders/order-3',
         ],
       }),
     );

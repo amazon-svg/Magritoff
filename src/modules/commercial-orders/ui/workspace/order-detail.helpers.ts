@@ -25,8 +25,7 @@ export function contactDisplayName(contact: Pick<CustomerContactDto, 'first_name
  *
  * `timeZone: PRODUCT_REFERENCE_TIME_ZONE` explicite (qa-review E10.18a
  * round 1, M2) — SANS lui, `toLocaleString` retombe sur le fuseau du
- * NAVIGATEUR, alors que la grille voisine du meme module
- * (`orders-list.helpers.ts`, `formatOrderCreatedAt`) affiche deja dans le
+ * NAVIGATEUR, alors que la grille commune affiche dans le
  * fuseau de reference (`docs/api/CONVENTIONS.md` §8.24 point 5 regle 8 :
  * « les bornes ET LES DATES AFFICHEES sont entendues dans Europe/Paris »).
  * Sans cet ajout, un utilisateur a Londres pouvait voir `01/09/2026` dans la

@@ -434,6 +434,8 @@ describe('Commandes de gestion commerciale (E10.12)', () => {
 
     const list = await call('/api/v1/commercial-orders', { headers: asStudio });
     await expectContract(list, { status: 200 });
+    expect(list.headers.get('deprecation')).toBe('@1791244800');
+    expect(list.headers.get('link')).toBe('</api/v1/order-summaries>; rel="successor-version"');
     const { data: rows } = (await list.json()) as { data: CommercialOrderDto[] };
     expect(rows.length).toBeGreaterThanOrEqual(2);
 
@@ -584,6 +586,8 @@ describe('Commandes de gestion commerciale (E10.12)', () => {
     const response = await call(`/api/v1/commercial-orders/${order.id}`, { headers: asStudio });
     await expectContract(response, { status: 200, dataSchema: 'CommercialOrderDetail' });
     expect(response.headers.get('etag')).toBeTruthy();
+    expect(response.headers.get('deprecation')).toBe('@1791244800');
+    expect(response.headers.get('link')).toBe(`</api/v1/order-summaries/${order.id}>; rel="successor-version"`);
     const { data: detail } = (await response.json()) as { data: CommercialOrderDetailDto };
     expect(detail.lines).toHaveLength(1);
     // E10.16 — devis converti depuis `sent` : mêmes valeurs NULL que celles

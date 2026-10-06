@@ -201,7 +201,7 @@ export const quoteSchema = z
     decided_by_account_id: uuidSchema.nullable(),
     // E10.12 — instant de la transformation en commande (convertQuote). NULL
     // tant que le devis n a pas ete converti. Pas de order_id ici (decision
-    // #8 du contrat) : voir GET /commercial-orders?quote_id=.
+    // #8 du contrat) : voir GET /order-summaries?quote_id=.
     converted_at: timestampSchema.nullable(),
     created_by: uuidSchema.nullable(),
     created_at: timestampSchema,

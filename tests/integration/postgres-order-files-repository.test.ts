@@ -76,7 +76,7 @@ describeIntegration('PostgresOrderFilesRepository — PostgreSQL et S3 réels', 
       await client.query('select magrit.convert_commercial_quote($1, $2) as id', [tenantId, quoteId])
     ).rows[0].id);
     orderLineId = (
-      await pool.query('select id from public.commercial_order_lines where order_id = $1', [orderId])
+      await pool.query('select id from public.tenant_order_items where order_id = $1', [orderId])
     ).rows[0].id;
   });
 

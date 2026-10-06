@@ -89,6 +89,7 @@ describe('registre des contributions de surfaces', () => {
     expect(applicationContributionRegistry.forSurface('storefront').routes).toContainEqual(expect.objectContaining({ id: 'orders.storefront.confirmation', path: 'thank-you', mount: 'host' }));
     expect(applicationContributionRegistry.forSurface('customer-portal').routes).toContainEqual(expect.objectContaining({ id: 'orders.customer-portal.list', path: 'account/orders', mount: 'host' }));
     expect(applicationContributionRegistry.forSurface('workspace').routes).toContainEqual(expect.objectContaining({ id: 'orders.workspace.list', path: 'orders', mount: 'router' }));
+    expect(applicationContributionRegistry.forSurface('workspace').routes).toContainEqual(expect.objectContaining({ id: 'orders.workspace.detail', path: 'orders/:orderId', mount: 'router' }));
     expect(applicationContributionRegistry.forSurface('backoffice').plannedRoutes).toContainEqual(expect.objectContaining({ id: 'orders.backoffice.production', availability: 'planned', requiredCapabilities: ['orders.transition'] }));
   });
 
@@ -118,32 +119,17 @@ describe('registre des contributions de surfaces', () => {
     );
   });
 
-  it('expose une entree de navigation "Commandes atelier" pour la grille des commandes de gestion commerciale (E10.18e-1)', () => {
-    // Levee de la reserve posee par E10.18a (docs/api/CONVENTIONS.md §8.24,
-    // decision 4 d Arnaud du 2026-09-14) : la grille des commandes
-    // COMMERCIALES (`commercial-orders`, jamais `orders`/commandes
-    // BOUTIQUE) gagne une entree de sidebar, avec une icone DIFFERENTE de
-    // celle de "Commandes" (`shopping-bag`) pour eviter la confusion entre
-    // les deux domaines.
-    expect(applicationContributionRegistry.forSurface('workspace').navigation).toContainEqual(
+  it('expose une seule entree de navigation Commandes pour les deux workflows', () => {
+    const orderEntries = applicationContributionRegistry
+      .forSurface('workspace')
+      .navigation.filter((entry) => entry.id === 'orders.workspace.navigation' || entry.id === 'commercial-orders.workspace.navigation');
+    expect(orderEntries).toEqual([
       expect.objectContaining({
-        id: 'commercial-orders.workspace.navigation',
-        moduleId: 'commercial-orders',
-        featureId: 'commercial-orders.workspace-list',
-        routeId: 'commercial-orders.workspace.list',
-        groupId: 'commercial',
-        label: 'Commandes atelier',
-        iconId: 'factory',
-        order: 135,
+        id: 'orders.workspace.navigation',
+        routeId: 'orders.workspace.list',
+        label: 'Commandes',
       }),
-    );
-    const ordersEntry = applicationContributionRegistry
-      .forSurface('workspace')
-      .navigation.find((entry) => entry.id === 'orders.workspace.navigation');
-    const commercialOrdersEntry = applicationContributionRegistry
-      .forSurface('workspace')
-      .navigation.find((entry) => entry.id === 'commercial-orders.workspace.navigation');
-    expect(ordersEntry?.iconId).not.toEqual(commercialOrdersEntry?.iconId);
+    ]);
   });
 
   it('exige la capacite commercial-orders.read sur la route de la grille des commandes de gestion commerciale (qa-review E10.18e-1 round 1, C3)', () => {

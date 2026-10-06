@@ -38,6 +38,7 @@ export {
   type CreateOrderResult,
   type DraftOrderItem,
   type DraftOrder,
+  type OrderDetail,
   type UpdateDraftOrderCommand,
   type UpdateDraftOrderResult,
   type OrderCapability,
@@ -62,3 +63,7 @@ export type {
 } from './application/orders-repository';
 export { ordersModuleManifest } from './manifest';
 export { ordersBackofficeContribution, ordersCustomerPortalContribution, ordersStorefrontContribution, ordersWorkspaceContribution } from './surface-contributions';
+
+export { orderListEntriesSchema, orderListEntrySchema, orderListFiltersSchema, type OrderListEntry, type OrderListFilters } from './api/contracts';
+
+export { unifiedOrderDetailSchema, type UnifiedOrderDetail } from './api/contracts';

@@ -70,7 +70,7 @@
  * arrondi).
  */
 import { formatCivilDateInReferenceTimeZone } from '../../../kernel/clock/index.ts';
-import type { CommercialOrderStatus, CustomerType, TaxRegime } from '../../../platform/api/generated/magrit-core.v1.ts';
+import type { CommercialOrderStatus, OrderListEntry, CustomerType, TaxRegime } from '../../../platform/api/generated/magrit-core.v1.ts';
 import type { OrderExportGranularity } from '../api/contracts.ts';
 
 export type SpreadsheetCell =
@@ -109,9 +109,11 @@ const CUSTOMER_TYPE_LABELS = Object.freeze({
  * n a pas ete completee — exactement le defaut (liste qui se perime en
  * silence) que le critere de traduction existe pour empecher.
  */
-const ORDER_STATUS_LABELS = Object.freeze({
-  validated: 'Validée',
-}) satisfies Record<CommercialOrderStatus, string>;
+const ORDER_STATUS_LABELS = Object.freeze({ validated: 'Validée' }) satisfies Record<CommercialOrderStatus, string>;
+const UNIFIED_ORDER_STATUS_LABELS = Object.freeze({
+  draft: 'En attente de validation', validated: 'Validée', in_production: 'En production',
+  shipped: 'Expédiée', delivered: 'Livrée', invoiced: 'Facturée', cancelled: 'Annulée',
+}) satisfies Record<OrderListEntry['status'], string>;
 
 /**
  * CINQ valeurs + le cas nul (`CommercialOrderLine.vat_regime`/
@@ -250,8 +252,16 @@ const LINE_ONLY_COLUMNS: readonly OrderExportColumn[] = Object.freeze([
 ]);
 
 /** Catalogue COMPLET, dans l ordre final du fichier, pour une granularite donnee. */
-export function orderExportColumnsFor(granularity: OrderExportGranularity): readonly OrderExportColumn[] {
-  return granularity === 'order' ? [...SHARED_COLUMNS, ...ORDER_ONLY_COLUMNS] : [...SHARED_COLUMNS, ...LINE_ONLY_COLUMNS];
+const UNIFIED_COLUMNS: readonly OrderExportColumn[] = Object.freeze([
+  { header: 'Origine', cell: (row) => ({ kind: 'text', value: translateEnum({ storefront: 'Boutique', quote: 'Devis' }, String(row['order_origin']), 'Origine') }) },
+  { header: 'Boutique', cell: (row) => ({ kind: 'text', value: textOf(row, 'shop_name') }) },
+]);
+
+export function orderExportColumnsFor(granularity: OrderExportGranularity, layoutVersion: 1 | 2 = 1): readonly OrderExportColumn[] {
+  const columns = granularity === 'order' ? [...SHARED_COLUMNS, ...ORDER_ONLY_COLUMNS] : [...SHARED_COLUMNS, ...LINE_ONLY_COLUMNS];
+  return layoutVersion === 2 ? [...columns.map((column) => column.header === 'Statut commercial'
+    ? { ...column, cell: (row: OrderExportRawRow): SpreadsheetCell => ({ kind: 'text', value: translateEnum(UNIFIED_ORDER_STATUS_LABELS, String(row['order_status']), 'Statut') }) }
+    : column), ...UNIFIED_COLUMNS] : columns;
 }
 
 /** Reexporte pour les renderers (CSV ici, XLSX en E10.18d) : conversion UTC -> civile Europe/Paris d une cellule `date`. */

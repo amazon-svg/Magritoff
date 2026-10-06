@@ -13,10 +13,21 @@
 import type { OrderSummary, PriceOrigin } from '@/modules/orders';
 import { STATUS_LABELS as CANONICAL_STATUS_LABELS } from '@/modules/orders/ui/helpers/orderStatus';
 
-export type OrderSource = 'legacy' | 'v1_1';
+/**
+ * Origine technique de la commande dans le modele de lecture backoffice.
+ * `commercial` designe une commande creee depuis un devis. Ce discriminant
+ * ne cree pas un second objet metier : il permet seulement d appeler les
+ * actions propres au workflow d entree tant que les deux stockages historiques
+ * n ont pas encore ete migres.
+ */
+export type OrderSource = 'legacy' | 'v1_1' | 'commercial';
 
 export interface OrderUI {
   id: string;
+  /** Numéro métier quand le workflow en attribue un (`CDE-AAAA-NNNNN`). */
+  number?: string | null;
+  /** Client CRM associé, lorsqu'il existe dans le référentiel du tenant. */
+  customer_id?: string | null;
   source: OrderSource;
   date: string; // ISO
   customer_name: string;

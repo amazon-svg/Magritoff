@@ -119,7 +119,7 @@ export class PostgresOrderDocumentsRepository implements OrderDocumentsRepositor
     if (existing.rowCount !== 0) throw new OrderDocumentAlreadyGeneratedError();
 
     const order = await client.query(
-      'select 1 from public.commercial_orders where tenant_id = $1 and id = $2',
+      'select 1 from public.tenant_orders where tenant_id = $1 and id = $2',
       [tenantId, orderId],
     );
     if (order.rowCount === 0) throw new CommercialOrderNotFoundError();

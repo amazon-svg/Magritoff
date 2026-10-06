@@ -117,6 +117,23 @@ describeIntegration('PostgresOrdersRepository — PostgreSQL reel', () => {
     await expect(repository.listTenantOrders(tenantId, ownerId)).resolves.toEqual([
       expect.objectContaining({ id: created.orderId, totalHt: 25, hasUnverifiedPrices: false }),
     ]);
+    await expect(repository.getOrderDetail(created.orderId, {
+      storefrontToken: null,
+      magritUserId: ownerId,
+    })).resolves.toMatchObject({
+      orderId: created.orderId,
+      shopId,
+      shopName: 'Orders shop',
+      source: 'v1_1',
+      notes: 'Commande catalogue',
+      totalHt: '25.00',
+      totalTtc: '30.00',
+      items: [{ productLabel: 'Flyer A5', quantity: 2, priceOrigin: 'catalog' }],
+    });
+    await expect(repository.getOrderDetail(created.orderId, {
+      storefrontToken: null,
+      magritUserId: outsiderId,
+    })).rejects.toMatchObject({ code: 'order_not_found' });
   });
 
   it('refuse un prix catalogue obsolete et un produit hors boutique', async () => {

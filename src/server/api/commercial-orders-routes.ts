@@ -31,6 +31,7 @@ import {
 import { dateOnlySchema } from '../../modules/commercial-quotes/api/contracts.ts';
 import { endOfDayInReferenceTimeZone, startOfDayInReferenceTimeZone } from '../../kernel/clock/index.ts';
 import type { CommercialOrderSort } from '../../modules/commercial-orders/api/contracts.ts';
+import { deprecatedOrderRouteHeaders } from './order-compatibility.ts';
 import type { CommercialOrdersService } from '../../modules/commercial-orders/application/commercial-orders-service.ts';
 import {
   CommercialOrderNotFoundError,
@@ -192,6 +193,7 @@ export function createCommercialOrdersRoutes(
           status: 200,
           data: page.items,
           meta: { next_cursor: page.nextCursor, page_size: context.page.size },
+          headers: deprecatedOrderRouteHeaders('/api/v1/order-summaries'),
         };
       },
     }),
@@ -206,7 +208,12 @@ export function createCommercialOrdersRoutes(
       async handle(context) {
         return withCommercialOrderErrors(async () => {
           const detail = await orders.getDetail(context.tenantId, context.params['orderId']!);
-          return { status: 200, data: detail, etag: await computeEntityTag(detail) };
+          return {
+            status: 200,
+            data: detail,
+            etag: await computeEntityTag(detail),
+            headers: deprecatedOrderRouteHeaders(`/api/v1/order-summaries/${detail.id}`),
+          };
         });
       },
     }),

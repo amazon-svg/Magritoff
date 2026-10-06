@@ -208,3 +208,19 @@ describe('OrderExportsApiClient.request — methode HTTP (MOYEN C03, qa-review r
     expect(capturedMethod).toBe('POST');
   });
 });
+
+
+describe('client des exports communs', () => {
+  it('envoie tous les filtres communs et conserve la clé d’idempotence sur /order-exports', async () => {
+    const filters = { origin: 'storefront' as const, status: 'draft' as const, customer_search: 'Jean',
+      shop_id: fixtureExport().id, created_from: '2026-10-05', created_to: '2026-10-05' };
+    const fetcher = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => Response.json({
+      data: fixtureExport({ filters, layout_version: 2 }), meta: { request_id: 'test' } }));
+    const client = new OrderExportsApiClient(new FetchApiClient('https://magrit.test', fetcher)).forUnified();
+    const result = await client.request({ format: 'csv', granularity: 'order', filters }, 'same-key');
+    expect(result.filters).toEqual(filters);
+    expect(new URL(String(fetcher.mock.calls[0][0])).pathname).toBe('/api/v1/order-exports');
+    expect(JSON.parse(String(fetcher.mock.calls[0][1]?.body)).filters).toEqual(filters);
+    expect(new Headers(fetcher.mock.calls[0][1]?.headers).get('Idempotency-Key')).toBe('same-key');
+  });
+});

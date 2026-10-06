@@ -6,21 +6,11 @@
  * `OrderStatusButton`/`OrderStatusDialog` (E10.14), deja cables au contrat
  * `changeOrderProductionStep`.
  *
- * QUATRE LECTURES PUBLIEES, DEJA EXISTANTES (contrat, §8.17 decision #3/#5/
- * #6, reserve (d)) : `getCommercialOrder` (entete, totaux figes, lignes),
- * `getCustomer` (nom du client ET nom de l interlocuteur — `customer_
- * contact_id` est un POINTEUR, jamais recopie, decision #9), `getQuote`
- * (numero du devis d origine, decision #6), `listProductionSteps` (libelle/
- * couleur de l etape courante). Plus `listOrderStepChanges(page[size]=1)`
- * pour la « derniere transition » (CA1, decision #5) : AU JOURNAL, jamais
- * sur `updated_at` (qui n est une garantie d instant metier que par
- * accident de l etat courant du contrat).
- *
- * Cinq appels, pas quatre : `getQuote` n est pas compte dans la reserve (d)
- * du cadrage (« quatre appels »), qui omet la lecture du devis d origine
- * pourtant explicitement demandee par la decision #6 du meme contrat.
- * Ecart de comptage du cadrage, pas une derogation prise ici — la lecture
- * reste additive et deja publiee.
+ * E4.4b — le détail préchargé vient de la projection commune des commandes ;
+ * les rafraîchissements utilisent également cette lecture. Les ressources
+ * annexes restent indépendantes : client et interlocuteur, devis d'origine,
+ * étapes de production et dernière transition lue dans le journal. La date
+ * de dernière transition ne se déduit jamais de updated_at.
  */
 import { useCallback, useEffect, useState } from 'react';
 import { useWorkspaceApi } from '@/platform/runtime/workspace-ui-runtime';
@@ -33,6 +23,7 @@ import type { CommercialOrderDetailDto, OrderStepChangeDto } from '@/modules/com
 import { CustomersApiClient, type CustomerDetailDto } from '@/modules/customers';
 import { CommercialQuotesApiClient, type QuoteDetailDto } from '@/modules/commercial-quotes';
 import { ProductionStepsApiClient, type ProductionStepDto } from '@/modules/production-steps';
+import { OrdersApiClient } from '@/modules/orders';
 
 export type OrderDetailState = Readonly<{
   order: CommercialOrderDetailDto | null;
@@ -46,8 +37,9 @@ export type OrderDetailState = Readonly<{
   refresh: () => Promise<void>;
 }>;
 
-export function useOrderDetail(orderId: string | null): OrderDetailState {
+export function useOrderDetail(orderId: string | null, initialOrder: CommercialOrderDetailDto | null = null): OrderDetailState {
   const ordersApi = useWorkspaceApi(CommercialOrdersApiClient);
+  const unifiedOrdersApi = useWorkspaceApi(OrdersApiClient);
   const customersApi = useWorkspaceApi(CustomersApiClient);
   const quotesApi = useWorkspaceApi(CommercialQuotesApiClient);
   const stepsApi = useWorkspaceApi(ProductionStepsApiClient);
@@ -60,7 +52,7 @@ export function useOrderDetail(orderId: string | null): OrderDetailState {
   const [loading, setLoading] = useState(Boolean(orderId));
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (prefetched: CommercialOrderDetailDto | null = null) => {
     if (!orderId) {
       setOrder(null);
       setCustomer(null);
@@ -73,7 +65,12 @@ export function useOrderDetail(orderId: string | null): OrderDetailState {
     setLoading(true);
     setError(null);
     try {
-      const orderDetail = await ordersApi.getDetail(orderId);
+      let orderDetail = prefetched?.id === orderId ? prefetched : null;
+      if (!orderDetail) {
+        const resolved = await unifiedOrdersApi.getUnifiedDetail(orderId);
+        if (resolved.origin !== 'quote') throw new Error('Cette commande doit être rechargée depuis la liste.');
+        orderDetail = resolved.detail;
+      }
       const [customerDetail, quoteDetail, stepsResponse, historyResponse] = await Promise.all([
         customersApi.getDetail(orderDetail.customer_id),
         quotesApi.getDetail(orderDetail.quote_id),
@@ -90,11 +87,11 @@ export function useOrderDetail(orderId: string | null): OrderDetailState {
     } finally {
       setLoading(false);
     }
-  }, [ordersApi, customersApi, quotesApi, stepsApi, orderId]);
+  }, [ordersApi, unifiedOrdersApi, customersApi, quotesApi, stepsApi, orderId]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void load(initialOrder);
+  }, [load, initialOrder]);
 
   return { order, customer, quote, steps, lastStepChange, loading, error, refresh: load };
 }

@@ -6,6 +6,8 @@
 
 Le contrat n'est pas un sous-produit du code. Il vient **avant**. Un endpoint qui n'est pas décrit dans `openapi/magrit-core.v1.yaml` ne se code pas.
 
+> **Amendement produit du 5 octobre 2026 — objet Commande unique.** Les passages historiques de ce document qui qualifient `tenant_orders` et `commercial_orders` de domaines métier « différents », ou qui imposent deux entrées « Commandes » et « Commandes atelier », ne sont plus opposables. [PD-2026-10-05-COMMANDES-UNIQUE](../../project/decisions/product/PD-2026-10-05-commandes-objet-unique.md) tranche : deux workflows d'entrée convergent sur un seul objet Commande, présenté sous `/dashboard/orders`. La migration `0086_orders_unification.sql` conserve uniquement `tenant_orders` et `tenant_order_items`, avec une origine explicite, et supprime `commercial_orders` et `commercial_order_lines`. Le préfixe API `/commercial-orders` reste temporairement une projection de compatibilité du workflow devis. Les règles de conversion, validation, droits, gel des prix, documents et historique propres à chaque origine restent applicables.
+
 ---
 
 ## 1. Les 13 critères d'acceptation et leur mise en œuvre

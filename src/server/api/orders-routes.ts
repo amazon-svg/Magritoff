@@ -10,6 +10,7 @@ import {
   createOrderCommandSchema,
   createOrderResultSchema,
   draftOrderSchema,
+  orderDetailSchema,
   updateDraftOrderCommandSchema,
   updateDraftOrderResultSchema,
   orderRolesResponseSchema,
@@ -42,6 +43,27 @@ export function createOrdersRoutes(
           return {
             status: 201,
             body: await service.create(command, new URL(context.request.url).origin, authorization),
+          };
+        } catch (error) {
+          if (error instanceof OrderCommandRejectedError) throw toHttpError(error);
+          throw error;
+        }
+      },
+    }),
+    defineJsonRoute({
+      method: 'GET',
+      path: `${API_V1_BASE_PATH}/orders/{orderId}`,
+      authentication: 'required',
+      inputSchema: null,
+      outputSchema: orderDetailSchema,
+      async handle(context) {
+        try {
+          return {
+            status: 200,
+            body: await service.getDetail(
+              requireParam(context, 'orderId'),
+              await orderResourceAuthorization(context, storefrontSessions, storefrontCookiePolicy),
+            ),
           };
         } catch (error) {
           if (error instanceof OrderCommandRejectedError) throw toHttpError(error);

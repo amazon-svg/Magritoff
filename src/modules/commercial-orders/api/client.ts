@@ -11,15 +11,11 @@ import { orderDocumentSchema, type OrderDocumentDto } from '../../order-document
 import {
   changeOrderProductionStepCommandSchema,
   commercialOrderDetailSchema,
-  commercialOrdersListSchema,
   convertQuoteCommandSchema,
   orderStepChangeSchema,
   orderStepChangesListSchema,
   type ChangeOrderProductionStepCommand,
   type CommercialOrderDetailDto,
-  type CommercialOrderDto,
-  type CommercialOrderSort,
-  type CommercialOrderStatus,
   type OrderStepChangeDto,
 } from './contracts.ts';
 
@@ -33,39 +29,6 @@ export type ListOrderStepChangesQuery = Readonly<{
 
 export type ListOrderStepChangesResponse = Readonly<{
   items: readonly OrderStepChangeDto[];
-  nextCursor: string | null;
-}>;
-
-export type ListCommercialOrdersQuery = Readonly<{
-  customerId?: string;
-  quoteId?: string;
-  status?: CommercialOrderStatus;
-  /**
-   * E10.18a — `YYYY-MM-DD`, jour civil ENTENDU dans le fuseau de reference
-   * du produit (`Europe/Paris`) : la conversion en instant UTC est faite
-   * PAR LE SERVEUR (jamais ici) — meme discipline que le reste de ce client,
-   * qui ne recalcule jamais une regle metier. Premier jour de la periode,
-   * INCLUS.
-   */
-  createdFrom?: string;
-  /** Dernier jour de la periode, INCLUS (journee entiere). */
-  createdTo?: string;
-  /**
-   * E10.18e-1 — deja publie au contrat depuis E10.13 (`listCommercialOrders`),
-   * jamais transmis par ce client avant ce lot (cf. docs/api/CONVENTIONS.md
-   * §8.24 point 8, decision 2 : "le client du module ne transmet encore ni
-   * current_production_step_id ni sort"). Filtre la grille sur l etape de
-   * production COURANTE (`CommercialOrder.current_production_step_id`).
-   */
-  currentProductionStepId?: string;
-  /** E10.18e-1 — idem, publie depuis E10.13 (`CommercialOrderSort`). Defaut serveur : `-created_at`. */
-  sort?: CommercialOrderSort;
-  pageSize?: number;
-  pageCursor?: string;
-}>;
-
-export type ListCommercialOrdersResponse = Readonly<{
-  items: readonly CommercialOrderDto[];
   nextCursor: string | null;
 }>;
 
@@ -89,34 +52,6 @@ export class CommercialOrdersApiClient {
       responseSchema: successEnvelopeSchema(commercialOrderDetailSchema),
     });
     return unwrapEnvelopeWithEtag(result);
-  }
-
-  async list(query: ListCommercialOrdersQuery = {}): Promise<ListCommercialOrdersResponse> {
-    const params = new URLSearchParams();
-    if (query.customerId) params.set('customer_id', query.customerId);
-    if (query.quoteId) params.set('quote_id', query.quoteId);
-    if (query.status) params.set('status', query.status);
-    if (query.createdFrom) params.set('created_from', query.createdFrom);
-    if (query.createdTo) params.set('created_to', query.createdTo);
-    if (query.currentProductionStepId) params.set('current_production_step_id', query.currentProductionStepId);
-    if (query.sort) params.set('sort', query.sort);
-    if (query.pageSize) params.set('page[size]', String(query.pageSize));
-    if (query.pageCursor) params.set('page[cursor]', query.pageCursor);
-    const suffix = params.toString();
-
-    const envelope = await this.client.request({
-      path: suffix ? `${ORDERS_BASE_PATH}?${suffix}` : ORDERS_BASE_PATH,
-      responseSchema: successEnvelopeSchema(commercialOrdersListSchema),
-    });
-    return { items: envelope.data, nextCursor: envelope.meta.next_cursor ?? null };
-  }
-
-  async getDetail(orderId: string): Promise<CommercialOrderDetailDto> {
-    const envelope = await this.client.request({
-      path: `${ORDERS_BASE_PATH}/${orderId}`,
-      responseSchema: successEnvelopeSchema(commercialOrderDetailSchema),
-    });
-    return envelope.data;
   }
 
   /**

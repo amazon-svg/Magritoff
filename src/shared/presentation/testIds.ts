@@ -372,6 +372,9 @@ export const TEST_IDS = {
     // un prix non vérifié.
     orderUnverifiedPriceBadge: 'shop-order-unverified-price-badge',
     orderDetailToggle: 'shop-order-detail-toggle',
+    orderOpenBtn: 'shop-order-open-btn',
+    orderBackofficeDetail: 'order-backoffice-detail',
+    orderBackofficeLine: 'order-backoffice-line',
     orderDetailRow: 'shop-order-detail-row',
     orderDetailLineItem: 'shop-order-detail-line-item',
     orderDetailLinePriceOrigin: 'shop-order-detail-line-price-origin',

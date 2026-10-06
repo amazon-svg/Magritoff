@@ -1,3 +1,5 @@
+import type { OrdersService } from '../../modules/orders/application/orders-service.ts';
+import { createUnifiedOrdersRoutes } from './unified-orders-routes.ts';
 /**
  * REGISTRE des routes de la facade Gestion commerciale (Epic E10).
  *
@@ -72,6 +74,7 @@ import type { GescomRoute } from './gescom-middleware.ts';
  * ajoute son propre champ ; `gescomRoutes()` grossit d autant.
  */
 export type GescomServices = Readonly<{
+  orders: OrdersService;
   customers: CustomersService;
   /** E10.5 — ouverture/revocation d un acces boutique depuis un interlocuteur. */
   customerShopAccess: CustomerContactShopAccessService;
@@ -120,6 +123,7 @@ export type GescomServices = Readonly<{
  */
 export function gescomRoutes(services: GescomServices): readonly GescomRoute[] {
   return [
+    ...createUnifiedOrdersRoutes(services.orders),
     ...createCustomersRoutes(services.customers),
     ...createCustomerShopAccessRoutes(services.customers, services.customerShopAccess),
     ...createProjectsRoutes(services.projects),
@@ -143,6 +147,13 @@ export function gescomRoutes(services: GescomServices): readonly GescomRoute[] {
       services.commercialQuotes,
       services.productionSteps,
     ),
+    ...createOrderExportsRoutes(
+      services.orderExports,
+      services.customers,
+      services.commercialQuotes,
+      services.productionSteps,
+      true,
+    ),
   ];
 }
 
@@ -156,6 +167,7 @@ export function gescomRoutes(services: GescomServices): readonly GescomRoute[] {
  */
 export const GESCOM_ROUTES: readonly GescomRoute[] = Object.freeze(
   gescomRoutes({
+    orders: createNullService('OrdersService'),
     customers: createNullCustomersService(),
     customerShopAccess: createNullService('CustomerContactShopAccessService'),
     projects: createNullService('ProjectsService'),

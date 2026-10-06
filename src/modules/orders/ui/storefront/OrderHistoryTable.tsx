@@ -24,7 +24,7 @@
  */
 
 import { Fragment, type ReactNode, useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Ban, Check, ChevronDown, History, Loader2, Package, Pencil, Play, RotateCcw, RotateCw, Truck, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Ban, Check, ChevronDown, Eye, History, Loader2, Package, Pencil, Play, RotateCcw, RotateCw, Truck, X } from 'lucide-react';
 import { OrderAuditTrailModal } from '@/modules/orders/ui/storefront/OrderAuditTrailModal';
 import type { OrderUI } from '@/modules/orders/ui/storefront/PortalOrders.helpers';
 import { getStatusInfo, type OrderStatus } from '@/modules/orders/ui/helpers/orderStatus';
@@ -85,6 +85,8 @@ export interface ExtraFilter {
 }
 
 export interface OrderHistoryTableProps {
+  /** La sélection et son ordre sont déjà calculés par le serveur. */
+  serverManaged?: boolean;
   /** Orders deja fetches + normalises par le parent. */
   orders: OrderUI[];
   /** Loading state remonte par le parent. */
@@ -159,6 +161,10 @@ export interface OrderHistoryTableProps {
    * status='in_production' v1.1 uniquement. Réservé rôle Producteur.
    */
   onMarkShippedOrder?: ((order: OrderUI) => void | Promise<void>) | undefined;
+  /** Ouvre la fiche de consultation backoffice. */
+  onOpenOrder?: ((order: OrderUI) => void) | undefined;
+  /** Ouvre la fiche du client CRM associé à la commande. */
+  onOpenCustomer?: ((order: OrderUI) => void) | undefined;
 }
 
 interface TableState {
@@ -425,6 +431,7 @@ export function OrderHistoryTable({
   persistKey,
   auditApi,
   appearance = 'portal',
+  serverManaged = false,
   onRenewOrder,
   onCancelOrder,
   onEditOrder,
@@ -432,6 +439,8 @@ export function OrderHistoryTable({
   onRejectOrder,
   onStartProductionOrder,
   onMarkShippedOrder,
+  onOpenOrder,
+  onOpenCustomer,
 }: OrderHistoryTableProps) {
   const isDashboardAppearance = appearance === 'dashboard';
   // S3.3 : une commande est renouvelable si v1.1 + status workflow/terminal
@@ -500,7 +509,7 @@ export function OrderHistoryTable({
   const hasAnyV11 = orders.some((o) => o.source === 'v1_1');
   const showActionsColumn = !!onRenewOrder || !!onCancelOrder || !!onEditOrder
     || !!onValidateOrder || !!onRejectOrder || !!onStartProductionOrder
-    || !!onMarkShippedOrder || hasAnyV11;
+    || !!onMarkShippedOrder || !!onOpenOrder || hasAnyV11;
   const [state, setState] = useState<TableState>(() => loadState(persistKey));
 
   useEffect(() => {
@@ -516,12 +525,12 @@ export function OrderHistoryTable({
   }, [orders]);
 
   const filtered = useMemo(
-    () => applyFilters(orders, state, extraFilter),
-    [orders, state, extraFilter],
+    () => serverManaged ? orders : applyFilters(orders, state, extraFilter),
+    [orders, state, extraFilter, serverManaged],
   );
   const sorted = useMemo(
-    () => applySort(filtered, state, extraColumn?.sortValue),
-    [filtered, state, extraColumn?.sortValue],
+    () => serverManaged ? filtered : applySort(filtered, state, extraColumn?.sortValue),
+    [filtered, state, extraColumn?.sortValue, serverManaged],
   );
 
   // Options du filtre catégoriel extra : déduplication par clé stable, label
@@ -589,12 +598,13 @@ export function OrderHistoryTable({
   }
 
   function ariaSortFor(col: SortableColumn): 'ascending' | 'descending' | 'none' {
+    if (serverManaged) return col === 'date' ? 'descending' : 'none';
     if (state.sortBy !== col) return 'none';
     return state.sortDir === 'asc' ? 'ascending' : 'descending';
   }
 
   function SortIndicator({ col }: { col: SortableColumn }) {
-    if (state.sortBy !== col) return null;
+    if (serverManaged || state.sortBy !== col) return null;
     return state.sortDir === 'asc' ? (
       <ArrowUp className="inline w-3 h-3 ml-1" strokeWidth={2} aria-hidden="true" />
     ) : (
@@ -645,7 +655,7 @@ export function OrderHistoryTable({
       }
     >
       {/* ─── Barre de filtres ──────────────────────────────────────────── */}
-      <div
+      {!serverManaged && <div
         className={`flex flex-wrap items-end gap-4 border-b border-line ${
           isDashboardAppearance ? 'bg-bg px-4 py-3' : 'mb-5 pb-4'
         }`}
@@ -872,7 +882,7 @@ export function OrderHistoryTable({
         >
           {sorted.length} / {orders.length} commande{orders.length > 1 ? 's' : ''}
         </div>
-      </div>
+      </div>}
 
       {/* ─── Empty state filtre ───────────────────────────────────────── */}
       {sorted.length === 0 && (
@@ -905,11 +915,12 @@ export function OrderHistoryTable({
           }`}
         >
           <table
-            className={`w-full text-left ${isDashboardAppearance ? 'min-w-[1365px] table-fixed' : ''}`}
+            className={`w-full text-left ${isDashboardAppearance ? 'min-w-[1610px] table-fixed' : ''}`}
             style={{ fontSize: '13px' }}
           >
             {isDashboardAppearance && (
               <colgroup>
+                <col style={{ width: '175px' }} />
                 <col style={{ width: '175px' }} />
                 {extraColumn?.position === 'after-date' && <col style={{ width: '125px' }} />}
                 <col style={{ width: '125px' }} />
@@ -919,12 +930,21 @@ export function OrderHistoryTable({
                 {(extraColumn?.position === 'before-status' || (extraColumn && !extraColumn.position)) && (
                   <col style={{ width: '125px' }} />
                 )}
-                <col style={{ width: '150px' }} />
+                <col style={{ width: '220px' }} />
                 {showActionsColumn && <col style={{ width: '390px' }} />}
               </colgroup>
             )}
             <thead>
               <tr className={`border-b border-line ${isDashboardAppearance ? 'bg-bg' : ''}`}>
+                {isDashboardAppearance && (
+                  <th
+                    scope="col"
+                    className="py-2.5 pr-4 font-mono uppercase text-ink-mute-2 whitespace-nowrap"
+                    style={{ fontSize: '10.5px', letterSpacing: '0.08em', fontWeight: 500 }}
+                  >
+                    N°
+                  </th>
+                )}
                 <th
                   scope="col"
                   aria-sort={ariaSortFor('date')}
@@ -933,6 +953,7 @@ export function OrderHistoryTable({
                 >
                   <button
                     type="button"
+                    disabled={serverManaged}
                     onClick={() => handleSortClick('date')}
                     data-testid={TEST_IDS.shop.orderSortHeaderDate}
                     className="inline-flex items-center font-mono uppercase text-[10.5px] tracking-[0.08em] font-medium hover:text-ink transition-colors"
@@ -951,7 +972,8 @@ export function OrderHistoryTable({
                     {extraColumn.sortValue ? (
                       <button
                         type="button"
-                        onClick={() => handleSortClick('extra')}
+                        disabled={serverManaged}
+                    onClick={() => handleSortClick('extra')}
                         data-testid={TEST_IDS.shop.orderSortHeaderExtra}
                         className="inline-flex items-center font-mono uppercase text-[10.5px] tracking-[0.08em] font-medium hover:text-ink transition-colors"
                       >
@@ -971,6 +993,7 @@ export function OrderHistoryTable({
                 >
                   <button
                     type="button"
+                    disabled={serverManaged}
                     onClick={() => handleSortClick('customer_name')}
                     data-testid={TEST_IDS.shop.orderSortHeaderClient}
                     className="inline-flex items-center font-mono uppercase text-[10.5px] tracking-[0.08em] font-medium hover:text-ink transition-colors"
@@ -994,6 +1017,7 @@ export function OrderHistoryTable({
                 >
                   <button
                     type="button"
+                    disabled={serverManaged}
                     onClick={() => handleSortClick('total_ht')}
                     data-testid={TEST_IDS.shop.orderSortHeaderTotalHt}
                     className="inline-flex w-full items-center justify-end font-mono uppercase text-[10.5px] tracking-[0.08em] font-medium hover:text-ink transition-colors"
@@ -1010,6 +1034,7 @@ export function OrderHistoryTable({
                 >
                   <button
                     type="button"
+                    disabled={serverManaged}
                     onClick={() => handleSortClick('total_ttc')}
                     data-testid={TEST_IDS.shop.orderSortHeaderTotalTtc}
                     className="inline-flex w-full items-center justify-end font-mono uppercase text-[10.5px] tracking-[0.08em] font-medium hover:text-ink transition-colors"
@@ -1028,7 +1053,8 @@ export function OrderHistoryTable({
                     {extraColumn.sortValue ? (
                       <button
                         type="button"
-                        onClick={() => handleSortClick('extra')}
+                        disabled={serverManaged}
+                    onClick={() => handleSortClick('extra')}
                         data-testid={TEST_IDS.shop.orderSortHeaderExtra}
                         className="inline-flex items-center font-mono uppercase text-[10.5px] tracking-[0.08em] font-medium hover:text-ink transition-colors"
                       >
@@ -1066,7 +1092,8 @@ export function OrderHistoryTable({
                 // Q17-c (point 12 (h)) — nombre de colonnes réel de CETTE
                 // ligne, pour que le `colSpan` du détail ne déborde ni ne
                 // laisse de cellules orphelines selon extraColumn/actions.
-                const columnCount = 1 // Date
+                const columnCount = (isDashboardAppearance ? 1 : 0) // N°
+                  + 1 // Date
                   + (extraColumn?.position === 'after-date' ? 1 : 0)
                   + 1 // Client
                   + 1 // Articles
@@ -1083,6 +1110,22 @@ export function OrderHistoryTable({
                     data-order-source={o.source}
                     className="border-b border-line hover:bg-bg transition-colors"
                   >
+                    {isDashboardAppearance && (
+                      <td className="py-3 pr-4 text-ink font-mono whitespace-nowrap font-medium">
+                        {onOpenOrder && o.source !== 'legacy' ? (
+                          <button
+                            type="button"
+                            onClick={() => onOpenOrder(o)}
+                            className="font-mono font-medium text-ink hover:text-brand hover:underline"
+                            aria-label={`Ouvrir la commande ${o.number ?? o.id}`}
+                          >
+                            {o.number ?? `#${o.id.replace(/-/g, '').slice(0, 8).toUpperCase()}`}
+                          </button>
+                        ) : (
+                          o.number ?? `#${o.id.replace(/-/g, '').slice(0, 8).toUpperCase()}`
+                        )}
+                      </td>
+                    )}
                     <td
                       className="py-3 pr-4 text-ink-2 font-mono whitespace-nowrap"
                       style={{ fontVariantNumeric: 'tabular-nums' }}
@@ -1092,7 +1135,20 @@ export function OrderHistoryTable({
                     {extraColumn?.position === 'after-date' && (
                       <td className="py-3 pr-4 text-ink-muted truncate">{extraColumn.render(o)}</td>
                     )}
-                    <td className="py-3 pr-4 text-ink truncate">{o.customer_name || '—'}</td>
+                    <td className="py-3 pr-4 text-ink truncate">
+                      {onOpenCustomer && o.customer_id ? (
+                        <button
+                          type="button"
+                          onClick={() => onOpenCustomer(o)}
+                          className="max-w-full truncate text-left text-ink hover:text-brand hover:underline"
+                          aria-label={`Ouvrir la fiche client ${o.customer_name || o.customer_id}`}
+                        >
+                          {o.customer_name || '—'}
+                        </button>
+                      ) : (
+                        o.customer_name || '—'
+                      )}
+                    </td>
                     <td className="py-3 pr-4 text-ink-muted whitespace-nowrap">
                       {isAtelierAppearance(appearance) ? (
                         <button
@@ -1137,8 +1193,8 @@ export function OrderHistoryTable({
                     {(extraColumn?.position === 'before-status' || (extraColumn && !extraColumn.position)) && (
                       <td className="py-3 pr-4 text-ink-muted">{extraColumn.render(o)}</td>
                     )}
-                    <td className="py-3 pr-4 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
+                    <td className="py-3 pr-4">
+                      <div className="flex min-w-0 flex-wrap items-center gap-2">
                         {o.source === 'legacy' && (
                           <>
                             <span
@@ -1152,7 +1208,7 @@ export function OrderHistoryTable({
                         )}
                         <span
                           aria-label={`Statut: ${statusInfo.label}`}
-                          className={`inline-block px-2 py-0.5 rounded border font-mono uppercase ${statusInfo.className}`}
+                          className={`inline-block max-w-full whitespace-normal px-2 py-0.5 rounded border font-mono uppercase ${statusInfo.className}`}
                           style={{ fontSize: '10px', letterSpacing: '0.06em', fontWeight: 500 }}
                         >
                           {statusInfo.label}
@@ -1162,7 +1218,7 @@ export function OrderHistoryTable({
                             data-testid={TEST_IDS.shop.orderUnverifiedPriceBadge}
                             data-order-id={o.id}
                             title="Le serveur n a pas pu vérifier le prix d au moins une ligne de cette commande"
-                            className="inline-block px-2 py-0.5 rounded border font-mono uppercase border-warn-fg/20 bg-warn-bg text-warn-fg"
+                            className="inline-block max-w-full whitespace-normal px-2 py-0.5 rounded border font-mono uppercase border-warn-fg/20 bg-warn-bg text-warn-fg"
                             style={{ fontSize: '10px', letterSpacing: '0.06em', fontWeight: 500 }}
                           >
                             Prix non vérifié
@@ -1173,6 +1229,20 @@ export function OrderHistoryTable({
                     {showActionsColumn && (
                       <td className="py-3 text-left">
                         <div className="flex items-center justify-start gap-1.5 whitespace-nowrap">
+                          {onOpenOrder && o.source !== 'legacy' && (
+                            <button
+                              type="button"
+                              onClick={() => onOpenOrder(o)}
+                              data-testid={TEST_IDS.shop.orderOpenBtn}
+                              data-order-id={o.id}
+                              aria-label={`Ouvrir la commande ${o.id}`}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded border border-line bg-paper text-ink hover:border-brand transition-colors"
+                              style={{ fontSize: '11.5px' }}
+                            >
+                              <Eye className="w-3 h-3" strokeWidth={2} aria-hidden="true" />
+                              Ouvrir
+                            </button>
+                          )}
                           {canValidate(o) && (
                             <button
                               type="button"

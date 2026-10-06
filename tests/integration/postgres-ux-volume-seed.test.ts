@@ -45,7 +45,7 @@ suite('seed UX volumique PostgreSQL', () => {
     }
   });
 
-  it('cree puis rejoue sans doublon les clients, devis et deux familles de commandes', async () => {
+  it('cree puis rejoue sans doublon les clients, devis et commandes unifiées', async () => {
     const configuration = {
       allTenants: false,
       tenantSlug: TEST_SLUG,
@@ -60,16 +60,17 @@ suite('seed UX volumique PostgreSQL', () => {
     // Le rejeu doit le reparer sans supprimer la commande ni ses lignes.
     await client.query('begin');
     try {
-      await client.query('lock table public.commercial_order_lines in access exclusive mode');
-      await client.query('alter table public.commercial_order_lines disable trigger commercial_order_lines_immutable');
+      await client.query('lock table public.tenant_order_items in access exclusive mode');
+      await client.query('alter table public.tenant_order_items disable trigger tenant_order_items_require_draft');
       await client.query(`
-        update public.commercial_order_lines set breakdown = '[{"label":"Impression","amount":66}]'::jsonb
+        update public.tenant_order_items set breakdown = '[{"label":"Impression","amount":66}]'::jsonb
         where order_id in (
-          select orders.id from public.commercial_orders orders
-          join public.tenants tenant on tenant.id = orders.tenant_id where tenant.slug = $1
+          select orders.id from public.tenant_orders orders
+          join public.tenants tenant on tenant.id = orders.tenant_id
+          where tenant.slug = $1 and orders.order_origin = 'quote'
         )
       `, [TEST_SLUG]);
-      await client.query('alter table public.commercial_order_lines enable trigger commercial_order_lines_immutable');
+      await client.query('alter table public.tenant_order_items enable trigger tenant_order_items_require_draft');
       await client.query('commit');
     } catch (error) {
       await client.query('rollback');
@@ -80,17 +81,19 @@ suite('seed UX volumique PostgreSQL', () => {
     const result = await client.query(`
       select
         (select count(*) from public.customers where tenant_id = tenant.id) as customers,
-        (select count(*) from public.tenant_orders where tenant_id = tenant.id) as storefront_orders,
+        (select count(*) from public.tenant_orders where tenant_id = tenant.id) as orders,
+        (select count(*) from public.tenant_orders where tenant_id = tenant.id and order_origin='storefront') as storefront_orders,
         (select count(*) from public.commercial_quotes where tenant_id = tenant.id) as quotes,
-        (select count(*) from public.commercial_orders where tenant_id = tenant.id) as commercial_orders
+        (select count(*) from public.tenant_orders where tenant_id = tenant.id and order_origin='quote') as quote_orders
       from public.tenants tenant where tenant.slug = $1
     `, [TEST_SLUG]);
 
     expect(result.rows[0]).toEqual({
       customers: '3',
+      orders: '5',
       storefront_orders: '4',
       quotes: '5',
-      commercial_orders: '1',
+      quote_orders: '1',
     });
 
     // Valider les representations detaillees, pas seulement les compteurs :
@@ -106,7 +109,10 @@ suite('seed UX volumique PostgreSQL', () => {
       for (const row of quoteRows.rows) {
         quoteDetailSchema.parse(await quotes.findDetailById(tenantId, row.id));
       }
-      const orderRows = await client.query('select id from public.commercial_orders where tenant_id = $1', [tenantId]);
+      const orderRows = await client.query(
+        "select id from public.tenant_orders where tenant_id = $1 and order_origin = 'quote'",
+        [tenantId],
+      );
       for (const row of orderRows.rows) {
         commercialOrderDetailSchema.parse(await orders.findDetailById(tenantId, row.id));
       }

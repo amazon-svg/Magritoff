@@ -313,6 +313,12 @@ describe('OrdersService', () => {
     }, MEMBER_RESOURCE)).resolves.toMatchObject({ totalHt: '180.00', replayed: false });
   });
 
+  it('délègue la projection de détail de commande', async () => {
+    const service = new OrdersService(repositoryStub());
+    await expect(service.getDetail('22222222-2222-4222-8222-222222222222', MEMBER_RESOURCE))
+      .resolves.toMatchObject({ shopName: 'Atelier Lumière', totalTtc: '180.00' });
+  });
+
   it('expose les capacités Orders calculées par le serveur', async () => {
     const service = new OrdersService(repositoryStub());
     await expect(service.getRoles('22222222-2222-4222-8222-222222222222', ACTOR))
@@ -328,6 +334,8 @@ function repositoryStub(): OrdersRepository & Record<'listLegacyOrders', ReturnT
     totalHt: 100, status: 'draft', hasUnverifiedPrices: false,
   };
   return {
+    listOrders: async () => [],
+    getUnifiedOrderDetail: async () => null,
     getTenantTaxRegime: vi.fn(async () => 'dom_tom' as const),
     getShopTaxRegime: vi.fn(async () => 'dom_tom' as const),
     listTenantOrders: vi.fn(async () => [v11]),
@@ -368,6 +376,13 @@ function repositoryStub(): OrdersRepository & Record<'listLegacyOrders', ReturnT
         productLabel: 'Flyers', clariprintOptions: null, quantity: 2,
         unitPriceHt: '75.00', lineTotalHt: '150.00', priceOrigin: 'client_unverified',
       }],
+    })),
+    getOrderDetail: vi.fn(async (orderId) => ({
+      orderId, shopId: '33333333-3333-4333-8333-333333333333', shopName: 'Atelier Lumière',
+      source: 'v1_1' as const, status: 'draft', createdAt: '2026-08-11T12:00:00.000Z',
+      updatedAt: '2026-08-11T12:00:00.000Z', customerName: 'Client', customerEmail: 'client@example.test',
+      currency: 'EUR', notes: '', totalHt: '150.00', totalTtc: '180.00', hasUnverifiedPrices: false,
+      items: [],
     })),
     updateDraftOrder: vi.fn(async (orderId, command) => ({
       orderId,

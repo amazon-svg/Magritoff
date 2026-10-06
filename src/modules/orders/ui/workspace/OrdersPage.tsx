@@ -1,181 +1,113 @@
-/**
- * DashboardOrders — Vue agrégée des commandes du tenant.
- *
- * S-DASHBOARD-ORDERS-DUAL (Sprint 4 Phase 1 complement, 2026-05-18) :
- * remplace l ancien placeholder. Dual-read shop_orders + tenant_orders.
- *
- * S3.1 (Sprint 5, 2026-05-23) : refactor pour deleguer rendu/filtres/tri
- * au composant <OrderHistoryTable>, avec extraColumn 'Boutique' pour
- * afficher le slug par ligne.
- */
-
-import { useMemo, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
+import { useNavigate } from 'react-router';
 import { useAuth } from '@/modules/account/ui/runtime';
 import { useTenant } from '@/modules/tenants/ui/runtime';
 import { useShops } from '@/modules/shops/ui/runtime';
-import { type OrderUI } from '@/modules/orders/ui/storefront/PortalOrders.helpers';
-import { OrderHistoryTable } from '@/modules/orders/ui/storefront/OrderHistoryTable';
-import { CancelOrderConfirmDialog } from '@/modules/orders/ui/storefront/CancelOrderConfirmDialog';
-import { ValidateOrderConfirmDialog } from '@/modules/orders/ui/storefront/ValidateOrderConfirmDialog';
-import { useUserCapability } from '@/modules/roles/ui/hooks';
-import {
-  type DashboardOrderUI,
-  useDashboardOrderManagement,
-} from '@/modules/orders/ui/hooks/useDashboardOrderManagement';
+import { useTenantPath } from '@/modules/tenants/ui/hooks';
+import { type OrderListFilters } from '@/modules/orders';
+import { OrderHistoryTable } from '../storefront/OrderHistoryTable';
+import { STATUS_LABELS } from '../helpers/orderStatus';
+import { OrderExportPanel } from '@/modules/commercial-orders/ui';
+import { useUnifiedOrders } from '../hooks/useUnifiedOrders';
+
+const inputClass = 'rounded border border-line bg-paper px-2.5 py-2 text-sm text-ink';
+const filterControlClass = `${inputClass} h-9 w-full min-w-0`;
+const filterLabelClass = 'flex min-w-0 flex-col gap-1.5 text-xs font-medium text-ink-muted';
 
 export function DashboardOrders() {
+  const navigate = useNavigate();
+  const tenantPath = useTenantPath();
   const { user } = useAuth();
   const { currentTenant } = useTenant();
   const { shops } = useShops();
-  const shopIds = useMemo(() => shops.map((shop) => shop.id), [shops]);
-  const {
-    orders,
-    loading,
-    error,
-    cancel,
-    validate,
-    startProduction,
-    markShipped,
-    auditApi,
-  } = useDashboardOrderManagement({
-    enabled: Boolean(user),
-    tenantId: currentTenant?.id ?? null,
-    shopIds,
-  });
+  const tenantId = currentTenant?.id ?? null;
+  const management = useUnifiedOrders(tenantId, Boolean(user));
+  const { auditApi, steps, stepsError } = management;
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  const [filterError, setFilterError] = useState<string | null>(null);
 
-  // Fix 2026-05-25 : Map shop_id -> { name, slug } pour afficher le NOM
-  // humain dans la colonne Boutique (et plus le slug technique qui ressemble
-  // à wuqezh-8ggfvk pour les boutiques créées sans slug humain explicite).
-  const shopInfoById = useMemo(() => {
-    const map = new Map<string, { name: string; slug: string }>();
-    for (const s of shops) {
-      map.set(s.id, { name: s.name, slug: s.slug });
+  useEffect(() => {
+    setFilters({}); setFilterError(null);
+  }, [tenantId]);
+
+  const change = (key: string, value: string) => setFilters((current) => ({ ...current, [key]: value }));
+  const apply = (event: FormEvent) => {
+    event.preventDefault();
+    if (filters.created_from && filters.created_to && filters.created_from > filters.created_to) {
+      setFilterError('La fin doit suivre le début de la période.'); return;
     }
-    return map;
-  }, [shops]);
-
-  // Helper : retourne le label humain à afficher (name préféré, fallback slug puis '—').
-  const shopDisplayLabel = (shopId: string): string => {
-    const info = shopInfoById.get(shopId);
-    if (!info) return '—';
-    return info.name?.trim() || info.slug || '—';
+    setFilterError(null);
+    management.applyFilters(Object.fromEntries(Object.entries(filters).map(([key, value]) => [key, value.trim()]).filter(([, value]) => value)) as OrderListFilters);
   };
-
-  // S3.4 : modal annulation. orderToCancel = null → modal fermé.
-  const [orderToCancel, setOrderToCancel] = useState<DashboardOrderUI | null>(null);
-  // Fix 2026-05-25 : modal validation. orderToValidate = null → modal fermé.
-  const [orderToValidate, setOrderToValidate] = useState<DashboardOrderUI | null>(null);
-
-  // S-USERS-REFONTE Phase A (2026-05-25) : le bouton "Valider" est role-driven.
-  // Visible uniquement si l'utilisateur courant a la capability can_validate
-  // via au moins un rôle actif dans le tenant (preset Owner / Admin /
-  // Validateur par défaut). Évite que les Acheteurs voient un bouton qui
-  // serait refusé par le RPC (UX confusion).
-  const { hasIt: canValidate } = useUserCapability('can_validate');
-  // S-ORDER-ROLES-3-UI (2026-06-09) : Démarrer la production + Marquer
-  // expédiée gardes par can_modify (preset Owner / Admin / Validateur /
-  // Producteur). Cohérence avec PortalOrders tab "À produire" mais
-  // accessible à l'admin tenant sur l'ensemble des boutiques.
-  const { hasIt: canModifyProduction } = useUserCapability('can_modify');
-  // Les admins sont aussi autorisés par la commande serveur. Ce fallback
-  // évite de masquer le workflow si un tenant brownfield n'a pas encore son
-  // assignation de rôle fonctionnel synchronisée avec tenant_members.
-  const isTenantAdmin = currentTenant?.myRole === 'admin';
-
-  // S3.4 : handlers cancel (admin tenant peut annuler n'importe quelle draft).
-  const handleCancelOrderRequest = (order: OrderUI) => {
-    setOrderToCancel(order as DashboardOrderUI);
-  };
-
-  const handleCancelConfirm = async (orderId: string): Promise<string | null> => {
-    return cancel(orderId);
-  };
-
-  // Fix 2026-05-25 : handlers validation (admin tenant uniquement —
-  // RPC matrice draft→validated réservée au profil admin ou option Commandes).
-  const handleValidateOrderRequest = (order: OrderUI) => {
-    setOrderToValidate(order as DashboardOrderUI);
-  };
-
-  const handleValidateConfirm = async (
-    orderId: string,
-    acknowledgeUnverifiedPrices: boolean,
-  ): Promise<string | null> => {
-    return validate(orderId, acknowledgeUnverifiedPrices);
-  };
-
-  // S-ORDER-ROLES-3-UI : transitions production (admin tenant via can_modify).
-  // Sans modal de confirmation — actions tactiques rapides côté pilotage atelier.
-  const handleStartProduction = (order: OrderUI) => startProduction(order);
-  const handleMarkShipped = (order: OrderUI) => markShipped(order);
 
   return (
-    <div
-      className="max-w-[1400px]"
-      style={{ fontFamily: 'var(--font-ui)' }}
-      data-testid="dashboard-orders-page"
-    >
+    <div className="w-full min-w-0" style={{ fontFamily: 'var(--font-ui)' }} data-testid="dashboard-orders-page">
       <div className="mb-6">
-        <h1
-          className="text-ink m-0"
-          style={{ fontWeight: 300, fontSize: '34px', letterSpacing: '-0.025em', lineHeight: 1.05 }}
-        >
-          Commandes
-        </h1>
-        <p className="mt-2 mb-0 text-ink-muted" style={{ fontSize: '13.5px' }}>
-          {orders.length} commande{orders.length > 1 ? 's' : ''} enregistrée{orders.length > 1 ? 's' : ''} sur l’ensemble de vos boutiques.
-        </p>
+        <h1 className="text-ink m-0" style={{ fontWeight: 300, fontSize: '34px', letterSpacing: '-0.025em', lineHeight: 1.05 }}>Commandes</h1>
+        <p className="mt-2 mb-0 text-ink-muted text-sm">Toutes origines confondues, de la plus récente à la plus ancienne.</p>
       </div>
-
+      <form onSubmit={apply} className="mb-4 flex flex-wrap items-end gap-3 rounded-md border border-line bg-bg p-4" aria-label="Filtres des commandes">
+        <label className={`${filterLabelClass} flex-[1_1_160px]`}> Client
+          <input className={filterControlClass} value={filters.customer_search ?? ''} maxLength={200} placeholder="Nom ou courriel" onChange={(event) => change('customer_search', event.target.value)} />
+        </label>
+        <label className={`${filterLabelClass} flex-[1_1_100px]`}> Origine
+          <select className={filterControlClass} value={filters.origin ?? ''} onChange={(event) => change('origin', event.target.value)}>
+            <option value="">Toutes</option><option value="storefront">Boutique</option><option value="quote">Devis</option>
+          </select>
+        </label>
+        <label className={`${filterLabelClass} flex-[1_1_150px]`}> Statut
+          <select className={filterControlClass} value={filters.status ?? ''} onChange={(event) => change('status', event.target.value)}>
+            <option value="">Tous</option>
+            {Object.entries(STATUS_LABELS).filter(([, info]) => info.group !== 'legacy').map(([key, label]) => <option key={key} value={key}>{label.label}</option>)}
+          </select>
+        </label>
+        <label className={`${filterLabelClass} flex-[1_1_180px]`}> Boutique
+          <select className={filterControlClass} value={filters.shop_id ?? ''} onChange={(event) => change('shop_id', event.target.value)}>
+            <option value="">Toutes</option>{shops.map((shop) => <option key={shop.id} value={shop.id}>{shop.name || shop.slug}</option>)}
+          </select>
+        </label>
+        <label className={`${filterLabelClass} flex-[1_1_170px]`}> Étape de production
+          <select className={filterControlClass} disabled={stepsError} value={filters.current_production_step_id ?? ''} onChange={(event) => change('current_production_step_id', event.target.value)}>
+            <option value="">Toutes</option>{steps.map((step) => <option key={step.id} value={step.id}>{step.label}</option>)}
+          </select>
+        </label>
+        <label className={`${filterLabelClass} flex-[1_1_145px]`}> Du
+          <input className={filterControlClass} type="date" value={filters.created_from ?? ''} onChange={(event) => change('created_from', event.target.value)} />
+        </label>
+        <label className={`${filterLabelClass} flex-[1_1_145px]`}> Au
+          <input className={filterControlClass} type="date" value={filters.created_to ?? ''} onChange={(event) => change('created_to', event.target.value)} />
+        </label>
+        <div className="flex shrink-0 items-center gap-2">
+          <button className={`${inputClass} h-9 whitespace-nowrap disabled:opacity-50`} type="submit" disabled={management.loading}>Appliquer</button>
+          <button className={`${inputClass} h-9 whitespace-nowrap`} type="button" onClick={() => { setFilters({}); setFilterError(null); management.applyFilters({}); }}>Réinitialiser</button>
+        </div>
+      </form>
+      {stepsError && <p className="text-sm text-err-fg" role="status">Les étapes de production sont indisponibles. Les autres filtres restent utilisables.</p>}
+      {filterError && <p className="text-sm text-err-fg" role="alert">{filterError}</p>}
+      <OrderExportPanel key={tenantId} unifiedSelection={{ filters: management.activeFilters, summary: [
+        ...(management.activeFilters.origin ? [{ label: 'Origine', value: management.activeFilters.origin === 'quote' ? 'Devis' : 'Boutique' }] : []),
+        ...(management.activeFilters.status ? [{ label: 'Statut', value: STATUS_LABELS[management.activeFilters.status].label }] : []),
+        ...(management.activeFilters.customer_search ? [{ label: 'Client', value: management.activeFilters.customer_search }] : []),
+        ...(management.activeFilters.customer_id ? [{ label: 'Client', value: management.activeFilters.customer_id }] : []),
+        ...(management.activeFilters.shop_id ? [{ label: 'Boutique', value: shops.find((shop) => shop.id === management.activeFilters.shop_id)?.name ?? management.activeFilters.shop_id }] : []),
+        ...(management.activeFilters.current_production_step_id ? [{ label: 'Étape', value: steps.find((step) => step.id === management.activeFilters.current_production_step_id)?.label ?? management.activeFilters.current_production_step_id }] : []),
+        ...(management.activeFilters.created_from || management.activeFilters.created_to ? [{ label: 'Période', value: `${management.activeFilters.created_from ?? '…'} → ${management.activeFilters.created_to ?? '…'}` }] : []),
+      ] }} />
       <OrderHistoryTable
-        orders={orders}
-        loading={loading}
-        error={error}
-        auditApi={auditApi}
-        appearance="dashboard"
-        persistKey={currentTenant ? `orderHistory:dashboard:${currentTenant.id}` : undefined}
-        onCancelOrder={handleCancelOrderRequest}
-        // S-USERS-REFONTE Phase A : bouton Valider visible uniquement si
-        // l'utilisateur courant a la capability can_validate (via rôle actif).
-        // Sinon, undefined => OrderHistoryTable masque le bouton.
-        onValidateOrder={canValidate || isTenantAdmin ? handleValidateOrderRequest : undefined}
-        // S-ORDER-ROLES-3-UI : boutons Démarrer prod + Marquer expédiée
-        // role-driven via can_modify (preset Owner / Admin / Validateur /
-        // Producteur). Sans modal de confirmation côté admin tenant.
-        onStartProductionOrder={canModifyProduction || isTenantAdmin ? handleStartProduction : undefined}
-        onMarkShippedOrder={canModifyProduction || isTenantAdmin ? handleMarkShipped : undefined}
-        extraColumn={{
-          header: 'Boutique',
-          position: 'after-date',
-          render: (o) => (
-            <span className="text-xs">
-              {shopDisplayLabel((o as DashboardOrderUI).shop_id)}
-            </span>
-          ),
-          // Fix 2026-05-25 : retrait du sortValue (lesson : sur colonne
-          // catégorielle, l'usage primaire est le filtre, pas le tri).
-        }}
-        extraFilter={{
-          label: 'Boutique',
-          getOptionKey: (o) => (o as DashboardOrderUI).shop_id,
-          getOptionLabel: (o) => shopDisplayLabel((o as DashboardOrderUI).shop_id),
-        }}
+        orders={management.orders} loading={management.loading} error={management.error}
+        auditApi={auditApi} appearance="dashboard" serverManaged
+        onOpenOrder={(order) => navigate(tenantPath(`/dashboard/orders/${order.id}`))}
+        onOpenCustomer={(order) => { if (order.customer_id) navigate(tenantPath(`/dashboard/customers/${order.customer_id}`)); }}
+        extraColumn={{ header: 'Origine', position: 'after-date', render: (order) => (
+          <span className="text-xs">{order.source === 'commercial' ? 'Devis' : management.orders.find((item) => item.id === order.id)?.shop_name ?? 'Boutique'}</span>
+        ) }}
       />
-
-      <CancelOrderConfirmDialog
-        orderId={orderToCancel?.id ?? null}
-        orderShortId={
-          orderToCancel?.id ? orderToCancel.id.replace(/-/g, '').slice(0, 8).toUpperCase() : undefined
-        }
-        onConfirm={handleCancelConfirm}
-        onClose={() => setOrderToCancel(null)}
-      />
-
-      <ValidateOrderConfirmDialog
-        order={orderToValidate}
-        onConfirm={handleValidateConfirm}
-        onClose={() => setOrderToValidate(null)}
-      />
+      {management.error && <button className={`${inputClass} mt-3`} type="button" onClick={management.reload}>Réessayer</button>}
+      <nav className="mt-4 flex items-center gap-4 text-sm" aria-label="Pagination des commandes">
+        <button className={inputClass} type="button" disabled={management.loading || management.page === 1} onClick={management.previous}>Précédente</button>
+        <span aria-live="polite">Page {management.page} · {management.orders.length} commande{management.orders.length > 1 ? 's' : ''}</span>
+        <button className={inputClass} type="button" disabled={management.loading || !management.hasNext} onClick={management.next}>Suivante</button>
+      </nav>
     </div>
   );
 }

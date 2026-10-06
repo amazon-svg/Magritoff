@@ -429,6 +429,23 @@ describe('routes Orders API v1', () => {
     await expect(putWithMalformedIfMatch.json()).resolves.toMatchObject({ code: 'api.if_match_invalid' });
   });
 
+  it('sert le détail backoffice d une commande authentifiée', async () => {
+    const handler = createApiV1Application({
+      routes: createOrdersRoutes(new OrdersService(repositoryStub())),
+      requestIdFactory: () => 'request-order-detail',
+      actorResolver: { async resolve() { return { kind: 'user', userId: id('user-detail') }; } },
+    });
+    const response = await handler(new Request(
+      'https://magrit.test/api/v1/orders/22222222-2222-4222-8222-222222222222',
+    ));
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      orderId: '22222222-2222-4222-8222-222222222222',
+      shopName: 'Atelier Lumière',
+      totalTtc: '180.00',
+    });
+  });
+
   it('traduit un refus de validation pour prix non vérifié en Problem Details 409 (Q17-a, point 12 (c))', async () => {
     const repository = repositoryStub();
     repository.transitionOrder = async () => {
@@ -458,6 +475,8 @@ function repositoryStub(): OrdersRepository {
     items: [], totalHt: 10, status: 'draft', hasUnverifiedPrices: false,
   };
   return {
+    listOrders: async () => [],
+    getUnifiedOrderDetail: async () => null,
     getTenantTaxRegime: async () => 'metropole_fr',
     getShopTaxRegime: async () => 'metropole_fr',
     listTenantOrders: async () => [order],
@@ -493,6 +512,13 @@ function repositoryStub(): OrdersRepository {
         productLabel: 'Flyers', clariprintOptions: null, quantity: 2,
         unitPriceHt: '75.00', lineTotalHt: '150.00', priceOrigin: 'client_unverified',
       }],
+    }),
+    getOrderDetail: async (orderId) => ({
+      orderId, shopId: '33333333-3333-4333-8333-333333333333', shopName: 'Atelier Lumière',
+      source: 'v1_1', status: 'draft', createdAt: '2026-08-11T12:00:00.000Z',
+      updatedAt: '2026-08-11T12:00:00.000Z', customerName: 'Client AF4',
+      customerEmail: 'client-af4@magrit.test', currency: 'EUR', notes: '', totalHt: '150.00',
+      totalTtc: '180.00', hasUnverifiedPrices: false, items: [],
     }),
     updateDraftOrder: async (orderId, command) => ({
       orderId,

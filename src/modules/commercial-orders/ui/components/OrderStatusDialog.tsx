@@ -38,6 +38,7 @@ import { Loader2, X } from 'lucide-react';
 import { TEST_IDS } from '@/shared/presentation/testIds';
 import { useWorkspaceApi } from '@/platform/runtime/workspace-ui-runtime';
 import { CommercialOrdersApiClient } from '@/modules/commercial-orders/api/client';
+import { OrdersApiClient } from '@/modules/orders';
 import type { OrderStepChangeDto } from '@/modules/commercial-orders/api/contracts';
 // Import PAR LA FACADE PUBLIQUE du module (`@/modules/production-steps`),
 // jamais un chemin profond `api/client`/`api/contracts` — regle des
@@ -62,6 +63,7 @@ export interface OrderStatusDialogProps {
 
 export function OrderStatusDialog({ orderId, onClose, onChanged }: OrderStatusDialogProps) {
   const ordersApi = useWorkspaceApi(CommercialOrdersApiClient);
+  const unifiedOrdersApi = useWorkspaceApi(OrdersApiClient);
   const stepsApi = useWorkspaceApi(ProductionStepsApiClient);
 
   const [steps, setSteps] = useState<readonly ProductionStepDto[]>([]);
@@ -80,10 +82,10 @@ export function OrderStatusDialog({ orderId, onClose, onChanged }: OrderStatusDi
       // Trois lectures independantes : le catalogue COMPLET des etapes
       // (`listProductionSteps`, actives ET desactivees — une etape
       // desactivee reste lisible dans l historique, decision #8/#11 du
-      // contrat), l etape COURANTE de la commande (`getDetail`) et le
+      // contrat), l etape COURANTE de la commande (lecture commune) et le
       // journal ANTICHRONOLOGIQUE (`listOrderStepChanges`).
       const [order, stepsResponse, historyResponse] = await Promise.all([
-        ordersApi.getDetail(orderId),
+        unifiedOrdersApi.getUnifiedDetail(orderId),
         stepsApi.list(),
         ordersApi.listStepChanges(orderId, { pageSize: 50 }),
       ]);
@@ -96,7 +98,7 @@ export function OrderStatusDialog({ orderId, onClose, onChanged }: OrderStatusDi
     } finally {
       setLoading(false);
     }
-  }, [ordersApi, stepsApi, orderId]);
+  }, [ordersApi, unifiedOrdersApi, stepsApi, orderId]);
 
   useEffect(() => {
     void load();
@@ -181,7 +183,7 @@ export function OrderStatusDialog({ orderId, onClose, onChanged }: OrderStatusDi
                       <div className="text-xs text-ink-muted mt-0.5">
                         {/* timeZone explicite (qa-review E10.18a round 1, M2) : sans lui,
                             `toLocaleString` retombe sur le fuseau du NAVIGATEUR, alors que la
-                            grille voisine du meme module (`orders-list.helpers.ts`) affiche deja
+                            grille commune affiche déjà
                             dans le fuseau de reference (`docs/api/CONVENTIONS.md` §8.24 point 5
                             regle 8). */}
                         {new Date(entry.occurred_at).toLocaleString('fr-FR', {

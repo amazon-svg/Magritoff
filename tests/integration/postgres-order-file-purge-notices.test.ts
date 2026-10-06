@@ -75,10 +75,12 @@ describeIntegration('rappels de purge PostgreSQL', () => {
       [quoteId, tenantId, customerId, projectId, actorId],
     );
     await pool.query(
-      `insert into public.commercial_orders(
-         id,tenant_id,customer_id,quote_id,number,status,source_quote_status,lines_subtotal,
-         global_discount,net_total,vat_rate,vat_amount,total_incl_tax,created_by
-       ) values($1,$2,$3,$4,'CDE-2026-00991','validated','sent',100,0,100,.2,20,120,$5)`,
+      `insert into public.tenant_orders(
+         id,tenant_id,shop_id,created_by,status,total_ht,currency,notes,order_origin,
+         customer_id,quote_id,number,source_quote_status,lines_subtotal,
+         global_discount,net_total,vat_rate,vat_amount,total_incl_tax
+       ) values($1,$2,null,$5,'validated',100,'EUR','','quote',$3,$4,
+         'CDE-2026-00991','sent',100,0,100,.2,20,120)`,
       [orderId, tenantId, customerId, quoteId, actorId],
     );
     await pool.query(

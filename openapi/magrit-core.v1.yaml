@@ -4447,6 +4447,7 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: listCommercialOrders
+      deprecated: true
       summary: "Liste les commandes commerciales"
       description: >-
         Liste les commandes du tenant courant, de la plus recente a la plus
@@ -4629,6 +4630,11 @@ paths:
       responses:
         '200':
           description: Page de commandes du tenant.
+          headers:
+            Deprecation:
+              $ref: '#/components/headers/OrderApiDeprecation'
+            Link:
+              $ref: '#/components/headers/OrderApiSuccessor'
           content:
             application/json:
               schema:
@@ -4738,6 +4744,7 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: getCommercialOrder
+      deprecated: true
       summary: "Récupère une commande commerciale"
       description: >-
         Fiche complete d une commande : entete, totaux figes et lignes. C est
@@ -4826,6 +4833,10 @@ paths:
           headers:
             ETag:
               $ref: '#/components/headers/ETag'
+            Deprecation:
+              $ref: '#/components/headers/OrderApiDeprecation'
+            Link:
+              $ref: '#/components/headers/OrderApiSuccessor'
           content:
             application/json:
               schema:
@@ -8766,11 +8777,187 @@ paths:
 #    mecanisme d annonce d un changement de mise en page.
 # ----------------------------------------------------------------------------
 
+  /order-exports:
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
+    get:
+      operationId: listUnifiedOrderExports
+      summary: "Liste les exports de commandes"
+      description: >-
+        Exports communs des commandes boutique et devis. Les filtres appliqués
+        à la grille sélectionnent toutes les pages. Le registre couvre le tenant,
+        et le téléchargement reste réservé au demandeur. Les fichiers communs
+        utilisent layout_version 2, avec Origine et Boutique en fin de fichier.
+        Ordre croissant par date puis identifiant, et position pour les lignes.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      x-required-capabilities: [can_export_orders]
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: Filtre sur l etat de la demande.
+          schema:
+            $ref: '#/components/schemas/OrderExportStatus'
+        - name: format
+          in: query
+          required: false
+          description: Filtre sur le format demande.
+          schema:
+            $ref: '#/components/schemas/OrderExportFormat'
+        - name: granularity
+          in: query
+          required: false
+          description: Filtre sur la granularite demandee.
+          schema:
+            $ref: '#/components/schemas/OrderExportGranularity'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/PageCursor'
+      responses:
+        '200':
+          description: >-
+            Page de demandes d export, de la plus recente a la plus ancienne.
+            `download_url` n est servi que sur les entrees `ready` DEMANDEES
+            PAR L APPELANT ; il vaut `null` partout ailleurs, y compris sur une
+            entree `ready` d un autre membre.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/OrderExport'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ForbiddenCapability'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+    post:
+      operationId: requestUnifiedOrderExport
+      summary: "Demande un export de commandes"
+      description: >-
+        Exports communs des commandes boutique et devis. Les filtres appliqués
+        à la grille sélectionnent toutes les pages. Le registre couvre le tenant,
+        et le téléchargement reste réservé au demandeur. Les fichiers communs
+        utilisent layout_version 2, avec Origine et Boutique en fin de fichier.
+        Ordre croissant par date puis identifiant, et position pour les lignes.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      x-required-capabilities: [can_export_orders]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestUnifiedOrderExportCommand'
+      responses:
+        '201':
+          description: >-
+            Demande enregistree, etat `pending`. `download_url` vaut `null` :
+            le fichier n existe pas encore. L appelant interroge
+            `getUnifiedOrderExport` jusqu a `ready` ou `failed` — toutes les
+            deux secondes est une cadence raisonnable, en espacant au-dela
+            d une minute.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/OrderExport'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ForbiddenCapability'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          description: >-
+            Corps invalide (`api.validation_failed`) : `created_from`
+            posterieure a `created_to`, etape de production inconnue de
+            l espace, client ou devis inconnu. Egalement
+            `order_export.pending_limit_reached` quand l appelant a deja TROIS
+            demandes non terminees : la file est partagee, et un membre qui
+            enchaine les clics ne doit pas faire attendre tout l espace.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /order-exports/{exportId}:
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
+    get:
+      operationId: getUnifiedOrderExport
+      summary: "Récupère un export de commandes"
+      description: >-
+        Exports communs des commandes boutique et devis. Les filtres appliqués
+        à la grille sélectionnent toutes les pages. Le registre couvre le tenant,
+        et le téléchargement reste réservé au demandeur. Les fichiers communs
+        utilisent layout_version 2, avec Origine et Boutique en fin de fichier.
+        Ordre croissant par date puis identifiant, et position pour les lignes.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      x-required-capabilities: [can_export_orders]
+      parameters:
+        - $ref: '#/components/parameters/CommercialOrderExportId'
+      responses:
+        '200':
+          description: >-
+            Etat de la demande. Sur `ready` et pour le demandeur,
+            `download_url` est une URL signee de courte duree, REEMISE A CHAQUE
+            APPEL : un lien perime se rafraichit en rappelant cette operation,
+            il n y a rien d autre a faire.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/OrderExport'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ForbiddenCapability'
+        '404':
+          description: >-
+            Aucune demande d export de cet identifiant dans le tenant du jeton
+            (`order_export.not_found`). Meme reponse pour une demande
+            inexistante et pour celle d un autre espace : le contraire
+            revelerait l existence d exports chez un tiers.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+
   /commercial-order-exports:
     parameters:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: listCommercialOrderExports
+      deprecated: true
       summary: "Liste les exports de commandes"
       description: >-
         REGISTRE des exports de commandes de l espace, du plus recent au plus
@@ -8835,6 +9022,11 @@ paths:
             `download_url` n est servi que sur les entrees `ready` DEMANDEES
             PAR L APPELANT ; il vaut `null` partout ailleurs, y compris sur une
             entree `ready` d un autre membre.
+          headers:
+            Deprecation:
+              $ref: '#/components/headers/OrderApiDeprecation'
+            Link:
+              $ref: '#/components/headers/OrderApiSuccessor'
           content:
             application/json:
               schema:
@@ -8857,6 +9049,7 @@ paths:
 
     post:
       operationId: requestCommercialOrderExport
+      deprecated: true
       summary: "Demande un export de commandes"
       description: >-
         DEMANDE un export des commandes de l espace : un format, une
@@ -8918,6 +9111,11 @@ paths:
             `getCommercialOrderExport` jusqu a `ready` ou `failed` — toutes les
             deux secondes est une cadence raisonnable, en espacant au-dela
             d une minute.
+          headers:
+            Deprecation:
+              $ref: '#/components/headers/OrderApiDeprecation'
+            Link:
+              $ref: '#/components/headers/OrderApiSuccessor'
           content:
             application/json:
               schema:
@@ -8953,6 +9151,7 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: getCommercialOrderExport
+      deprecated: true
       summary: "Récupère un export de commandes"
       description: >-
         Etat d une demande d export et, quand le fichier est pret ET que
@@ -8990,6 +9189,11 @@ paths:
             `download_url` est une URL signee de courte duree, REEMISE A CHAQUE
             APPEL : un lien perime se rafraichit en rappelant cette operation,
             il n y a rien d autre a faire.
+          headers:
+            Deprecation:
+              $ref: '#/components/headers/OrderApiDeprecation'
+            Link:
+              $ref: '#/components/headers/OrderApiSuccessor'
           content:
             application/json:
               schema:
@@ -9042,6 +9246,113 @@ paths:
 # par abonne. Les entrees ci-dessous decrivent donc un CONTRAT DE CHARGE UTILE
 # ferme, dont le transport tiers reste a ouvrir par une story dediee. Elles ne
 # decrivent pas un flux qu un integrateur peut brancher aujourd hui.
+  /order-summaries:
+    get:
+      operationId: listOrders
+      summary: "Liste les commandes de toutes origines"
+      tags: [gestion-commerciale]
+      description: >-
+        Lecture back-office commune du tenant résolu depuis le jeton utilisateur
+        ou la clé de service. Ordre stable par date
+        de création décroissante puis identifiant décroissant. Les filtres
+        portent sur toutes les commandes, avant pagination. Les bornes civiles
+        created_from et created_to sont inclusives dans Europe/Paris.
+        Les routes historiques restent disponibles pendant la convergence E4.4b.
+      security:
+        - bearerAuth: []
+        - serviceKey: []
+      x-required-scopes: [orders:read]
+      parameters:
+        - $ref: '#/components/parameters/MagritTenant'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/PageCursor'
+        - name: origin
+          in: query
+          schema: { type: string, enum: [storefront, quote] }
+        - name: status
+          in: query
+          schema: { type: string, enum: [draft, validated, in_production, shipped, delivered, invoiced, cancelled] }
+        - name: customer_id
+          in: query
+          schema: { $ref: '#/components/schemas/Uuid' }
+        - name: quote_id
+          in: query
+          description: Retient la commande unique issue de ce devis, ou une page vide.
+          schema: { $ref: '#/components/schemas/Uuid' }
+        - name: customer_search
+          in: query
+          description: Recherche littérale insensible à la casse dans le nom ou courriel du client.
+          schema: { type: string, minLength: 1, maxLength: 200 }
+        - name: shop_id
+          in: query
+          schema: { $ref: '#/components/schemas/Uuid' }
+        - name: current_production_step_id
+          in: query
+          schema: { $ref: '#/components/schemas/Uuid' }
+        - name: created_from
+          in: query
+          schema: { type: string, format: date }
+        - name: created_to
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Page des commandes du tenant.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/OrderListEntry' }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /order-summaries/{orderId}:
+    get:
+      operationId: getUnifiedOrder
+      summary: "Ouvre une commande de toute origine"
+      tags: [gestion-commerciale]
+      description: >-
+        Lecture back-office commune, réservée au tenant du jeton utilisateur
+        ou de la clé de service.
+        L'origine est résolue côté serveur, sans sondage de routes historiques.
+        L'en-tête commun porte les relations facultatives et les montants ;
+        detail conserve les lignes, la configuration et la provenance des prix
+        boutique ou la copie tarifaire et les marges figées du devis.
+        Les routes historiques restent disponibles pendant la convergence E4.4b.
+      security:
+        - bearerAuth: []
+        - serviceKey: []
+      x-required-scopes: [orders:read]
+      parameters:
+        - $ref: '#/components/parameters/MagritTenant'
+        - name: orderId
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/Uuid' }
+      responses:
+        '200':
+          description: Commande et extension correspondant à son origine.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { $ref: '#/components/schemas/UnifiedOrderDetail' }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
   /orders:
     x-legacy-facade: true
     post:
@@ -9072,6 +9383,28 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
 
+  /orders/{orderId}:
+    get:
+      operationId: getLegacyOrderDetail
+      tags: [Legacy facade]
+      summary: Consulter le détail d une commande boutique dans le backoffice.
+      x-legacy-facade: true
+      parameters:
+        - $ref: '#/components/parameters/MagritTenant'
+        - name: orderId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Détail en lecture seule de la commande.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LegacyOrderDetail' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /orders/{orderId}/draft:
     x-legacy-facade: true
     parameters:
@@ -12882,6 +13215,24 @@ components:
   # En-tetes de reponse partages
   # --------------------------------------------------------------------------
   headers:
+    OrderApiDeprecation:
+      description: >-
+        Date de dépréciation de la lecture historique, au format Structured
+        Field Date de RFC 9745. Cette information ne modifie pas le
+        comportement de la route. Aucune date de retrait n'est annoncée tant
+        que les consommateurs ne sont pas migrés ; l'en-tête Sunset est donc
+        volontairement absent.
+      required: true
+      schema:
+        type: string
+        const: '@1791244800'
+    OrderApiSuccessor:
+      description: >-
+        Lien vers la ressource commune de remplacement, avec la relation
+        `successor-version`. Sa cible dépend de la route historique appelée.
+      required: true
+      schema:
+        type: string
     StorefrontSessionCookie:
       description: >-
         Cookie de session opaque posé par les routes storefront. En
@@ -13092,6 +13443,81 @@ components:
         totalTtc: { type: number }
         status: { type: string }
         hasUnverifiedPrices: { type: boolean }
+    OrderListEntry:
+      type: object
+      additionalProperties: false
+      required: [id, origin, items, number, shop_id, shop_name, customer_id, customer_name, customer_email, created_at, status, currency, total_ht, total_ttc, has_unverified_prices, current_production_step_id]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [name, quantity, unit_price_ht, price_origin]
+            properties:
+              name: { type: string }
+              quantity: { type: integer, minimum: 1 }
+              unit_price_ht: { $ref: '#/components/schemas/Money' }
+              price_origin: { type: [string, 'null'], enum: [catalog, quoted, client_unverified, legacy, null] }
+        id: { $ref: '#/components/schemas/Uuid' }
+        origin: { type: string, enum: [storefront, quote] }
+        number: { type: [string, 'null'] }
+        shop_id: { type: [string, 'null'], format: uuid }
+        shop_name: { type: [string, 'null'] }
+        customer_id: { type: [string, 'null'], format: uuid }
+        customer_name: { type: [string, 'null'] }
+        customer_email: { type: [string, 'null'] }
+        created_at: { type: string, format: date-time }
+        status: { type: string, enum: [draft, validated, in_production, shipped, delivered, invoiced, cancelled] }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        total_ht: { $ref: '#/components/schemas/Money' }
+        total_ttc: { $ref: '#/components/schemas/Money' }
+        has_unverified_prices: { type: boolean }
+        current_production_step_id: { type: [string, 'null'], format: uuid }
+    UnifiedOrderDetail:
+      oneOf:
+        - $ref: '#/components/schemas/UnifiedStorefrontOrderDetail'
+        - $ref: '#/components/schemas/UnifiedQuoteOrderDetail'
+    UnifiedStorefrontOrderDetail:
+      type: object
+      additionalProperties: false
+      required: [id, origin, number, shop_id, customer_id, quote_id, created_at, updated_at, status, currency, total_ht, total_ttc, has_unverified_prices, current_production_step_id, detail]
+      properties:
+        origin: { type: string, enum: [storefront] }
+        detail: { $ref: '#/components/schemas/LegacyOrderDetail' }
+        id: { $ref: '#/components/schemas/Uuid' }
+        number: { type: [string, 'null'] }
+        shop_id: { type: [string, 'null'], format: uuid }
+        customer_id: { type: [string, 'null'], format: uuid }
+        quote_id: { type: [string, 'null'], format: uuid }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        status: { type: string, enum: [draft, validated, in_production, shipped, delivered, invoiced, cancelled] }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        total_ht: { $ref: '#/components/schemas/Money' }
+        total_ttc: { $ref: '#/components/schemas/Money' }
+        has_unverified_prices: { type: boolean }
+        current_production_step_id: { type: [string, 'null'], format: uuid }
+    UnifiedQuoteOrderDetail:
+      type: object
+      additionalProperties: false
+      required: [id, origin, number, shop_id, customer_id, quote_id, created_at, updated_at, status, currency, total_ht, total_ttc, has_unverified_prices, current_production_step_id, detail]
+      properties:
+        origin: { type: string, enum: [quote] }
+        detail: { $ref: '#/components/schemas/CommercialOrderDetail' }
+        id: { $ref: '#/components/schemas/Uuid' }
+        number: { type: [string, 'null'] }
+        shop_id: { type: [string, 'null'], format: uuid }
+        customer_id: { type: [string, 'null'], format: uuid }
+        quote_id: { type: [string, 'null'], format: uuid }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        status: { type: string, enum: [draft, validated, in_production, shipped, delivered, invoiced, cancelled] }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        total_ht: { $ref: '#/components/schemas/Money' }
+        total_ttc: { $ref: '#/components/schemas/Money' }
+        has_unverified_prices: { type: boolean }
+        current_production_step_id: { type: [string, 'null'], format: uuid }
     LegacyOrdersList:
       type: object
       additionalProperties: false
@@ -13131,7 +13557,7 @@ components:
         productLabel: { type: string, minLength: 1 }
         clariprintOptions: { type: [object, 'null'], additionalProperties: true }
         quantity: { type: integer, minimum: 1 }
-        expectedUnitPriceHt: { type: string, pattern: '^[0-9]{1,10}\\.[0-9]{2}$' }
+        expectedUnitPriceHt: { type: string, pattern: '^[0-9]{1,10}\.[0-9]{2}$' }
     LegacyCreateOrderCommand:
       type: object
       additionalProperties: false
@@ -13150,7 +13576,7 @@ components:
         orderId: { type: string, format: uuid }
         tenantId: { type: string, format: uuid }
         shopId: { type: string, format: uuid }
-        totalHt: { type: string, pattern: '^[0-9]{1,10}\\.[0-9]{2}$' }
+        totalHt: { type: string, pattern: '^[0-9]{1,10}\.[0-9]{2}$' }
         currency: { type: string, minLength: 3, maxLength: 3 }
         replayed: { type: boolean }
     LegacyDraftOrderItem:
@@ -13163,8 +13589,8 @@ components:
         productLabel: { type: string }
         clariprintOptions: { type: [object, 'null'], additionalProperties: true }
         quantity: { type: integer, minimum: 1 }
-        unitPriceHt: { type: string, pattern: '^[0-9]{1,10}\\.[0-9]{2}$' }
-        lineTotalHt: { type: string, pattern: '^[0-9]{1,10}\\.[0-9]{2}$' }
+        unitPriceHt: { type: string, pattern: '^[0-9]{1,10}\.[0-9]{2}$' }
+        lineTotalHt: { type: string, pattern: '^[0-9]{1,10}\.[0-9]{2}$' }
         priceOrigin: { type: string, enum: [catalog, quoted, client_unverified, legacy] }
     LegacyDraftOrder:
       type: object
@@ -13174,7 +13600,27 @@ components:
         orderId: { type: string, format: uuid }
         status: { type: string }
         createdAt: { type: string, format: date-time }
-        totalHt: { type: string, pattern: '^[0-9]{1,10}\\.[0-9]{2}$' }
+        totalHt: { type: string, pattern: '^[0-9]{1,10}\.[0-9]{2}$' }
+        hasUnverifiedPrices: { type: boolean }
+        items: { type: array, items: { $ref: '#/components/schemas/LegacyDraftOrderItem' } }
+    LegacyOrderDetail:
+      type: object
+      additionalProperties: false
+      required: [orderId, shopId, shopName, source, status, createdAt, updatedAt, customerName, customerEmail, currency, notes, totalHt, totalTtc, hasUnverifiedPrices, items]
+      properties:
+        orderId: { type: string, format: uuid }
+        shopId: { type: string, format: uuid }
+        shopName: { type: string }
+        source: { type: string, enum: [v1_1] }
+        status: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        customerName: { type: [string, 'null'] }
+        customerEmail: { type: [string, 'null'] }
+        currency: { type: string, minLength: 3, maxLength: 3 }
+        notes: { type: string }
+        totalHt: { type: string, pattern: '^[0-9]{1,10}\.[0-9]{2}$' }
+        totalTtc: { type: string, pattern: '^[0-9]{1,10}\.[0-9]{2}$' }
         hasUnverifiedPrices: { type: boolean }
         items: { type: array, items: { $ref: '#/components/schemas/LegacyDraftOrderItem' } }
     LegacyUpdateDraftOrderItem:
@@ -13185,7 +13631,7 @@ components:
         id: { type: string, format: uuid }
         productLabel: { type: string, minLength: 1 }
         quantity: { type: integer, minimum: 1 }
-        expectedUnitPriceHt: { type: string, pattern: '^[0-9]{1,10}\\.[0-9]{2}$' }
+        expectedUnitPriceHt: { type: string, pattern: '^[0-9]{1,10}\.[0-9]{2}$' }
     LegacyUpdateDraftOrderCommand:
       type: object
       additionalProperties: false
@@ -13199,7 +13645,7 @@ components:
       required: [orderId, totalHt, replayed]
       properties:
         orderId: { type: string, format: uuid }
-        totalHt: { type: string, pattern: '^[0-9]{1,10}\\.[0-9]{2}$' }
+        totalHt: { type: string, pattern: '^[0-9]{1,10}\.[0-9]{2}$' }
         replayed: { type: boolean }
     LegacyOrderRolesResponse:
       type: object
@@ -23656,6 +24102,13 @@ components:
     OrderExportGranularity:
       title: OrderExportGranularity
       description: >-
+        E4.4b : layout_version 2 conserve les colonnes ci-dessous et ajoute
+        Origine (Boutique ou Devis) puis Boutique. Les références absentes
+        restent vides ; les commandes boutique sans numéro portent leur UUID.
+        Les totaux boutique suivent la projection de grille et les montants
+        devis restent ceux de la copie figée. Les fichiers layout_version 1
+        et les demandes historiques conservent leur périmètre devis.
+
         Niveau de detail du fichier (CA3). Deux jeux de colonnes distincts,
         tous deux figes, tous deux ordonnes comme ci-dessous.
 
@@ -23733,7 +24186,7 @@ components:
         DEUX COLONNES ONT ETE RETIREES DE CE CATALOGUE LE 2026-09-13, AVANT
         QU AUCUN FICHIER N AIT JAMAIS ETE PRODUIT AVEC ELLES — ce n est donc
         pas une rupture de v1 (§7) : aucun serveur ne les a emises, aucun
-        destinataire n en depend, et `layout_version` vaut toujours `1`.
+        destinataire n en depend. Les demandes historiques gardent `layout_version: 1` ; les demandes communes utilisent `2`.
 
         - **« Date de livraison prevue »** (`CommercialOrder.
           expected_delivery_date`). Retiree parce qu AUCUN chemin d ecriture ne
@@ -23944,8 +24397,8 @@ components:
       type: string
       enum: [pending, running, ready, failed, expired]
 
-    OrderExportFilters:
-      title: OrderExportFilters
+    LegacyOrderExportFilters:
+      title: LegacyOrderExportFilters
       description: >-
         Perimetre de l export. CHAQUE CHAMP EST LE JUMEAU EXACT D UN PARAMETRE
         DE REQUETE DE `listCommercialOrders` — meme nom, meme type, meme
@@ -24023,6 +24476,42 @@ components:
               pattern: '^\d{4}-\d{2}-\d{2}$'
             - type: 'null'
 
+    UnifiedOrderExportFilters:
+      type: object
+      additionalProperties: false
+      properties:
+        origin: { type: string, enum: [storefront, quote] }
+        status: { type: string, enum: [draft, validated, in_production, shipped, delivered, invoiced, cancelled] }
+        customer_id: { $ref: '#/components/schemas/Uuid' }
+        quote_id: { $ref: '#/components/schemas/Uuid' }
+        customer_search: { type: string, minLength: 1, maxLength: 200 }
+        shop_id: { $ref: '#/components/schemas/Uuid' }
+        current_production_step_id: { $ref: '#/components/schemas/Uuid' }
+        created_from: { type: string, format: date }
+        created_to: { type: string, format: date }
+    OrderExportFilters:
+      description: Filtres conservés sur une demande historique ou commune.
+      type: object
+      additionalProperties: false
+      properties:
+        origin: { type: [string, 'null'], enum: [storefront, quote, null] }
+        status: { type: [string, 'null'], enum: [draft, validated, in_production, shipped, delivered, invoiced, cancelled, null] }
+        customer_id: { type: [string, 'null'], format: uuid }
+        quote_id: { type: [string, 'null'], format: uuid }
+        customer_search: { type: [string, 'null'], minLength: 1, maxLength: 200 }
+        shop_id: { type: [string, 'null'], format: uuid }
+        current_production_step_id: { type: [string, 'null'], format: uuid }
+        created_from: { type: [string, 'null'], format: date }
+        created_to: { type: [string, 'null'], format: date }
+    RequestUnifiedOrderExportCommand:
+      type: object
+      additionalProperties: false
+      required: [format, granularity]
+      properties:
+        format: { $ref: '#/components/schemas/OrderExportFormat' }
+        granularity: { $ref: '#/components/schemas/OrderExportGranularity' }
+        filters: { $ref: '#/components/schemas/UnifiedOrderExportFilters' }
+
     RequestOrderExportCommand:
       title: RequestOrderExportCommand
       description: >-
@@ -24042,7 +24531,7 @@ components:
           description: >-
             Perimetre. Omis -> equivalent a `{}`, donc tout l historique de
             l espace.
-          $ref: '#/components/schemas/OrderExportFilters'
+          $ref: '#/components/schemas/LegacyOrderExportFilters'
 
     OrderExport:
       title: OrderExport
@@ -24107,7 +24596,8 @@ components:
           description: >-
             Version de la MISE EN PAGE du fichier : nombre, ordre et intitules
             des colonnes pour la granularite demandee. Vaut `1` pour la forme
-            decrite par `OrderExportGranularity`.
+            historique décrite par `OrderExportGranularity`. Vaut `2` pour les exports
+            communs, qui ajoutent Origine puis Boutique.
 
 
             CE CHAMP EXISTE PARCE QU UN CLASSEUR CONSOMME PAR UN TIERS EST UNE

@@ -47,7 +47,7 @@ import {
   EMPTY_PRODUCTION_STEP_CATALOG,
   type OrdersListFilters,
   type ProductionStepCatalog,
-} from '@/modules/commercial-orders/ui/workspace/orders-list.helpers';
+} from '@/modules/commercial-orders/ui/components/legacy-order-export-filters';
 
 function fixtureExport(overrides: Partial<OrderExportDto> = {}): OrderExportDto {
   return {

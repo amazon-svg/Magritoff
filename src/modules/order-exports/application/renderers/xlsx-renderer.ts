@@ -138,6 +138,8 @@ const NUMBER_FORMAT_BY_CELL_KIND: Readonly<Record<'money' | 'rate' | 'integer', 
  * (« complete pour les deux granularites »).
  */
 const COLUMN_WIDTH_BY_HEADER: Readonly<Record<string, number>> = Object.freeze({
+  'Origine': 14,
+  'Boutique': 28,
   'Numéro de commande': 20,
   "Devis d'origine": 16,
   'Date de commande': 14,
@@ -266,7 +268,7 @@ export const xlsxOrderExportRenderer: OrderExportRenderer = Object.freeze({
   fileExtension: 'xlsx',
   async render(input: OrderExportRenderInput): Promise<OrderExportRenderResult> {
     try {
-      const columns = orderExportColumnsFor(input.granularity);
+      const columns = orderExportColumnsFor(input.granularity, input.layoutVersion);
       const sheetData: SheetData = [columns.map((column) => headerCell(column.header))];
       for (const row of input.rows) {
         sheetData.push(columns.map((column) => dataCell(column.cell(row))));

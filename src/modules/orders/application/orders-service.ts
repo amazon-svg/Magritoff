@@ -1,3 +1,5 @@
+import type { TenantId } from '../../../kernel/ids/index.ts';
+import type { ListOrdersParams } from './orders-repository.ts';
 import type {
   OrderAuditTrail,
   OrdersList,
@@ -9,6 +11,7 @@ import type {
   CreateOrderCommand,
   CreateOrderResult,
   DraftOrder,
+  OrderDetail,
   UpdateDraftOrderCommand,
   UpdateDraftOrderResult,
   OrderRolesResponse,
@@ -29,6 +32,14 @@ const PORTAL_TABS: readonly PortalOrdersTab[] = ['mine', 'to_validate', 'to_appr
 
 export class OrdersService {
   constructor(private readonly repository: OrdersRepository) {}
+
+  getUnifiedDetail(tenantId: TenantId, orderId: string, actor: UserId | null) {
+    return this.repository.getUnifiedOrderDetail(tenantId, orderId, actor);
+  }
+
+  listOrders(tenantId: TenantId, params: ListOrdersParams) {
+    return this.repository.listOrders(tenantId, params);
+  }
 
   async listTenantOrders(actor: UserId, tenantId: string, shopIds: readonly string[]): Promise<OrdersList> {
     const taxRate = taxRateFor(await this.repository.getTenantTaxRegime(tenantId, actor));
@@ -218,6 +229,10 @@ export class OrdersService {
 
   getDraft(orderId: string, authorization: OrderResourceAuthorization): Promise<DraftOrder> {
     return this.repository.getDraftOrder(orderId, authorization);
+  }
+
+  getDetail(orderId: string, authorization: OrderResourceAuthorization): Promise<OrderDetail> {
+    return this.repository.getOrderDetail(orderId, authorization);
   }
 
   updateDraft(orderId: string, command: UpdateDraftOrderCommand, authorization: OrderResourceAuthorization): Promise<UpdateDraftOrderResult> {

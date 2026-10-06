@@ -60,7 +60,7 @@ export const csvOrderExportRenderer: OrderExportRenderer = Object.freeze({
   fileExtension: 'csv',
   async render(input: OrderExportRenderInput): Promise<OrderExportRenderResult> {
     try {
-      const columns = orderExportColumnsFor(input.granularity);
+      const columns = orderExportColumnsFor(input.granularity, input.layoutVersion);
       const lines: string[] = [columns.map((column) => quoteField(column.header)).join(COLUMN_SEPARATOR)];
 
       for (const row of input.rows) {

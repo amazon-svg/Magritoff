@@ -112,6 +112,8 @@ describe('POST /commercial-order-exports (E10.18c) contre le contrat', () => {
       body: postExportBody({ filters: { status: 'validated' } }),
     });
     await expectContract(response, { status: 201 });
+    expect(response.headers.get('deprecation')).toBe('@1791244800');
+    expect(response.headers.get('link')).toBe('</api/v1/order-exports>; rel="successor-version"');
     const { data } = (await response.json()) as { data: OrderExportDto };
     expect(data.status).toBe('pending');
     expect(data.format).toBe('csv');
@@ -220,6 +222,8 @@ describe('GET /commercial-order-exports/{exportId} (E10.18c) contre le contrat',
 
     const asOwner = await call(`/api/v1/commercial-order-exports/${exportId}`, { headers: asUser });
     await expectContract(asOwner, { status: 200 });
+    expect(asOwner.headers.get('deprecation')).toBe('@1791244800');
+    expect(asOwner.headers.get('link')).toBe(`</api/v1/order-exports/${exportId}>; rel="successor-version"`);
     const ownerBody = (await asOwner.json()) as { data: OrderExportDto };
     expect(ownerBody.data.download_url).not.toBeNull();
 
@@ -271,6 +275,8 @@ describe('GET /commercial-order-exports (E10.18c) contre le contrat', () => {
 
     const response = await call('/api/v1/commercial-order-exports', { headers: asUser });
     await expectContract(response, { status: 200 });
+    expect(response.headers.get('deprecation')).toBe('@1791244800');
+    expect(response.headers.get('link')).toBe('</api/v1/order-exports>; rel="successor-version"');
     const { data } = (await response.json()) as { data: OrderExportDto[] };
     expect(data).toHaveLength(2);
     expect(data[0]?.requested_at).toBe('2026-09-12T09:00:00.000Z');

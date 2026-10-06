@@ -9,7 +9,7 @@ const firstStage: PurgeNoticeEmail = {
   orderCount: 1,
   purgeAtLabel: '12 octobre 2026',
   daysBeforePurge: 20,
-  orderLinks: ['https://magritapp.com/t/atelier-test/dashboard/commercial-orders/order-1'],
+  orderLinks: ['https://magritapp.com/t/atelier-test/dashboard/orders/order-1'],
 };
 
 const secondStage: PurgeNoticeEmail = { ...firstStage, stage: 'second', fileCount: 1, daysBeforePurge: 15 };
@@ -130,8 +130,8 @@ describe('ResendOrderFilePurgeNoticeEmailSender', () => {
     const message = {
       ...firstStage,
       orderLinks: [
-        'https://magritapp.com/t/atelier-test/dashboard/commercial-orders/order-1',
-        'https://magritapp.com/t/atelier-test/dashboard/commercial-orders/order-2',
+        'https://magritapp.com/t/atelier-test/dashboard/orders/order-1',
+        'https://magritapp.com/t/atelier-test/dashboard/orders/order-2',
       ],
     };
     await sender.send(message);

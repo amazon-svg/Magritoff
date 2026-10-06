@@ -1,9 +1,14 @@
+import { readCommercialOrderDetail } from './commercial-orders-repository.ts';
+import { toIsoTimestamp } from '../../modules/_shared/application/index.ts';
+import type { ListOrdersParams, OrderListRecord } from '../../modules/orders/application/orders-repository.ts';
 import type { PoolClient } from 'pg';
 import type { TenantId, UserId } from '../../kernel/ids/index.ts';
 import type {
   CreateOrderCommand,
   CreateOrderResult,
   DraftOrder,
+  OrderDetail,
+  UnifiedOrderDetail,
   OrderCapabilities,
   OrderRolesResponse,
   PortalOrdersCounters,
@@ -55,6 +60,110 @@ export class PostgresOrdersRepository implements OrdersRepository {
     private readonly notifications: OrdersNotificationGateway,
   ) {}
 
+  getUnifiedOrderDetail(tenantId: TenantId, orderId: string, actor: UserId | null): Promise<UnifiedOrderDetail | null> {
+    return this.tx.run({ tenantId, ...(actor ? { userId: actor } : { actorKind: 'service' as const }) }, async (client) => {
+      const row = (await client.query<Row>(`
+        select id,order_origin,number,shop_id,customer_id,quote_id,current_production_step_id,currency,has_unverified_prices
+          from public.tenant_orders where tenant_id=$1 and id=$2
+      `, [tenantId, orderId])).rows[0];
+      if (!row) return null;
+      const relations = {
+        id: String(row['id']), number: nullableString(row['number']),
+        shop_id: nullableString(row['shop_id']), customer_id: nullableString(row['customer_id']),
+        quote_id: nullableString(row['quote_id']),
+        current_production_step_id: nullableString(row['current_production_step_id']),
+      };
+      if (row['order_origin'] === 'quote') {
+        const detail = await readCommercialOrderDetail(client, tenantId, orderId);
+        if (!detail) return null;
+        return { ...relations, origin: 'quote', detail,
+          current_production_step_id: detail.current_production_step_id,
+          created_at: detail.created_at, updated_at: detail.updated_at, status: detail.status,
+          currency: String(row['currency']), total_ht: detail.totals.net_total, total_ttc: detail.totals.total_incl_tax,
+          has_unverified_prices: row['has_unverified_prices'] === true };
+      }
+      const detail = await readStorefrontOrderDetail(client, orderId);
+      return { ...relations, origin: 'storefront', detail,
+        created_at: detail.createdAt, updated_at: detail.updatedAt,
+        status: detail.status as UnifiedOrderDetail['status'], currency: detail.currency,
+        total_ht: detail.totalHt, total_ttc: detail.totalTtc,
+        has_unverified_prices: detail.hasUnverifiedPrices };
+    });
+  }
+
+  listOrders(tenantId: TenantId, params: ListOrdersParams): Promise<readonly OrderListRecord[]> {
+    return this.tx.run({ tenantId, ...(params.actor ? { userId: params.actor } : { actorKind: 'service' as const }) }, async (client) => {
+      const values: unknown[] = [tenantId];
+      const predicates = ['orders.tenant_id=$1'];
+      const add = (column: string, value: unknown, operator = '=') => {
+        if (value === undefined || value === null) return;
+        values.push(value);
+        predicates.push(`${column} ${operator} $${values.length}`);
+      };
+      add('orders.order_origin', params.filters.origin);
+      add('orders.status', params.filters.status);
+      add('orders.customer_id', params.filters.customer_id);
+      add('orders.quote_id', params.filters.quote_id);
+      add('orders.shop_id', params.filters.shop_id);
+      add('orders.current_production_step_id', params.filters.current_production_step_id);
+      add('orders.created_at', params.createdAtFrom, '>=');
+      add('orders.created_at', params.createdAtTo, '<');
+      if (params.filters.customer_search) {
+        values.push(params.filters.customer_search);
+        predicates.push(`(strpos(lower(coalesce(identity.customer_name,'')),lower($${values.length}::text))>0
+          or strpos(lower(coalesce(identity.customer_email,'')),lower($${values.length}::text))>0)`);
+      }
+      if (params.cursor) {
+        values.push(params.cursor.sort, params.cursor.id);
+        predicates.push(`(orders.created_at,orders.id)<($${values.length - 1}::timestamptz,$${values.length}::uuid)`);
+      }
+      values.push(params.size + 1);
+      const result = await client.query(`
+        select orders.id,orders.order_origin origin,orders.number,orders.shop_id,shops.name shop_name,
+               orders.customer_id,identity.customer_name,identity.customer_email,orders.created_at,
+               to_char(orders.created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') cursor_created_at,
+               orders.status,orders.currency,orders.total_ht::text,
+               case when orders.order_origin='quote' then orders.total_incl_tax
+                    else round(orders.total_ht*(1+case tenants.tax_regime
+                      when 'metropole_fr' then .2000 when 'dom_tom' then .0850 else 0 end),2)
+               end::text total_ttc,
+               orders.has_unverified_prices,orders.current_production_step_id,
+               coalesce((select jsonb_agg(jsonb_build_object(
+                 'name',item.product_label,'quantity',item.quantity,
+                 'unit_price_ht',item.unit_price_ht::text,'price_origin',item.price_origin
+               ) order by item.position nulls last,item.created_at,item.id)
+                 from public.tenant_order_items item where item.order_id=orders.id),'[]'::jsonb) items
+          from public.tenant_orders orders
+          join public.tenants tenants on tenants.id=orders.tenant_id
+          left join public.shops shops on shops.id=orders.shop_id and shops.tenant_id=orders.tenant_id
+          left join public.customers customer on customer.id=orders.customer_id and customer.tenant_id=orders.tenant_id
+          left join public.shop_customer_accounts account on account.id=orders.shop_customer_account_id and account.tenant_id=orders.tenant_id
+          left join public.app_users creator on creator.id=orders.created_by
+          cross join lateral (
+            select case when orders.customer_id is not null
+                     then case when customer.type='company' then customer.company_name
+                          else nullif(concat_ws(' ',customer.first_name,customer.last_name),'') end
+                     else coalesce(account.full_name,creator.display_name) end customer_name,
+                   case when orders.customer_id is not null then null
+                        else coalesce(account.email,creator.email_normalized) end customer_email
+          ) identity
+         where ${predicates.join(' and ')}
+         order by orders.created_at desc,orders.id desc
+         limit $${values.length}
+      `, values);
+      return result.rows.map((row) => ({
+        id: row.id, origin: row.origin, items: row.items, number: row.number, shop_id: row.shop_id,
+        shop_name: row.shop_name, customer_id: row.customer_id,
+        customer_name: row.customer_name, customer_email: row.customer_email,
+        cursorCreatedAt: row.cursor_created_at,
+        created_at: toIsoTimestamp(row.created_at), status: row.status,
+        currency: row.currency, total_ht: row.total_ht, total_ttc: row.total_ttc,
+        has_unverified_prices: row.has_unverified_prices,
+        current_production_step_id: row.current_production_step_id,
+      }));
+    });
+  }
+
   getTenantTaxRegime(tenantId: string, actor: UserId): Promise<TaxRegime | null> {
     return this.tx.run(context(actor, tenantId), async (client) => {
       const row = (await client.query<{ tax_regime: string | null }>(
@@ -73,7 +182,7 @@ export class PostgresOrdersRepository implements OrdersRepository {
   listTenantOrders(tenantId: string, actor: UserId): Promise<readonly TenantOrderRecord[]> {
     return this.tx.run(context(actor, tenantId), (client) => readOrders(
       client,
-      'orders.tenant_id=$1',
+      "orders.tenant_id=$1 and orders.order_origin='storefront'",
       [tenantId],
     ));
   }
@@ -84,7 +193,7 @@ export class PostgresOrdersRepository implements OrdersRepository {
     if (first === null) return [];
     return this.tx.run(context(actor, first.tenant_id), (client) => readOrders(
       client,
-      'orders.id=any($1::uuid[])',
+      "orders.id=any($1::uuid[]) and orders.order_origin='storefront'",
       [[...orderIds]],
     ));
   }
@@ -320,6 +429,10 @@ export class PostgresOrdersRepository implements OrdersRepository {
         totalHt: money(order['total_ht']), hasUnverifiedPrices: order['has_unverified_prices'] === true, items,
       };
     });
+  }
+
+  getOrderDetail(orderId: string, authorization: OrderResourceAuthorization): Promise<OrderDetail> {
+    return this.withOrderAccess(orderId, authorization, (client) => readStorefrontOrderDetail(client, orderId));
   }
 
   updateDraftOrder(
@@ -722,11 +835,60 @@ function updateResult(row: Row, replayed: boolean): UpdateDraftOrderResult {
 function context(actor: UserId, tenantId: string) { return { userId: actor, tenantId: tenantId as TenantId }; }
 function record(value: unknown): Row { return value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Row : {}; }
 function nullable(value: unknown): string | null { return value === null || value === undefined ? null : String(value); }
+function nullableString(value: unknown): string | null {
+  const normalized = nullable(value)?.trim() ?? '';
+  return normalized === '' ? null : normalized;
+}
 function iso(value: unknown): string { return value instanceof Date ? value.toISOString() : new Date(String(value)).toISOString(); }
 function money(value: unknown): string { return Number(value).toFixed(2); }
 function roundMoney(value: number): number { return Math.round((value + Number.EPSILON) * 100) / 100; }
 function priceOrigin(value: unknown): PriceOrigin | null { return value === 'catalog'||value === 'quoted'||value === 'client_unverified'||value === 'legacy' ? value : null; }
 function taxRegime(value: unknown): TaxRegime | null { return value === 'metropole_fr'||value === 'dom_tom'||value === 'franchise_tva'||value === 'export_eu'||value === 'export_world' ? value : null; }
+function detailTaxRate(regime: TaxRegime | null): number {
+  if (regime === 'dom_tom') return 0.085;
+  if (regime === 'franchise_tva'||regime === 'export_eu'||regime === 'export_world') return 0;
+  return 0.2;
+}
 function notifyPolicy(value: unknown): 'chain_next'|'all_roles'|'none' { return value === 'all_roles'||value === 'none' ? value : 'chain_next'; }
 function rejected(code: ConstructorParameters<typeof OrderCommandRejectedError>[0], message: string) { return new OrderCommandRejectedError(code, message); }
 function emptyCapabilities(): OrderCapabilities { return { can_quote:false,can_order:false,can_invite:false,can_validate:false,can_cancel:false,can_modify:false,can_export:false,can_manage_catalog:false,can_manage_roles:false }; }
+
+async function readStorefrontOrderDetail(client: PoolClient, orderId: string): Promise<OrderDetail> {
+  const order = (await client.query<Row>(`
+    select orders.id,orders.shop_id,shops.name shop_name,orders.status,
+           orders.created_at,orders.updated_at,orders.total_ht,orders.currency,
+           orders.notes,orders.has_unverified_prices,tenants.tax_regime,
+           coalesce(account.full_name,creator.display_name) customer_name,
+           coalesce(account.email,creator.email_normalized) customer_email
+      from public.tenant_orders orders
+      join public.shops shops on shops.id=orders.shop_id
+      join public.tenants tenants on tenants.id=orders.tenant_id
+      left join public.shop_customer_accounts account on account.id=orders.shop_customer_account_id
+      left join public.app_users creator on creator.id=orders.created_by
+     where orders.id=$1
+  `, [orderId])).rows[0];
+  if (order === undefined) throw rejected('order_not_found', 'Commande introuvable.');
+  const items = (await client.query<Row>(`
+    select id,product_id,product_label,clariprint_options,quantity,unit_price_ht,line_total_ht,price_origin
+      from public.tenant_order_items where order_id=$1 order by created_at,id
+  `, [orderId])).rows.map(draftItem);
+  const totalHt = money(order['total_ht']);
+  const rate = detailTaxRate(taxRegime(order['tax_regime']));
+  return {
+    orderId: String(order['id']),
+    shopId: String(order['shop_id']),
+    shopName: String(order['shop_name']),
+    source: 'v1_1',
+    status: String(order['status']),
+    createdAt: iso(order['created_at']),
+    updatedAt: iso(order['updated_at']),
+    customerName: nullableString(order['customer_name']),
+    customerEmail: nullableString(order['customer_email']),
+    currency: String(order['currency']),
+    notes: String(order['notes'] ?? ''),
+    totalHt,
+    totalTtc: roundMoney(Number(totalHt) * (1 + rate)).toFixed(2),
+    hasUnverifiedPrices: order['has_unverified_prices'] === true,
+    items,
+  };
+}

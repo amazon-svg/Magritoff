@@ -173,7 +173,7 @@ export class PostgresOrderFilesRepository implements OrderFilesRepository {
 
         if (command.order_line_id) {
           const line = await client.query(
-            'select 1 from public.commercial_order_lines where order_id = $1 and id = $2',
+            'select 1 from public.tenant_order_items where order_id = $1 and id = $2',
             [orderId, command.order_line_id],
           );
           if (line.rowCount === 0) throw new OrderFileLineNotFoundError();
@@ -222,7 +222,7 @@ export class PostgresOrderFilesRepository implements OrderFilesRepository {
             set visibility = $4
           where files.id = $3 and files.order_id = $2 and files.deleted_at is null
             and exists(
-              select 1 from public.commercial_orders orders
+              select 1 from public.tenant_orders orders
                where orders.id = files.order_id and orders.tenant_id = $1
             )
           returning ${FILE_COLUMNS}`,
@@ -245,7 +245,7 @@ export class PostgresOrderFilesRepository implements OrderFilesRepository {
                 )
           where files.id = $3 and files.order_id = $2 and files.deleted_at is null
             and exists(
-              select 1 from public.commercial_orders orders
+              select 1 from public.tenant_orders orders
                where orders.id = files.order_id and orders.tenant_id = $1
             )
           returning files.id`,
@@ -325,7 +325,7 @@ async function orderExists(
   orderId: string,
 ): Promise<boolean> {
   const result = await client.query(
-    'select 1 from public.commercial_orders where tenant_id = $1 and id = $2',
+    'select 1 from public.tenant_orders where tenant_id = $1 and id = $2',
     [tenantId, orderId],
   );
   return result.rowCount !== 0;

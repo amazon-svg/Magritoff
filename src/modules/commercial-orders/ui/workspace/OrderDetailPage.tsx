@@ -8,13 +8,12 @@
  * et remise. CA4 : bouton « Statut » qui ouvre `OrderStatusDialog` (E10.14) —
  * AUCUN panneau d historique separe ici, l historique vit DANS la modale
  * (arbitrage (e), docs/api/CONVENTIONS.md §8.17 decision #6). CA6 :
- * accessible par URL directe `/t/:slug/dashboard/commercial-orders/:orderId`
- * (ecart documente par rapport au chemin `orders/:id` esquisse par le
- * contrat — `orders` est deja pris par le module `orders`, commandes
- * BOUTIQUE, un domaine different ; voir `surface-contributions.ts`). A
- * l epoque d E10.16, aucune grille de commandes n existait (reserve (f)) —
- * E10.18a en ajoute une (`OrdersListPage.tsx`, meme module), dont chaque
- * ligne lie ici. CA7 : LECTURE SEULE — aucun champ editable sur un montant
+ * accessible par l adresse canonique `/t/:slug/dashboard/orders/:orderId`.
+ * L ancienne adresse `commercial-orders/:orderId` reste un alias de
+ * compatibilite, mais les deux origines convergent sur la meme fiche. A
+ * l epoque d E10.16, aucune grille de commandes n existait (reserve (f)).
+ * La grille canonique vit désormais dans `modules/orders` et lie ici. CA7 :
+ * LECTURE SEULE — aucun champ editable sur un montant
  * de ligne, aucune mutation de prix nulle part sur cette page.
  *
  * HORS PERIMETRE, EXPLICITEMENT (confirme par le cadrage architecte) :
@@ -46,6 +45,7 @@
  * PUBLIQUE du module `order-files` (`@/modules/order-files/ui`), jamais un
  * chemin profond — regle MUX.
  */
+import type { CommercialOrderDetailDto } from '../../api/contracts';
 import { Link, useParams } from 'react-router';
 import { ArrowLeft } from 'lucide-react';
 import { useTenantPath } from '@/modules/tenants/ui/hooks';
@@ -68,11 +68,12 @@ const COLOR_SWATCH: Record<string, string> = {
   violet: 'bg-violet-500',
 };
 
-export function DashboardOrderDetail() {
+export function DashboardOrderDetail({ initialOrder = null }: { initialOrder?: CommercialOrderDetailDto | null }) {
   const { orderId } = useParams<{ orderId: string }>();
   const tp = useTenantPath();
   const { order, customer, quote, steps, lastStepChange, loading, error, refresh } = useOrderDetail(
     orderId ?? null,
+    initialOrder,
   );
 
   if (loading) return <p className="text-sm text-ink-muted">Chargement…</p>;
@@ -80,7 +81,7 @@ export function DashboardOrderDetail() {
   if (!order) {
     return (
       <div className="space-y-3">
-        <Link to={tp('/dashboard/customers')} className="inline-flex items-center gap-1 text-sm text-ink-muted hover:text-ink">
+        <Link to={tp('/dashboard/orders')} className="inline-flex items-center gap-1 text-sm text-ink-muted hover:text-ink">
           <ArrowLeft className="w-4 h-4" />
           Retour
         </Link>
@@ -104,11 +105,11 @@ export function DashboardOrderDetail() {
   return (
     <div className="space-y-6" data-testid={TEST_IDS.commercialOrder.detailPage}>
       <Link
-        to={tp(`/dashboard/customers/${order.customer_id}`)}
+        to={tp('/dashboard/orders')}
         className="inline-flex items-center gap-1 text-sm text-ink-muted hover:text-ink"
       >
         <ArrowLeft className="w-4 h-4" />
-        Retour au client
+        Retour aux commandes
       </Link>
 
       <div className="flex items-start justify-between">

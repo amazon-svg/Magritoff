@@ -72,7 +72,7 @@ export class PostgresOrderUploadLinksRepository implements OrderUploadLinksRepos
         `commercial-order-upload-links:${orderId}`,
       ]);
       const order = await client.query(
-        'select 1 from public.commercial_orders where tenant_id = $1 and id = $2',
+        'select 1 from public.tenant_orders where tenant_id = $1 and id = $2',
         [tenantId, orderId],
       );
       if (order.rowCount === 0) throw new OrderNotFoundError();
@@ -104,7 +104,7 @@ export class PostgresOrderUploadLinksRepository implements OrderUploadLinksRepos
   listByOrder(tenantId: TenantId, orderId: string): Promise<ListOrderUploadLinksResult | null> {
     return this.transactions.run({ tenantId }, async (client) => {
       const order = await client.query(
-        'select 1 from public.commercial_orders where tenant_id = $1 and id = $2',
+        'select 1 from public.tenant_orders where tenant_id = $1 and id = $2',
         [tenantId, orderId],
       );
       if (order.rowCount === 0) return null;
@@ -130,7 +130,7 @@ export class PostgresOrderUploadLinksRepository implements OrderUploadLinksRepos
           where links.id = $3 and links.order_id = $2 and links.revoked_at is null
             and links.expires_at > clock_timestamp()
             and exists(
-              select 1 from public.commercial_orders orders
+              select 1 from public.tenant_orders orders
                where orders.id = links.order_id and orders.tenant_id = $1
             )
           returning links.id`,

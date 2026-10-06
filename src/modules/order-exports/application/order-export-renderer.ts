@@ -15,6 +15,7 @@ import type { OrderExportGranularity } from '../api/contracts.ts';
 import type { OrderExportRawRow } from './order-export-columns.ts';
 
 export type OrderExportRenderInput = Readonly<{
+  layoutVersion?: 1 | 2;
   granularity: OrderExportGranularity;
   /** Lignes DEJA lues et bornees (<= `ORDER_EXPORT_ROW_LIMIT`, voir `order-export-generation-service.ts`) — jamais un flux, jamais un lecteur. */
   rows: readonly OrderExportRawRow[];

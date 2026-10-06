@@ -17,7 +17,10 @@ export const ordersCustomerPortalContribution = defineSurfaceContribution({
 
 export const ordersWorkspaceContribution = defineSurfaceContribution({
   moduleId: 'orders', surface: 'workspace',
-  routes: [{ id: 'orders.workspace.list', moduleId: 'orders', featureId: 'orders.workspace-management', surface: 'workspace', path: 'orders', mount: 'router', requiredCapabilities: ['orders.read.tenant'] }],
+  routes: [
+    { id: 'orders.workspace.list', moduleId: 'orders', featureId: 'orders.workspace-management', surface: 'workspace', path: 'orders', mount: 'router', requiredCapabilities: ['orders.read.tenant'] },
+    { id: 'orders.workspace.detail', moduleId: 'orders', featureId: 'orders.workspace-management', surface: 'workspace', path: 'orders/:orderId', mount: 'router', requiredCapabilities: ['orders.read.tenant'] },
+  ],
   navigation: [{ id: 'orders.workspace.navigation', moduleId: 'orders', featureId: 'orders.workspace-management', surface: 'workspace', routeId: 'orders.workspace.list', groupId: 'commercial', label: 'Commandes', iconId: 'shopping-bag', order: 140 }],
 } as const);
 

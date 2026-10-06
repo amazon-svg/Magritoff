@@ -99,7 +99,9 @@ export class PostgresOrderExportsRepository implements OrderExportsRepository {
     try {
       const row = await this.transactions.run({ tenantId, userId: actor }, async (client) => {
         const id = (await client.query<{ id: string }>(
-          'select magrit.request_order_export($1,$2,$3,$4) id',
+          params.layoutVersion === 2
+            ? 'select magrit.request_unified_order_export($1,$2,$3,$4) id'
+            : 'select magrit.request_order_export($1,$2,$3,$4) id',
           [tenantId, params.format, params.granularity, params.filters],
         )).rows[0]?.id;
         if (!id) throw new Error('order_export.request_missing_id');
@@ -183,13 +185,15 @@ export class PostgresOrderExportRunRepository implements OrderExportRunRepositor
         format: ClaimedOrderExport['format'];
         granularity: ClaimedOrderExport['granularity'];
         filters: OrderExportFiltersDto;
-      }>('select * from magrit.claim_order_exports($1,$2,$3)', [
+        layout_version: 1 | 2;
+      }>('select * from magrit.claim_order_exports_with_layout($1,$2,$3)', [
         settings.limit,
         settings.maxAttempts,
         settings.maxAgeSeconds,
       ]);
       return Object.freeze(result.rows.map((row) => Object.freeze({
         id: row.id,
+        layoutVersion: row.layout_version,
         tenantId: row.tenant_id,
         format: row.format,
         granularity: row.granularity,
