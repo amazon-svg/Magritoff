@@ -433,6 +433,7 @@ export function ShopLayout({
           <button
             type="button"
             data-testid={TEST_IDS.shop.gammePillAll}
+            aria-pressed={activeFilters === 0}
             onClick={() => {
               // Click "Tout" : clear toutes les gammes actives
               if (activeGammeSlugs && onToggleGamme) {
@@ -500,6 +501,7 @@ export function ShopLayout({
         <SheetContent
           side="right"
           data-testid={TEST_IDS.shop.cartDrawer}
+          aria-modal="true"
           className={`w-full sm:w-[420px] sm:max-w-[420px] p-0 ${
             isDark ? "bg-gray-950 text-gray-100 border-gray-800" : ""
           }`}
