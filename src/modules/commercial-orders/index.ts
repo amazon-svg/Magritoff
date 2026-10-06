@@ -28,8 +28,6 @@ export {
 } from './api/contracts';
 export { CommercialOrdersApiClient } from './api/client';
 export type {
-  ListCommercialOrdersQuery,
-  ListCommercialOrdersResponse,
   ListOrderStepChangesQuery,
   ListOrderStepChangesResponse,
 } from './api/client';

@@ -64,7 +64,7 @@ import {
   type UnifiedOrderExportSelection,
 } from './order-export.helpers';
 import { OrderExportDialog } from './OrderExportDialog';
-import { DEFAULT_ORDERS_LIST_FILTERS, EMPTY_PRODUCTION_STEP_CATALOG, type OrdersListFilters, type ProductionStepCatalog } from '../workspace/orders-list.helpers';
+import { DEFAULT_ORDERS_LIST_FILTERS, EMPTY_PRODUCTION_STEP_CATALOG, type OrdersListFilters, type ProductionStepCatalog } from './legacy-order-export-filters';
 
 const T = TEST_IDS.orderExport;
 

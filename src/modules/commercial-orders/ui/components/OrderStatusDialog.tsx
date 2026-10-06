@@ -183,7 +183,7 @@ export function OrderStatusDialog({ orderId, onClose, onChanged }: OrderStatusDi
                       <div className="text-xs text-ink-muted mt-0.5">
                         {/* timeZone explicite (qa-review E10.18a round 1, M2) : sans lui,
                             `toLocaleString` retombe sur le fuseau du NAVIGATEUR, alors que la
-                            grille voisine du meme module (`orders-list.helpers.ts`) affiche deja
+                            grille commune affiche déjà
                             dans le fuseau de reference (`docs/api/CONVENTIONS.md` §8.24 point 5
                             regle 8). */}
                         {new Date(entry.occurred_at).toLocaleString('fr-FR', {

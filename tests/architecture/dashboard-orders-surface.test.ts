@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -9,6 +9,22 @@ const dashboardOrders = readFileSync(
 
 const orderHistoryTable = readFileSync(
   resolve(process.cwd(), 'src/modules/orders/ui/storefront/OrderHistoryTable.tsx'),
+  'utf8',
+);
+const commercialOrdersUiIndex = readFileSync(
+  resolve(process.cwd(), 'src/modules/commercial-orders/ui/index.ts'),
+  'utf8',
+);
+const unifiedOrderDetail = readFileSync(
+  resolve(process.cwd(), 'src/app/surfaces/UnifiedOrderDetailPage.tsx'),
+  'utf8',
+);
+const commercialOrderDetailHook = readFileSync(
+  resolve(process.cwd(), 'src/modules/commercial-orders/ui/hooks/useOrderDetail.ts'),
+  'utf8',
+);
+const orderStatusDialog = readFileSync(
+  resolve(process.cwd(), 'src/modules/commercial-orders/ui/components/OrderStatusDialog.tsx'),
   'utf8',
 );
 
@@ -45,5 +61,19 @@ describe('surface du dashboard commandes', () => {
     expect(dashboardOrders).not.toContain('onStartProductionOrder=');
     expect(dashboardOrders).not.toContain('onMarkShippedOrder=');
     expect(dashboardOrders).not.toContain('onCancelOrder=');
+  });
+
+  it('ne remet pas l ancienne grille commerciale dans le bundle', () => {
+    expect(existsSync(resolve(process.cwd(), 'src/modules/commercial-orders/ui/workspace/OrdersListPage.tsx'))).toBe(false);
+    expect(commercialOrdersUiIndex).not.toContain('DashboardCommercialOrders');
+  });
+
+  it('garde les écrans actifs sur la lecture commune', () => {
+    expect(dashboardOrders).not.toContain('CommercialOrdersApiClient');
+    expect(unifiedOrderDetail).toContain('getUnifiedDetail');
+    expect(commercialOrderDetailHook).toContain('getUnifiedDetail');
+    expect(commercialOrderDetailHook).not.toContain('ordersApi.getDetail');
+    expect(orderStatusDialog).toContain('getUnifiedDetail');
+    expect(orderStatusDialog).not.toContain('ordersApi.getDetail');
   });
 });

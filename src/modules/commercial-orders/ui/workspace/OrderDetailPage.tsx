@@ -11,9 +11,9 @@
  * accessible par l adresse canonique `/t/:slug/dashboard/orders/:orderId`.
  * L ancienne adresse `commercial-orders/:orderId` reste un alias de
  * compatibilite, mais les deux origines convergent sur la meme fiche. A
- * l epoque d E10.16, aucune grille de commandes n existait (reserve (f)) —
- * E10.18a en ajoute une (`OrdersListPage.tsx`, meme module), dont chaque
- * ligne lie ici. CA7 : LECTURE SEULE — aucun champ editable sur un montant
+ * l epoque d E10.16, aucune grille de commandes n existait (reserve (f)).
+ * La grille canonique vit désormais dans `modules/orders` et lie ici. CA7 :
+ * LECTURE SEULE — aucun champ editable sur un montant
  * de ligne, aucune mutation de prix nulle part sur cette page.
  *
  * HORS PERIMETRE, EXPLICITEMENT (confirme par le cadrage architecte) :

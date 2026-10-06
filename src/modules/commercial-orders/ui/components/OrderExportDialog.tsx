@@ -9,7 +9,7 @@
  * `open` a lire en plus du cycle de vie React, pas de comparaison de valeur
  * precedente pendant le rendu.
  *
- * COQUILLE GENERIQUE (meme discipline que `OrdersListPage.tsx`, condition
+ * COQUILLE GENERIQUE (les décisions restent dans les helpers purs, condition
  * (b1)/(11)) : l etat de la modale (`orderExportDialogReducer`), la
  * traduction filtres-de-grille -> filtres-d-export
  * (`buildOrderExportFilters`, MEME fonction/etat que la grille — voir
@@ -39,7 +39,7 @@ import {
   orderExportDialogReducer,
   type UnifiedOrderExportSelection,
 } from './order-export.helpers';
-import type { OrdersListFilters, ProductionStepCatalog } from '../workspace/orders-list.helpers';
+import type { OrdersListFilters, ProductionStepCatalog } from './legacy-order-export-filters';
 
 const T = TEST_IDS.orderExport;
 

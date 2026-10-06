@@ -199,9 +199,23 @@ l'inventaire sont consignés dans `docs/api/COMMANDES_COMPATIBILITE.md`.
 La boîte de changement d'étape ne lit plus l'ancien détail : elle obtient
 l'étape courante par `GET /order-summaries/{orderId}` et conserve seulement les
 sous-ressources actives sous leur chemin existant. Le composant de liste devis
-historique n'est plus monté par le routeur ; sa suppression reste une condition
-du retrait définitif.
+historique n'est plus monté par le routeur et a été retiré du bundle. Ses
+helpers et tests de chargement ont été supprimés ; les seules conversions
+requises par l'export version 1 sont isolées sans appel à l'ancienne lecture.
 
 Vérifications : cinq fichiers ciblés, 69 tests réussis ; typage, génération et
 validation OpenAPI, gouvernance projet et spécifications réussis. Ce palier ne
 fixe pas la date de retrait et ne termine donc pas AC-05.
+
+Le nettoyage interne qui suit supprime l'ancien composant de liste, ses helpers
+de chargement et leurs tests devenus sans appelant. Les conversions encore
+nécessaires à l'export historique sont isolées dans
+`legacy-order-export-filters.ts`. La suite complète passe après suppression :
+317 fichiers et 3 126 tests réussis, 155 désactivés. Le typage et le build
+réussissent également ; le build conserve un avertissement Rollup préexistant
+sur le cycle de chunks autour de `CheckoutPage`.
+
+Les méthodes internes `CommercialOrdersApiClient.list()` et `getDetail()` et
+leurs quatre tests de sérialisation ont ensuite été retirés : elles n'avaient
+plus d'appelant. La façade HTTP historique reste servie aux intégrations. Après
+ce retrait, 122 tests ciblés, le typage et le build réussissent.

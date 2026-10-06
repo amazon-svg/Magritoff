@@ -55,7 +55,10 @@ doit pas être activé avant la décision de retrait.
 ## Inventaire interne restant
 
 La fiche et la boîte de changement d'étape lisent maintenant le détail commun.
-Le composant historique `OrdersListPage` reste dans le module pour la période
-de compatibilité, mais il n'est plus monté par le routeur : l'adresse historique
-redirige avant son chargement. Il devra être supprimé avec ses helpers et tests
-avant toute date `Sunset` sur `GET /commercial-orders`.
+Le composant historique `OrdersListPage` a été supprimé du bundle ; l'adresse
+historique redirige vers la liste canonique. Les helpers et tests de chargement
+de cette ancienne liste ont également été supprimés. Les quelques conversions
+requises par l'export version 1 vivent désormais dans un module dédié, sans
+appel à l'ancienne lecture. Aucun écran Magrit actif ne dépend donc de
+`GET /commercial-orders`. Les méthodes correspondantes ont aussi été retirées
+du client HTTP interne ; la façade serveur reste disponible aux intégrations.

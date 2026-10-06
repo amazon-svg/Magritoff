@@ -2,7 +2,7 @@
  * Logique PURE (hors rendu) de l export comptable des commandes (E10.18e-2,
  * docs/api/CONVENTIONS.md §8.24, bloc « E10.18e — perimetre arrete le
  * 2026-09-14 », consigne E10.18e-2 points 1 a 11) — MEME DISCIPLINE que
- * `orders-list.helpers.ts` (E10.18e-1, condition (b1) de l architecte) :
+ * `legacy-order-export-filters.ts` (compatibilité du layout 1) :
  * ce depot n a AUCUN outil de rendu React, donc chaque decision (quels
  * filtres envoyer, quand desactiver le bouton, quand interroger le serveur,
  * quel texte afficher pour un statut) vit ICI, pure et testee. `OrderExport-
@@ -11,8 +11,8 @@
  *
  * ── Parite des filtres (point 3) ─────────────────────────────────────────
  * `buildOrderExportFilters()` NE RECALCULE RIEN : elle appelle
- * `buildOrdersListQuery()` (`orders-list.helpers.ts`), EXACTEMENT LA MEME
- * FONCTION QUE LA GRILLE, et ne fait que renommer les quatre axes partages
+ * `buildOrdersListQuery()` (`legacy-order-export-filters.ts`) et ne fait que
+ * renommer les quatre axes historiques
  * en snake_case pour le contrat (`OrderExportFiltersDto`). `sort` n est
  * jamais lu depuis le resultat de `buildOrdersListQuery()` — structurellement,
  * il ne peut donc jamais fuiter dans les filtres d export (point (ii) du
@@ -69,7 +69,7 @@ import {
   formatProductionStepLabel,
   type OrdersListFilters,
   type ProductionStepCatalog,
-} from '../workspace/orders-list.helpers.ts';
+} from './legacy-order-export-filters.ts';
 
 /**
  * MOYEN V02, qa-review round 1 (2026-09-15) — SOURCE UNIQUE du droit metier
@@ -156,7 +156,7 @@ export type OrderExportRequestFilters = OrderExportFiltersDto;
 
 /**
  * Tire les filtres d export EXACTEMENT du meme etat et de la meme fonction
- * que la requete de grille (`buildOrdersListQuery`, `orders-list.helpers.ts`)
+ * que la requête historique (`buildOrdersListQuery`)
  * — c est cela, et non une simple ressemblance de code, qui rend « exactement
  * les filtres de la grille » VRAI par construction plutot qu affirme. Une
  * valeur absente de la grille (chaine vide) reste ABSENTE ici (jamais `null`
