@@ -44,7 +44,7 @@ _Non documenté dans la source Notion._
 
 ## Stories importées (12)
 
-Story ajoutée après migration : [E4.4a](../stories/E4.4a.md), fiche de consultation et modification des commandes, demande du 5 octobre 2026. Les douze stories historiques importées sont listées ci-dessous.
+Stories ajoutées après migration : [E4.4a](../stories/E4.4a.md), fiche de consultation et modification des commandes ; [E4.4b](../stories/E4.4b.md), convergence du modèle ; et [E4.4c](../stories/E4.4c.md), pilotage des statuts depuis la liste commune. Les douze stories historiques importées sont listées ci-dessous.
 
 - [E2.fix-TF55](../stories/E2.fix-TF55.md)
 - [E4.1](../stories/E4.1.md)
