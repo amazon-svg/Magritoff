@@ -4,7 +4,7 @@ title: E_A11Y.shop-pills-and-drawer — aria-pressed pill-all + aria-modal drawe
 epic: EPIC-E4
 feature: FEAT-E4-UNCLASSIFIED
 specStatus: draft
-deliveryStatus: not-started
+deliveryStatus: implemented
 owner: unassigned
 source:
   system: notion
@@ -104,21 +104,31 @@ Ce que cela coûtait : un acheteur au lecteur d'écran ne sait pas quel filtre e
 
 ## Vérification
 
-_Aucun cahier de tests Notion ne référence cette story._
+Implémentation relue le 6 octobre 2026 sur la stack portable :
+
+- la pilule « Tout » expose `aria-pressed=true` quand aucun filtre de gamme n'est actif et `false` sinon ;
+- le tiroir panier, déjà fondé sur la primitive modale Radix Dialog, expose désormais explicitement `aria-modal=true` ;
+- la primitive conserve le piégeage du focus, la fermeture par Échap et le retour du focus au déclencheur ;
+- le typage modulaire, les tests d'architecture, le build et les contrôles navigateur d'accessibilité constituent les preuves automatisées.
+
+Une recette au lecteur d'écran réel reste utile avant de passer la story à `verified`. Elle ne bloque pas la livraison des attributs attendus.
 
 ## Preuves relevées dans le dépôt
 
-`deliveryStatus: not-started` — 1 story document BMAD sans signal d'implémentation.
+`deliveryStatus: implemented` — les deux attributs manquants sont présents dans `ShopLayout`; le comportement modal et la gestion du focus restent fournis par Radix Dialog.
 
 Story documents BMAD (historique d'implémentation, non recopié) :
 
 - `_bmad-output/implementation-artifacts/story-E_A11Y.shop-pills-and-drawer.md`
 
+Fichiers de code :
+
+- `src/modules/shops/ui/storefront/ShopLayout.tsx`
+- `src/shared/ui/sheet.tsx`
+
 ## Questions ouvertes
 
-- La modalité du tiroir doit-elle être exigée sous la forme littérale demandée par la source, ou sous la forme retenue par la bibliothèque d'interface, qui masque le reste de la page ? La question doit être tranchée avant de pouvoir vérifier `AC-03`.
 - Quel niveau d'accessibilité est visé pour la boutique, sur quel référentiel, et qui le contrôle ?
-- La vérification se fait-elle par outil automatisé seul, ou par un passage au lecteur d'écran réel ?
 - Les autres chemins de navigation par gammes — barre latérale, menu étendu — relèvent-ils de la même exigence, et dans quelle story ?
 - Où se rejouent désormais les cas de test fonctionnels, Notion étant sorti du jeu ?
 - Rattachement à une fonctionnalité produit à arbitrer (`FEAT-E4-UNCLASSIFIED` est un regroupement de migration).
