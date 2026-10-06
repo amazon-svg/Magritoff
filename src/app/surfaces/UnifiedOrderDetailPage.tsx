@@ -3,6 +3,8 @@ import { Link, Navigate, useParams } from 'react-router';
 import { DashboardOrderDetail as CommercialOrderDetail } from '@/modules/commercial-orders/ui';
 import { OrdersApiClient, type UnifiedOrderDetail } from '@/modules/orders';
 import { DashboardShopOrderDetail, OrderMetadataEditor } from '@/modules/orders/ui';
+import { OrderFilesBlock } from '@/modules/order-files/ui';
+import { OrderUploadLinksPanel } from '@/modules/order-upload-links/ui';
 import { useTenantPath } from '@/modules/tenants/ui/hooks';
 import { useWorkspaceApi } from '@/platform/runtime/workspace-ui-runtime';
 
@@ -60,10 +62,19 @@ export function UnifiedOrderDetailPage() {
       }}
     />
   );
+  const lines = resolved.origin === 'storefront'
+    ? resolved.detail.items.map((line) => ({ id: line.id, label: line.productLabel }))
+    : resolved.detail.lines.map((line) => ({ id: line.id, label: line.label }));
+  const filesSlot = (
+    <>
+      <OrderFilesBlock orderId={resolved.id} lines={lines} />
+      <OrderUploadLinksPanel orderId={resolved.id} />
+    </>
+  );
   if (resolved.origin === 'storefront') {
-    return <DashboardShopOrderDetail key={resolved.updated_at} initialOrder={resolved.detail} metadataSlot={metadataSlot} />;
+    return <DashboardShopOrderDetail key={resolved.updated_at} initialOrder={resolved.detail} metadataSlot={metadataSlot} filesSlot={filesSlot} />;
   }
-  return <CommercialOrderDetail key={resolved.updated_at} initialOrder={resolved.detail} metadataSlot={metadataSlot} />;
+  return <CommercialOrderDetail key={resolved.updated_at} initialOrder={resolved.detail} metadataSlot={metadataSlot} filesSlot={filesSlot} />;
 }
 
 /** L ancienne grille devient un alias vers la grille metier unique. */

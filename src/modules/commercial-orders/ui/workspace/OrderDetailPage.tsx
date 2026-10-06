@@ -28,22 +28,11 @@
  * gabarit visuel que les trois precedentes. Production sur ACTION EXPLICITE
  * UNIQUEMENT (bouton « Produire le bon de commande »), jamais automatique.
  *
- * CA5 (fichiers, E10.17) — PANNEAU A L ECHELLE DE LA COMMANDE LIVRE PAR CE
- * LOT (E10.17b), qa-review N1 (round 1) : le CA5 amende d E10.16 parlait
- * d un panneau GROUPE PAR ITEM (`order_line_id`) ; le wireframe VALIDE par
- * Arnaud le 09/09/2026 (`.design-handoff/wireframes/E10.17b-panneau-
- * fichiers-commande.md`, valide sans demander ce groupement) ne le demande
- * PAS — ce n est donc pas un ecart de design, mais il faut le dire
- * explicitement plutot que de laisser un commentaire affirmer a tort qu un
- * CA plus large est integralement couvert. `OrderFilesBlock` liste tous les
- * fichiers de la commande dans une seule liste plate (troisieme section,
- * meme gabarit visuel que les deux sections ci-dessus) ; le groupement par
- * item (`order_line_id`) N EST PAS RENDU — l information existe dans
- * `OrderFile.order_line_id` (E10.17a) mais n est pas exploitee ici. Point a
- * tracer cote Notion par le scribe : le CA5 amende d E10.16 n est couvert
- * qu en partie par ce lot. `OrderFilesBlock` est importe par l ENTREE
- * PUBLIQUE du module `order-files` (`@/modules/order-files/ui`), jamais un
- * chemin profond — regle MUX.
+ * CA5 (fichiers, E10.17) — la surface commune injecte `filesSlot` pour les
+ * deux origines de commande. Le panneau permet de rattacher un depot a une
+ * ligne par `order_line_id` et affiche cette association. Le meme slot porte
+ * les liens publics de depot, afin que ces fonctions ne dependent plus de
+ * l ancien chemin de creation de la commande.
  */
 import type { ReactNode } from 'react';
 import type { CommercialOrderDetailDto } from '../../api/contracts';
@@ -53,9 +42,6 @@ import { useTenantPath } from '@/modules/tenants/ui/hooks';
 import { TEST_IDS } from '@/shared/presentation/testIds';
 import { SafeDescriptionHtml } from '@/shared/presentation/SafeDescriptionHtml';
 import type { ProductionStepDto } from '@/modules/production-steps';
-import { OrderFilesBlock } from '@/modules/order-files/ui';
-import { OrderUploadLinksPanel } from '@/modules/order-upload-links/ui';
-import { CommercialLineFilesButton } from '@/modules/commercial-line-files/ui';
 import { OrderDocumentPanel, OrderStatusButton } from '../components';
 import { useOrderDetail } from '../hooks/useOrderDetail';
 import { contactDisplayName, customerDisplayName, formatOrderDate, sourceQuoteStatusLabel } from './order-detail.helpers';
@@ -72,9 +58,11 @@ const COLOR_SWATCH: Record<string, string> = {
 export function DashboardOrderDetail({
   initialOrder = null,
   metadataSlot = null,
+  filesSlot = null,
 }: {
   initialOrder?: CommercialOrderDetailDto | null;
   metadataSlot?: ReactNode;
+  filesSlot?: ReactNode;
 }) {
   const { orderId } = useParams<{ orderId: string }>();
   const tp = useTenantPath();
@@ -231,13 +219,6 @@ export function DashboardOrderDetail({
                       html={line.description_html}
                       className="mt-1 text-xs text-ink-muted"
                     />
-                    <div className="mt-2">
-                      <CommercialLineFilesButton
-                        lineType="order_line"
-                        lineId={line.id}
-                        lineLabel={line.label}
-                      />
-                    </div>
                   </td>
                   <td className="py-2 pr-3 text-ink-muted text-xs max-w-xs truncate" title={JSON.stringify(line.product_config)}>
                     {Object.keys(line.product_config).length > 0
@@ -262,19 +243,12 @@ export function DashboardOrderDetail({
         </div>
       </section>
 
-      {/* CA5 — panneau de fichiers (E10.17b), troisieme section, meme gabarit
-          visuel que les deux sections ci-dessus (arbitrage Q1 du 09/09/2026). */}
-      <OrderFilesBlock orderId={order.id} />
+      {filesSlot}
 
       {/* CA8 — panneau du bon de commande PDF (E10.19b), quatrieme section,
           meme gabarit visuel. */}
       <OrderDocumentPanel orderId={order.id} />
 
-      {/* E10.20a — panneau "liens de depot", cinquieme section, meme gabarit
-          visuel. SOCLE UNIQUEMENT (contrat §8.21 §5) : cree/liste/revoque des
-          liens, AUCUN depot possible dans ce lot (E10.20b livrera la page
-          publique de depot elle-meme). */}
-      <OrderUploadLinksPanel orderId={order.id} />
     </div>
   );
 }

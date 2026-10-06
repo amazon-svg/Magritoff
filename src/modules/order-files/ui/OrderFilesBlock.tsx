@@ -85,6 +85,7 @@ type PendingUploadFailedStage = 'ticket' | 'transport' | 'confirm';
 interface PendingUpload {
   localId: string;
   file: File;
+  orderLineId: string | null;
   status: PendingUploadStatus;
   progress: number;
   error?: string | undefined;
@@ -99,9 +100,10 @@ interface PendingUpload {
 
 export interface OrderFilesBlockProps {
   orderId: string;
+  lines?: readonly Readonly<{ id: string; label: string }>[];
 }
 
-export function OrderFilesBlock({ orderId }: OrderFilesBlockProps) {
+export function OrderFilesBlock({ orderId, lines = [] }: OrderFilesBlockProps) {
   const api = useWorkspaceApi(OrderFilesApiClient);
   const { actor } = useWorkspaceUiRuntime();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -118,6 +120,7 @@ export function OrderFilesBlock({ orderId }: OrderFilesBlockProps) {
   const [deleteTarget, setDeleteTarget] = useState<OrderFileDto | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [selectedOrderLineId, setSelectedOrderLineId] = useState('');
 
   const loadFiles = useCallback(async () => {
     setLoading(true);
@@ -150,6 +153,7 @@ export function OrderFilesBlock({ orderId }: OrderFilesBlockProps) {
     async (
       localId: string,
       file: File,
+      orderLineId: string | null,
       options?: {
         resumeFromConfirm?: boolean | undefined;
         ticket?: OrderFileUploadTicketDto | undefined;
@@ -209,7 +213,11 @@ export function OrderFilesBlock({ orderId }: OrderFilesBlockProps) {
 
       updatePending(localId, { status: 'confirming', progress: 100 });
       try {
-        await api.confirmUpload(orderId, { file_id: ticket.file_id, filename: file.name }, idempotencyKey);
+        await api.confirmUpload(orderId, {
+          file_id: ticket.file_id,
+          filename: file.name,
+          order_line_id: orderLineId,
+        }, idempotencyKey);
       } catch (cause) {
         const failure = describeOrderFileUploadFailure(cause, ORDER_FILES_COPY.errorConfirmFailed);
         updatePending(localId, {
@@ -229,7 +237,7 @@ export function OrderFilesBlock({ orderId }: OrderFilesBlockProps) {
 
   const retryUpload = useCallback(
     (upload: PendingUpload) => {
-      void runUpload(upload.localId, upload.file, {
+      void runUpload(upload.localId, upload.file, upload.orderLineId, {
         resumeFromConfirm: upload.failedStage === 'confirm',
         ticket: upload.ticket,
         idempotencyKey: upload.idempotencyKey,
@@ -256,10 +264,11 @@ export function OrderFilesBlock({ orderId }: OrderFilesBlockProps) {
       }
       setDropzoneError(null);
       const localId = crypto.randomUUID();
-      setPendingUploads((current) => [...current, { localId, file, status: 'uploading', progress: 0 }]);
-      void runUpload(localId, file);
+      const orderLineId = selectedOrderLineId || null;
+      setPendingUploads((current) => [...current, { localId, file, orderLineId, status: 'uploading', progress: 0 }]);
+      void runUpload(localId, file, orderLineId);
     },
-    [currentFileCount, runUpload],
+    [currentFileCount, runUpload, selectedOrderLineId],
   );
 
   const handleDownload = useCallback(
@@ -363,6 +372,21 @@ export function OrderFilesBlock({ orderId }: OrderFilesBlockProps) {
             {ORDER_FILES_COPY.retry}
           </button>
         </div>
+      )}
+
+      {lines.length > 0 && (
+        <label className="block max-w-xl text-sm text-ink">
+          <span className="mb-1 block text-xs uppercase tracking-wider text-ink-muted">Rattacher les prochains fichiers à</span>
+          <select
+            value={selectedOrderLineId}
+            onChange={(event) => setSelectedOrderLineId(event.target.value)}
+            className="w-full rounded-lg border border-line-2 bg-paper px-3 py-2 text-sm text-ink"
+            data-testid={TEST_IDS.orderFiles.lineSelect}
+          >
+            <option value="">Toute la commande</option>
+            {lines.map((line) => <option key={line.id} value={line.id}>{line.label}</option>)}
+          </select>
+        </label>
       )}
 
       <div
@@ -537,6 +561,11 @@ export function OrderFilesBlock({ orderId }: OrderFilesBlockProps) {
                     </div>
                     <p className="text-xs text-ink-muted mt-0.5">
                       {formatOrderFileDepositedByLine(file.deposited_by_label, isCurrentUser, file.deposited_at)}
+                    </p>
+                    <p className="text-xs text-ink-muted mt-0.5">
+                      {file.order_line_id
+                        ? `Ligne : ${lines.find((line) => line.id === file.order_line_id)?.label ?? file.order_line_id}`
+                        : 'Rattaché à toute la commande'}
                     </p>
                     {rowError && <p className="text-xs text-err-fg mt-1">{rowError}</p>}
 

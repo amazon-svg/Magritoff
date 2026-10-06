@@ -20,9 +20,11 @@ const actionClass = 'inline-flex items-center gap-1.5 rounded border border-line
 export function DashboardShopOrderDetail({
   initialOrder = null,
   metadataSlot = null,
+  filesSlot = null,
 }: {
   initialOrder?: OrderDetail | null;
   metadataSlot?: ReactNode;
+  filesSlot?: ReactNode;
 }) {
   const { orderId } = useParams<{ orderId: string }>();
   const tenantPath = useTenantPath();
@@ -184,6 +186,8 @@ export function DashboardShopOrderDetail({
           <Total label="Total TTC" value={formatMoney(order.totalTtc, order.currency)} strong />
         </dl>
       </section>
+
+      {filesSlot}
 
       <section className="flex flex-wrap gap-2 rounded-xl border border-line p-4" aria-label="Actions sur la commande">
         <button type="button" onClick={() => setHistoryOpen(true)} className={actionClass}>

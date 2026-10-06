@@ -68,3 +68,19 @@ Le même formulaire est composé dans la fiche boutique et dans la fiche issue
 d'un devis. Les tests PostgreSQL isolés vérifient les deux origines, le gel des
 données financières, l'isolation tenant, le droit `can_modify`, le conflit
 concurrent et la restitution de l'événement dans l'historique.
+
+## Fichiers et liens de dépôt sur la fiche commune
+
+La recette du 6 octobre a montré que les panneaux existants restaient propres
+à la présentation historique des commandes issues d'un devis. Leur composition
+est remontée dans `UnifiedOrderDetailPage` : une commande boutique comme une
+commande issue d'un devis affiche maintenant ses fichiers et ses liens publics
+de dépôt. Le panneau de fichiers reçoit les lignes de la projection commune,
+permet de rattacher un nouveau fichier à l'une d'elles via `order_line_id` et
+rend cette association dans la liste. Le bouton historique `order_line` a été
+retiré de la fiche commerciale, car il appelait la ressource générique des
+fichiers commerciaux qui ne persiste que les pièces de `project_item`.
+
+Vérifications : typage modulaire réussi, 78 tests ciblés de contrats et de
+helpers réussis, et recette Playwright réussie sur les deux origines avec les
+panneaux de fichiers, le choix de ligne et les liens de dépôt visibles.

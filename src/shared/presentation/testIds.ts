@@ -932,6 +932,7 @@ export const TEST_IDS = {
     dropzone: 'order-files-dropzone',
     browseBtn: 'order-files-browse-btn',
     fileInput: 'order-files-file-input',
+    lineSelect: 'order-files-line-select',
     emptyState: 'order-files-empty-state',
     // `row` porte `data-file-id`, meme convention que `documentTemplate.row`.
     row: 'order-files-row',
