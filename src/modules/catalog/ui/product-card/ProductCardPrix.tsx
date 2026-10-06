@@ -32,10 +32,13 @@ import { TEST_IDS } from '@/shared/presentation/testIds';
 import { applyTax, extractTaxAmount, formatTaxLabel } from '@/modules/orders/ui/helpers';
 import { formatClariprintAmount } from './clariprintAmount';
 import type { ClariprintQuoteResult } from '@/modules/clariprint';
+import type { PriceResolution } from '@/modules/clariprint/ui/helpers';
+import { resolveProductCardPriceNotice } from './productCardPriceNotice';
 
 interface ProductCardPrixProps {
   localProduct: any;
   displayPriceHT: number;
+  priceSource: PriceResolution['source'];
   taxRate: number;
   user: { id: string } | null;
   clariprintQuote: ClariprintQuoteResult | null;
@@ -49,6 +52,7 @@ interface ProductCardPrixProps {
 export function ProductCardPrix({
   localProduct,
   displayPriceHT,
+  priceSource,
   taxRate,
   user,
   clariprintQuote,
@@ -59,6 +63,7 @@ export function ProductCardPrix({
   onClose,
 }: ProductCardPrixProps) {
   const [showDebug, setShowDebug] = useState(false);
+  const marketPriceNotice = resolveProductCardPriceNotice(priceSource);
 
   return (
     <div className="bg-paper border-2 border-line rounded-xl p-6 mb-3 shadow-sm">
@@ -85,6 +90,15 @@ export function ProductCardPrix({
             {displayPriceHT.toFixed(2)} €
           </span>
         </div>
+        {marketPriceNotice && (
+          <div
+            role="note"
+            className="rounded-lg border border-orange-300 bg-orange-50 px-3 py-2 text-sm text-orange-800"
+          >
+            <strong>{marketPriceNotice.label}</strong>
+            <span className="block mt-0.5">{marketPriceNotice.description}</span>
+          </div>
+        )}
         <div className="flex justify-between py-2 border-b border-line">
           <span className="text-ink-muted">TVA ({formatTaxLabel(taxRate)})</span>
           <span className={`font-semibold ${!user ? 'blur-sm select-none' : ''}`}>
