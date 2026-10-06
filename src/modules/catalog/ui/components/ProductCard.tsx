@@ -676,6 +676,7 @@ export function ProductCard({
             <ProductCardPrix
               localProduct={localProduct}
               displayPriceHT={displayPriceHT}
+              priceSource={priceResolution.source}
               taxRate={taxRate}
               user={user}
               clariprintQuote={clariprintQuote}
