@@ -73,6 +73,12 @@ export function useUnifiedOrders(tenantId: string | null, enabled: boolean) {
     orders: result.items.map(orderListEntryToUi), loading, error, auditApi: api, steps, stepsError,
     page: selection.cursors.length, hasNext: result.nextCursor !== null,
     applyFilters, activeFilters: selection.filters,
+    validateOrder: (order: Pick<OrderUI, 'id' | 'hasUnverifiedPrices'>) => api.transition(order.id, {
+      toStatus: 'validated',
+      reason: null,
+      idempotencyKey: `orders-bulk-validation:${order.id}:${crypto.randomUUID()}`,
+      acknowledgeUnverifiedPrices: order.hasUnverifiedPrices === true,
+    }),
     changeProductionStep: (orderId: string, stepId: string) => commercialOrdersApi.changeProductionStep(orderId, { step_id: stepId }),
     reload: () => setRevision((value) => value + 1),
     next: () => {

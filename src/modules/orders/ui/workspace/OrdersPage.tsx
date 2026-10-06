@@ -32,12 +32,12 @@ export function DashboardOrders() {
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [filterError, setFilterError] = useState<string | null>(null);
   const [selectedOrderIds, setSelectedOrderIds] = useState<ReadonlySet<string>>(new Set());
-  const [bulkStepId, setBulkStepId] = useState('');
+  const [bulkAction, setBulkAction] = useState('');
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkResult, setBulkResult] = useState<BulkResult | null>(null);
 
   useEffect(() => {
-    setFilters({}); setFilterError(null); setSelectedOrderIds(new Set()); setBulkResult(null);
+    setFilters({}); setFilterError(null); setSelectedOrderIds(new Set()); setBulkAction(''); setBulkResult(null);
   }, [tenantId]);
 
   useEffect(() => {
@@ -47,6 +47,10 @@ export function DashboardOrders() {
       return next.size === current.size ? current : next;
     });
   }, [management.orders]);
+
+  useEffect(() => {
+    if (selectedOrderIds.size === 0) setBulkAction('');
+  }, [selectedOrderIds.size]);
 
   const change = (key: string, value: string) => setFilters((current) => ({ ...current, [key]: value }));
   const apply = (event: FormEvent) => {
@@ -73,15 +77,29 @@ export function DashboardOrders() {
     });
   };
   const applyBulkStatus = async () => {
-    const step = steps.find((candidate) => candidate.id === bulkStepId);
-    if (!step || selectedOrderIds.size === 0 || bulkBusy) return;
-    if (!window.confirm(`Passer ${selectedOrderIds.size} commande${selectedOrderIds.size > 1 ? 's' : ''} au statut « ${step.label} » ?`)) return;
+    if (!bulkAction || selectedOrderIds.size === 0 || bulkBusy) return;
+    const selectedOrders = management.orders.filter((order) => selectedOrderIds.has(order.id));
+    const validation = bulkAction === 'validate';
+    const step = bulkAction.startsWith('step:')
+      ? steps.find((candidate) => candidate.id === bulkAction.slice(5))
+      : undefined;
+    if (!validation && !step) return;
+
+    const unverifiedCount = validation
+      ? selectedOrders.filter((order) => order.hasUnverifiedPrices).length
+      : 0;
+    const countLabel = `${selectedOrders.length} commande${selectedOrders.length > 1 ? 's' : ''}`;
+    const confirmation = validation
+      ? `Valider ${countLabel} ?${unverifiedCount > 0 ? `\n\n${unverifiedCount} commande${unverifiedCount > 1 ? 's contiennent' : ' contient'} un prix non vérifié. Cette action confirme également ${unverifiedCount > 1 ? 'ces prix' : 'ce prix'}.` : ''}`
+      : `Passer ${countLabel} au statut « ${step!.label} » ?`;
+    if (!window.confirm(confirmation)) return;
 
     setBulkBusy(true);
     setBulkResult(null);
-    const selectedOrders = management.orders.filter((order) => selectedOrderIds.has(order.id));
     const settled = await Promise.allSettled(selectedOrders.map((order) => (
-      management.changeProductionStep(order.id, step.id)
+      validation
+        ? management.validateOrder(order)
+        : management.changeProductionStep(order.id, step!.id)
     )));
     const failures = settled.flatMap((result, index) => result.status === 'rejected' ? [{
       orderId: selectedOrders[index]!.id,
@@ -157,13 +175,18 @@ export function DashboardOrders() {
         <section className="mb-3 flex flex-wrap items-end gap-3 rounded-md border border-brand/30 bg-brand/5 p-3" aria-label="Changement de statut en lot">
           <p className="mr-auto self-center text-sm font-medium text-ink">{selectedOrderIds.size} commande{selectedOrderIds.size > 1 ? 's' : ''} sélectionnée{selectedOrderIds.size > 1 ? 's' : ''}</p>
           <label className={`${filterLabelClass} min-w-[220px]`}>Nouveau statut
-            <select className={filterControlClass} value={bulkStepId} disabled={bulkBusy} onChange={(event) => setBulkStepId(event.target.value)}>
-              <option value="">Choisir une étape</option>
-              {steps.filter((step) => step.is_active).map((step) => <option key={step.id} value={step.id}>{step.label}</option>)}
+            <select className={filterControlClass} value={bulkAction} disabled={bulkBusy} onChange={(event) => setBulkAction(event.target.value)}>
+              <option value="">Choisir un statut</option>
+              <optgroup label="Administratif">
+                <option value="validate">Valider les commandes</option>
+              </optgroup>
+              {steps.some((step) => step.is_active) && <optgroup label="Production">
+                {steps.filter((step) => step.is_active).map((step) => <option key={step.id} value={`step:${step.id}`}>{step.label}</option>)}
+              </optgroup>}
             </select>
           </label>
-          <button className={`${inputClass} h-9 whitespace-nowrap disabled:opacity-50`} type="button" disabled={!bulkStepId || bulkBusy} onClick={() => void applyBulkStatus()}>{bulkBusy ? 'Application…' : 'Appliquer'}</button>
-          <button className={`${inputClass} h-9 whitespace-nowrap`} type="button" disabled={bulkBusy} onClick={() => { setSelectedOrderIds(new Set()); setBulkResult(null); }}>Effacer la sélection</button>
+          <button className={`${inputClass} h-9 whitespace-nowrap disabled:opacity-50`} type="button" disabled={!bulkAction || bulkBusy} onClick={() => void applyBulkStatus()}>{bulkBusy ? 'Application…' : 'Appliquer'}</button>
+          <button className={`${inputClass} h-9 whitespace-nowrap`} type="button" disabled={bulkBusy} onClick={() => { setSelectedOrderIds(new Set()); setBulkAction(''); setBulkResult(null); }}>Effacer la sélection</button>
         </section>
       )}
       {bulkResult && (

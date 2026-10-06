@@ -75,7 +75,11 @@ test('liste réelle : pagination, filtres communs et absence de chevauchement', 
 
   const firstRow = rows(page).first();
   await firstRow.getByRole('checkbox').check();
-  await expect(page.getByRole('region', { name: 'Changement de statut en lot' })).toContainText('1 commande sélectionnée');
+  const bulkRegion = page.getByRole('region', { name: 'Changement de statut en lot' });
+  await expect(bulkRegion).toContainText('1 commande sélectionnée');
+  await expect(bulkRegion.getByRole('option', { name: 'Valider les commandes' })).toHaveCount(1);
+  await bulkRegion.getByRole('combobox', { name: 'Nouveau statut' }).selectOption('validate');
+  await expect(bulkRegion.getByRole('button', { name: 'Appliquer' })).toBeEnabled();
   await page.getByRole('button', { name: 'Effacer la sélection', exact: true }).click();
   await firstRow.getByRole('button', { name: 'Statut', exact: true }).click();
   await expect(page.getByTestId('order-status-dialog')).toBeVisible();
