@@ -15,6 +15,7 @@ on:
       - "package.json"
       - "pnpm-lock.yaml"
   push:
+    branches: [main]
     paths:
       - "project/backlog/**"
       - "project/decisions/**"

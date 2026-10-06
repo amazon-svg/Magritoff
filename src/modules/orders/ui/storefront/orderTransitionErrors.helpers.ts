@@ -26,9 +26,8 @@
  * denied' — le 404 et le 403 affichaient donc le texte technique brut (UUID
  * inclus) à l'écran, exactement le même défaut que celui déjà corrigé pour
  * le conflit de transition. `toRpcLikeError()` expose le code stable
- * (`ApiClientError.problem.code`) : chaque `is*()` ci-dessous le préfère au
- * texte, et ne retombe sur le texte que pour compatibilité avec l'ancien RPC
- * ou un appelant qui ne fournirait pas de code.
+ * (`ApiClientError.problem.code`) : chaque `is*()` ci-dessous s'appuie
+ * exclusivement dessus. Une erreur sans code reste volontairement non classée.
  */
 
 import { ApiClientError } from '@/platform/api';
@@ -57,8 +56,9 @@ export function toRpcLikeError(cause: unknown): RpcLikeError | null {
   return null;
 }
 
-/** Codes metier stables portes par `ApiClientError.problem.code` (`orders.<OrderCommandRejectionCode>`). */
+/** Codes métier stables portés par `ApiClientError.problem.code`. */
 export const ORDER_ERROR_CODE = {
+  AUTHENTICATION_REQUIRED: 'identity.authentication_required',
   NOT_FOUND: 'orders.order_not_found',
   PERMISSION_DENIED: 'orders.permission_denied',
   NOT_EDITABLE: 'orders.order_not_editable',
@@ -68,32 +68,29 @@ export const ORDER_ERROR_CODE = {
 } as const;
 
 /**
- * Verdict par code, quand un code est présent : `true`/`false` tranché par
- * égalité stricte, JAMAIS de repli texte dans ce cas — qa-review round 2
+ * Verdict par code : égalité stricte, sans repli sur le texte — qa-review round 2
  * (2026-09-16, mutation M6) a montré qu'un 409 générique à la façade E10
  * (ex. `api.idempotency_key_reused`) ne doit jamais être requalifié en
  * conflit de transition (ni en 404/403) même si son texte y ressemblait par
- * accident. Repli texte (`null`) uniquement quand AUCUN code n'est fourni
- * (ancien RPC `update_tenant_order_status`, ou `Error` générique sans
- * `ApiClientError`).
+ * accident. Une erreur générique sans code n'est pas requalifiée.
  */
-function codeVerdict(err: RpcLikeError | null | undefined, code: string): boolean | null {
+function hasCode(err: RpcLikeError | null | undefined, code: string): boolean {
   const errCode = String(err?.code ?? '').toLowerCase();
-  return errCode.length > 0 ? errCode === code : null;
+  return errCode === code;
 }
 
-/** Commande introuvable (404) : code stable, ou texte brut ('order_not_found', tiret bas) ou ancien RPC ('not found', espace). */
-export function isOrderNotFound(err: RpcLikeError | null | undefined, msg: string): boolean {
-  const verdict = codeVerdict(err, ORDER_ERROR_CODE.NOT_FOUND);
-  if (verdict !== null) return verdict;
-  return msg.includes('order_not_found') || msg.includes('not found');
+export function isAuthenticationRequired(err: RpcLikeError | null | undefined): boolean {
+  return hasCode(err, ORDER_ERROR_CODE.AUTHENTICATION_REQUIRED);
 }
 
-/** Droits insuffisants (403) : code stable, ou texte brut ('permission_denied', tiret bas) ou ancien RPC ('permission denied', espace). */
-export function isPermissionDenied(err: RpcLikeError | null | undefined, msg: string): boolean {
-  const verdict = codeVerdict(err, ORDER_ERROR_CODE.PERMISSION_DENIED);
-  if (verdict !== null) return verdict;
-  return msg.includes('permission_denied') || msg.includes('permission denied');
+/** Commande introuvable (404), classée exclusivement par son code stable. */
+export function isOrderNotFound(err: RpcLikeError | null | undefined, _msg?: string): boolean {
+  return hasCode(err, ORDER_ERROR_CODE.NOT_FOUND);
+}
+
+/** Droits insuffisants (403), classés exclusivement par leur code stable. */
+export function isPermissionDenied(err: RpcLikeError | null | undefined, _msg?: string): boolean {
+  return hasCode(err, ORDER_ERROR_CODE.PERMISSION_DENIED);
 }
 
 /**
@@ -105,29 +102,21 @@ export function isPermissionDenied(err: RpcLikeError | null | undefined, msg: st
  * produit, sur un chemin distinct. Traité ici par défense (qa-review round
  * 2) : si un jour la surface change, le texte technique ne fuitera pas.
  */
-export function isOrderNotEditable(err: RpcLikeError | null | undefined, msg: string): boolean {
-  const verdict = codeVerdict(err, ORDER_ERROR_CODE.NOT_EDITABLE);
-  if (verdict !== null) return verdict;
-  return msg.includes('order_not_editable') || msg.includes('not editable');
+export function isOrderNotEditable(err: RpcLikeError | null | undefined, _msg?: string): boolean {
+  return hasCode(err, ORDER_ERROR_CODE.NOT_EDITABLE);
 }
 
 /**
- * Reconnait un conflit de transition (commande deja transitionnee ailleurs)
- * sous ses deux formes connues :
- *  - le code metier stable de la route actuelle ('orders.transition_not_allowed') ;
- *  - le texte brut, sous sa forme actuelle ('transition_not_allowed: from -> to',
- *    tiret bas) ou sous l'ancienne forme RPC ('Transition ... not allowed', espace).
+ * Reconnaît un conflit de transition (commande déjà transitionnée ailleurs)
+ * par le code métier stable de la route actuelle.
  *
- * qa-review round 2 (mutation M6) : voir `codeVerdict` — un 409 dont le code
+ * qa-review round 2 (mutation M6) : un 409 dont le code
  * n'est pas `orders.transition_not_allowed` (ex. `api.idempotency_key_reused`)
- * est rejeté immédiatement, sans repli texte. Voir le test dédié dans
+ * est rejeté immédiatement. Voir le test dédié dans
  * orderTransitionErrors.helpers.test.ts.
  */
-export function isTransitionConflict(err: RpcLikeError | null | undefined, msg: string): boolean {
-  const verdict = codeVerdict(err, ORDER_ERROR_CODE.TRANSITION_NOT_ALLOWED);
-  if (verdict !== null) return verdict;
-  if (!msg.includes('transition')) return false;
-  return msg.includes('not_allowed') || msg.includes('not allowed');
+export function isTransitionConflict(err: RpcLikeError | null | undefined, _msg?: string): boolean {
+  return hasCode(err, ORDER_ERROR_CODE.TRANSITION_NOT_ALLOWED);
 }
 
 /**
@@ -141,8 +130,6 @@ export function isTransitionConflict(err: RpcLikeError | null | undefined, msg: 
  * quel, exactement le défaut déjà corrigé pour les autres codes de ce
  * fichier.
  */
-export function isUnverifiedPrices(err: RpcLikeError | null | undefined, msg: string): boolean {
-  const verdict = codeVerdict(err, ORDER_ERROR_CODE.UNVERIFIED_PRICES);
-  if (verdict !== null) return verdict;
-  return msg.startsWith('unverified_prices:') || msg.includes('unverified_prices');
+export function isUnverifiedPrices(err: RpcLikeError | null | undefined, _msg?: string): boolean {
+  return hasCode(err, ORDER_ERROR_CODE.UNVERIFIED_PRICES);
 }

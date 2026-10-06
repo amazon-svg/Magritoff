@@ -7,6 +7,7 @@
 import { describe, it, expect } from 'vitest';
 import { ApiClientError } from '@/platform/api';
 import {
+  isAuthenticationRequired,
   isOrderNotEditable,
   isOrderNotFound,
   isPermissionDenied,
@@ -51,12 +52,12 @@ describe('isOrderNotFound', () => {
     expect(isOrderNotFound({ code: 'orders.order_not_found' }, 'peu importe')).toBe(true);
   });
 
-  it("texte actuel avec tiret bas ('order_not_found: <uuid>') sans code -> true", () => {
-    expect(isOrderNotFound(null, 'order_not_found: 7c1f1a4e-0000-0000-0000-000000000000')).toBe(true);
+  it("texte 'order_not_found' sans code -> false", () => {
+    expect(isOrderNotFound(null, 'order_not_found: 7c1f1a4e-0000-0000-0000-000000000000')).toBe(false);
   });
 
-  it("ancien texte espace ('not found') sans code -> true", () => {
-    expect(isOrderNotFound(null, 'tenant order abc-123 not found')).toBe(true);
+  it("ancien texte espace ('not found') sans code -> false", () => {
+    expect(isOrderNotFound(null, 'tenant order abc-123 not found')).toBe(false);
   });
 
   it('code different -> false, meme si le texte contient not found', () => {
@@ -69,12 +70,12 @@ describe('isPermissionDenied', () => {
     expect(isPermissionDenied({ code: 'orders.permission_denied' }, 'peu importe')).toBe(true);
   });
 
-  it("texte actuel tiret bas ('permission_denied: order identity mismatch') sans code -> true", () => {
-    expect(isPermissionDenied(null, 'permission_denied: order identity mismatch')).toBe(true);
+  it("texte 'permission_denied' sans code -> false", () => {
+    expect(isPermissionDenied(null, 'permission_denied: order identity mismatch')).toBe(false);
   });
 
-  it("ancien texte espace ('permission denied') sans code -> true", () => {
-    expect(isPermissionDenied(null, 'permission denied: cancel requires owner or admin tenant')).toBe(true);
+  it("ancien texte espace ('permission denied') sans code -> false", () => {
+    expect(isPermissionDenied(null, 'permission denied: cancel requires owner or admin tenant')).toBe(false);
   });
 
   it('code different -> false', () => {
@@ -87,8 +88,8 @@ describe('isOrderNotEditable', () => {
     expect(isOrderNotEditable({ code: 'orders.order_not_editable' }, 'peu importe')).toBe(true);
   });
 
-  it("texte tiret bas ('order_not_editable') sans code -> true", () => {
-    expect(isOrderNotEditable(null, 'order_not_editable: order is validated')).toBe(true);
+  it("texte 'order_not_editable' sans code -> false", () => {
+    expect(isOrderNotEditable(null, 'order_not_editable: order is validated')).toBe(false);
   });
 
   it('code different -> false', () => {
@@ -101,12 +102,12 @@ describe('isTransitionConflict', () => {
     expect(isTransitionConflict({ code: 'orders.transition_not_allowed' }, 'peu importe')).toBe(true);
   });
 
-  it("texte actuel tiret bas ('transition_not_allowed: from -> to') sans code -> true", () => {
-    expect(isTransitionConflict(null, 'transition_not_allowed: validated -> cancelled')).toBe(true);
+  it("texte 'transition_not_allowed' sans code -> false", () => {
+    expect(isTransitionConflict(null, 'transition_not_allowed: validated -> cancelled')).toBe(false);
   });
 
-  it("ancien texte espace ('not allowed') sans code -> true", () => {
-    expect(isTransitionConflict(null, 'transition draft -> cancelled not allowed in v1.1')).toBe(true);
+  it("ancien texte espace ('not allowed') sans code -> false", () => {
+    expect(isTransitionConflict(null, 'transition draft -> cancelled not allowed in v1.1')).toBe(false);
   });
 
   it('sans "transition" dans le texte et sans code -> false', () => {
@@ -136,8 +137,8 @@ describe('isUnverifiedPrices', () => {
     expect(isUnverifiedPrices({ code: 'orders.unverified_prices' }, 'peu importe')).toBe(true);
   });
 
-  it("texte brut 'unverified_prices: [\"Flyers\"]' sans code -> true", () => {
-    expect(isUnverifiedPrices(null, 'unverified_prices: ["Flyers"]')).toBe(true);
+  it("texte brut 'unverified_prices' sans code -> false", () => {
+    expect(isUnverifiedPrices(null, 'unverified_prices: ["Flyers"]')).toBe(false);
   });
 
   it('code different -> false, meme si le texte contient unverified_prices', () => {
@@ -147,5 +148,12 @@ describe('isUnverifiedPrices', () => {
   it('409 api.idempotency_key_reused (code different) -> false', () => {
     const err = apiError('api.idempotency_key_reused', 'La cle a deja servi pour une requete differente.');
     expect(isUnverifiedPrices(toRpcLikeError(err), String(err.message).toLowerCase())).toBe(false);
+  });
+});
+
+describe('isAuthenticationRequired', () => {
+  it('reconnaît uniquement le code RFC 7807 stable', () => {
+    expect(isAuthenticationRequired({ code: 'identity.authentication_required' })).toBe(true);
+    expect(isAuthenticationRequired({ message: 'Authentication required' })).toBe(false);
   });
 });
