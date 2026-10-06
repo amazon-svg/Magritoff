@@ -134,8 +134,8 @@ export class PostgresCommercialOrdersRepository implements CommercialOrdersRepos
     return this.transactions.run({ tenantId }, (client) => readCommercialOrderDetail(client, tenantId, orderId));
   }
 
-  findStepChangeContext(tenantId: TenantId, orderId: string) {
-    return this.transactions.run({ tenantId }, async (client) => {
+  findStepChangeContext(tenantId: TenantId, orderId: string, actor: UserId | null) {
+    return this.transactions.run({ tenantId, ...(actor ? { userId: actor } : { actorKind: 'service' as const }) }, async (client) => {
       const result = await client.query(
         `select number,customer_id,status::text,current_production_step_id
            from public.tenant_orders where tenant_id=$1 and id=$2`,
@@ -172,8 +172,9 @@ export class PostgresCommercialOrdersRepository implements CommercialOrdersRepos
     tenantId: TenantId,
     orderId: string,
     params: ListOrderStepChangesParams,
+    actor: UserId | null,
   ): Promise<ListOrderStepChangesResult> {
-    return this.transactions.run({ tenantId }, async (client) => {
+    return this.transactions.run({ tenantId, ...(actor ? { userId: actor } : { actorKind: 'service' as const }) }, async (client) => {
       const values: unknown[] = [orderId];
       let cursorPredicate = '';
       if (params.cursor) {

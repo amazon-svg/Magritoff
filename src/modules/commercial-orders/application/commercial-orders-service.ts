@@ -71,8 +71,8 @@ export class CommercialOrdersService {
     return order;
   }
 
-  async getStepChangeContext(tenantId: TenantId, orderId: string) {
-    const context = await this.repository.findStepChangeContext(tenantId, orderId);
+  async getStepChangeContext(tenantId: TenantId, orderId: string, actor: UserId | null) {
+    const context = await this.repository.findStepChangeContext(tenantId, orderId, actor);
     if (!context) throw new CommercialOrderNotFoundError();
     return context;
   }
@@ -82,9 +82,10 @@ export class CommercialOrdersService {
     tenantId: TenantId,
     orderId: string,
     params: ListOrderStepChangesParams,
+    actor: UserId | null,
   ): Promise<ListOrderStepChangesResult> {
-    await this.getStepChangeContext(tenantId, orderId);
-    return this.repository.listStepChanges(tenantId, orderId, params);
+    await this.getStepChangeContext(tenantId, orderId, actor);
+    return this.repository.listStepChanges(tenantId, orderId, params, actor);
   }
 
   /**
@@ -110,7 +111,7 @@ export class CommercialOrdersService {
   ): Promise<OrderStepChangeDto> {
     const entry = await this.repository.changeProductionStep(tenantId, orderId, actor, command, serviceActorLabel);
 
-    const order = await this.repository.findStepChangeContext(tenantId, orderId);
+    const order = await this.repository.findStepChangeContext(tenantId, orderId, actor);
     if (!order) {
       // Ne devrait jamais arriver : la transition vient de committer sur
       // cette meme commande (meme discipline defensive que `convertQuote`).

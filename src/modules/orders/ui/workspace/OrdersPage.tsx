@@ -186,9 +186,11 @@ export function DashboardOrders() {
         }}
         renderStatusAction={(order) => {
           const readOnlyReason = productionStepReadOnlyReason(order.status);
+          const currentStatusLabel = resolveVisibleOrderStatus(order.status, order.currentProductionStepId, steps).label;
           return <OrderStatusButton
             orderId={order.id}
             label="Statut"
+            currentStatusLabel={currentStatusLabel}
             {...(readOnlyReason === undefined ? {} : { readOnlyReason })}
             onChanged={() => void management.reload()}
           />;

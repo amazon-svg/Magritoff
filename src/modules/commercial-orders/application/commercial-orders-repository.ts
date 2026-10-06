@@ -203,7 +203,7 @@ export interface CommercialOrdersRepository {
   findDetailById(tenantId: TenantId, orderId: string): Promise<CommercialOrderDetailDto | null>;
 
   /** Projection minimale commune aux commandes boutique et devis pour le pilotage de production. */
-  findStepChangeContext(tenantId: TenantId, orderId: string): Promise<OrderStepChangeContext | null>;
+  findStepChangeContext(tenantId: TenantId, orderId: string, actor: UserId | null): Promise<OrderStepChangeContext | null>;
 
   /**
    * VALIDE le devis `quoteId` et le transforme en commande — delegue
@@ -227,6 +227,7 @@ export interface CommercialOrdersRepository {
     tenantId: TenantId,
     orderId: string,
     params: ListOrderStepChangesParams,
+    actor: UserId | null,
   ): Promise<ListOrderStepChangesResult>;
 
   /**

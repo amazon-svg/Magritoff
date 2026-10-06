@@ -58,11 +58,12 @@ export interface OrderStatusDialogProps {
   orderId: string;
   onClose: () => void;
   readOnlyReason?: string;
+  currentStatusLabel?: string;
   /** Notifie l appelant (grille, fiche) qu une transition a reussi — pour qu il rafraichisse son propre etat sans le recalculer ici. */
   onChanged?: (entry: OrderStepChangeDto) => void;
 }
 
-export function OrderStatusDialog({ orderId, onClose, onChanged, readOnlyReason }: OrderStatusDialogProps) {
+export function OrderStatusDialog({ orderId, onClose, onChanged, readOnlyReason, currentStatusLabel }: OrderStatusDialogProps) {
   const ordersApi = useWorkspaceApi(CommercialOrdersApiClient);
   const unifiedOrdersApi = useWorkspaceApi(OrdersApiClient);
   const stepsApi = useWorkspaceApi(ProductionStepsApiClient);
@@ -80,20 +81,22 @@ export function OrderStatusDialog({ orderId, onClose, onChanged, readOnlyReason 
     setLoading(true);
     setError(null);
     try {
-      // Trois lectures independantes : le catalogue COMPLET des etapes
-      // (`listProductionSteps`, actives ET desactivees — une etape
-      // desactivee reste lisible dans l historique, decision #8/#11 du
-      // contrat), l etape COURANTE de la commande (lecture commune) et le
-      // journal ANTICHRONOLOGIQUE (`listOrderStepChanges`).
-      const [order, stepsResponse, historyResponse] = await Promise.all([
+      // Les trois lectures restent indépendantes : une panne de l'historique
+      // ne doit jamais masquer le catalogue des étapes ni le statut courant.
+      const [orderResult, stepsResult, historyResult] = await Promise.allSettled([
         unifiedOrdersApi.getUnifiedDetail(orderId),
         stepsApi.list(),
         ordersApi.listStepChanges(orderId, { pageSize: 50 }),
       ]);
-      setCurrentStepId(order.current_production_step_id);
-      setSteps([...stepsResponse.data].sort((a, b) => a.position - b.position));
-      setHistory(historyResponse.items);
+      const errors: string[] = [];
+      if (orderResult.status === 'fulfilled') setCurrentStepId(orderResult.value.current_production_step_id);
+      else errors.push(orderResult.reason instanceof Error ? orderResult.reason.message : 'Statut courant indisponible.');
+      if (stepsResult.status === 'fulfilled') setSteps([...stepsResult.value.data].sort((a, b) => a.position - b.position));
+      else { setSteps([]); errors.push(stepsResult.reason instanceof Error ? stepsResult.reason.message : 'Étapes indisponibles.'); }
+      if (historyResult.status === 'fulfilled') setHistory(historyResult.value.items);
+      else { setHistory([]); errors.push(historyResult.reason instanceof Error ? historyResult.reason.message : 'Historique indisponible.'); }
       setSelectedStepId(null);
+      setError(errors.length > 0 ? [...new Set(errors)].join(' ') : null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Lecture du statut de la commande impossible.');
     } finally {
@@ -148,6 +151,8 @@ export function OrderStatusDialog({ orderId, onClose, onChanged, readOnlyReason 
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {currentStatusLabel && <p className="mb-3 text-sm text-ink-2">Statut actuel : <strong>{currentStatusLabel}</strong></p>}
 
         {error && (
           <p className="text-sm text-err-fg mb-3" data-testid={TEST_IDS.orderStatus.errorBanner}>

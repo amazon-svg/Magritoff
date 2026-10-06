@@ -138,7 +138,7 @@ export function UnifiedOrderDetailView({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className={`rounded border px-2.5 py-1 text-xs font-mono uppercase ${statusTone}`}>{status.label}</span>
-          <OrderStatusButton orderId={order.id} label="Statut" {...(statusReadOnlyReason === undefined ? {} : { readOnlyReason: statusReadOnlyReason })} onChanged={() => void reload()} />
+          <OrderStatusButton orderId={order.id} label="Statut" currentStatusLabel={status.label} {...(statusReadOnlyReason === undefined ? {} : { readOnlyReason: statusReadOnlyReason })} onChanged={() => void reload()} />
         </div>
       </header>
 

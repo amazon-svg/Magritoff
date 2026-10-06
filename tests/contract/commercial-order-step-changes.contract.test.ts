@@ -343,7 +343,7 @@ describe('Journal des changements d etape de production (E10.14)', () => {
     const { data: secondEntry } = (await second.json()) as { data: OrderStepChangeDto };
     expect(secondEntry.id).toBe(firstEntry.id);
 
-    const journal = await ordersRepository.listStepChanges(TENANT, order.id, { size: 10, cursor: null });
+    const journal = await ordersRepository.listStepChanges(TENANT, order.id, { size: 10, cursor: null }, USER);
     expect(journal.rows).toHaveLength(1);
   });
 

@@ -1,6 +1,9 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import type { Pool } from 'pg';
 import { createPostgresPool } from '../../src/adapters/postgres/pool.ts';
+import { PostgresCommercialOrdersRepository } from '../../src/adapters/postgres/commercial-orders-repository.ts';
+import { PostgresTransactionRunner } from '../../src/adapters/postgres/transaction-runner.ts';
+import type { TenantId, UserId } from '../../src/kernel/index.ts';
 
 const enabled = process.env['MAGRIT_POSTGRES_INTEGRATION'] === '1';
 const fixture = (name: string) => process.env[`MAGRIT_E44B_${name}_ID`] ?? '';
@@ -91,26 +94,22 @@ const fixture = (name: string) => process.env[`MAGRIT_E44B_${name}_ID`] ?? '';
   });
 
   it('applique et journalise une étape sur une commande boutique', async () => {
-    const client = await pool.connect();
-    try {
-      await client.query('begin');
-      await client.query("select set_config('magrit.tenant_id',$1,true),set_config('magrit.user_id',$2,true)",
-        [fixture('TENANT'), fixture('USER')]);
-      const entry = (await client.query(
-        'select * from magrit.change_commercial_order_step($1,$2,$3,$4,$5,$6)',
-        [fixture('TENANT'), fixture('STOREFRONT_ORDER'), fixture('STEP'), fixture('USER'), null, null],
-      )).rows[0];
+    const repository = new PostgresCommercialOrdersRepository(new PostgresTransactionRunner(pool, 'magrit_api'));
+    const tenant = fixture('TENANT') as TenantId;
+    const actor = fixture('USER') as UserId;
+    const context = await repository.findStepChangeContext(tenant, fixture('STOREFRONT_ORDER'), actor);
+    expect(context).toMatchObject({ number: null, customerId: null, status: 'validated' });
+
+    const entry = await repository.changeProductionStep(tenant, fixture('STOREFRONT_ORDER'), actor, {
+      step_id: fixture('STEP'),
+    }, null);
       expect(entry).toMatchObject({
         order_id: fixture('STOREFRONT_ORDER'), from_step_id: null, to_step_id: fixture('STEP'),
       });
-      const order = (await client.query(
-        'select order_origin,current_production_step_id from public.tenant_orders where id=$1',
-        [fixture('STOREFRONT_ORDER')],
-      )).rows[0];
-      expect(order).toEqual({ order_origin: 'storefront', current_production_step_id: fixture('STEP') });
-    } finally {
-      await client.query('rollback');
-      client.release();
-    }
+    const history = await repository.listStepChanges(tenant, fixture('STOREFRONT_ORDER'), {
+      size: 10, cursor: null,
+    }, actor);
+    expect(history.rows).toHaveLength(1);
+    expect(history.rows[0]?.id).toBe(entry.id);
   });
 });

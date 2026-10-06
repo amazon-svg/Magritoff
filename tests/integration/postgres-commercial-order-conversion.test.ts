@@ -153,7 +153,7 @@ const enabled = process.env['MAGRIT_POSTGRES_INTEGRATION'] === '1';
       actor_id: actor,
       actor_label: 'Conversion User',
     });
-    expect((await repository.listStepChanges(tenant, orderId, { size: 10, cursor: null })).rows).toEqual([moved]);
+    expect((await repository.listStepChanges(tenant, orderId, { size: 10, cursor: null }, actor)).rows).toEqual([moved]);
     expect(
       (await pool.query('select current_production_step_id from public.tenant_orders where id = $1', [orderId]))
         .rows[0].current_production_step_id,

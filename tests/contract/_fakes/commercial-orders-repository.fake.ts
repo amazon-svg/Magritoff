@@ -361,8 +361,9 @@ export class InMemoryCommercialOrdersRepository implements CommercialOrdersRepos
     tenantId: TenantId,
     orderId: string,
     params: ListOrderStepChangesParams,
+    actor: UserId | null,
   ): Promise<ListOrderStepChangesResult> {
-    void tenantId;
+    void tenantId; void actor;
     let rows = [...(this.stepChanges.get(orderId) ?? [])].sort((a, b) =>
       compareCreatedAtThenIdDesc(
         { created_at: a.occurred_at, id: a.id },
@@ -378,7 +379,8 @@ export class InMemoryCommercialOrdersRepository implements CommercialOrdersRepos
     return { rows: rows.slice(0, params.size + 1) };
   }
 
-  async findStepChangeContext(tenantId: TenantId, orderId: string) {
+  async findStepChangeContext(tenantId: TenantId, orderId: string, actor: UserId | null) {
+    void actor;
     const order = await this.findById(tenantId, orderId);
     return order ? {
       number: order.number,

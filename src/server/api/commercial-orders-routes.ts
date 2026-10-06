@@ -233,11 +233,12 @@ export function createCommercialOrdersRoutes(
       async handle(context) {
         return withCommercialOrderErrors(async () => {
           const orderId = context.params['orderId']!;
+          const actor = context.principal.kind === 'user' ? context.principal.userId : null;
           const cursor = context.page.cursor ? decodeCursor(context.page.cursor) : null;
           const result = await orders.listStepChanges(context.tenantId, orderId, {
             size: context.page.size,
             cursor,
-          });
+          }, actor);
           const page = buildPage(result.rows, context.page, (row) => ({
             sort: row.occurred_at,
             id: row.id,
@@ -280,7 +281,7 @@ export function createCommercialOrdersRoutes(
           // `current_state` sur 409 `order.step_unchanged` — RELU APRES
           // l echec, jamais avant (meme discipline B2 qu E10.12).
           async () => {
-            const order = await orders.getStepChangeContext(context.tenantId, orderId);
+            const order = await orders.getStepChangeContext(context.tenantId, orderId, actor);
             return { status: order.status, current_production_step_id: order.currentProductionStepId };
           },
         );
