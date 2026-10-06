@@ -39,12 +39,24 @@ export function DashboardOrders() {
     setFilterError(null);
     management.applyFilters(Object.fromEntries(Object.entries(filters).map(([key, value]) => [key, value.trim()]).filter(([, value]) => value)) as OrderListFilters);
   };
+  const exportSelection = { filters: management.activeFilters, summary: [
+    ...(management.activeFilters.origin ? [{ label: 'Origine', value: management.activeFilters.origin === 'quote' ? 'Devis' : 'Boutique' }] : []),
+    ...(management.activeFilters.status ? [{ label: 'Statut', value: STATUS_LABELS[management.activeFilters.status].label }] : []),
+    ...(management.activeFilters.customer_search ? [{ label: 'Client', value: management.activeFilters.customer_search }] : []),
+    ...(management.activeFilters.customer_id ? [{ label: 'Client', value: management.activeFilters.customer_id }] : []),
+    ...(management.activeFilters.shop_id ? [{ label: 'Boutique', value: shops.find((shop) => shop.id === management.activeFilters.shop_id)?.name ?? management.activeFilters.shop_id }] : []),
+    ...(management.activeFilters.current_production_step_id ? [{ label: 'Étape', value: steps.find((step) => step.id === management.activeFilters.current_production_step_id)?.label ?? management.activeFilters.current_production_step_id }] : []),
+    ...(management.activeFilters.created_from || management.activeFilters.created_to ? [{ label: 'Période', value: `${management.activeFilters.created_from ?? '…'} → ${management.activeFilters.created_to ?? '…'}` }] : []),
+  ] };
 
   return (
     <div className="w-full min-w-0" style={{ fontFamily: 'var(--font-ui)' }} data-testid="dashboard-orders-page">
-      <div className="mb-6">
-        <h1 className="text-ink m-0" style={{ fontWeight: 300, fontSize: '34px', letterSpacing: '-0.025em', lineHeight: 1.05 }}>Commandes</h1>
-        <p className="mt-2 mb-0 text-ink-muted text-sm">Toutes origines confondues, de la plus récente à la plus ancienne.</p>
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-ink m-0" style={{ fontWeight: 300, fontSize: '34px', letterSpacing: '-0.025em', lineHeight: 1.05 }}>Commandes</h1>
+          <p className="mt-2 mb-0 text-ink-muted text-sm">Toutes origines confondues, de la plus récente à la plus ancienne.</p>
+        </div>
+        <OrderExportPanel key={tenantId} unifiedSelection={exportSelection} />
       </div>
       <form onSubmit={apply} className="mb-4 flex flex-wrap items-end gap-3 rounded-md border border-line bg-bg p-4" aria-label="Filtres des commandes">
         <label className={`${filterLabelClass} flex-[1_1_160px]`}> Client
@@ -84,15 +96,6 @@ export function DashboardOrders() {
       </form>
       {stepsError && <p className="text-sm text-err-fg" role="status">Les étapes de production sont indisponibles. Les autres filtres restent utilisables.</p>}
       {filterError && <p className="text-sm text-err-fg" role="alert">{filterError}</p>}
-      <OrderExportPanel key={tenantId} unifiedSelection={{ filters: management.activeFilters, summary: [
-        ...(management.activeFilters.origin ? [{ label: 'Origine', value: management.activeFilters.origin === 'quote' ? 'Devis' : 'Boutique' }] : []),
-        ...(management.activeFilters.status ? [{ label: 'Statut', value: STATUS_LABELS[management.activeFilters.status].label }] : []),
-        ...(management.activeFilters.customer_search ? [{ label: 'Client', value: management.activeFilters.customer_search }] : []),
-        ...(management.activeFilters.customer_id ? [{ label: 'Client', value: management.activeFilters.customer_id }] : []),
-        ...(management.activeFilters.shop_id ? [{ label: 'Boutique', value: shops.find((shop) => shop.id === management.activeFilters.shop_id)?.name ?? management.activeFilters.shop_id }] : []),
-        ...(management.activeFilters.current_production_step_id ? [{ label: 'Étape', value: steps.find((step) => step.id === management.activeFilters.current_production_step_id)?.label ?? management.activeFilters.current_production_step_id }] : []),
-        ...(management.activeFilters.created_from || management.activeFilters.created_to ? [{ label: 'Période', value: `${management.activeFilters.created_from ?? '…'} → ${management.activeFilters.created_to ?? '…'}` }] : []),
-      ] }} />
       <OrderHistoryTable
         orders={management.orders} loading={management.loading} error={management.error}
         auditApi={auditApi} appearance="dashboard" serverManaged

@@ -145,13 +145,12 @@ test('export commun : utilise les filtres appliqués puis permet le télécharge
   // Un brouillon de filtre non appliqué ne doit pas modifier l'export.
   await page.getByLabel('Client', { exact: true }).fill('__non_applique__');
   await expect(page.getByText('Historique des exports', { exact: true })).toBeHidden();
-  await page.getByRole('button', { name: 'Voir les exports', exact: true }).click();
+  await page.getByRole('button', { name: 'Exports…', exact: true }).click();
+  const exportPanel = page.getByTestId('orders-export-panel');
+  await expect(exportPanel).toBeVisible();
   await expect(page.getByText('Historique des exports', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Masquer les exports', exact: true }).click();
-  await expect(page.getByText('Historique des exports', { exact: true })).toBeHidden();
-  await page.getByRole('button', { name: 'Exporter', exact: true }).click();
-  await expect(page.getByText('Historique des exports', { exact: true })).toBeHidden();
-  const dialog = page.getByRole('dialog');
+  await exportPanel.getByRole('button', { name: 'Nouvel export…', exact: true }).click();
+  const dialog = page.getByTestId('orders-export-dialog');
   await expect(dialog).toContainText('Boutique');
   await expect(dialog).not.toContainText('__non_applique__');
   await dialog.getByRole('radio', { name: 'CSV', exact: true }).check();
@@ -180,6 +179,6 @@ test('export commun : utilise les filtres appliqués puis permet le télécharge
   page.once('dialog', (confirmation) => confirmation.accept());
   await page.locator(`[data-export-id="${data.id}"]`).getByRole('button', { name: 'Supprimer', exact: true }).click();
   await expect(page.locator(`[data-export-id="${data.id}"]`)).toHaveCount(0);
-  await page.getByRole('button', { name: 'Masquer', exact: true }).click();
+  await exportPanel.getByRole('button', { name: 'Fermer', exact: true }).click();
   await expect(page.getByText('Historique des exports', { exact: true })).toBeHidden();
 });
