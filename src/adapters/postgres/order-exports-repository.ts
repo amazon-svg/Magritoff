@@ -147,12 +147,13 @@ export class PostgresOrderExportsRepository implements OrderExportsRepository {
           where id=$1 and tenant_id=$2 and requested_by=$3 and status in('ready','failed','expired')`,
         [exportId, tenantId, actor],
       );
-      return deleted.rowCount === 1 ? found.storage_path : null;
+      if (deleted.rowCount !== 1) return null;
+      return { storagePath: found.storage_path };
     });
     if (removed === null) return false;
-    if (removed) {
+    if (removed.storagePath) {
       try {
-        await this.storage.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: removed }));
+        await this.storage.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: removed.storagePath }));
       } catch (error) {
         // La ligne est deja retiree. Le balayage d orphelins supprimera cet
         // objet non reference apres son delai de securite.
