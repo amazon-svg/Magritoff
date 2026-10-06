@@ -34,6 +34,7 @@ describe('exports communs E4.4b', () => {
       customer_id: actor, current_production_step_id: actor, created_from: '2026-10-05', created_to: '2026-10-05' };
     const response = await request(filters);
     expect(response.status).toBe(201);
+    expect(response.headers.get('deprecation')).toBeNull();
     expect(await checkResponseAgainstContract(response, { status: 201 })).toEqual({ valid: true, errors: [] });
     const { data } = await response.json();
     expect(data).toMatchObject({ layout_version: 2, filters, status: 'pending', requested_by: actor });
@@ -41,6 +42,7 @@ describe('exports communs E4.4b', () => {
     expect((await (await request(filters)).json()).data.id).toBe(data.id);
     const listed = await call('');
     expect(listed.status).toBe(200);
+    expect(listed.headers.get('deprecation')).toBeNull();
     expect((await listed.json()).data).toHaveLength(1);
     expect((await (await call(`/${data.id}`)).json()).data.filters).toEqual(filters);
   });

@@ -4447,6 +4447,7 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: listCommercialOrders
+      deprecated: true
       summary: "Liste les commandes commerciales"
       description: >-
         Liste les commandes du tenant courant, de la plus recente a la plus
@@ -4629,6 +4630,11 @@ paths:
       responses:
         '200':
           description: Page de commandes du tenant.
+          headers:
+            Deprecation:
+              $ref: '#/components/headers/OrderApiDeprecation'
+            Link:
+              $ref: '#/components/headers/OrderApiSuccessor'
           content:
             application/json:
               schema:
@@ -4738,6 +4744,7 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: getCommercialOrder
+      deprecated: true
       summary: "Récupère une commande commerciale"
       description: >-
         Fiche complete d une commande : entete, totaux figes et lignes. C est
@@ -4826,6 +4833,10 @@ paths:
           headers:
             ETag:
               $ref: '#/components/headers/ETag'
+            Deprecation:
+              $ref: '#/components/headers/OrderApiDeprecation'
+            Link:
+              $ref: '#/components/headers/OrderApiSuccessor'
           content:
             application/json:
               schema:
@@ -8946,6 +8957,7 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: listCommercialOrderExports
+      deprecated: true
       summary: "Liste les exports de commandes"
       description: >-
         REGISTRE des exports de commandes de l espace, du plus recent au plus
@@ -9010,6 +9022,11 @@ paths:
             `download_url` n est servi que sur les entrees `ready` DEMANDEES
             PAR L APPELANT ; il vaut `null` partout ailleurs, y compris sur une
             entree `ready` d un autre membre.
+          headers:
+            Deprecation:
+              $ref: '#/components/headers/OrderApiDeprecation'
+            Link:
+              $ref: '#/components/headers/OrderApiSuccessor'
           content:
             application/json:
               schema:
@@ -9032,6 +9049,7 @@ paths:
 
     post:
       operationId: requestCommercialOrderExport
+      deprecated: true
       summary: "Demande un export de commandes"
       description: >-
         DEMANDE un export des commandes de l espace : un format, une
@@ -9093,6 +9111,11 @@ paths:
             `getCommercialOrderExport` jusqu a `ready` ou `failed` — toutes les
             deux secondes est une cadence raisonnable, en espacant au-dela
             d une minute.
+          headers:
+            Deprecation:
+              $ref: '#/components/headers/OrderApiDeprecation'
+            Link:
+              $ref: '#/components/headers/OrderApiSuccessor'
           content:
             application/json:
               schema:
@@ -9128,6 +9151,7 @@ paths:
       - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: getCommercialOrderExport
+      deprecated: true
       summary: "Récupère un export de commandes"
       description: >-
         Etat d une demande d export et, quand le fichier est pret ET que
@@ -9165,6 +9189,11 @@ paths:
             `download_url` est une URL signee de courte duree, REEMISE A CHAQUE
             APPEL : un lien perime se rafraichit en rappelant cette operation,
             il n y a rien d autre a faire.
+          headers:
+            Deprecation:
+              $ref: '#/components/headers/OrderApiDeprecation'
+            Link:
+              $ref: '#/components/headers/OrderApiSuccessor'
           content:
             application/json:
               schema:
@@ -13176,6 +13205,24 @@ components:
   # En-tetes de reponse partages
   # --------------------------------------------------------------------------
   headers:
+    OrderApiDeprecation:
+      description: >-
+        Date de dépréciation de la lecture historique, au format Structured
+        Field Date de RFC 9745. Cette information ne modifie pas le
+        comportement de la route. Aucune date de retrait n'est annoncée tant
+        que les consommateurs ne sont pas migrés ; l'en-tête Sunset est donc
+        volontairement absent.
+      required: true
+      schema:
+        type: string
+        const: '@1791244800'
+    OrderApiSuccessor:
+      description: >-
+        Lien vers la ressource commune de remplacement, avec la relation
+        `successor-version`. Sa cible dépend de la route historique appelée.
+      required: true
+      schema:
+        type: string
     StorefrontSessionCookie:
       description: >-
         Cookie de session opaque posé par les routes storefront. En

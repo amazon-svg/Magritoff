@@ -1294,6 +1294,7 @@ export interface paths {
         };
         /**
          * Liste les commandes commerciales
+         * @deprecated
          * @description Liste les commandes du tenant courant, de la plus recente a la plus ancienne.
          *
          *     Le filtre `quote_id` est la contrepartie d une decision de normalisation : un devis converti ne porte PAS l identifiant de sa commande (l arete 1-1 est portee une seule fois, par `CommercialOrder.quote_id`, unique). C est par ce filtre qu un ecran de devis affiche « voir la commande », pas par un champ duplique des deux cotes qu il faudrait tenir synchrone.
@@ -1329,6 +1330,7 @@ export interface paths {
         };
         /**
          * Récupère une commande commerciale
+         * @deprecated
          * @description Fiche complete d une commande : entete, totaux figes et lignes. C est la lecture PRINCIPALE de l ecran de detail d une commande (E10.16), celle qui porte le document lui-meme.
          *
          *     CETTE OPERATION NE SE SUFFIT PAS A ELLE-MEME, ET C EST VOULU. Elle rend des IDENTIFIANTS la ou l ecran affiche des NOMS — `customer_id`, `quote_id`, `current_production_step_id`, `created_by`. La jointure est a la charge de l appelant, conformement a la doctrine deja posee pour l etape de production (« le catalogue se lit une fois par `listProductionSteps` et se joint cote appelant »). Recopier ici un nom de client ou un numero de devis creerait une SECONDE VERITE dans une reponse dont toute la valeur est d etre figee — et obligerait a trancher si cette copie est un instantane du jour de la conversion ou une lecture du jour de l affichage, deux reponses incompatibles qu il vaut mieux ne pas melanger dans un meme document. Le sujet reste ouvert (reserve (d) de docs/api/CONVENTIONS.md §8.17) ; l ajouter plus tard serait additif.
@@ -2562,6 +2564,7 @@ export interface paths {
         };
         /**
          * Liste les exports de commandes
+         * @deprecated
          * @description REGISTRE des exports de commandes de l espace, du plus recent au plus ancien : qui a demande quoi, sur quels filtres, quand, et ce qu il en est advenu.
          *
          *     TENANT-LARGE, PAS « MES EXPORTS ». Tout porteur de `can_export_orders` voit les demandes de TOUS les membres de l espace, avec leur auteur. C est voulu et c est la moitie de l interet de cette operation : un administrateur doit pouvoir repondre a « qui a sorti le chiffre d affaires ce mois-ci ». Le telechargement, lui, reste reserve au demandeur (voir `OrderExport.download_url`) : voir qu un export existe et pouvoir l ouvrir sont deux choses differentes.
@@ -2574,6 +2577,7 @@ export interface paths {
         put?: never;
         /**
          * Demande un export de commandes
+         * @deprecated
          * @description DEMANDE un export des commandes de l espace : un format, une granularite, et les filtres de la grille. Rend immediatement la demande en etat `pending` — elle n est pas encore executee, et RIEN dans cette reponse ne porte de donnee de commande.
          *
          *     LES FILTRES SONT EXACTEMENT CEUX DE `listCommercialOrders`, ET C EST UNE REGLE, PAS UNE COMMODITE (consigne WM du 01/09/2026 : « un export doit toujours pouvoir etre reproduit a partir d une vue de la grille »). Le contrat la tient d un seul moyen : `OrderExportFilters` reprend les memes noms, les memes types et les memes refus que les parametres de requete de cette operation-la. Un filtre ajoute a la grille se rajoutera ici, et jamais l inverse — un filtre qui n existerait qu a l export produirait un fichier que personne ne pourrait verifier a l ecran avant de l envoyer a son comptable. `sort`, `page[size]` et `page[cursor]` sont les seuls parametres de la grille a NE PAS etre repris : un export a son ordre propre, impose et documente (`OrderExportGranularity`), et il n a pas de pages.
@@ -2611,6 +2615,7 @@ export interface paths {
         };
         /**
          * Récupère un export de commandes
+         * @deprecated
          * @description Etat d une demande d export et, quand le fichier est pret ET que l appelant est celui qui l a demande, son URL de telechargement (CA7).
          *
          *     C EST L OPERATION D ATTENTE. Le client la rappelle jusqu a un etat terminal — `ready`, `failed` ou `expired`. Aucun de ces etats ne change plus, sauf `ready` qui devient `expired` a la destruction du fichier. Une demande restee `running` plus de quelques minutes est une anomalie d exploitation, pas une attente normale : c est pour cela que cet etat est publie plutot que fondu dans `pending`.
@@ -10282,6 +10287,10 @@ export interface components {
     };
     requestBodies: never;
     headers: {
+        /** @description Date de dépréciation de la lecture historique, au format Structured Field Date de RFC 9745. Cette information ne modifie pas le comportement de la route. Aucune date de retrait n'est annoncée tant que les consommateurs ne sont pas migrés ; l'en-tête Sunset est donc volontairement absent. */
+        OrderApiDeprecation: "@1791244800";
+        /** @description Lien vers la ressource commune de remplacement, avec la relation `successor-version`. Sa cible dépend de la route historique appelée. */
+        OrderApiSuccessor: string;
         /** @description Cookie de session opaque posé par les routes storefront. En production, le nom est `__Host-magrit-storefront` et impose `Secure`, `Path=/`, `HttpOnly` et `SameSite=Lax`. En développement local, le nom est `magrit-storefront` et `Secure` est omis ; le reste des attributs est identique. Le serveur choisit le nom selon sa politique de cookie, l’appelant ne le fournit jamais. */
         StorefrontSessionCookie: string;
         /** @description Même cookie storefront que `StorefrontSessionCookie`, renvoyé avec `Max-Age=0` pour l’expirer : `Path=/`, `HttpOnly`, `SameSite=Lax` et `Secure` lorsque le nom est `__Host-magrit-storefront`. */
@@ -10734,6 +10743,8 @@ export type ParameterNotificationTemplateId = components['parameters']['Notifica
 export type ParameterQuoteLineId = components['parameters']['QuoteLineId'];
 export type ParameterPriceRuleId = components['parameters']['PriceRuleId'];
 export type ParameterProductRangeId = components['parameters']['ProductRangeId'];
+export type HeaderOrderApiDeprecation = components['headers']['OrderApiDeprecation'];
+export type HeaderOrderApiSuccessor = components['headers']['OrderApiSuccessor'];
 export type HeaderStorefrontSessionCookie = components['headers']['StorefrontSessionCookie'];
 export type HeaderClearedStorefrontSessionCookie = components['headers']['ClearedStorefrontSessionCookie'];
 export type HeaderETag = components['headers']['ETag'];
@@ -13747,6 +13758,8 @@ export interface operations {
             /** @description Page de commandes du tenant. */
             200: {
                 headers: {
+                    Deprecation: components["headers"]["OrderApiDeprecation"];
+                    Link: components["headers"]["OrderApiSuccessor"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -13788,6 +13801,8 @@ export interface operations {
             200: {
                 headers: {
                     ETag: components["headers"]["ETag"];
+                    Deprecation: components["headers"]["OrderApiDeprecation"];
+                    Link: components["headers"]["OrderApiSuccessor"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -16491,6 +16506,8 @@ export interface operations {
             /** @description Page de demandes d export, de la plus recente a la plus ancienne. `download_url` n est servi que sur les entrees `ready` DEMANDEES PAR L APPELANT ; il vaut `null` partout ailleurs, y compris sur une entree `ready` d un autre membre. */
             200: {
                 headers: {
+                    Deprecation: components["headers"]["OrderApiDeprecation"];
+                    Link: components["headers"]["OrderApiSuccessor"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -16540,6 +16557,8 @@ export interface operations {
             /** @description Demande enregistree, etat `pending`. `download_url` vaut `null` : le fichier n existe pas encore. L appelant interroge `getCommercialOrderExport` jusqu a `ready` ou `failed` — toutes les deux secondes est une cadence raisonnable, en espacant au-dela d une minute. */
             201: {
                 headers: {
+                    Deprecation: components["headers"]["OrderApiDeprecation"];
+                    Link: components["headers"]["OrderApiSuccessor"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -16589,6 +16608,8 @@ export interface operations {
             /** @description Etat de la demande. Sur `ready` et pour le demandeur, `download_url` est une URL signee de courte duree, REEMISE A CHAQUE APPEL : un lien perime se rafraichit en rappelant cette operation, il n y a rien d autre a faire. */
             200: {
                 headers: {
+                    Deprecation: components["headers"]["OrderApiDeprecation"];
+                    Link: components["headers"]["OrderApiSuccessor"];
                     [name: string]: unknown;
                 };
                 content: {

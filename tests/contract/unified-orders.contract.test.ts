@@ -47,6 +47,7 @@ describe('GET /orders — contrat commun E4.4b', () => {
     const { request, listOrders } = setup();
     const response = await request('?page[size]=1');
     expect(response.status).toBe(200);
+    expect(response.headers.get('deprecation')).toBeNull();
     expect(await checkResponseAgainstContract(response, { status: 200 })).toEqual({ valid: true, errors: [] });
     const body = await response.json();
     expect(checkAgainstSchema('OrderListEntry', body.data[0])).toEqual({ valid: true, errors: [] });
@@ -122,6 +123,7 @@ describe('GET /order-summaries/{orderId} — détail commun', () => {
     const { request, getUnifiedOrderDetail } = detailSetup(detail);
     const response = await request();
     expect(response.status).toBe(200);
+    expect(response.headers.get('deprecation')).toBeNull();
     expect(await checkResponseAgainstContract(response, { status: 200 })).toEqual({ valid: true, errors: [] });
     const body = await response.json();
     expect(checkAgainstSchema('UnifiedOrderDetail', body.data)).toEqual({ valid: true, errors: [] });

@@ -178,3 +178,30 @@ de l'historique. Les nouveaux téléchargements fonctionnent.
 L'export et le détail communs attendent leur recette humaine et une revue
 distincte. La fenêtre de retrait des anciennes routes reste ouverte ; la story
 reste en cours. Les changements sont locaux, sans commit, push ni déploiement.
+
+## Palier de compatibilité des anciennes routes
+
+La poursuite d'E4.4b formalise le premier palier d'AC-05. Les anciennes pages
+de liste et de fiche rendent déjà la surface canonique. Les opérations
+historiques de liste, détail et export portent désormais `deprecated: true`
+dans OpenAPI. Leurs réponses réussies publient la date de dépréciation du
+6 octobre 2026 dans l'en-tête `Deprecation` au format RFC 9745, ainsi qu'un
+lien `successor-version` vers `order-summaries` ou `order-exports`.
+
+Aucune date `Sunset` n'est inventée. Les changements d'étape, documents,
+fichiers et liens de dépôt restent sous le préfixe historique et ne sont pas
+dépréciés tant qu'ils n'ont pas de remplaçant commun. Le retrait est conditionné
+à la migration des écrans et intégrations connus, puis à l'annonce explicite
+d'une échéance. La réponse future après retrait est cadrée en `410 Gone` avec
+le code `api.version_retired`, sans être activée prématurément. La politique et
+l'inventaire sont consignés dans `docs/api/COMMANDES_COMPATIBILITE.md`.
+
+La boîte de changement d'étape ne lit plus l'ancien détail : elle obtient
+l'étape courante par `GET /order-summaries/{orderId}` et conserve seulement les
+sous-ressources actives sous leur chemin existant. Le composant de liste devis
+historique n'est plus monté par le routeur ; sa suppression reste une condition
+du retrait définitif.
+
+Vérifications : cinq fichiers ciblés, 69 tests réussis ; typage, génération et
+validation OpenAPI, gouvernance projet et spécifications réussis. Ce palier ne
+fixe pas la date de retrait et ne termine donc pas AC-05.

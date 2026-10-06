@@ -71,6 +71,14 @@ trois demandes en attente par utilisateur. Le registre reste commun au tenant,
 le téléchargement signé réservé au demandeur ; la limite de génération
 existante de 2 500 lignes est conservée. Les clés de service restent exclues.
 
+Les anciennes opérations de liste, détail et export sont marquées dépréciées
+dans OpenAPI. Leurs réponses réussies publient `Deprecation` au 6 octobre 2026
+et un lien `successor-version` vers la ressource commune. Aucun en-tête
+`Sunset` n'est envoyé avant inventaire et migration des consommateurs. Les
+sous-ressources sans remplaçant commun ne sont pas concernées. La politique et
+les conditions de retrait sont détaillées dans
+`docs/api/COMMANDES_COMPATIBILITE.md`.
+
 ## Conséquences
 
 Aucun stockage ni montant engagé n'est modifié. Les routes de compatibilité et

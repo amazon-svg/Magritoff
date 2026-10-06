@@ -52,6 +52,7 @@ import {
   validationFailed,
 } from '../../modules/_shared/application/index.ts';
 import { defineGescomRoute, type GescomRequestContext, type GescomRoute } from './gescom-middleware.ts';
+import { deprecatedOrderRouteHeaders } from './order-compatibility.ts';
 
 export function createOrderExportsRoutes(
   orderExports: OrderExportsService,
@@ -96,6 +97,7 @@ export function createOrderExportsRoutes(
           status: 200,
           data: page.items,
           meta: { next_cursor: page.nextCursor, page_size: context.page.size },
+          ...(unified ? {} : { headers: deprecatedOrderRouteHeaders('/api/v1/order-exports') }),
         };
       },
     }),
@@ -125,7 +127,11 @@ export function createOrderExportsRoutes(
           }),
         );
 
-        return { status: 201, data: created };
+        return {
+          status: 201,
+          data: created,
+          ...(unified ? {} : { headers: deprecatedOrderRouteHeaders('/api/v1/order-exports') }),
+        };
       },
     }),
 
@@ -141,7 +147,11 @@ export function createOrderExportsRoutes(
         const found = await withOrderExportErrors(() =>
           orderExports.getById(context.tenantId, requireUserId(context), exportId),
         );
-        return { status: 200, data: found };
+        return {
+          status: 200,
+          data: found,
+          ...(unified ? {} : { headers: deprecatedOrderRouteHeaders(`/api/v1/order-exports/${exportId}`) }),
+        };
       },
     }),
   ];
