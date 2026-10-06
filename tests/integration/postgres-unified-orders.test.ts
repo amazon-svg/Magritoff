@@ -96,7 +96,7 @@ suite('Commandes communes — pagination et filtres PostgreSQL', () => {
   });
 
   it('joint le client et conserve les montants figés des devis, sans boutique obligatoire', async () => {
-    const rows = await repository.listOrders(tenantId, params({ filters: { origin: 'quote', customer_id: customerId, current_production_step_id: stepId } }));
+    const rows = await repository.listOrders(tenantId, params({ filters: { origin: 'quote', customer_id: customerId, quote_id: quoteId, current_production_step_id: stepId } }));
     expect(rows).toEqual([expect.objectContaining({ id: quoteOrderId, shop_id: null, shop_name: null,
       customer_name: 'Jean Devis', customer_id: customerId, total_ht: '123.45', total_ttc: '130.24', items: [{ name: 'Flyer devis', quantity: 1, unit_price_ht: '123.45', price_origin: 'quoted' }] })]);
   });
@@ -178,6 +178,7 @@ suite('Commandes communes — pagination et filtres PostgreSQL', () => {
     const selections: ListOrdersParams['filters'][] = [
       {}, { origin: 'quote' }, { origin: 'storefront', status: 'draft' },
       { customer_search: 'BOUTIQUE' }, { customer_search: '%' }, { customer_id: customerId },
+      { quote_id: quoteId }, { quote_id: randomUUID() },
       { shop_id: shopId }, { shop_id: randomUUID() }, { current_production_step_id: stepId },
       { created_from: '2026-10-05', created_to: '2026-10-05' }, { created_from: '2026-10-06' },
     ];

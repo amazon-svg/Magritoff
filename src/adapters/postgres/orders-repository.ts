@@ -103,6 +103,7 @@ export class PostgresOrdersRepository implements OrdersRepository {
       add('orders.order_origin', params.filters.origin);
       add('orders.status', params.filters.status);
       add('orders.customer_id', params.filters.customer_id);
+      add('orders.quote_id', params.filters.quote_id);
       add('orders.shop_id', params.filters.shop_id);
       add('orders.current_production_step_id', params.filters.current_production_step_id);
       add('orders.created_at', params.createdAtFrom, '>=');

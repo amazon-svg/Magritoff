@@ -301,6 +301,7 @@ export const orderListFiltersSchema = z.object({
   origin: orderOriginSchema.optional(),
   status: orderListStatusSchema.optional(),
   customer_id: z.uuid().optional(),
+  quote_id: z.uuid().optional(),
   customer_search: z.string().trim().min(1).max(200).optional(),
   shop_id: z.uuid().optional(),
   current_production_step_id: z.uuid().optional(),

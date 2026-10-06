@@ -9275,6 +9275,10 @@ paths:
         - name: customer_id
           in: query
           schema: { $ref: '#/components/schemas/Uuid' }
+        - name: quote_id
+          in: query
+          description: Retient la commande unique issue de ce devis, ou une page vide.
+          schema: { $ref: '#/components/schemas/Uuid' }
         - name: customer_search
           in: query
           description: Recherche littérale insensible à la casse dans le nom ou courriel du client.
@@ -24479,6 +24483,7 @@ components:
         origin: { type: string, enum: [storefront, quote] }
         status: { type: string, enum: [draft, validated, in_production, shipped, delivered, invoiced, cancelled] }
         customer_id: { $ref: '#/components/schemas/Uuid' }
+        quote_id: { $ref: '#/components/schemas/Uuid' }
         customer_search: { type: string, minLength: 1, maxLength: 200 }
         shop_id: { $ref: '#/components/schemas/Uuid' }
         current_production_step_id: { $ref: '#/components/schemas/Uuid' }

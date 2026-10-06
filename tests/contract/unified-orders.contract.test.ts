@@ -59,20 +59,20 @@ describe('GET /orders — contrat commun E4.4b', () => {
   it('transmet les filtres et des bornes civiles Europe/Paris avant la pagination', async () => {
     const { request, listOrders } = setup([]);
     const params = new URLSearchParams({ origin: 'quote', status: 'validated', customer_id: quote.customer_id!,
-      customer_search: '  Jean  ', shop_id: base.shop_id!, current_production_step_id: base.id,
+      quote_id: base.id, customer_search: '  Jean  ', shop_id: base.shop_id!, current_production_step_id: base.id,
       created_from: '2026-10-05', created_to: '2026-10-05', 'page[cursor]': encodeCursor({ sort: base.created_at, id: base.id }),
     });
     expect((await request(`?${params}`)).status).toBe(200);
     expect(listOrders).toHaveBeenCalledWith(tenantId, expect.objectContaining({
       filters: expect.objectContaining({ origin: 'quote', customer_search: 'Jean', customer_id: quote.customer_id,
-        shop_id: base.shop_id, current_production_step_id: base.id, status: 'validated' }),
+        quote_id: base.id, shop_id: base.shop_id, current_production_step_id: base.id, status: 'validated' }),
       createdAtFrom: '2026-10-04T22:00:00.000Z', createdAtTo: '2026-10-05T22:00:00.000Z',
       cursor: { sort: base.created_at, id: base.id },
     }));
   });
 
   it.each([
-    '?origin=other', '?status=pending', '?customer_id=bad', '?shop_id=bad', '?current_production_step_id=bad',
+    '?origin=other', '?status=pending', '?customer_id=bad', '?quote_id=bad', '?shop_id=bad', '?current_production_step_id=bad',
     '?created_from=2026-02-30', '?created_from=2026-10-06&created_to=2026-10-05', '?customer_search=%20',
     `?page[cursor]=${encodeCursor({ sort: 'invalid', id: base.id })}`,
     `?page[cursor]=${encodeCursor({ sort: base.created_at, id: 'invalid' })}`,

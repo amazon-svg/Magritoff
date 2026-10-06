@@ -219,3 +219,17 @@ Les méthodes internes `CommercialOrdersApiClient.list()` et `getDetail()` et
 leurs quatre tests de sérialisation ont ensuite été retirés : elles n'avaient
 plus d'appelant. La façade HTTP historique reste servie aux intégrations. Après
 ce retrait, 122 tests ciblés, le typage et le build réussissent.
+
+## Compatibilité des intégrations de lecture
+
+Les routes `GET /order-summaries` et `GET /order-summaries/{orderId}` acceptent
+les clés de service portant `orders:read`. Le contexte PostgreSQL distingue
+explicitement l'acteur `service` ; les politiques RLS autorisent alors la
+lecture des commandes et identités boutique du seul tenant authentifié. Une
+clé privée du scope reste refusée avant toute lecture SQL.
+
+La liste commune accepte aussi `quote_id`, avec la sémantique historique zéro
+ou une commande. Ce filtre est transmis par le client commun, appliqué avant
+pagination et repris par les exports communs grâce à la migration additive
+`0089_unified_order_quote_filter.sql`. Les anciennes routes restent servies
+pendant la fenêtre documentée ; aucune date `Sunset` n'est encore fixée.

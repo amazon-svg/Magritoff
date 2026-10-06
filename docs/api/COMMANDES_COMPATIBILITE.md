@@ -66,3 +66,7 @@ Les deux lectures communes acceptent aussi les clés de service munies du scope
 `orders:read`, comme les anciennes lectures. Une intégration peut donc migrer
 sans remplacer son mode d'authentification ; sans ce scope, la réponse reste
 `403 Forbidden`.
+
+Le filtre `quote_id`, utilisé pour retrouver la commande créée depuis un devis,
+est également disponible sur `GET /order-summaries`. Il conserve la sémantique
+zéro ou une commande et s'applique aussi aux exports communs.

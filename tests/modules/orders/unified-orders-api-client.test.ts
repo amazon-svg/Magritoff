@@ -19,7 +19,8 @@ describe('lecture commune du dashboard commandes', () => {
     const api = new OrdersApiClient(new FetchApiClient('https://magrit.test', fetcher));
     const response = await api.list({ pageSize: 50, pageCursor: 'precedent', origin: 'quote', status: 'validated',
       customer_search: 'Jean', customer_id: order.customer_id!, shop_id: order.id,
-      current_production_step_id: order.id, created_from: '2026-10-01', created_to: '2026-10-05' });
+      quote_id: order.id, current_production_step_id: order.id,
+      created_from: '2026-10-01', created_to: '2026-10-05' });
     expect(response).toEqual({ items: [order], nextCursor: 'suite' });
     expect(fetcher).toHaveBeenCalledTimes(1);
     const url = new URL(String(fetcher.mock.calls[0][0]));
@@ -27,7 +28,8 @@ describe('lecture commune du dashboard commandes', () => {
     expect(Object.fromEntries(url.searchParams)).toEqual({
       'page[size]': '50', 'page[cursor]': 'precedent', origin: 'quote', status: 'validated',
       customer_search: 'Jean', customer_id: order.customer_id, shop_id: order.id,
-      current_production_step_id: order.id, created_from: '2026-10-01', created_to: '2026-10-05',
+      quote_id: order.id, current_production_step_id: order.id,
+      created_from: '2026-10-01', created_to: '2026-10-05',
     });
   });
 

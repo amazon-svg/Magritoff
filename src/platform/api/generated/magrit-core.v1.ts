@@ -9739,6 +9739,7 @@ export interface components {
             /** @enum {string} */
             status?: "draft" | "validated" | "in_production" | "shipped" | "delivered" | "invoiced" | "cancelled";
             customer_id?: components["schemas"]["Uuid"];
+            quote_id?: components["schemas"]["Uuid"];
             customer_search?: string;
             shop_id?: components["schemas"]["Uuid"];
             current_production_step_id?: components["schemas"]["Uuid"];
@@ -16642,6 +16643,8 @@ export interface operations {
                 origin?: "storefront" | "quote";
                 status?: "draft" | "validated" | "in_production" | "shipped" | "delivered" | "invoiced" | "cancelled";
                 customer_id?: components["schemas"]["Uuid"];
+                /** @description Retient la commande unique issue de ce devis, ou une page vide. */
+                quote_id?: components["schemas"]["Uuid"];
                 /** @description Recherche littérale insensible à la casse dans le nom ou courriel du client. */
                 customer_search?: string;
                 shop_id?: components["schemas"]["Uuid"];

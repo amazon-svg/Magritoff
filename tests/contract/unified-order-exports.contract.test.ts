@@ -31,7 +31,8 @@ const request = (filters: unknown = {}) => call('', { method: 'POST', body: JSON
 describe('exports communs E4.4b', () => {
   it('conserve exactement les filtres appliqués, la version 2 et l’idempotence', async () => {
     const filters = { origin: 'storefront', status: 'draft', customer_search: 'Jean', shop_id: tenantId,
-      customer_id: actor, current_production_step_id: actor, created_from: '2026-10-05', created_to: '2026-10-05' };
+      customer_id: actor, quote_id: tenantId, current_production_step_id: actor,
+      created_from: '2026-10-05', created_to: '2026-10-05' };
     const response = await request(filters);
     expect(response.status).toBe(201);
     expect(response.headers.get('deprecation')).toBeNull();
@@ -47,7 +48,7 @@ describe('exports communs E4.4b', () => {
     expect((await (await call(`/${data.id}`)).json()).data.filters).toEqual(filters);
   });
   it.each([{ origin: 'bad' }, { status: 'bad' }, { shop_id: 'bad' }, { customer_search: ' ' },
-    { quote_id: actor }, { created_from: '2026-02-30' }, { created_from: '2026-10-06', created_to: '2026-10-05' }])(
+    { quote_id: 'bad' }, { created_from: '2026-02-30' }, { created_from: '2026-10-06', created_to: '2026-10-05' }])(
     'refuse des filtres invalides sans créer de demande (%j)', async (filters) => {
       expect((await request(filters)).status).toBe(422);
       expect((await (await call('')).json()).data).toEqual([]);
