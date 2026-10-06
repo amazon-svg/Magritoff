@@ -4,6 +4,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { TenantId, UserId } from '../../kernel/ids/index.ts';
 import { toIsoTimestamp, toIsoTimestampOrNull } from '../../modules/_shared/application/index.ts';
 import type { OrderFileUploadTicketDto } from '../../modules/order-files/api/contracts.ts';
+import type { ShopAssetStorage } from '../../modules/shops/application/shops-repository.ts';
 import {
   OrderFileAlreadyConfirmedError,
   OrderFileRejectedError,
@@ -47,6 +48,7 @@ export class PostgresOrderUploadLinksRepository implements OrderUploadLinksRepos
     private readonly transactions: PostgresTransactionRunner,
     private readonly storage: S3Client,
     private readonly bucket = ORDER_FILES_BUCKET,
+    private readonly shopAssets?: Pick<ShopAssetStorage, 'publicUrl'>,
   ) {}
 
   resolvePrincipal(token: string): Promise<ResolvedOrderUploadLinkPrincipal | null> {
@@ -149,8 +151,13 @@ export class PostgresOrderUploadLinksRepository implements OrderUploadLinksRepos
       );
       const row = result.rows[0];
       if (!row) return null;
+      const shopLogoReference = nullableString(row['shop_logo_url']);
       return {
         printer_name: String(row['printer_name']),
+        shop_name: nullableString(row['shop_name']),
+        shop_logo_url: shopLogoReference === null
+          ? null
+          : (this.shopAssets?.publicUrl(shopLogoReference) ?? shopLogoReference),
         order_number: String(row['order_number']),
         label: row['label'] ? String(row['label']) : null,
         expires_at: toIsoTimestamp(row['expires_at'] as Date | string),
@@ -269,6 +276,10 @@ export class PostgresOrderUploadLinksRepository implements OrderUploadLinksRepos
       );
     }
   }
+}
+
+function nullableString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() !== '' ? value : null;
 }
 
 const LINK_COLUMNS = `

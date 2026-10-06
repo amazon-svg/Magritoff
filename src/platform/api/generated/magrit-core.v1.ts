@@ -9087,6 +9087,10 @@ export interface components {
         OrderUploadLinkContext: {
             /** @description Nom de l imprimeur (le tenant). QUI DEMANDE : sans lui, la page est un formulaire anonyme demandant des fichiers, ce que personne ne devrait remplir. */
             printer_name: string;
+            /** @description Nom de la boutique d origine, ou `null` pour une commande issue d un devis. */
+            shop_name: string | null;
+            /** @description URL publique du logo de la boutique d origine, ou `null` si la commande ne vient pas d une boutique ou si elle n a pas de logo. */
+            shop_logo_url: string | null;
             /** @description Numero de la commande concernee. Le client le retrouve sur son accuse de commande. */
             order_number: string;
             /** @description Consigne posee par l atelier, ou `null`. */

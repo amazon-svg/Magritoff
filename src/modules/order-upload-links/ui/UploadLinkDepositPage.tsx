@@ -287,8 +287,21 @@ export function UploadLinkDepositPage() {
     <main className="min-h-screen flex items-center justify-center p-4" data-testid={TEST_IDS.uploadLinkDepot.page}>
       <div className="max-w-md w-full border border-line rounded-xl p-6 space-y-4 bg-paper">
         <div className="text-center space-y-1">
+          {context.shop_logo_url && (
+            <img
+              src={context.shop_logo_url}
+              alt={`Logo ${context.shop_name ?? context.printer_name}`}
+              className="mx-auto mb-3 max-h-16 max-w-48 object-contain"
+              data-testid={TEST_IDS.uploadLinkDepot.shopLogo}
+            />
+          )}
+          {context.shop_name && (
+            <p className="text-base font-medium text-ink" data-testid={TEST_IDS.uploadLinkDepot.shopName}>
+              {context.shop_name}
+            </p>
+          )}
           <p className="text-sm text-ink-muted" data-testid={TEST_IDS.uploadLinkDepot.printerName}>
-            {context.printer_name}
+            {context.shop_name ? `Une boutique de ${context.printer_name}` : context.printer_name}
           </p>
           <p className="text-lg font-bold text-ink" data-testid={TEST_IDS.uploadLinkDepot.orderNumber}>
             {context.order_number}

@@ -21388,7 +21388,8 @@ components:
             cache au-dela de son expiration.
           oneOf:
             - type: string
-              format: uri
+              minLength: 1
+              maxLength: 2048
             - type: 'null'
         background_url_expires_at:
           description: >-
@@ -22729,6 +22730,8 @@ components:
       additionalProperties: false
       required:
         - printer_name
+        - shop_name
+        - shop_logo_url
         - order_number
         - label
         - expires_at
@@ -22745,12 +22748,29 @@ components:
           type: string
           minLength: 1
           maxLength: 200
+        shop_name:
+          description: >-
+            Nom de la boutique d origine, ou `null` pour une commande issue
+            d un devis.
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 200
+            - type: 'null'
+        shop_logo_url:
+          description: >-
+            URL publique du logo de la boutique d origine, ou `null` si la
+            commande ne vient pas d une boutique ou si elle n a pas de logo.
+          oneOf:
+            - type: string
+              format: uri
+            - type: 'null'
         order_number:
           description: >-
             Numero de la commande concernee. Le client le retrouve sur son
             accuse de commande.
           type: string
-          pattern: '^CDE-[0-9]{4}-[0-9]{5}$'
+          pattern: '^(?:CDE-[0-9]{4}-[0-9]{5}|[0-9A-F]{8})$'
         label:
           description: Consigne posee par l atelier, ou `null`.
           oneOf:

@@ -1017,6 +1017,8 @@ export const TEST_IDS = {
     page: 'upload-link-depot-page',
     loadingState: 'upload-link-depot-loading-state',
     invalidLinkBanner: 'upload-link-depot-invalid-link-banner',
+    shopLogo: 'upload-link-depot-shop-logo',
+    shopName: 'upload-link-depot-shop-name',
     printerName: 'upload-link-depot-printer-name',
     orderNumber: 'upload-link-depot-order-number',
     labelText: 'upload-link-depot-label-text',
