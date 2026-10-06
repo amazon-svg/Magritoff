@@ -111,6 +111,11 @@ export function DashboardShopEditor() {
 
   // Dialog de confirmation suppression
   const [deleteDialog, setDeleteDialog] = useState<DisplayProduct | null>(null);
+  const [reintegratingProductId, setReintegratingProductId] = useState<string | null>(null);
+  const [reintegrationFeedback, setReintegrationFeedback] = useState<{
+    tone: 'success' | 'error';
+    message: string;
+  } | null>(null);
 
   // S2.32 — pimExpanded = etat d'ouverture du bloc PIM. Les gammes proposees
   // au depliage sont derivees du catalogue reel du tenant (catalogGammeSlugs),
@@ -305,6 +310,28 @@ export function DashboardShopEditor() {
     if (!deleteDialog || !deleteDialog.libraryProductId) return;
     await deleteProduct(deleteDialog.libraryProductId);
     setDeleteDialog(null);
+  };
+
+  const handleReintegrateProduct = async (libraryProductId: string, label: string) => {
+    if (!shop || reintegratingProductId) return;
+    setReintegratingProductId(libraryProductId);
+    setReintegrationFeedback(null);
+    try {
+      await includeProduct(shop.id, libraryProductId);
+      setReintegrationFeedback({
+        tone: 'success',
+        message: `« ${label} » est de nouveau visible dans la boutique.`,
+      });
+    } catch (cause) {
+      setReintegrationFeedback({
+        tone: 'error',
+        message: cause instanceof Error
+          ? cause.message
+          : `La réintégration de « ${label} » a échoué.`,
+      });
+    } finally {
+      setReintegratingProductId(null);
+    }
   };
 
   // ─── Render ─────────────────────────────────────────────────────────────
@@ -1000,6 +1027,15 @@ export function DashboardShopEditor() {
           </div>
         )}
 
+        {reintegrationFeedback && (
+          <p
+            className={`mt-4 rounded border px-3 py-2 text-xs ${reintegrationFeedback.tone === 'success' ? 'border-ok-fg/30 bg-ok-bg text-ok-fg' : 'border-err-fg/30 bg-err-bg text-err-fg'}`}
+            role={reintegrationFeedback.tone === 'success' ? 'status' : 'alert'}
+          >
+            {reintegrationFeedback.message}
+          </p>
+        )}
+
         {/* E9.11 — Exclusions actuelles : reintegration one-click. */}
         {shop.excluded_product_ids && shop.excluded_product_ids.length > 0 && (
           <details className="mt-4 text-xs text-ink-muted">
@@ -1035,12 +1071,8 @@ export function DashboardShopEditor() {
                     </span>
                     <button
                       type="button"
-                      onClick={async () => {
-                        await includeProduct(shop.id, libProductId);
-                        const updated = shops.find((s) => s.id === shop.id);
-                        if (updated) setShop(updated);
-                      }}
-                      disabled={!stillInLinkedLibrary}
+                      onClick={() => void handleReintegrateProduct(libProductId, label)}
+                      disabled={!stillInLinkedLibrary || reintegratingProductId !== null}
                       title={
                         stillInLinkedLibrary
                           ? 'Ré-afficher ce produit dans la boutique'
@@ -1048,8 +1080,10 @@ export function DashboardShopEditor() {
                       }
                       className="inline-flex items-center gap-1 px-2 py-1 rounded border border-line-2 bg-paper hover:bg-bg disabled:opacity-50 disabled:cursor-not-allowed text-[11px] font-medium text-ink-2"
                     >
-                      <Eye className="w-3 h-3" />
-                      Réintégrer
+                      {reintegratingProductId === libProductId
+                        ? <Loader2 className="w-3 h-3 animate-spin" />
+                        : <Eye className="w-3 h-3" />}
+                      {reintegratingProductId === libProductId ? 'Réintégration…' : 'Réintégrer'}
                     </button>
                   </li>
                 );
