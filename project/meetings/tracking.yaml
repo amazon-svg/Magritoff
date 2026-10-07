@@ -137,3 +137,14 @@ documents:
       - Définir la matrice des champs et actions modifiables par état et droit.
       - Nommer les responsables d’approbation et de revue.
       - "Cadrer les suites HopeStudio : formulaire PIM, chat boutique et vérification des marges, selon PD-2026-10-05-HOPESTUDIO."
+  - id: REPORT-2026-10-07-POINT-PROJET-ORDRE-DU-JOUR
+    kind: report
+    path: project/meetings/reports/2026-10-07-point-projet-et-ordre-du-jour.md
+    processingStatus: draft
+    owner: unassigned
+    reviewedAt: null
+    openItems:
+      - Fixer la date et confirmer les participants du prochain WM.
+      - Confirmer les arbitrages A1 à A4 à préparer en séance.
+      - Nommer les responsables fiscal/comptable et commandes/logistique à consulter.
+      - Consigner après la réunion les décisions, responsables, échéances et artefacts concernés.
