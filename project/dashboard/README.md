@@ -40,6 +40,12 @@ des réunions, régénère et teste le fichier à chaque pull request ou push qu
 si le fichier versionné ne correspond plus aux sources : il suffit alors de
 relancer `pnpm project:refresh` et de committer le résultat.
 
+Les demandes de fusion doivent aussi contenir le dernier `main`. Après un
+`rebase`, les hooks installés par `pnpm hooks:install` régénèrent le dashboard ;
+le hook avant push bloque ensuite l'envoi si ce résultat n'est pas commité. Un
+conflit dans `index.html` se traite donc en régénérant le fichier depuis les
+sources réconciliées, jamais en fusionnant manuellement son contenu.
+
 La publication GitHub Pages reste optionnelle si une URL hébergée directement
 par le dépôt est préférée. Elle n'utilise aucun jeton personnel.
 Pour l'activer :

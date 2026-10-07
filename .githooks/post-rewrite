@@ -1,0 +1,24 @@
+#!/bin/sh
+# Magrit managed hook — installé avec `pnpm hooks:install`.
+
+[ "${1:-}" = "rebase" ] || exit 0
+
+repository_root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+cd "$repository_root" || exit 0
+
+if ! command -v pnpm >/dev/null 2>&1; then
+  echo "⚠️  Rebase terminé, mais pnpm est absent : exécutez 'pnpm project:dashboard'." >&2
+  exit 0
+fi
+
+echo "↻ Rebase terminé : régénération du tableau de bord projet…"
+if ! pnpm project:dashboard; then
+  echo "⚠️  Régénération impossible. Corrigez l’erreur avant de pousser." >&2
+  exit 0
+fi
+
+if ! git diff --quiet HEAD -- project/dashboard/index.html; then
+  echo "ℹ️  Le tableau de bord a changé : vérifiez-le puis commitez-le avant le push."
+else
+  echo "✅ Tableau de bord déjà à jour."
+fi
