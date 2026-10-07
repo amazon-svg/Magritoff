@@ -1,0 +1,21 @@
+#!/bin/sh
+# Magrit managed hook — installé avec `pnpm hooks:install`.
+
+repository_root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 1
+cd "$repository_root" || exit 1
+
+if ! command -v pnpm >/dev/null 2>&1; then
+  echo "❌ pnpm est requis pour vérifier le tableau de bord avant le push." >&2
+  exit 1
+fi
+
+echo "↻ Vérification du tableau de bord projet avant push…"
+pnpm project:dashboard || exit 1
+
+if ! git diff --quiet HEAD -- project/dashboard/index.html; then
+  echo "❌ project/dashboard/index.html n’est pas à jour." >&2
+  echo "   Vérifiez le fichier régénéré, commitez-le, puis relancez le push." >&2
+  exit 1
+fi
+
+echo "✅ Tableau de bord projet à jour."

@@ -1,0 +1,39 @@
+name: rebase-required
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rebase-required-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  up-to-date:
+    name: Branche à jour avec main
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Récupérer la tête réelle de la branche
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Récupérer la branche cible
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: git fetch --no-tags origin "refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"
+
+      - name: Vérifier que main est ancêtre de la branche
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          if ! git merge-base --is-ancestor "origin/${BASE_REF}" HEAD; then
+            echo "::error::La branche ne contient pas le dernier ${BASE_REF}. Rebasez-la, régénérez le dashboard et poussez le résultat."
+            exit 1
+          fi

@@ -65,3 +65,26 @@ Nommage **explicite sur le périmètre fonctionnel**, jamais sur un code interne
 2. Expert Solutions rebase sa branche fonctionnelle sur le nouveau `main`.
 3. Les conflits sont traités explicitement, en nommant les frontières concernées (noyau, module, spécifications, séparation Clariprint Data / GesCom).
 4. La branche fonctionnelle revient dans `main` par fusion, après revue.
+
+## 7. Rebase obligatoire et vues générées
+
+Toute demande de fusion vers `main` doit contenir le dernier commit de `main`.
+Le contrôle GitHub `Branche à jour avec main` vérifie cette ascendance sur la
+tête réelle de la branche, sans s'appuyer sur le commit de fusion temporaire de
+GitHub. Ce contrôle doit être déclaré obligatoire dans la protection de
+branche.
+
+Après un rebase, les vues dérivées versionnées sont reconstruites depuis leurs
+sources. Pour le tableau de bord projet :
+
+1. installer les hooks avec `pnpm hooks:install` ;
+2. le hook `post-rewrite` exécute `pnpm project:dashboard` après le rebase ;
+3. si `project/dashboard/index.html` change, vérifier puis committer le fichier ;
+4. le hook `pre-push` régénère une dernière fois la vue et refuse le push si le
+   résultat n'est pas commité ;
+5. la CI régénère également la vue et refuse toute divergence.
+
+Le fichier HTML reste versionné afin de conserver son historique et sa
+consultation depuis GitHub. Un conflit sur ce fichier ne se résout pas à la
+main : terminer le rebase sur les sources canoniques, puis relancer le
+générateur.
