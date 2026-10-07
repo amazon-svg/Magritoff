@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ShopsApiClient } from '@/modules/shops/api/client';
+import { createShopCommandSchema } from '@/modules/shops/api/contracts';
 import { FetchApiClient } from '@/platform/api/fetch-api-client';
 
 const tenantId = '11111111-1111-4111-8111-111111111111';
@@ -9,6 +10,10 @@ const shop = { id: shopId, tenantId, ownerUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaa
 const product = { id: productId, shopId, productId: null, name: 'Flyer', category: '', description: '', priceHt: 10, imageUrl: '', config: {}, displayOrder: 0, createdAt: '2026-08-12T10:00:00Z', tenantId, gammeSlug: null };
 
 describe('ShopsApiClient', () => {
+  it('crée une boutique en thème sombre quand aucun thème n’est fourni', () => {
+    expect(createShopCommandSchema.parse({ name: 'Démo' }).theme).toEqual({ mode: 'dark' });
+  });
+
   it('consomme les routes CRUD contractuelles', async () => {
     const calls: string[] = [];
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {

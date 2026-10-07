@@ -20,7 +20,7 @@ export const tenantShopsSchema = z.array(shopSchema);
 export const createShopCommandSchema = z.object({
   name: z.string().trim().min(1).max(120), description: z.string().max(2000).default(''),
   logoUrl: z.string().default(''), address: z.string().default(''),
-  contactEmail: z.string().default(''), theme: shopThemeSchema.partial().default({}),
+  contactEmail: z.string().default(''), theme: shopThemeSchema.partial().default({ mode: 'dark' }),
   heroImageUrl: z.string().nullable().default(null), tagline: z.string().max(120).nullable().default(null),
 });
 

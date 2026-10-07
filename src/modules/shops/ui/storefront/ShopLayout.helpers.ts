@@ -38,11 +38,9 @@ export interface ShopThemeResolution {
  *     -> light mode (pas de data-theme).
  *   - Sinon (incluant 'dark' OU undefined OU autre) -> dark mode par defaut.
  *
- * Cette regle assume que les nouvelles boutiques herithent de DEFAULT_THEME
- * (mode='light' aujourd hui dans ShopsContext) — il faudra coordonner avec
- * une migration tenant pour basculer DEFAULT_THEME.mode en 'dark' OU
- * accepter qu une boutique cree avant le toggle reste en light tant que
- * l admin tenant ne la passe pas en dark explicitement.
+ * Les nouvelles boutiques héritent du mode sombre défini par le contrat API,
+ * le dépôt PostgreSQL et le défaut de colonne. Un mode clair explicitement
+ * enregistré reste respecté pour la compatibilité des boutiques existantes.
  */
 export function resolveShopTheme(
   shop: Pick<Shop, "theme"> | { theme?: { mode?: string } } | null | undefined,

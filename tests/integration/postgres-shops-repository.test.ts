@@ -55,7 +55,13 @@ describeIntegration('PostgresShopsRepository — PostgreSQL reel', () => {
     await expect(repository.create(readerId, tenantId, { name: 'Interdite' })).rejects.toMatchObject({ code: 'permission_denied' });
     expect(await repository.list(outsiderId, tenantId)).toEqual([]);
     const created = await repository.create(managerId, tenantId, { name: 'Boutique Alpha', tagline: 'Sur mesure' });
-    expect(created).toMatchObject({ tenantId, ownerUserId: managerId, name: 'Boutique Alpha', accessMode: 'invite_only' });
+    expect(created).toMatchObject({
+      tenantId,
+      ownerUserId: managerId,
+      name: 'Boutique Alpha',
+      accessMode: 'invite_only',
+      theme: { mode: 'dark' },
+    });
     expect(await repository.list(readerId, tenantId)).toHaveLength(1);
   });
 

@@ -16,7 +16,7 @@ import {
 import type { PostgresTransactionRunner } from './transaction-runner.ts';
 
 type Row = Record<string, unknown>;
-const DEFAULT_THEME = { primaryColor: '#1e3a8a', accentColor: '#f59e0b', mode: 'light' as const, secondaryColor: '#6b7280', textColor: '#0f172a', bgColor: '#ffffff', fontPairing: 'system' };
+const DEFAULT_THEME = { primaryColor: '#1e3a8a', accentColor: '#f59e0b', mode: 'dark' as const, secondaryColor: '#6b7280', textColor: '#0f172a', bgColor: '#ffffff', fontPairing: 'system' };
 const SHOP_COLUMNS = 'id,tenant_id,owner_user_id,slug,name,description,theme,logo_url,address,contact_email,active,library_ids,excluded_product_ids,hero_image_url,tagline,pim_catalog_mode,pim_gamme_slugs,access_mode,created_at';
 const PRODUCT_COLUMNS = 'id,shop_id,product_id,name,category,description,price_ht,image_url,config,display_order,created_at,tenant_id,gamme_slug';
 
