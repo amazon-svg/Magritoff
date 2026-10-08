@@ -59,8 +59,28 @@ origines web pour les transferts directs du navigateur ; voir aussi
 [la configuration des services](MIGRATION_HORS_SUPABASE.md).
 SMTP est nécessaire pour la vérification des comptes et les invitations.
 
+### Prérequis des rôles PostgreSQL
+
+Les migrations créent cinq rôles SQL : `magrit_migrator`, `magrit_api`,
+`magrit_worker`, `magrit_readonly` et `magrit_auth`. Le compte de migration
+doit pouvoir les créer et gérer leurs permissions. Les comptes runtime
+doivent aussi pouvoir utiliser les rôles nécessaires : les transactions de
+l'API et des workers exécutent explicitement `SET LOCAL ROLE`.
+
+Sur un add-on PostgreSQL Clever Cloud, l'administration des utilisateurs est
+[restreinte par le fournisseur](https://www.clever.cloud/developers/deploy/addon/postgresql/postgresql/).
+Le compte propriétaire fourni peut donc échouer avec `permission denied to
+create role`. Avant le déploiement, demander au support comment provisionner
+ces rôles, leurs droits et les appartenances nécessaires sur l'offre utilisée.
+Leur création préalable seule ne garantit pas que toutes les migrations
+pourront gérer leurs permissions. Si le fournisseur ne permet pas cette
+configuration, utiliser une instance PostgreSQL dont on maîtrise les rôles.
+Changer `DATABASE_URL` ou relancer le hook ne donne pas le droit `CREATEROLE`.
+Ne pas contourner l'erreur en supprimant les rôles ou les politiques RLS.
+
 Appliquer les migrations sur la base cible avec `pnpm db:migrate` avant le
-premier démarrage. Aucun seed de démonstration n'est lancé en production.
+premier démarrage, après validation de ces droits. Aucun seed de démonstration
+n'est lancé en production.
 Pour les déploiements suivants, exécuter les migrations dans une étape de
 déploiement unique avant de lancer les instances ; éviter un hook concurrent
 sur chaque instance. Le contrôle `/api/v1/readiness` vérifie la connexion
