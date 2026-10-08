@@ -1,3 +1,5 @@
+import { readHttpConfiguration } from './http-configuration.ts';
+import { createStaticWebHandler } from './static-web-handler.ts';
 import { createUnifiedOrdersRoutes } from '../api/unified-orders-routes.ts';
 import { createApiV1Application } from '../api/composition.ts';
 import { createCommercialSettingsRoutes } from '../api/commercial-settings-routes.ts';
@@ -179,8 +181,7 @@ import { readStorefrontSessionCookie, storefrontSessionCookiePolicy } from '../s
 import { handleHopeStudioWorkflow, isHopeStudioWorkflowRequest } from '../hopstudio/workflow-handler.ts';
 import type { RequestId } from '../../kernel/ids/index.ts';
 
-const host = process.env['MAGRIT_API_HOST'] ?? '127.0.0.1';
-const port = parsePort(process.env['MAGRIT_API_PORT'] ?? '8787');
+const { host, port } = readHttpConfiguration();
 const trustedProxyRanges = readTrustedProxyRanges();
 const postgresPool = createPostgresPool();
 postgresPool.on('error', (error) => {
@@ -776,7 +777,10 @@ const localHandler = localAuthentication === null
       }
       return apiHandler(request);
     };
-const server = createNodeHttpServer(localHandler, {
+const handler = process.env['MAGRIT_SERVE_WEB'] === 'true'
+  ? await createStaticWebHandler(localHandler, process.env['MAGRIT_WEB_ROOT'] ?? 'dist')
+  : localHandler;
+const server = createNodeHttpServer(handler, {
   trustedProxyRanges,
   onUnhandledError(error) {
     console.error(JSON.stringify({ level: 'error', event: 'api.transport_error', error: errorMessage(error) }));
@@ -843,14 +847,6 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
       }
     });
   });
-}
-
-function parsePort(value: string): number {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65_535) {
-    throw new Error(`MAGRIT_API_PORT invalide : ${value}`);
-  }
-  return parsed;
 }
 
 function errorMessage(error: unknown): string {

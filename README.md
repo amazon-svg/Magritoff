@@ -3,6 +3,13 @@
 
   This is a code bundle for MAGRIT_OFF. The original project is available at https://www.figma.com/design/RN6CAYFDlZgWXnGQ6xg0bY/MAGRIT_OFF.
 
+  ## Production sur Clever Cloud
+
+  `pnpm build` compile l'interface et le serveur ; `pnpm start` sert les deux
+  sur un seul port (8080 par défaut). Consulter le
+  [guide de déploiement Clever Cloud](docs/DEPLOIEMENT_CLEVER_CLOUD.md)
+  pour les variables, la base, le stockage, les courriels et les workers.
+
   ## Développement local
 
   Prérequis : Node 22, pnpm et Docker.

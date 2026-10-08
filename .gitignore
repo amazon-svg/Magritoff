@@ -25,3 +25,5 @@ quality-reports/
 # d'imprimeurs) du banc de rejeu ne sont JAMAIS commites, contrairement a
 # `input.json`/`calls.json` du meme dossier `results/<date>-<objet>/`.
 *.local.json
+
+dist-server/

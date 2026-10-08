@@ -1,0 +1,8 @@
+# Importer ces variables dans la console Clever Cloud ; ce fichier n'est pas
+# charge automatiquement. Ajouter les secrets selon docs/DEPLOIEMENT_CLEVER_CLOUD.md.
+CC_NODE_BUILD_TOOL=pnpm
+CC_NODE_DEV_DEPENDENCIES=install
+CC_POST_BUILD_HOOK=pnpm build
+CC_RUN_COMMAND=pnpm start
+CC_HEALTH_CHECK_PATH=/api/v1/readiness
+NODE_ENV=production

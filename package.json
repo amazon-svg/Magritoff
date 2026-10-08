@@ -4,7 +4,7 @@
   "version": "0.5.3-beta.5",
   "type": "module",
   "scripts": {
-    "build": "vite build",
+    "build": "pnpm build:web && pnpm build:server",
     "typecheck": "pnpm run typecheck:modular",
     "typecheck:all": "tsc --noEmit -p tsconfig.json",
     "typecheck:kernel": "tsc --noEmit -p tsconfig.kernel.json",
@@ -63,7 +63,14 @@
     "test:e2e:quality": "playwright test tests/e2e/a11y-dynamic.spec.ts tests/e2e/atelier-no-cart-button.spec.ts",
     "test:e2e:staging": "playwright test",
     "build:analyze": "ANALYZE=1 vite build && echo '✅ Bundle visualizer : dist/stats.html'",
-    "a11y:scan": "node ./scripts/a11y-scan.mjs"
+    "a11y:scan": "node ./scripts/a11y-scan.mjs",
+    "build:web": "vite build",
+    "build:server": "node scripts/build-server.mjs",
+    "start": "node dist-server/production-main.js",
+    "start:worker:notifications": "node dist-server/notification-worker-main.js",
+    "start:worker:outbox": "node dist-server/outbox-worker-main.js",
+    "start:worker:order-file-purge": "node dist-server/order-file-purge-worker-main.js",
+    "start:worker:order-exports": "node dist-server/order-export-worker-main.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1141.0",
