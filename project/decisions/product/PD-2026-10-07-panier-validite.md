@@ -2,7 +2,7 @@
 id: PD-2026-10-07-PANIER-VALIDITE
 title: Le panier boutique est garanti pendant la durée de validité des devis
 date: 2026-10-07
-documentStatus: draft
+documentStatus: approved
 decisionStatus: adopted
 source: MEET-2026-10-07-WM
 owners:

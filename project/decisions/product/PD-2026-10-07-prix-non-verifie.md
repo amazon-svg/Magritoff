@@ -2,7 +2,7 @@
 id: PD-2026-10-07-PRIX-NON-VERIFIE
 title: La notion de prix non vérifié disparaît avec le prix calculé par Clariprint
 date: 2026-10-07
-documentStatus: draft
+documentStatus: approved
 decisionStatus: adopted
 source: MEET-2026-10-07-WM
 owners:

@@ -2,7 +2,7 @@
 id: PD-2026-10-07-GOUVERNANCE
 title: Droit d'approbation permanent de Xavier Péchoultres et administration du dépôt
 date: 2026-10-07
-documentStatus: draft
+documentStatus: approved
 decisionStatus: adopted
 source: MEET-2026-10-07-WM
 owners:

@@ -2,7 +2,7 @@
 id: PD-2026-10-07-LIGNES-LIBRES
 title: Création d'une ligne de devis par saisie assistée, ligne libre sans catégorie
 date: 2026-10-07
-documentStatus: draft
+documentStatus: approved
 decisionStatus: adopted
 source: MEET-2026-10-07-WM
 owners:

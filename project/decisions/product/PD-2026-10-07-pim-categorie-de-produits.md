@@ -2,7 +2,7 @@
 id: PD-2026-10-07-PIM-CATEGORIE
 title: « Catégorie de produits » remplace « gamme » pour le classement du référentiel
 date: 2026-10-07
-documentStatus: draft
+documentStatus: approved
 decisionStatus: adopted
 source: MEET-2026-10-07-WM
 owners:

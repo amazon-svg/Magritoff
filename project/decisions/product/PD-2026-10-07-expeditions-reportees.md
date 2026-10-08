@@ -2,7 +2,7 @@
 id: PD-2026-10-07-EXPEDITIONS-REPORTEES
 title: La gestion des expéditions est reportée aux futures fonctions MIS
 date: 2026-10-07
-documentStatus: draft
+documentStatus: approved
 decisionStatus: adopted
 source: MEET-2026-10-07-WM
 owners:

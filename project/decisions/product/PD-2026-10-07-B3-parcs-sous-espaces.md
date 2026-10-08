@@ -2,7 +2,7 @@
 id: PD-2026-10-07-B3-PARC
 title: Parcs machines créés dans le tenant, rattachés aux sous-espaces
 date: 2026-10-07
-documentStatus: draft
+documentStatus: approved
 decisionStatus: adopted
 source: MEET-2026-10-07-WM
 owners:

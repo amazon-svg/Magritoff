@@ -36,10 +36,9 @@ documents:
     contentHash: sha256:ef72bfb36dc6a96332194ffccacfc70237f31d011055998071e342d50c64a817
     reviewedAt: null
     openItems:
-      - Approuver les décisions PD-2026-10-07-* (Arnaud Mazon ou Xavier Péchoultres) et passer leur documentStatus à approved.
       - Transférer le dépôt dans une organisation GitHub, y nommer Xavier Péchoultres administrateur et activer le contrôle « branche à jour avec main ».
       - Nommer le responsable fiscal ou comptable de OQ-TVA-LIGNE.
-      - Trancher OQ-B3-PARC-CALCUL et vérifier OQ-B3-NAVIGATION.
+      - Compléter le protocole API des fournisseurs de prix (OQ-B3-PARC-CALCUL, décision PD-2026-10-08-PARCS-ABONNEMENTS approuvée) et vérifier OQ-B3-NAVIGATION.
       - Relire les stories débloquées par PD-2026-10-07-B3-PARC au regard de la décision.
       - Renommer « gamme » en « catégorie » dans les écrans et inventorier les identifiants techniques historiques.
       - Rendre les points projet consultables dans l’interface de pilotage avec une lecture adaptée.
