@@ -9,13 +9,16 @@
 
   ```bash
   pnpm install --frozen-lockfile
-  pnpm dev:local
+  pnpm dev
   ```
 
   Cette commande démarre PostgreSQL 17, SeaweedFS (API S3), Mailpit, applique
   les migrations et le seed, puis lance l'API Node sur `127.0.0.1:8787` et
   Vite sur `localhost:5176`, ainsi que le worker de génération des exports
   de commandes avec le stockage S3 local.
+
+  `pnpm dev:web` démarre uniquement Vite, si l'API est déjà lancée.
+  `pnpm dev:local` reste disponible pour le démarrage complet.
 
   Commandes utiles :
 
@@ -30,7 +33,7 @@
 
   `pnpm infra:dev:reset` détruit explicitement les volumes locaux après
   confirmation. Après un changement important de branche, relancez
-  `pnpm install --frozen-lockfile`, puis `pnpm dev:local` : les migrations
+  `pnpm install --frozen-lockfile`, puis `pnpm dev` : les migrations
   PostgreSQL manquantes sont appliquées automatiquement.
 
   `pnpm db:seed:ux` crée par défaut trois espaces de démonstration contenant

@@ -49,7 +49,7 @@ trap cleanup EXIT INT TERM
 
 pnpm api:dev &
 MAGRIT_API_PID=$!
-pnpm dev &
+pnpm dev:web &
 MAGRIT_VITE_PID=$!
 pnpm worker:order-exports &
 MAGRIT_ORDER_EXPORT_WORKER_PID=$!
