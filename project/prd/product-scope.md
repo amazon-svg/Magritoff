@@ -17,7 +17,7 @@ supersedes: []
 
 ### Catalogue, PIM et recherche
 
-- produits, gammes et attributs utiles au print ;
+- produits, catégories et attributs utiles au print ;
 - recherche unifiée entre catalogue, PIM, Clariprint et conversation ;
 - configuration d'un produit et conservation de sa provenance ;
 - enrichissement marketing et commercial.

@@ -22,7 +22,8 @@ source:
   lastEditedAt: "2026-05-11T09:02:00.000Z"
   importedAt: 2026-10-03
   archive: _archives-notion/2026-10-03/pages/E_CART.persist-localstorage.md
-decisions: []
+decisions:
+  - PD-2026-10-07-PANIER-VALIDITE
 dependencies: []
 supersedes: []
 implementationRecords:
@@ -41,7 +42,7 @@ Reconstituer un panier de produits configurés, c'est refaire les choix de forma
 
 Campagne de tests du 11/05/2026, observation relevée sur un cas par ailleurs satisfait. Depuis la vue Catalogue, avec trois articles au panier, un rafraîchissement de la page vidait le panier : l'indicateur repassait à zéro article.
 
-L'asymétrie était visible dans le même écran : l'état des filtres par gammes, lui, **était** conservé d'un rafraîchissement à l'autre. L'acheteur retrouvait donc ses filtres mais pas ses produits.
+L'asymétrie était visible dans le même écran : l'état des filtres par catégories, lui, **était** conservé d'un rafraîchissement à l'autre. L'acheteur retrouvait donc ses filtres mais pas ses produits.
 
 Ce que cela coûtait : toute interruption — rafraîchissement, fermeture d'onglet, session expirée — ramène l'acheteur au début de sa saisie.
 
@@ -133,3 +134,11 @@ Story documents BMAD (historique d'implémentation, non recopié) :
 - Où se rejouent désormais les cas de test fonctionnels, Notion étant sorti du jeu ?
 - Rattachement à une fonctionnalité produit à arbitrer (`FEAT-E4-UNCLASSIFIED` est un regroupement de migration).
 - Relecture produit requise : contenu issu d'un import, non approuvé.
+
+## Décision ultérieure — WM du 7 octobre 2026
+
+[`PD-2026-10-07-PANIER-VALIDITE`](../../decisions/product/PD-2026-10-07-panier-validite.md) :
+le panier est persistant pendant le nombre de jours de validité des devis
+paramétré par l'espace, puis il expire. La persistance doit donc conserver la
+date de mise au panier et appliquer cette expiration. La valeur appliquée aux
+espaces existants dépend de `OQ-Q24-RETROFIT-VALIDITE`.
