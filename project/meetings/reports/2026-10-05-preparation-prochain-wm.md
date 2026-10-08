@@ -8,6 +8,11 @@ source: REPORT-2026-10-05-REPRISE-PROJET
 
 # Ordre du jour proposé pour le prochain WM
 
+> **Actualisation :** ce brouillon initial est conservé comme trace de la
+> préparation du 5 octobre. L'ordre du jour courant est le
+> [point projet du 7 octobre](2026-10-07-point-projet-et-ordre-du-jour.md), qui
+> tient compte des lots commandes et boutique fusionnés depuis.
+
 Objectif : arrêter les règles qui conditionnent les prochains développements, choisir le lot à engager et organiser son approbation. La proposition porte sur le modèle de droits utilisateurs et la fiche des commandes boutique, en tenant compte de l’intégration HopeStudio déjà présente.
 
 Préparation du 5 octobre 2026. Date de réunion à fixer ; durée proposée : 75 minutes. Participants proposés : Arnaud Mazon et Xavier Péchoultres, avec les intervenants nécessaires à l’analyse d’impact. Ce document est un ordre du jour en brouillon, pas un compte rendu, une invitation envoyée ou une décision prise.

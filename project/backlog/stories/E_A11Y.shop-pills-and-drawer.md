@@ -41,7 +41,7 @@ Un acheteur qui utilise un lecteur d'écran filtre à l'aveugle : rien ne lui di
 
 Campagne de tests du 11/05/2026, deux réserves d'accessibilité relevées sur des cas par ailleurs satisfaits.
 
-**Filtre « Tout ».** La pilule « Tout » ne portait aucune indication d'état actif ou inactif, dans aucune de ses situations. Le motif de groupe de bascules attendu veut que cette pilule s'annonce active quand aucune gamme n'est sélectionnée.
+**Filtre « Tout ».** La pilule « Tout » ne portait aucune indication d'état actif ou inactif, dans aucune de ses situations. Le motif de groupe de bascules attendu veut que cette pilule s'annonce active quand aucune catégorie n'est sélectionnée.
 
 **Tiroir panier.** Le tiroir n'annonçait pas sa modalité, bien qu'il se déclare comme boîte de dialogue. Les lecteurs d'écran ne signalaient donc pas à l'acheteur qu'il venait d'entrer dans un panneau qui capture son attention.
 
@@ -53,7 +53,7 @@ Ce que cela coûtait : un acheteur au lecteur d'écran ne sait pas quel filtre e
 
 ## Comportement attendu
 
-1. La pilule « Tout » annonce son état : active quand aucune gamme n'est sélectionnée, inactive dès qu'une gamme l'est.
+1. La pilule « Tout » annonce son état : active quand aucune catégorie n'est sélectionnée, inactive dès qu'une catégorie l'est.
 2. Le tiroir panier s'annonce comme une boîte de dialogue modale à son ouverture.
 3. Ces ajouts ne changent rien au comportement du filtrage ni à celui du tiroir.
 
@@ -66,7 +66,7 @@ Ce que cela coûtait : un acheteur au lecteur d'écran ne sait pas quel filtre e
 
 ## Règles métier
 
-- `RM-01` — La pilule « Tout » expose un état de bascule : active quand aucune gamme n'est sélectionnée, inactive sinon.
+- `RM-01` — La pilule « Tout » expose un état de bascule : active quand aucune catégorie n'est sélectionnée, inactive sinon.
 - `RM-02` — Son état suit exactement l'état visuel : les deux ne peuvent pas diverger.
 - `RM-03` — Le tiroir panier est annoncé comme une boîte de dialogue modale.
 - `RM-04` — Aucun comportement fonctionnel du filtrage ni du tiroir n'est modifié par ces ajouts.
@@ -75,7 +75,7 @@ Ce que cela coûtait : un acheteur au lecteur d'écran ne sait pas quel filtre e
 ## Critères d'acceptation
 
 - `AC-01` — Étant donné une boutique ouverte sans filtre sélectionné, quand on examine la pilule « Tout », alors elle s'annonce comme active.
-- `AC-02` — Étant donné une ou deux gammes sélectionnées, quand on examine la pilule « Tout », alors elle s'annonce comme inactive.
+- `AC-02` — Étant donné une ou deux catégories sélectionnées, quand on examine la pilule « Tout », alors elle s'annonce comme inactive.
 - `AC-03` — Étant donné l'ouverture du tiroir panier, quand un lecteur d'écran le rencontre, alors il l'annonce comme une boîte de dialogue modale (**la forme technique exacte est à trancher : voir « Cas limites »**).
 - `AC-04` — Étant donné une vérification automatisée d'accessibilité sur la page boutique, quand elle s'exécute, alors elle ne relève aucune violation portant sur l'état de bascule ni sur la modalité.
 - `AC-05` — Étant donné ces ajouts, quand on rejoue le filtrage additif par pilules avec sa persistance, puis l'ouverture du tiroir et sa fermeture par la touche d'échappement, alors les comportements sont inchangés.
@@ -83,15 +83,15 @@ Ce que cela coûtait : un acheteur au lecteur d'écran ne sait pas quel filtre e
 
 ## Cas limites
 
-- **Les deux moitiés du défaut n'ont pas le même état.** Les pilules de gammes **individuelles** exposent aujourd'hui leur état de bascule ; la pilule « **Tout** » ne l'expose toujours pas. `RM-01`, `AC-01` et `AC-02` restent entiers.
+- **Les deux moitiés du défaut n'ont pas le même état.** Les pilules de catégories **individuelles** exposent aujourd'hui leur état de bascule ; la pilule « **Tout** » ne l'expose toujours pas. `RM-01`, `AC-01` et `AC-02` restent entiers.
 - **La modalité du tiroir est traitée autrement que ne le demandait la source.** Le tiroir repose désormais sur le composant de panneau latéral de la bibliothèque d'interface, lui-même bâti sur la primitive de boîte de dialogue. Cette primitive pose bien le rôle de boîte de dialogue, mais **n'émet volontairement pas** l'attribut de modalité : elle masque à la place tout le reste de la page aux technologies d'assistance, ce que son code documente comme l'équivalent mieux pris en charge. Exiger littéralement l'attribut de la source reviendrait à contredire la bibliothèque. L'exigence conservée est donc le **résultat** — le tiroir est annoncé comme modal — et non le moyen. Le point reste à trancher.
 - **Un contrôle automatisé d'accessibilité peut valider les deux approches.** `AC-04` ne suffit donc pas à départager la forme technique : une vérification au lecteur d'écran réel est nécessaire.
-- **Le filtrage par pilules n'est plus le seul chemin.** La boutique propose aussi une barre latérale de gammes et un menu étendu, qui ont leurs propres états de bascule. La cohérence entre ces chemins n'est pas couverte par cette story.
+- **Le filtrage par pilules n'est plus le seul chemin.** La boutique propose aussi une barre latérale de catégories et un menu étendu, qui ont leurs propres états de bascule. La cohérence entre ces chemins n'est pas couverte par cette story.
 
 ## Hors périmètre
 
 - Le comportement fonctionnel du filtrage et du tiroir panier.
-- L'accessibilité des autres chemins de navigation par gammes.
+- L'accessibilité des autres chemins de navigation par catégories.
 - Le mode sombre de la boutique (`E2.fix-TF55`).
 - La confirmation de commande et ses propriétés de modalité (`E_DEVTOOLS.passer-commande-modal`).
 
@@ -106,7 +106,7 @@ Ce que cela coûtait : un acheteur au lecteur d'écran ne sait pas quel filtre e
 
 Implémentation relue le 6 octobre 2026 sur la stack portable :
 
-- la pilule « Tout » expose `aria-pressed=true` quand aucun filtre de gamme n'est actif et `false` sinon ;
+- la pilule « Tout » expose `aria-pressed=true` quand aucun filtre de catégorie n'est actif et `false` sinon ;
 - le tiroir panier, déjà fondé sur la primitive modale Radix Dialog, expose désormais explicitement `aria-modal=true` ;
 - la primitive conserve le piégeage du focus, la fermeture par Échap et le retour du focus au déclencheur ;
 - le typage modulaire, les tests d'architecture, le build et les contrôles navigateur d'accessibilité constituent les preuves automatisées.
@@ -129,7 +129,7 @@ Fichiers de code :
 ## Questions ouvertes
 
 - Quel niveau d'accessibilité est visé pour la boutique, sur quel référentiel, et qui le contrôle ?
-- Les autres chemins de navigation par gammes — barre latérale, menu étendu — relèvent-ils de la même exigence, et dans quelle story ?
+- Les autres chemins de navigation par catégories — barre latérale, menu étendu — relèvent-ils de la même exigence, et dans quelle story ?
 - Où se rejouent désormais les cas de test fonctionnels, Notion étant sorti du jeu ?
 - Rattachement à une fonctionnalité produit à arbitrer (`FEAT-E4-UNCLASSIFIED` est un regroupement de migration).
 - Relecture produit requise : contenu issu d'un import, non approuvé.

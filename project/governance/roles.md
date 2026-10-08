@@ -1,12 +1,12 @@
 # Rôles et responsabilités
 
-Les rôles d’approbation sont précisés par périmètre ci-dessous. Les attributions générales restantes doivent encore être confirmées. Une attribution de responsabilité ne vaut pas approbation des artefacts : chaque passage au statut `approved` exige un accord explicite sur le contenu concerné.
+Les rôles d’approbation sont précisés par périmètre ci-dessous. Depuis le WM du 7 octobre 2026 (`PD-2026-10-07-GOUVERNANCE`), Arnaud Mazon et Xavier Péchoultres peuvent chacun approuver tout ce qui peut l’être dans le produit. Une attribution de responsabilité ne vaut pas approbation des artefacts : chaque passage au statut `approved` exige un accord explicite sur le contenu concerné.
 
 | Activité | Responsable | Approbateur | Consulté |
 |---|---|---|---|
-| PRD, périmètre et règle métier | Rédacteur produit | Autorité produit à nommer | Autorité technique si impact |
-| Architecture et contrat | Rédacteur technique | Autorité technique à nommer | Autorité produit si impact |
-| Story et critères d'acceptation | Préparateur humain ou agent | Autorité produit | Développeur et testeur |
+| PRD, périmètre et règle métier | Rédacteur produit | Arnaud Mazon ou Xavier Péchoultres | Autorité technique si impact |
+| Architecture et contrat | Rédacteur technique | Xavier Péchoultres ou Arnaud Mazon | Autorité produit si impact |
+| Story et critères d'acceptation | Préparateur humain ou agent | Arnaud Mazon ou Xavier Péchoultres | Développeur et testeur |
 | Implémentation et statut de livraison | Développeur | Relecteur distinct | Autorité technique |
 | Compte rendu | Rédacteur de séance | Participants ou décideur | Propriétaires des artefacts |
 | Propagation d'une décision | Gestionnaire du projet | Approbateur de l'artefact cible | Auteur de la décision |
@@ -32,3 +32,12 @@ Dans le chat de reprise, Xavier indique : « tout ce qui tourne autour de HopStu
 Pour les changements de l’intégration dans Magrit (relais, import, persistance et parcours), Xavier porte le cadrage HopeStudio ; les impacts sur les règles communes de Magrit sont examinés avec leur responsable. La politique commerciale du prix, les droits UM et le périmètre général Magrit conservent leur circuit propre. Une revue distincte du code reste requise avant fusion.
 
 Xavier précise ensuite : « je dois pouvoir arbitrer les E1.WM* ». Il est donc l’autorité d’arbitrage et d’approbation produit et technique pour E1.WM1, E1.WM2 et E1.WM3 : périmètre, critères, frontière d’intégration et conditions de démarrage. Les équipes concernées sont consultées sur les impacts ; leur validation conjointe ne constitue plus un préalable à ses arbitrages. La revue distincte du code avant fusion reste applicable. Cette attribution ne vaut pas approbation automatique du contenu des trois stories.
+
+
+## Décision du WM du 7 octobre 2026
+
+[`PD-2026-10-07-GOUVERNANCE`](../decisions/product/PD-2026-10-07-gouvernance-approbation-depot.md) :
+
+- Xavier Péchoultres dispose de manière permanente du droit d’approuver tout ce qui peut l’être dans le produit — spécifications, stories et fonctionnalités livrées. Arnaud Mazon conserve le même droit. Cette règle remplace la répartition « fonctionnel / technique » du 1er octobre et rend sans effet la frontière entre points structurants et non structurants évoquée le 5 octobre.
+- Xavier Péchoultres reçoit les droits d’administration du dépôt GitHub au même titre qu’Arnaud Mazon. Le dépôt appartenant à un compte personnel, ce rôle suppose son transfert dans une organisation GitHub ; d’ici là, Arnaud Mazon active les règles de protection de branche.
+- La revue distincte du code avant fusion reste requise. Un agent ne s’attribue toujours aucune approbation.
