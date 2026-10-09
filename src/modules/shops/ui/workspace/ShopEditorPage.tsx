@@ -25,8 +25,8 @@
  * 5. Bouton "Enregistrer les modifications" en bas a droite, sticky.
  */
 
-import { useEffect, useMemo, useState } from 'react';
-import { useParams, Link } from 'react-router';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useParams, Link, useSearchParams, useBlocker } from 'react-router';
 import {
   ArrowLeft, Save, Loader2, Trash2, Check, ExternalLink, Library as LibraryIcon,
   Download, AlertTriangle, EyeOff, Eye, Upload,
@@ -42,6 +42,11 @@ import { useTenantPath } from '@/modules/tenants/ui/hooks';
 import { UpgradeCTA } from '@/modules/plans/ui/components';
 import { exportShopToShopifyCsv, exportShopToJson } from '@/modules/shops/ui/helpers/shopExport';
 import { resolveShopProductScope } from '@/modules/shops/ui/helpers/resolveShopProductScope';
+import { isFixedPriceProduct } from '@/modules/libraries';
+import { Button } from '@/shared/ui/button';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/shared/ui/tabs';
+import { AlertDialog, AlertDialogContent, AlertDialogTitle, AlertDialogDescription, AlertDialogCancel } from '@/shared/ui/alert-dialog';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/shared/ui/dialog';
 import { TEST_IDS } from '@/shared/presentation/testIds';
 import { lazy, Suspense as ReactSuspense } from 'react';
 import { ShopCustomerAccountsSection } from '@/modules/shop-customers/ui/workspace';
@@ -69,6 +74,7 @@ interface DisplayProduct {
   description: string;
   price_ht: number;
   image_url: string;
+  fixedUnit?: boolean;
 }
 
 export function DashboardShopEditor() {
@@ -78,6 +84,8 @@ export function DashboardShopEditor() {
   const {
     shops,
     loading: shopsLoading,
+    error: shopsError,
+    refresh: refreshShops,
     updateShop,
     removeShopProduct,
     excludeProduct,
@@ -86,6 +94,12 @@ export function DashboardShopEditor() {
   const { products: library, libraries, productsByLibrary, deleteProduct } = useLibrary();
   const { gammes, definitions } = usePIM();
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedSection = searchParams.get('section');
+  const editorSection = ['catalogue', 'clients', 'informations', 'apparence'].includes(selectedSection ?? '') ? selectedSection! : 'catalogue';
+  const changeSection = (value: string) => setSearchParams(previous => { const next = new URLSearchParams(previous); next.set('section', value); return next; }, { replace: true });
+  const savedSnapshot = useRef<Shop | null>(null);
+  const acceptSavedShop = useRef(false);
   const [shop, setShop] = useState<Shop | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -98,6 +112,7 @@ export function DashboardShopEditor() {
     pricingOverrides,
     loading,
     loadError,
+    refresh: refreshOperations,
     uploadingAsset,
     uploadError,
     pricingError,
@@ -128,7 +143,11 @@ export function DashboardShopEditor() {
 
   useEffect(() => {
     const s = shops.find((s) => s.id === id) ?? null;
-    setShop(s);
+    const previousSnapshot = savedSnapshot.current;
+    const acceptedSave = acceptSavedShop.current;
+    acceptSavedShop.current = false;
+    setShop(previous => !acceptedSave && previous?.id === s?.id && JSON.stringify(previous) !== JSON.stringify(previousSnapshot) ? previous : s);
+    savedSnapshot.current = s;
   }, [id, shops]);
 
   // S2.32 — Le depliage liste TOUTE la taxonomie PIM (product_gammes via
@@ -171,6 +190,7 @@ export function DashboardShopEditor() {
       description: p.description || '',
       price_ht: Number(p.price_ht) || 0,
       image_url: p.image_url || '',
+      fixedUnit: isFixedPriceProduct(p),
     }));
 
     // 2. Produits legacy shop_products (hors produits deja exposes ci-dessus)
@@ -192,12 +212,24 @@ export function DashboardShopEditor() {
     // Recalcul quand library_ids, excluded_product_ids OU la config PIM change.
   }, [library, shopProducts, shop?.excluded_product_ids, shop?.library_ids, shop?.pim_catalog_mode, shop?.pim_gamme_slugs]);
 
+  const savedShop = shops.find(value => value.id === id);
+  const dirty = shop !== null && savedShop !== undefined && JSON.stringify(shop) !== JSON.stringify(savedShop);
+  const blocker = useBlocker(({ currentLocation, nextLocation }) => dirty && !saving && currentLocation.pathname !== nextLocation.pathname);
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
+
   if (!canUse('shops')) return <UpgradeCTA feature="Boutiques en ligne" />;
   if (shopsLoading || loading) return <p className="text-sm text-ink-muted">Chargement...</p>;
   if (!shop) {
     return (
       <div className="space-y-3">
-        <p className="text-sm text-ink-muted">Boutique introuvable.</p>
+        <h1 className="text-xl font-semibold text-ink">Boutique indisponible</h1>
+        <p role={shopsError ? 'alert' : undefined} className="text-sm text-ink-muted">{shopsError ?? 'Cette boutique est introuvable ou vous n’y avez pas accès.'}</p>
+        {shopsError && <Button variant="outline" className="min-h-11" onClick={() => void refreshShops()}>Réessayer</Button>}
         <Link to={tp('/dashboard/shops')} className="text-sm text-brand hover:underline">
           ← Retour aux boutiques
         </Link>
@@ -210,12 +242,14 @@ export function DashboardShopEditor() {
   // ─── Actions shop ────────────────────────────────────────────────────────
 
   const handleSaveShop = async () => {
+    if (!shop.name.trim()) { setSaveError('Renseignez le nom de la boutique dans Informations.'); changeSection('informations'); return; }
     setSaving(true);
     setSaveError(null);
     setSaveOk(false);
     try {
+      acceptSavedShop.current = true;
       await updateShop(shop.id, {
-        name: shop.name,
+        name: shop.name.trim(),
         description: shop.description,
         logo_url: shop.logo_url,
         address: shop.address,
@@ -232,8 +266,9 @@ export function DashboardShopEditor() {
         access_mode: shop.access_mode ?? 'invite_only',
       });
       setSaveOk(true);
-      setTimeout(() => setSaveOk(false), 2500);
+
     } catch (err: any) {
+      acceptSavedShop.current = false;
       setSaveError(err?.message || 'Erreur inconnue lors de la sauvegarde');
     }
     setSaving(false);
@@ -300,9 +335,8 @@ export function DashboardShopEditor() {
   const handleDeleteFromShopOnly = async () => {
     if (!deleteDialog || !deleteDialog.libraryProductId) return;
     await excludeProduct(shop.id, deleteDialog.libraryProductId);
-    // On refresh le shop courant dans le state local
-    const updated = shops.find((s) => s.id === shop.id);
-    if (updated) setShop(updated);
+    const removedId = deleteDialog.libraryProductId;
+    setShop(previous => previous ? { ...previous, excluded_product_ids: Array.from(new Set([...(previous.excluded_product_ids ?? []), removedId])) } : previous);
     setDeleteDialog(null);
   };
 
@@ -318,6 +352,7 @@ export function DashboardShopEditor() {
     setReintegrationFeedback(null);
     try {
       await includeProduct(shop.id, libraryProductId);
+      setShop(previous => previous ? { ...previous, excluded_product_ids: (previous.excluded_product_ids ?? []).filter(value => value !== libraryProductId) } : previous);
       setReintegrationFeedback({
         tone: 'success',
         message: `« ${label} » est de nouveau visible dans la boutique.`,
@@ -337,68 +372,63 @@ export function DashboardShopEditor() {
   // ─── Render ─────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-6 pb-24">
-      {/* Header : retour + voir boutique */}
-      <div className="flex items-center justify-between">
-        <Link
-          to={tp('/dashboard/shops')}
-          className="inline-flex items-center gap-1 text-sm text-ink-muted hover:text-ink"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Retour
-        </Link>
-        <a
-          href={publicUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-1 text-sm text-brand hover:underline"
-        >
-          <ExternalLink className="w-4 h-4" />
-          Voir la boutique publique
-        </a>
-      </div>
-
-      <h2 className="text-xl font-bold text-ink">Éditeur — {shop.name}</h2>
-
+    <div className="space-y-6 pb-6">
+      <header className="sticky top-0 z-20 space-y-3 border-b border-line bg-bg py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Link to={tp('/dashboard/shops')} className="inline-flex min-h-11 items-center gap-2 text-sm text-ink-muted hover:text-ink"><ArrowLeft className="size-4" />Toutes les boutiques</Link>
+          <a href={publicUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-2 text-sm text-brand hover:underline"><ExternalLink className="size-4" />Voir la boutique</a>
+        </div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0"><h1 className="break-words text-2xl font-semibold tracking-tight text-ink">{shop.name}</h1><p className="mt-1 text-sm text-ink-muted">{shop.active ? 'Boutique active' : 'Boutique désactivée'} · {shop.access_mode === 'self_signup' ? 'Inscription libre' : 'Accès sur invitation'}</p></div>
+          <Button onClick={handleSaveShop} disabled={saving || !dirty} className="min-h-11 bg-brand text-brand-ink hover:bg-brand/90">{saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}{saving ? 'Enregistrement…' : 'Enregistrer les modifications'}</Button>
+        </div>
+        <p role="status" className="text-sm text-ink-muted">{dirty ? 'Modifications non enregistrées' : saveOk ? 'Modifications enregistrées.' : 'Les réglages sont enregistrés.'}</p>
+        {saveError && <p role="alert" className="rounded-lg bg-err-bg p-3 text-sm text-err-fg">{saveError}</p>}
+      </header>
+      <fieldset disabled={saving} className="min-w-0">
+      <Tabs value={editorSection} onValueChange={changeSection} className="space-y-4">
+        <TabsList aria-label="Réglages de la boutique" className="grid h-auto w-full grid-cols-2 gap-1 bg-bg sm:grid-cols-4">
+          {[['catalogue', 'Catalogue'], ['clients', 'Accès et clients'], ['informations', 'Informations'], ['apparence', 'Apparence']].map(([value, label]) => <TabsTrigger key={value} value={value!} className="min-h-11 whitespace-normal">{label}</TabsTrigger>)}
+        </TabsList>
       {loadError && (
-        <p className="text-sm text-err-fg rounded-lg border border-err-fg/20 bg-err-bg px-3 py-2">
-          {loadError}
-        </p>
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-err-bg p-3 text-sm text-err-fg"><p>{loadError}</p><Button variant="outline" className="min-h-11" onClick={() => void refreshOperations()}>Réessayer</Button></div>
       )}
 
+      <TabsContent value="informations" forceMount hidden={editorSection !== 'informations'}>
       {/* ── Infos de base ── */}
       <section className="border border-line rounded-xl p-4 bg-paper space-y-3">
-        <h3 className="font-semibold text-ink">Informations</h3>
+        <h2 className="font-semibold text-ink">Informations</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-medium text-ink-2 mb-1">Nom</label>
-            <input
+            <label htmlFor="shop-setting-1" className="block text-xs font-medium text-ink-2 mb-1">Nom</label>
+            <input id="shop-setting-1"
               type="text"
+              required maxLength={120}
               value={shop.name}
               onChange={(e) => setShop({ ...shop, name: e.target.value })}
-              className="w-full px-3 py-2 border border-line-2 rounded-lg"
+              className="w-full min-h-11 px-3 py-2 border border-line-2 rounded-lg bg-paper text-ink"
             />
           </div>
           <div className="md:col-span-2">
-            <label className="block text-xs font-medium text-ink-2 mb-1">Description</label>
-            <textarea
+            <label htmlFor="shop-setting-2" className="block text-xs font-medium text-ink-2 mb-1">Description</label>
+            <textarea id="shop-setting-2"
               value={shop.description}
               onChange={(e) => setShop({ ...shop, description: e.target.value })}
               rows={2}
-              className="w-full px-3 py-2 border border-line-2 rounded-lg"
+              className="w-full min-h-11 px-3 py-2 border border-line-2 rounded-lg bg-paper text-ink"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-ink-2 mb-1">Logo du client</label>
+            <label htmlFor="shop-setting-3" className="block text-xs font-medium text-ink-2 mb-1">Logo du client</label>
             <div className="flex items-center gap-2">
-              <input
+              <input id="shop-setting-3"
                 type="url"
                 value={shop.logo_url}
                 onChange={(e) => setShop({ ...shop, logo_url: e.target.value })}
                 placeholder="https://... ou importer un fichier"
-                className="flex-1 min-w-0 px-3 py-2 border border-line-2 rounded-lg"
+                className="flex-1 min-h-11 min-w-0 px-3 py-2 border border-line-2 rounded-lg bg-paper text-ink"
               />
-              <label className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line-2 bg-paper hover:bg-bg cursor-pointer text-sm text-ink-2">
+              <label className="min-h-11 focus-within:ring-2 focus-within:ring-brand shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line-2 bg-paper hover:bg-bg cursor-pointer text-sm text-ink-2">
                 {uploadingAsset === 'logo' ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
@@ -408,7 +438,7 @@ export function DashboardShopEditor() {
                 <input
                   type="file"
                   accept="image/png,image/jpeg,image/webp"
-                  className="hidden"
+                  className="sr-only"
                   disabled={uploadingAsset !== null}
                   onChange={(e) => {
                     const f = e.target.files?.[0];
@@ -436,51 +466,52 @@ export function DashboardShopEditor() {
             )}
           </div>
           <div>
-            <label className="block text-xs font-medium text-ink-2 mb-1">Email de contact</label>
-            <input
+            <label htmlFor="shop-setting-4" className="block text-xs font-medium text-ink-2 mb-1">Email de contact</label>
+            <input id="shop-setting-4"
               type="email"
               value={shop.contact_email}
               onChange={(e) => setShop({ ...shop, contact_email: e.target.value })}
-              className="w-full px-3 py-2 border border-line-2 rounded-lg"
+              className="w-full min-h-11 px-3 py-2 border border-line-2 rounded-lg bg-paper text-ink"
             />
           </div>
           <div className="md:col-span-2">
-            <label className="block text-xs font-medium text-ink-2 mb-1">Adresse (affichée sur la boutique)</label>
-            <textarea
+            <label htmlFor="shop-setting-5" className="block text-xs font-medium text-ink-2 mb-1">Adresse (affichée sur la boutique)</label>
+            <textarea id="shop-setting-5"
               value={shop.address}
               onChange={(e) => setShop({ ...shop, address: e.target.value })}
               rows={2}
-              className="w-full px-3 py-2 border border-line-2 rounded-lg"
+              className="w-full min-h-11 px-3 py-2 border border-line-2 rounded-lg bg-paper text-ink"
             />
           </div>
         </div>
       </section>
 
+      </TabsContent>
+      <TabsContent value="apparence" forceMount hidden={editorSection !== 'apparence'}>
       {/* ── Bandeau de marque (refonte 2026-07-08) ── */}
       <section className="border border-line rounded-xl p-4 bg-paper space-y-3">
-        <h3 className="font-semibold text-ink">Bandeau de marque</h3>
+        <h2 className="font-semibold text-ink">Bandeau de marque</h2>
         <p className="text-xs text-ink-muted">
-          En-tête co-brandé de la boutique. Le <strong>logo du client</strong> (section Identité
-          ci-dessus) est affiché proprement dans une plaque nette. Le fond utilise la
+          En-tête co-brandé de la boutique. Le <strong>logo du client</strong> (onglet Informations) est affiché proprement dans une plaque nette. Le fond utilise la
           <strong> couleur primaire de marque</strong> par défaut ; ajoutez une image de fond
           seulement si vous en avez une belle (photo panoramique) — le logo n'est jamais étiré.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-medium text-ink-2 mb-1">
-              Image de fond <span className="text-ink-mute-2 font-normal">(optionnelle)</span>
+            <label htmlFor="shop-setting-6" className="block text-xs font-medium text-ink-2 mb-1">
+              Image de fond <span className="text-ink-muted font-normal">(optionnelle)</span>
             </label>
             <div className="flex items-center gap-2">
-              <input
+              <input id="shop-setting-6"
                 type="url"
                 value={shop.hero_image_url ?? ''}
                 onChange={(e) =>
                   setShop({ ...shop, hero_image_url: e.target.value ? e.target.value : null })
                 }
                 placeholder="Vide = dégradé couleur de marque"
-                className="flex-1 min-w-0 px-3 py-2 border border-line-2 rounded-lg"
+                className="flex-1 min-h-11 min-w-0 px-3 py-2 border border-line-2 rounded-lg bg-paper text-ink"
               />
-              <label className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line-2 bg-paper hover:bg-bg cursor-pointer text-sm text-ink-2">
+              <label className="min-h-11 focus-within:ring-2 focus-within:ring-brand shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line-2 bg-paper hover:bg-bg cursor-pointer text-sm text-ink-2">
                 {uploadingAsset === 'hero' ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
@@ -490,7 +521,7 @@ export function DashboardShopEditor() {
                 <input
                   type="file"
                   accept="image/png,image/jpeg,image/webp"
-                  className="hidden"
+                  className="sr-only"
                   disabled={uploadingAsset !== null}
                   onChange={(e) => {
                     const f = e.target.files?.[0];
@@ -506,13 +537,13 @@ export function DashboardShopEditor() {
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-ink-2 mb-1">
+            <label htmlFor="shop-setting-7" className="block text-xs font-medium text-ink-2 mb-1">
               Phrase d'accroche{' '}
-              <span className="text-ink-mute-2 font-normal">
+              <span className="text-ink-muted font-normal">
                 ({(shop.tagline ?? '').length}/120)
               </span>
             </label>
-            <textarea
+            <textarea id="shop-setting-7"
               value={shop.tagline ?? ''}
               onChange={(e) => {
                 const next = e.target.value.slice(0, 120);
@@ -521,7 +552,7 @@ export function DashboardShopEditor() {
               rows={2}
               maxLength={120}
               placeholder="Ex: Vos imprimés professionnels en 48h."
-              className="w-full px-3 py-2 border border-line-2 rounded-lg"
+              className="w-full min-h-11 px-3 py-2 border border-line-2 rounded-lg bg-paper text-ink"
             />
           </div>
         </div>
@@ -572,45 +603,45 @@ export function DashboardShopEditor() {
 
       {/* ── Thème ── */}
       <section className="border border-line rounded-xl p-4 bg-paper space-y-3">
-        <h3 className="font-semibold text-ink">Apparence</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <h2 className="font-semibold text-ink">Apparence</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
           <div>
-            <label className="block text-xs font-medium text-ink-2 mb-1">Couleur primaire</label>
+            <label htmlFor="shop-setting-8" className="block text-xs font-medium text-ink-2 mb-1">Couleur primaire</label>
             <div className="flex items-center gap-2">
-              <input
+              <input id="shop-setting-8"
                 type="color"
                 value={shop.theme.primaryColor}
                 onChange={(e) => setShop({ ...shop, theme: { ...shop.theme, primaryColor: e.target.value } })}
-                className="h-10 w-12 border border-line-2 rounded"
+                className="h-11 w-12 shrink-0 border border-line-2 rounded"
               />
-              <input
+              <input aria-label="Code couleur primaire"
                 type="text"
                 value={shop.theme.primaryColor}
                 onChange={(e) => setShop({ ...shop, theme: { ...shop.theme, primaryColor: e.target.value } })}
-                className="flex-1 px-3 py-2 border border-line-2 rounded-lg font-mono text-sm"
+                className="min-w-0 flex-1 px-3 py-2 border border-line-2 rounded-lg font-mono text-sm"
               />
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-ink-2 mb-1">Couleur d'accent</label>
+            <label htmlFor="shop-setting-9" className="block text-xs font-medium text-ink-2 mb-1">Couleur d'accent</label>
             <div className="flex items-center gap-2">
-              <input
+              <input id="shop-setting-9"
                 type="color"
                 value={shop.theme.accentColor}
                 onChange={(e) => setShop({ ...shop, theme: { ...shop.theme, accentColor: e.target.value } })}
-                className="h-10 w-12 border border-line-2 rounded"
+                className="h-11 w-12 shrink-0 border border-line-2 rounded"
               />
-              <input
+              <input aria-label="Code couleur d’accent"
                 type="text"
                 value={shop.theme.accentColor}
                 onChange={(e) => setShop({ ...shop, theme: { ...shop.theme, accentColor: e.target.value } })}
-                className="flex-1 px-3 py-2 border border-line-2 rounded-lg font-mono text-sm"
+                className="min-w-0 flex-1 px-3 py-2 border border-line-2 rounded-lg font-mono text-sm"
               />
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-ink-2 mb-1">Mode</label>
-            <select
+            <label htmlFor="shop-setting-10" className="block text-xs font-medium text-ink-2 mb-1">Mode</label>
+            <select id="shop-setting-10"
               value={shop.theme.mode}
               onChange={(e) => setShop({ ...shop, theme: { ...shop.theme, mode: e.target.value as 'light' | 'dark' } })}
               className="w-full px-3 py-2 border border-line-2 rounded-lg bg-paper"
@@ -622,64 +653,64 @@ export function DashboardShopEditor() {
         </div>
 
         {/* ── A4.2 — Palette élargie : secondaire / texte / fond ── */}
-        <div className="pt-3 mt-2 border-t border-line grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="pt-3 mt-2 border-t border-line grid grid-cols-1 lg:grid-cols-3 gap-3">
           <div>
-            <label className="block text-xs font-medium text-ink-2 mb-1">Couleur secondaire</label>
+            <label htmlFor="shop-setting-11" className="block text-xs font-medium text-ink-2 mb-1">Couleur secondaire</label>
             <div className="flex items-center gap-2">
-              <input
+              <input id="shop-setting-11"
                 type="color"
                 value={shop.theme.secondaryColor ?? '#6b7280'}
                 onChange={(e) => setShop({ ...shop, theme: { ...shop.theme, secondaryColor: e.target.value } })}
-                className="h-10 w-12 border border-line-2 rounded"
+                className="h-11 w-12 shrink-0 border border-line-2 rounded"
               />
-              <input
+              <input aria-label="Code couleur secondaire"
                 type="text"
                 value={shop.theme.secondaryColor ?? '#6b7280'}
                 onChange={(e) => setShop({ ...shop, theme: { ...shop.theme, secondaryColor: e.target.value } })}
-                className="flex-1 px-3 py-2 border border-line-2 rounded-lg font-mono text-sm"
+                className="min-w-0 flex-1 px-3 py-2 border border-line-2 rounded-lg font-mono text-sm"
               />
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-ink-2 mb-1">Couleur du texte</label>
+            <label htmlFor="shop-setting-12" className="block text-xs font-medium text-ink-2 mb-1">Couleur du texte</label>
             <div className="flex items-center gap-2">
-              <input
+              <input id="shop-setting-12"
                 type="color"
                 value={shop.theme.textColor ?? '#0f172a'}
                 onChange={(e) => setShop({ ...shop, theme: { ...shop.theme, textColor: e.target.value } })}
-                className="h-10 w-12 border border-line-2 rounded"
+                className="h-11 w-12 shrink-0 border border-line-2 rounded"
               />
-              <input
+              <input aria-label="Code couleur du texte"
                 type="text"
                 value={shop.theme.textColor ?? '#0f172a'}
                 onChange={(e) => setShop({ ...shop, theme: { ...shop.theme, textColor: e.target.value } })}
-                className="flex-1 px-3 py-2 border border-line-2 rounded-lg font-mono text-sm"
+                className="min-w-0 flex-1 px-3 py-2 border border-line-2 rounded-lg font-mono text-sm"
               />
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-ink-2 mb-1">Couleur de fond</label>
+            <label htmlFor="shop-setting-13" className="block text-xs font-medium text-ink-2 mb-1">Couleur de fond</label>
             <div className="flex items-center gap-2">
-              <input
+              <input id="shop-setting-13"
                 type="color"
                 value={shop.theme.bgColor ?? '#ffffff'}
                 onChange={(e) => setShop({ ...shop, theme: { ...shop.theme, bgColor: e.target.value } })}
-                className="h-10 w-12 border border-line-2 rounded"
+                className="h-11 w-12 shrink-0 border border-line-2 rounded"
               />
-              <input
+              <input aria-label="Code couleur du fond"
                 type="text"
                 value={shop.theme.bgColor ?? '#ffffff'}
                 onChange={(e) => setShop({ ...shop, theme: { ...shop.theme, bgColor: e.target.value } })}
-                className="flex-1 px-3 py-2 border border-line-2 rounded-lg font-mono text-sm"
+                className="min-w-0 flex-1 px-3 py-2 border border-line-2 rounded-lg font-mono text-sm"
               />
             </div>
           </div>
         </div>
 
-        {/* ── A4.2 — Pairing de fonts curated ── */}
+        {/* ── A4.2 — Association de polices curated ── */}
         <div className="pt-3 mt-2 border-t border-line">
-          <label className="block text-xs font-medium text-ink-2 mb-1">Pairing de fonts</label>
-          <select
+          <label htmlFor="shop-setting-14" className="block text-xs font-medium text-ink-2 mb-1">Association de polices</label>
+          <select id="shop-setting-14"
             value={shop.theme.fontPairing ?? 'system'}
             onChange={(e) => setShop({ ...shop, theme: { ...shop.theme, fontPairing: e.target.value } })}
             className="w-full px-3 py-2 border border-line-2 rounded-lg bg-paper"
@@ -694,8 +725,11 @@ export function DashboardShopEditor() {
         </div>
       </section>
 
+      </TabsContent>
+      <TabsContent value="clients" forceMount hidden={editorSection !== 'clients'}>
       {/* ── Activation + bouton biblio sous le toggle ── */}
       <section className="border border-line rounded-xl p-4 bg-paper space-y-3">
+        <h2 className="font-semibold text-ink">Publication et accès</h2>
         <label className="flex items-center gap-3">
           <input
             type="checkbox"
@@ -705,14 +739,14 @@ export function DashboardShopEditor() {
           />
           <div>
             <p className="text-sm font-medium text-ink">Boutique active</p>
-            <p className="text-xs text-ink-muted">Accessible publiquement via l'URL. Une boutique désactivée reste conservée et peut être réactivée à tout moment.</p>
+            <p className="text-xs text-ink-muted">Accessible selon le mode d’accès choisi. Une boutique désactivée reste conservée et peut être réactivée.</p>
           </div>
         </label>
 
         {/* S7.11 (ADR 4.20) — Mode d'accès acheteurs */}
         <label className="block">
           <p className="text-sm font-medium text-ink mb-1">
-            Accès des acheteurs <span className="font-normal text-ink-muted">(mode transitoire)</span>
+            Accès des acheteurs
           </p>
           <select
             data-testid={TEST_IDS.shop.accessModeSelect}
@@ -720,17 +754,16 @@ export function DashboardShopEditor() {
             onChange={(e) =>
               setShop({ ...shop, access_mode: e.target.value as 'invite_only' | 'self_signup' })
             }
-            className="w-full max-w-sm border border-line-2 rounded-md px-3 py-2 text-sm"
+            className="min-h-11 w-full max-w-sm border border-line-2 rounded-md px-3 py-2 text-sm"
           >
             <option value="invite_only">Sur invitation uniquement (défaut)</option>
             <option value="self_signup">Inscription libre au moment de commander</option>
           </select>
           <p className="text-xs text-ink-muted mt-1">
-            En inscription libre, un visiteur peut créer son compte acheteur au
-            checkout — accès limité à cette seule boutique. La boutique devient
-            aussi indexable par les moteurs de recherche. Ce parcours utilise
-            encore l’ancien modèle ; sa migration vers les comptes boutique
-            ci-dessous sera livrée avec l’authentification storefront UM2.
+            Sur invitation, seuls les clients invités peuvent accéder à la boutique.
+            En inscription libre, un visiteur peut consulter les produits et créer
+            son compte au moment de commander. La boutique peut alors être indexée
+            par les moteurs de recherche.
           </p>
         </label>
 
@@ -749,6 +782,8 @@ export function DashboardShopEditor() {
         <ShopCustomerAccountsSection tenantId={currentTenant.id} shopId={shop.id} />
       )}
 
+      </TabsContent>
+      <TabsContent value="catalogue" forceMount hidden={editorSection !== 'catalogue'}>
       {/* ══ REFONTE-UX (2026-08-08, point 6) — CATALOGUE DE LA BOUTIQUE ══
           Section unique du domaine produit, a onglets :
             Sources  = d ou viennent les produits (PIM / bibliotheques)
@@ -756,13 +791,14 @@ export function DashboardShopEditor() {
                        exclusions, exports)
             Visuels  = mockups custom par boutique (P4-VISUELS, PRD E8.3)
           Remplace les 3 sections empilees redondantes. */}
+      <Tabs value={catalogTab} onValueChange={value => setCatalogTab(value as typeof catalogTab)}>
       <section className="border border-line rounded-xl bg-paper overflow-hidden">
         <div className="px-4 pt-4">
-          <h3 className="font-medium text-ink flex items-center gap-2">
+          <h2 className="font-medium text-ink flex items-center gap-2">
             <LibraryIcon className="w-5 h-5" strokeWidth={1.5} />
             Catalogue de la boutique
-          </h3>
-          <div className="flex gap-1 border-b border-line mt-3">
+          </h2>
+          <TabsList aria-label="Catalogue de la boutique" className="mt-3 grid h-auto w-full grid-cols-3 bg-bg">
             {(
               [
                 ['sources', 'Sources'],
@@ -770,23 +806,12 @@ export function DashboardShopEditor() {
                 ['visuals', 'Visuels'],
               ] as const
             ).map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setCatalogTab(key)}
-                className={`px-4 py-2 text-sm rounded-t-lg border-b-2 -mb-px transition-colors ${
-                  catalogTab === key
-                    ? 'border-brand text-ink font-medium'
-                    : 'border-transparent text-ink-muted hover:text-ink'
-                }`}
-              >
-                {label}
-              </button>
+              <TabsTrigger key={key} value={key} className="min-h-11 whitespace-normal">{label}</TabsTrigger>
             ))}
-          </div>
+          </TabsList>
         </div>
 
-        {catalogTab === 'sources' && (
+        <TabsContent value="sources">
         <div className="p-4">
         <p className="text-sm text-ink-2 mb-3">
           Cochez une ou plusieurs bibliothèques. <strong>Tous leurs produits</strong> apparaissent
@@ -801,19 +826,19 @@ export function DashboardShopEditor() {
           return (
             <div
               className={`mb-3 rounded-lg border-2 ${
-                pimOn ? 'border-indigo-400 bg-indigo-50' : 'border-indigo-200 bg-paper'
+                pimOn ? 'border-brand bg-brand-soft' : 'border-line-2 bg-paper'
               }`}
             >
-              <div className="flex items-center gap-2 p-2">
+              <div className="flex flex-wrap items-center gap-2 p-3">
                 <input
-                  type="radio"
+                  type="checkbox"
+                  aria-label="Utiliser le catalogue PIM"
                   data-testid={TEST_IDS.shopEditor.pimToggle}
                   checked={pimOn}
-                  onClick={togglePimMode}
-                  readOnly
-                  className="w-4 h-4 cursor-pointer accent-indigo-600"
+                  onChange={togglePimMode}
+                  className="w-4 h-4 cursor-pointer accent-brand"
                 />
-                <span className="text-sm font-semibold text-ink flex-1">
+                <span className="text-sm font-medium text-ink flex-1 min-w-0">
                   PIM — Catalogue complet
                   <span className="ml-2 text-xs font-normal text-ink-muted">
                     verse tout votre catalogue, filtrable par catégorie
@@ -823,18 +848,18 @@ export function DashboardShopEditor() {
                   type="button"
                   data-testid={TEST_IDS.shopEditor.pimExpandBtn}
                   onClick={() => setPimExpanded((v) => !v)}
-                  className="text-xs text-indigo-700 hover:underline whitespace-nowrap"
+                  className="min-h-11 w-full sm:w-auto text-xs text-ink hover:underline"
                 >
                   {pimExpanded ? 'Replier' : 'Déplier les catégories'}
                 </button>
               </div>
               {pimExpanded && (
-                <div className="border-t border-indigo-200 p-2">
+                <div className="border-t border-line-2 p-2">
                   {gammes.length === 0 ? (
                     <p className="text-xs text-ink-muted italic">Chargement des catégories du PIM…</p>
                   ) : (
                     <>
-                      <div className="flex items-center justify-between pb-1 mb-1 border-b border-indigo-100">
+                      <div className="flex items-center justify-between pb-1 mb-1 border-b border-line">
                         <span className="text-xs font-medium text-ink-muted">
                           Catégories du PIM ({allPimGammeSlugs.length})
                         </span>
@@ -843,7 +868,7 @@ export function DashboardShopEditor() {
                           data-testid={TEST_IDS.shopEditor.pimSelectAllBtn}
                           onClick={toggleAllPimGammes}
                           disabled={!pimOn}
-                          className="text-xs text-indigo-700 hover:underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
+                          className="text-xs text-ink hover:underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
                         >
                           {allPimGammeSlugs.length > 0 && allPimGammeSlugs.every((s) => selected.has(s))
                             ? 'Tout désélectionner'
@@ -871,7 +896,7 @@ export function DashboardShopEditor() {
                               />
                               <span className="text-sm text-ink flex-1">{g.name}</span>
                               <span
-                                className={`text-xs ${count > 0 ? 'text-ink-muted' : 'text-ink-mute-2'}`}
+                                className={`text-xs ${count > 0 ? 'text-ink-muted' : 'text-ink-muted'}`}
                                 title="Produits de votre catalogue dans cette catégorie"
                               >
                                 {count} produit{count > 1 ? 's' : ''}
@@ -935,10 +960,10 @@ export function DashboardShopEditor() {
           N'oubliez pas d'<strong>Enregistrer</strong> en bas de page après modification.
         </p>
         </div>
-        )}
+        </TabsContent>
 
         {/* ── Onglet Produits : vue agregee + exclusions + export ── */}
-        {catalogTab === 'products' && (
+        <TabsContent value="products">
         <div className="p-4">
         {pricingError && (
           <p className="mb-3 text-xs text-err-fg rounded-lg border border-err-fg/20 bg-err-bg px-3 py-2">
@@ -954,7 +979,7 @@ export function DashboardShopEditor() {
             {displayProducts.map((p) => (
               <div
                 key={p.id}
-                className="flex items-center gap-3 p-2 border border-line rounded-lg"
+                className="grid grid-cols-[48px_minmax(0,1fr)_44px] items-start gap-3 p-2 border border-line rounded-lg lg:flex lg:items-center"
               >
                 {p.image_url ? (
                   <img src={p.image_url} alt={p.name} className="w-12 h-12 object-cover rounded" />
@@ -962,22 +987,22 @@ export function DashboardShopEditor() {
                   <div className="w-12 h-12 bg-bg rounded" />
                 )}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-ink truncate">{p.name}</p>
+                  <p className="text-sm font-medium text-ink break-words lg:truncate">{p.name}</p>
                   <p className="text-xs text-ink-muted">
                     {p.source === 'library' ? (
-                      <>biblio · {p.category} · {p.price_ht.toFixed(2)} € HT</>
+                      <>Bibliothèque · {p.category} · {p.fixedUnit ? 'Coût ' : ''}{p.price_ht.toFixed(2)} € HT{p.fixedUnit ? ' / unité' : ''}</>
                     ) : (
-                      <>legacy · {p.category} · {p.price_ht.toFixed(2)} € HT</>
+                      <>Catalogue existant · {p.category} · {p.price_ht.toFixed(2)} € HT</>
                     )}
                   </p>
                 </div>
                 {/* A4.5 — Prix négocié inline (uniquement pour sources library) */}
                 {p.source === 'library' && p.libraryProductId && (
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <label className="text-[11px] text-ink-muted hidden md:block">
+                  <div className="col-start-2 col-span-2 row-start-2 flex flex-wrap items-center gap-1.5 shrink-0">
+                    <label htmlFor={`shop-price-${p.id}`} className="text-xs text-ink-muted">
                       Prix négocié
                     </label>
-                    <input
+                    <input id={`shop-price-${p.id}`} aria-label={`Prix de vente négocié HT de ${p.name}`}
                       type="number"
                       inputMode="decimal"
                       min={0}
@@ -1017,8 +1042,8 @@ export function DashboardShopEditor() {
                 )}
                 <button
                   onClick={() => handleRequestDelete(p)}
-                  className="p-2 text-ink-mute-2 hover:text-err-fg hover:bg-err-bg rounded"
-                  title="Retirer de la boutique"
+                  className="col-start-3 row-start-1 min-h-11 min-w-11 p-2 text-ink-muted hover:text-err-fg hover:bg-err-bg rounded"
+                  aria-label={`Retirer ${p.name} de la boutique`}
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -1136,10 +1161,10 @@ export function DashboardShopEditor() {
           </div>
         </div>
         </div>
-        )}
+        </TabsContent>
 
         {/* ── Onglet Visuels : mockups custom per-shop (P4-VISUELS, PRD E8.3) ── */}
-        {catalogTab === 'visuals' && (
+        <TabsContent value="visuals">
         <div className="p-4">
           {shop && currentTenant && (
             <ReactSuspense fallback={null}>
@@ -1147,46 +1172,34 @@ export function DashboardShopEditor() {
             </ReactSuspense>
           )}
         </div>
-        )}
+        </TabsContent>
       </section>
+      </Tabs>
 
-      {/* ── Bouton Enregistrer : sticky en bas a droite ── */}
-      <div className="fixed bottom-6 right-6 z-30 flex flex-col items-end gap-2">
-        {saveError && (
-          <p className="text-sm text-err-fg bg-err-bg border border-err-fg/30 px-3 py-2 rounded shadow-sm max-w-xs">
-            {saveError}
-          </p>
-        )}
-        {saveOk && (
-          <p className="text-sm text-ok-fg bg-ok-bg border border-ok-line px-3 py-1.5 rounded shadow-sm flex items-center gap-2">
-            <Check className="w-4 h-4" /> Sauvegardé
-          </p>
-        )}
-        <button
-          onClick={handleSaveShop}
-          disabled={saving}
-          className="px-5 py-3 bg-brand text-white rounded-xl hover:bg-brand/90 disabled:opacity-50 font-medium flex items-center gap-2 shadow-lg"
-        >
-          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          Enregistrer les modifications
-        </button>
-      </div>
+      </TabsContent>
+      </Tabs>
+      </fieldset>
+      <AlertDialog open={blocker.state === 'blocked'} onOpenChange={open => { if (!open && blocker.state === 'blocked') blocker.reset(); }}>
+        <AlertDialogContent className="bg-paper text-ink">
+          <AlertDialogTitle>Quitter sans enregistrer ?</AlertDialogTitle>
+          <AlertDialogDescription>Les modifications des réglages de cette boutique ne sont pas enregistrées. Restez ici pour les enregistrer ou quittez en les abandonnant.</AlertDialogDescription>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><AlertDialogCancel className="min-h-11">Rester sur la boutique</AlertDialogCancel><Button variant="outline" className="min-h-11" onClick={() => { if (blocker.state === 'blocked') blocker.proceed(); }}>Quitter sans enregistrer</Button></div>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* ── Dialog : que faire quand on retire un produit lib ── */}
       {deleteDialog && (
-        <div className="fixed inset-0 bg-black/50 z-50 grid place-items-center p-4">
-          <div className="bg-paper rounded-xl max-w-md w-full p-5 space-y-4 shadow-xl">
+        <Dialog open onOpenChange={open => { if (!open) setDeleteDialog(null); }}>
+          <DialogContent className="bg-paper text-ink">
             <div className="flex items-start gap-3">
-              <AlertTriangle className="w-6 h-6 text-amber-500 shrink-0" />
+              <AlertTriangle className="w-6 h-6 text-warn-fg shrink-0" />
               <div>
-                <h4 className="font-semibold text-ink mb-1">
-                  Retirer "{deleteDialog.name}"
-                </h4>
-                <p className="text-sm text-ink-muted">
+                <DialogTitle>Retirer « {deleteDialog.name} »</DialogTitle>
+                <DialogDescription>
                   Ce produit appartient à une bibliothèque associée à la boutique.
                   Voulez-vous aussi le retirer de la bibliothèque, ou seulement de cette
                   boutique ?
-                </p>
+                </DialogDescription>
               </div>
             </div>
             <div className="flex flex-col gap-2">
@@ -1200,7 +1213,7 @@ export function DashboardShopEditor() {
               </button>
               <button
                 onClick={handleDeleteFromBoth}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-err-fg text-paper rounded-lg hover:bg-err-fg/90 text-sm font-medium"
               >
                 <Trash2 className="w-4 h-4" />
                 De la boutique ET de la bibliothèque
@@ -1212,8 +1225,8 @@ export function DashboardShopEditor() {
                 Annuler
               </button>
             </div>
-          </div>
-        </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

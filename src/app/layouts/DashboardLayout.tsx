@@ -1,6 +1,10 @@
+import { useState } from 'react';
+import { Button } from '@/shared/ui/button';
+import { Sheet, SheetContent, SheetTitle, SheetDescription, SheetTrigger } from '@/shared/ui/sheet';
+import { useIsMobile } from '@/shared/ui/use-mobile';
 import { Navigate, NavLink, Outlet, useLocation } from 'react-router';
 import {
-  User, Settings, MessageSquare, FileText, ShoppingBag, Users,
+  Menu, User, Settings, MessageSquare, FileText, ShoppingBag, Users,
   CreditCard, Package, Store, Shield, LayoutTemplate, Building, Layers, Workflow,
   FileClock, BadgePercent, Percent, Factory, Image as ImageIcon, FolderKanban, Bell, type LucideIcon,
 } from 'lucide-react';
@@ -112,6 +116,8 @@ function isNavigationVisible(id: string, visibility: WorkspaceVisibility): boole
 // Design source : .design-handoff/designs/04 - Admin dashboard.html
 // Layout : Linear-dense — sidebar 220px + main, typo Helvetica Neue 300/400/500.
 export function DashboardLayout() {
+  const isMobile = useIsMobile();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const { user, loading } = useAuth();
   const { plan, canUse } = usePlan();
   const isAdmin = useIsAdmin();
@@ -153,7 +159,9 @@ export function DashboardLayout() {
   const activeLabel = GROUPS
     .flatMap((g) => g.items)
     .find((i) => i.to === location.pathname)?.label
-    ?? segs.slice(1).map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(' / ')
+    ?? (location.pathname.startsWith(`${basePath}/shops/`)
+      ? 'Boutiques / Réglages'
+      : segs.slice(1).map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(' / '))
     ?? 'Atelier';
 
   const displayName =
@@ -161,25 +169,7 @@ export function DashboardLayout() {
     user.email?.split('@')[0] ||
     'Utilisateur';
 
-  return (
-    <div
-      className="min-h-[calc(100vh-56px)] bg-bg text-ink grid"
-      style={{
-        fontFamily: 'var(--font-ui)',
-        fontWeight: 300,
-        gridTemplateColumns: '220px 1fr',
-      }}
-    >
-      {/* ── SIDEBAR 220px ──────────────────────────────────────────────── */}
-      <aside
-        data-testid={TEST_IDS.nav.sidebar}
-        // CORRECTIF 2026-08-08 (retour Arnaud : « le menu parc machine a
-        // disparu ») — la fusion Atelier → Gestion commerciale a allonge le
-        // premier groupe et les groupes du bas (Production, Parametres)
-        // passaient sous le pli sans possibilite de defiler. La colonne est
-        // desormais epinglee et defile independamment du contenu.
-        className="border-r border-line bg-bg flex flex-col sticky top-[56px] h-[calc(100vh-56px)] overflow-y-auto px-2.5 py-3"
-      >
+  const sidebar = <>
         {/* Brand header */}
         <div className="flex items-center gap-2 px-2.5 py-2 mb-2">
           <MagritLogo size={22} radius={6} />
@@ -190,7 +180,7 @@ export function DashboardLayout() {
             Magrit
           </span>
           <span
-            className="ml-auto font-mono text-ink-mute-2 px-1.5 py-0.5 rounded bg-paper border border-line"
+            className="ml-auto font-mono text-ink-muted px-1.5 py-0.5 rounded bg-paper border border-line"
             style={{ fontSize: '10.5px', fontWeight: 500, letterSpacing: '0.04em' }}
             title={`Plan ${PLAN_LABEL[plan]}`}
           >
@@ -203,7 +193,7 @@ export function DashboardLayout() {
           <div key={group.title} className={gi > 0 ? 'mt-4' : ''}>
             <div
               data-testid={group.testId}
-              className="font-mono uppercase text-ink-mute-2 px-2.5 py-1.5"
+              className="font-mono uppercase text-ink-muted px-2.5 py-1.5"
               style={{
                 fontSize: '10.5px',
                 letterSpacing: '0.08em',
@@ -219,8 +209,9 @@ export function DashboardLayout() {
                   data-testid={item.testId}
                   to={item.to}
                   end={item.end}
+                  onClick={() => setMobileNavOpen(false)}
                   className={({ isActive }) =>
-                    `flex items-center gap-2.5 py-1.5 rounded-md transition-colors ${
+                    `flex min-h-11 md:min-h-0 items-center gap-2.5 py-1.5 rounded-md transition-colors ${
                       item.sub ? 'pl-7 pr-2.5' : 'px-2.5'
                     } ${
                       isActive
@@ -254,21 +245,42 @@ export function DashboardLayout() {
               {displayName}
             </p>
             <p
-              className="truncate text-ink-mute-2 font-mono"
+              className="truncate text-ink-muted font-mono"
               style={{ fontSize: '10.5px', letterSpacing: '0.02em' }}
             >
               {user.email}
             </p>
           </div>
         </div>
-      </aside>
+  </>;
+
+  return (
+    <Sheet open={isMobile && mobileNavOpen} onOpenChange={setMobileNavOpen}>
+    <div
+      className="min-h-[calc(100vh-56px)] bg-bg text-ink grid grid-cols-1 md:grid-cols-[220px_minmax(0,1fr)]"
+      style={{
+        fontFamily: 'var(--font-ui)',
+        fontWeight: 300,
+      }}
+    >
+      {isMobile ? (
+        <SheetContent side="left" className="w-full max-w-sm overflow-y-auto bg-bg px-3 py-4 text-ink">
+          <SheetTitle className="sr-only">Navigation du back-office</SheetTitle>
+          <SheetDescription className="sr-only">Choisissez une rubrique de votre espace.</SheetDescription>
+          <div data-testid={TEST_IDS.nav.sidebar} className="flex min-h-full flex-col">{sidebar}</div>
+        </SheetContent>
+      ) : (
+        <aside data-testid={TEST_IDS.nav.sidebar} className="sticky top-[56px] flex h-[calc(100vh-56px)] flex-col overflow-y-auto border-r border-line bg-bg px-2.5 py-3">{sidebar}</aside>
+      )}
+
 
       {/* ── MAIN ─────────────────────────────────────────────────────────── */}
       <main className="flex flex-col bg-paper min-w-0">
         {/* Topbar discret : breadcrumb mono */}
-        <div className="flex items-center gap-3 px-7 py-3 border-b border-line">
+        <div className="flex min-w-0 items-center gap-3 px-4 py-3 sm:px-7 border-b border-line">
+          {isMobile && <SheetTrigger asChild><Button variant="outline" size="icon" className="min-h-11 min-w-11" aria-label="Ouvrir le menu du back-office"><Menu /></Button></SheetTrigger>}
           <span
-            className="font-mono text-ink-mute-2"
+            className="min-w-0 break-words font-mono text-ink-muted"
             style={{ fontSize: '11px', fontWeight: 400, letterSpacing: '0.04em' }}
           >
             Magrit / <span className="text-ink" style={{ fontWeight: 500 }}>{activeLabel}</span>
@@ -277,10 +289,11 @@ export function DashboardLayout() {
 
         {/* Content panel — padding par defaut pour pages existantes.
             Les pages peuvent override avec leur propre layout si besoin. */}
-        <div className="flex-1 min-w-0 px-7 py-6">
+        <div className="flex-1 min-w-0 px-4 py-6 sm:px-7">
           <Outlet />
         </div>
       </main>
     </div>
+    </Sheet>
   );
 }

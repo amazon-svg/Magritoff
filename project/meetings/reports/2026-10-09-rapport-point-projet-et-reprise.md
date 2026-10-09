@@ -191,3 +191,20 @@ concurrentes. L'entrée du module commercial est retirée de la navigation ;
 « Règles de prix » reste visible. Les données et la route historique ne sont
 pas supprimées. Aucun changement API ni dérogation R5. Vérification : 23 tests
 du registre des contributions réussis et typage modulaire valide.
+
+## UX du back-office boutiques
+
+Demande de Xavier : mise en cohérence rapide avec `docs/UX_GUIDELINES.md`.
+Livraison E4.UX-BACKOFFICE sur `codex/ux-backoffice-boutiques`, dans le dossier
+habituel, sans copie Git séparée et sans nouveau serveur de développement.
+Liste avec états/actions explicites, modales accessibles, quatre onglets dans
+l’éditeur, protection des saisies et messages persistants. Menu mobile du
+back-office, palette responsive et labels de champs corrigés.
+
+Quatre tests Chromium réussis, à 375/768/1280 px, avec API simulée et scans axe
+sur les panneaux ciblés. Régression : 3 143 tests réussis, 175 ignorés ; typage
+modulaire et build réussis. Aucun changement de contrat API, migration ou droits,
+aucune dérogation R5. Pagination serveur historique hors périmètre ; aucune
+conformité globale revendiquée. Recette dans `docs/testing/backoffice-shops-ux.md`,
+preuve dans `_bmad-output/implementation-artifacts/story-E4.UX-BACKOFFICE.md`.
+Aucun push ni fusion ; spécification en brouillon et revue humaine à réaliser.

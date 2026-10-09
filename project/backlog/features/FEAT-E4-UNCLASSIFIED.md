@@ -16,6 +16,7 @@ stories:
   - E4.3
   - E4.4
   - E4.FIXED-PRICE
+  - E4.UX-BACKOFFICE
   - E4.WM1
   - E4.WM2
   - E4.fix-TF54
@@ -61,6 +62,8 @@ Ce fichier a vocation à disparaître. La revue produit doit répartir ses stori
 - [E_ROOT.fix-PublicShop-hooks](../stories/E_ROOT.fix-PublicShop-hooks.md)
 
 - [E4.FIXED-PRICE](../stories/E4.FIXED-PRICE.md) — création et vente de produits à coût unitaire fixe, demande du 9 octobre 2026
+
+- [E4.UX-BACKOFFICE](../stories/E4.UX-BACKOFFICE.md) — alignement UX du back-office boutiques
 
 ## Questions ouvertes
 

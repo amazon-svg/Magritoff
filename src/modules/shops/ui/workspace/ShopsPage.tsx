@@ -1,206 +1,139 @@
-import { useState } from 'react';
+import { useState, useRef, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Plus, Store, Trash2, Copy, ExternalLink, X, Loader2 } from 'lucide-react';
-import { useShops, NewShopInput } from '@/modules/shops/ui/runtime/ShopsContext';
+import { Plus, Store, Trash2, Copy, ExternalLink, Loader2, Settings2 } from 'lucide-react';
+import { useShops, type NewShopInput, type Shop } from '@/modules/shops/ui/runtime/ShopsContext';
 import { usePlan } from '@/modules/plans/ui/hooks';
 import { useTenantPath } from '@/modules/tenants/ui/hooks';
 import { UpgradeCTA } from '@/modules/plans/ui/components';
+import { Button } from '@/shared/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/shared/ui/dialog';
+import { AlertDialog, AlertDialogContent, AlertDialogTitle, AlertDialogDescription, AlertDialogCancel } from '@/shared/ui/alert-dialog';
+
+const field = 'w-full min-h-11 rounded-lg border border-line-2 bg-paper px-3 py-2 text-sm text-ink';
+const primary = 'min-h-11 bg-brand text-brand-ink hover:bg-brand/90';
 
 export function DashboardShops() {
   const navigate = useNavigate();
   const { canUse } = usePlan();
   const tp = useTenantPath();
-  const { shops, loading, createShop, deleteShop } = useShops();
+  const { shops, loading, error: loadError, refresh, createShop, deleteShop } = useShops();
+  const createTrigger = useRef<HTMLButtonElement>(null);
+  const deleteTrigger = useRef<HTMLButtonElement | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [draft, setDraft] = useState<NewShopInput>({ name: '', description: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<Shop | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [copyError, setCopyError] = useState<string | null>(null);
 
-  if (!canUse('shops')) {
-    return <UpgradeCTA feature="Boutiques en ligne" />;
-  }
-
+  if (!canUse('shops')) return <UpgradeCTA feature="Boutiques en ligne" />;
   const publicUrl = (slug: string) => `${window.location.origin}/shop/${slug}`;
-
-  const removeShop = async (shop: { id: string; name: string }) => {
-    const confirmed = confirm(
-      `Supprimer définitivement la boutique « ${shop.name} » ?\n\n` +
-      'Ses produits, réglages, comptes clients et commandes non validées seront supprimés. ' +
-      'Les commandes déjà validées seront conservées pour l’historique. Cette action est irréversible.',
-    );
-    if (!confirmed) return;
+  const removeShop = async () => {
+    if (!deleting || deleteBusy) return;
+    setDeleteBusy(true); setDeleteError(null);
     try {
-      await deleteShop(shop.id);
+      await deleteShop(deleting.id);
+      setNotice(`La boutique « ${deleting.name} » a été supprimée.`);
+      setDeleting(null);
     } catch (cause) {
-      alert(cause instanceof Error ? cause.message : 'Suppression de la boutique impossible.');
-    }
+      setDeleteError(cause instanceof Error ? cause.message : 'Suppression impossible. Réessayez.');
+    } finally { setDeleteBusy(false); }
   };
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    setError(null);
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (saving) return;
+    setSaving(true); setError(null);
     try {
-      const shop = await createShop(draft);
-      setSaving(false);
-      if (shop) {
-        setModalOpen(false);
-        setDraft({ name: '', description: '' });
-        navigate(tp(`/dashboard/shops/${shop.id}`));
-      }
-    } catch (err: any) {
-      setSaving(false);
-      setError(err?.message || 'Erreur lors de la création de la boutique. As-tu bien appliqué la migration SQL shop_module ?');
+      const shop = await createShop({ ...draft, name: draft.name.trim() });
+      if (!shop) throw new Error('Création impossible. Vérifiez votre connexion et réessayez.');
+      setModalOpen(false); setDraft({ name: '', description: '' });
+      navigate(tp(`/dashboard/shops/${shop.id}`));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Création impossible. Réessayez.');
+    } finally { setSaving(false); }
+  };
+  const copyLink = async (shop: Shop) => {
+    setCopyError(null);
+    try {
+      await navigator.clipboard.writeText(publicUrl(shop.slug));
+      setNotice(`Le lien de « ${shop.name} » a été copié.`);
+    } catch {
+      setCopyError('Le lien n’a pas pu être copié. Sélectionnez l’adresse affichée pour la copier.');
     }
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-ink mb-1">Mes boutiques</h2>
-          <p className="text-sm text-ink-muted">{shops.length} boutique(s).</p>
+    <div className="space-y-6">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight text-ink">Boutiques</h1>
+          <p className="mt-1 text-sm text-ink-muted">Gérez les produits, les accès clients et l’apparence de vos boutiques.</p>
         </div>
-        <button
-          onClick={() => setModalOpen(true)}
-          className="flex items-center gap-2 px-3 py-2 bg-brand text-white rounded-lg hover:bg-brand/90 text-sm font-medium"
-        >
-          <Plus className="w-4 h-4" />
-          Créer une boutique
-        </button>
-      </div>
-
-      {loading ? (
-        <p className="text-sm text-ink-muted">Chargement...</p>
-      ) : shops.length === 0 ? (
-        <div className="text-center py-12 text-ink-mute-2">
-          <Store className="w-12 h-12 mx-auto mb-2 opacity-50" />
-          <p className="text-sm">Aucune boutique. Créez-en une pour démarrer.</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {shops.map((shop) => {
-            const url = publicUrl(shop.slug);
-            return (
-              <div key={shop.id} className="border border-line rounded-xl bg-paper p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Link
-                        to={tp(`/dashboard/shops/${shop.id}`)}
-                        className="font-semibold text-ink hover:underline"
-                      >
-                        {shop.name}
-                      </Link>
-                      {!shop.active && (
-                        <span className="text-xs bg-bg text-ink-muted px-2 py-0.5 rounded-full">
-                          Désactivée
-                        </span>
-                      )}
-                    </div>
-                    {shop.description && (
-                      <p className="text-sm text-ink-muted mb-2">{shop.description}</p>
-                    )}
-                    <div className="flex items-center gap-2 mt-2">
-                      <code className="text-xs bg-bg text-ink-2 px-2 py-1 rounded flex-1 truncate">
-                        {url}
-                      </code>
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(url);
-                          alert('URL copiée');
-                        }}
-                        className="p-1.5 text-ink-muted hover:text-ink hover:bg-bg rounded"
-                        title="Copier l'URL"
-                      >
-                        <Copy className="w-4 h-4" />
-                      </button>
-                      <a
-                        href={url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="p-1.5 text-ink-muted hover:text-ink hover:bg-bg rounded"
-                        title="Ouvrir"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                      </a>
-                    </div>
+        <Button ref={createTrigger} className={primary} onClick={() => { setError(null); setModalOpen(true); }}><Plus />Créer une boutique</Button>
+      </header>
+      {notice && <p role="status" className="rounded-lg border border-ok-line bg-ok-bg px-4 py-3 text-sm text-ok-fg">{notice}</p>}
+      {copyError && <p role="alert" className="rounded-lg bg-err-bg px-4 py-3 text-sm text-err-fg">{copyError}</p>}
+      {loadError && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-err-bg p-4 text-sm text-err-fg">
+        <p>{loadError}</p><Button variant="outline" className="min-h-11" disabled={loading} onClick={() => void refresh()}>Réessayer</Button>
+      </div>}
+      {loading && <p role="status" className="flex items-center gap-2 text-sm text-ink-muted"><Loader2 className="size-4 animate-spin" />Chargement des boutiques…</p>}
+      {!loading && !loadError && shops.length === 0 ? (
+        <section className="rounded-xl border border-line bg-paper px-6 py-12 text-center">
+          <Store aria-hidden="true" className="mx-auto mb-4 size-10 text-ink-muted" />
+          <h2 className="text-lg font-medium text-ink">Votre première boutique</h2>
+          <p className="mx-auto mt-2 max-w-md text-sm text-ink-muted">Créez une boutique, associez vos produits et choisissez comment vos clients y accèdent.</p>
+          <p className="mt-3 text-sm text-ink-muted">Utilisez « Créer une boutique » pour commencer.</p>
+        </section>
+      ) : shops.length > 0 && (
+        <section aria-label="Liste des boutiques" className="space-y-3">
+          <p className="text-sm text-ink-muted">{shops.length} boutique{shops.length > 1 ? 's' : ''}</p>
+          {shops.map(shop => (
+            <article key={shop.id} className="rounded-xl border border-line bg-paper p-4 sm:p-5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="min-w-0 break-words text-lg font-medium text-ink"><Link className="hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand" to={tp(`/dashboard/shops/${shop.id}`)}>{shop.name}</Link></h2>
+                    <span className={`rounded-full px-2 py-1 text-xs ${shop.active ? 'bg-ok-bg text-ok-fg' : 'bg-bg text-ink-muted'}`}>{shop.active ? 'Active' : 'Désactivée'}</span>
                   </div>
-                  <button
-                    onClick={() => void removeShop(shop)}
-                    className="p-2 text-ink-mute-2 hover:text-err-fg hover:bg-err-bg rounded"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <p className="mt-1 text-sm text-ink-muted">{shop.access_mode === 'self_signup' ? 'Inscription libre' : 'Accès sur invitation'}</p>
+                  {shop.description && <p className="mt-2 break-words text-sm text-ink-2">{shop.description}</p>}
+                </div>
+                <Button asChild variant="outline" className="min-h-11"><Link to={tp(`/dashboard/shops/${shop.id}`)}><Settings2 />Gérer la boutique</Link></Button>
+              </div>
+              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3">
+                <span className="min-w-0 flex-1 break-all font-mono text-xs text-ink-muted">{publicUrl(shop.slug)}</span>
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="icon" className="min-h-11 min-w-11" aria-label={`Copier le lien de ${shop.name}`} onClick={() => void copyLink(shop)}><Copy /></Button>
+                  <Button asChild variant="ghost" className="min-h-11"><a href={publicUrl(shop.slug)} target="_blank" rel="noreferrer" aria-label={`Voir ${shop.name} dans un nouvel onglet`}><ExternalLink />Voir la boutique</a></Button>
+                  <Button variant="ghost" size="icon" className="min-h-11 min-w-11 text-err-fg hover:bg-err-bg hover:text-err-fg" aria-label={`Supprimer la boutique ${shop.name}`} onClick={event => { deleteTrigger.current = event.currentTarget; setDeleteError(null); setDeleting(shop); }}><Trash2 /></Button>
                 </div>
               </div>
-            );
-          })}
-        </div>
+            </article>
+          ))}
+        </section>
       )}
-
-      {modalOpen && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50"
-          onClick={() => setModalOpen(false)}
-        >
-          <div
-            className="bg-paper rounded-2xl shadow-2xl w-full max-w-lg p-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-ink">Nouvelle boutique</h3>
-              <button onClick={() => setModalOpen(false)} className="p-1 hover:bg-bg rounded">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={submit} className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-ink-2 mb-1">Nom *</label>
-                <input
-                  type="text"
-                  required
-                  value={draft.name}
-                  onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                  placeholder="ex: Boutique Imprimerie Dupont"
-                  className="w-full px-3 py-2 border border-line-2 rounded-lg"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-ink-2 mb-1">Description</label>
-                <textarea
-                  value={draft.description}
-                  onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-                  rows={2}
-                  className="w-full px-3 py-2 border border-line-2 rounded-lg"
-                />
-              </div>
-              {error && (
-                <p className="text-sm text-err-fg bg-err-bg p-2 rounded">{error}</p>
-              )}
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setModalOpen(false)}
-                  className="flex-1 px-4 py-2 border border-line-2 rounded-lg hover:bg-bg font-medium"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="flex-1 px-4 py-2 bg-brand text-white rounded-lg hover:bg-brand/90 disabled:opacity-50 font-medium flex items-center justify-center gap-2"
-                >
-                  {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-                  Créer la boutique
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <Dialog open={modalOpen} onOpenChange={open => { if (!saving) setModalOpen(open); }}>
+        <DialogContent onCloseAutoFocus={event => { event.preventDefault(); createTrigger.current?.focus(); }} className="max-h-[90vh] overflow-y-auto bg-paper text-ink">
+          <DialogHeader><DialogTitle>Créer une boutique</DialogTitle><DialogDescription>Donnez-lui un nom. Vous pourrez ensuite choisir ses produits, ses accès et son apparence.</DialogDescription></DialogHeader>
+          <form onSubmit={submit} className="space-y-4">
+            <label className="block space-y-1 text-sm text-ink">Nom de la boutique (obligatoire)<input className={field} required maxLength={120} value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} placeholder="Ex. Boutique Imprimerie Dupont" /></label>
+            <label className="block space-y-1 text-sm text-ink">Description<textarea className={field} maxLength={2000} rows={3} value={draft.description ?? ''} onChange={e => setDraft({ ...draft, description: e.target.value })} /></label>
+            {error && <p role="alert" className="rounded-lg bg-err-bg p-3 text-sm text-err-fg">{error}</p>}
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" variant="outline" className="min-h-11" disabled={saving} onClick={() => setModalOpen(false)}>Annuler</Button><Button type="submit" disabled={saving || !draft.name.trim()} className={primary}>{saving && <Loader2 className="animate-spin" />}{saving ? 'Création…' : 'Créer la boutique'}</Button></div>
+          </form>
+        </DialogContent>
+      </Dialog>
+      <AlertDialog open={deleting !== null} onOpenChange={open => { if (!open && !deleteBusy) setDeleting(null); }}>
+        <AlertDialogContent onCloseAutoFocus={event => { event.preventDefault(); if (deleteTrigger.current?.isConnected) deleteTrigger.current.focus(); else createTrigger.current?.focus(); }} className="bg-paper text-ink">
+          <AlertDialogTitle>Supprimer « {deleting?.name} » ?</AlertDialogTitle>
+          <AlertDialogDescription>Ses produits, réglages, comptes clients et commandes non validées seront supprimés. Les commandes déjà validées seront conservées pour l’historique. Cette action est irréversible.</AlertDialogDescription>
+          {deleteError && <p role="alert" className="rounded-lg bg-err-bg p-3 text-sm text-err-fg">{deleteError}</p>}
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><AlertDialogCancel className="min-h-11" disabled={deleteBusy}>Annuler</AlertDialogCancel><Button className="min-h-11 bg-err-fg text-paper hover:bg-err-fg/90" disabled={deleteBusy} onClick={() => void removeShop()}>{deleteBusy ? 'Suppression…' : 'Supprimer la boutique'}</Button></div>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
