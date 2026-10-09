@@ -33,9 +33,9 @@ const btnGhost =
 
 const SCOPE_LABELS: Record<PriceRuleDto['scope'], string> = {
   global: 'Globale',
-  range: 'Gamme',
+  range: 'Catégorie',
   customer: 'Client',
-  customer_range: 'Client + gamme',
+  customer_range: 'Client + catégorie',
 };
 
 function customerDisplayName(customer: CustomerDto): string {
@@ -205,7 +205,7 @@ export function DashboardPricingRules() {
           style={{ maxWidth: 220 }}
           data-testid={TEST_IDS.pricing.rangeFilterSelect}
         >
-          <option value="">Toutes les gammes</option>
+          <option value="">Toutes les catégories</option>
           {ranges.map((range) => (
             <option key={range.id} value={range.id}>
               {range.name}
@@ -405,7 +405,7 @@ function DefaultMarginPanel({ ranges }: { ranges: readonly RangeOption[] }) {
       <div>
         <h2 className="text-sm font-semibold text-ink">Marge publique standard</h2>
         <p className="text-xs text-ink-muted mt-0.5">
-          Marge appliquée par défaut sur une gamme quand aucune règle de prix ne s’applique (CA4).
+          Marge appliquée par défaut sur une catégorie quand aucune règle de prix ne s’applique (CA4).
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-3">
@@ -416,7 +416,7 @@ function DefaultMarginPanel({ ranges }: { ranges: readonly RangeOption[] }) {
           style={{ maxWidth: 260 }}
           data-testid={TEST_IDS.pricing.defaultMarginRangeSelect}
         >
-          <option value="">Sélectionner une gamme</option>
+          <option value="">Sélectionner une catégorie</option>
           {ranges.map((range) => (
             <option key={range.id} value={range.id}>
               {range.name}

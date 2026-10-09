@@ -58,7 +58,7 @@ export function DashboardTenantGammes() {
   if (pimLoading || loading) {
     return (
       <div className="text-ink-muted" style={{ fontSize: '13.5px' }}>
-        Chargement des gammes…
+        Chargement des catégories…
       </div>
     );
   }
@@ -78,22 +78,22 @@ export function DashboardTenantGammes() {
           className="text-ink m-0"
           style={{ fontWeight: 300, fontSize: '34px', letterSpacing: '-0.025em' }}
         >
-          Gammes actives
+          Catégories actives
         </h1>
         <p
           className="mt-1.5 text-ink-muted max-w-2xl"
           style={{ fontSize: '13.5px', fontWeight: 300, lineHeight: 1.5 }}
         >
-          Choisissez quelles gammes du PIM Magrit sont exposees aux users de{' '}
-          <span className="text-ink">{currentTenant.name}</span>. Cochez une gamme
-          parent pour activer toutes ses sous-gammes d'un coup. Seules les gammes
+          Choisissez quelles catégories du PIM Magrit sont exposees aux users de{' '}
+          <span className="text-ink">{currentTenant.name}</span>. Cochez une catégorie
+          parente pour activer toutes ses sous-catégories d'un coup. Seules les catégories
           actives apparaissent en recherche, dans le chat et dans les boutiques.
         </p>
         <p
           className="mt-2 text-ink-mute-2"
           style={{ fontSize: '12px', fontWeight: 300 }}
         >
-          {activeSlugs.size} / {gammes.length} gamme{gammes.length > 1 ? 's' : ''} active{activeSlugs.size > 1 ? 's' : ''}
+          {activeSlugs.size} / {gammes.length} catégorie{gammes.length > 1 ? 's' : ''} active{activeSlugs.size > 1 ? 's' : ''}
           {!canWrite && ' · lecture seule (profil utilisateur)'}
         </p>
       </div>
@@ -207,9 +207,9 @@ export function DashboardTenantGammes() {
         className="mt-4 text-ink-mute-2"
         style={{ fontSize: '11.5px', fontWeight: 300, lineHeight: 1.5 }}
       >
-        Les gammes non cochees ne sont jamais supprimees — vous pouvez les
+        Les catégories non cochees ne sont jamais supprimees — vous pouvez les
         reactiver a tout moment. Les sous-tenants heritent automatiquement des
-        gammes du tenant parent.
+        catégories du tenant parent.
       </p>
     </div>
   );

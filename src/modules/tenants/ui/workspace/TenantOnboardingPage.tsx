@@ -188,7 +188,7 @@ export function TenantOnboarding() {
               lineHeight: 1.05,
             }}
           >
-            {step === 'identity' ? 'Creer un nouvel espace' : 'Quelles gammes utilisez-vous ?'}
+            {step === 'identity' ? 'Creer un nouvel espace' : 'Quelles catégories utilisez-vous ?'}
           </h1>
           <p
             className="mt-3 text-ink-muted max-w-xl mx-auto"
@@ -196,7 +196,7 @@ export function TenantOnboarding() {
           >
             {step === 'identity'
               ? "Un espace = un dataset isole : vos devis, clients, boutiques et bibliotheques ne sont accessibles qu'aux membres de cet espace."
-              : 'Choisissez ce que votre imprimerie produit le plus souvent. Marguerite et le catalogue ne montreront que ces gammes. Vous pourrez affiner plus tard depuis le dashboard.'}
+              : 'Choisissez ce que votre imprimerie produit le plus souvent. Marguerite et le catalogue ne montreront que ces catégories. Vous pourrez affiner plus tard depuis le dashboard.'}
           </p>
         </div>
 
@@ -226,7 +226,7 @@ export function TenantOnboarding() {
             className={step === 'gammes' ? 'text-ink-muted' : 'text-ink-mute-2'}
             style={{ fontSize: '12.5px' }}
           >
-            Gammes
+            Catégories
           </span>
         </div>
 
@@ -431,11 +431,11 @@ export function TenantOnboarding() {
         <div className="bg-paper border border-line rounded-md p-6 space-y-4">
           {pimLoading ? (
             <div className="text-center py-8 text-ink-muted" style={{ fontSize: '13px' }}>
-              Chargement des gammes…
+              Chargement des catégories…
             </div>
           ) : rootGammes.length === 0 ? (
             <div className="text-center py-8 text-ink-muted" style={{ fontSize: '13px' }}>
-              Aucune gamme disponible. Vous configurerez les gammes apres creation.
+              Aucune catégorie disponible. Vous configurerez les catégories apres creation.
             </div>
           ) : (
             <>
@@ -477,7 +477,7 @@ export function TenantOnboarding() {
                             className="block text-ink-mute-2 mt-0.5 font-mono"
                             style={{ fontSize: '11px' }}
                           >
-                            {children.length} sous-gamme{children.length > 1 ? 's' : ''}
+                            {children.length} sous-catégorie{children.length > 1 ? 's' : ''}
                           </span>
                         )}
                       </span>
@@ -491,8 +491,8 @@ export function TenantOnboarding() {
                 style={{ fontSize: '11.5px', fontWeight: 300, lineHeight: 1.5 }}
               >
                 {selectedGammes.size === 0
-                  ? 'Aucune gamme selectionnee. Vous pourrez les activer apres dans Dashboard › Gammes actives.'
-                  : `${selectedGammes.size} ${selectedGammes.size > 1 ? 'elements' : 'element'} selectionne${selectedGammes.size > 1 ? 's' : ''} (parents + sous-gammes).`}
+                  ? 'Aucune catégorie selectionnee. Vous pourrez les activer apres dans Dashboard › Catégories actives.'
+                  : `${selectedGammes.size} ${selectedGammes.size > 1 ? 'elements' : 'element'} selectionne${selectedGammes.size > 1 ? 's' : ''} (parents + sous-catégories).`}
               </p>
             </>
           )}

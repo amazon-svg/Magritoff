@@ -161,3 +161,10 @@ documents:
     reviewedAt: null
     openItems:
       - "Ordre du jour traité au WM du 07/10/2026 (MEET-2026-10-07-WM) : reste à nommer le responsable fiscal/comptable ; le responsable logistique est sans objet, E10.24 étant reportée."
+  - id: REPORT-2026-10-09-POINT-PROJET-REPRISE
+    kind: report
+    path: project/meetings/reports/2026-10-09-rapport-point-projet-et-reprise.md
+    processingStatus: draft
+    owner: unassigned
+    reviewedAt: null
+    openItems: []

@@ -84,7 +84,7 @@ export function ShopHeaderSearch({
           role="combobox"
           aria-expanded={showMenu}
           aria-controls="shop-header-search-listbox"
-          aria-label="Rechercher un produit ou une gamme"
+          aria-label="Rechercher un produit ou une catégorie"
           placeholder="Que voulez-vous imprimer ?"
           value={query}
           onChange={(e) => {
@@ -140,7 +140,7 @@ export function ShopHeaderSearch({
                 className={`shrink-0 font-mono uppercase ${isDark ? 'text-gray-600' : 'text-ink-mute-2'}`}
                 style={{ fontSize: '9.5px', letterSpacing: '0.06em' }}
               >
-                {s.type === 'product' ? 'produit' : `gamme · ${s.count}`}
+                {s.type === 'product' ? 'produit' : `catégorie · ${s.count}`}
               </span>
             </button>
           ))}

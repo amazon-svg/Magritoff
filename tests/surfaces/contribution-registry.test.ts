@@ -193,7 +193,7 @@ describe('registre des contributions de surfaces', () => {
     ]));
     expect(applicationContributionRegistry.forSurface('workspace').navigation).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: 'catalog.workspace.pim-navigation', label: 'PIM — Produits' }),
-      expect.objectContaining({ id: 'catalog.workspace.gammes-navigation', label: 'Gammes actives' }),
+      expect.objectContaining({ id: 'catalog.workspace.gammes-navigation', label: 'Catégories actives' }),
     ]));
   });
 

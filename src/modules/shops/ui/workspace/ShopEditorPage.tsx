@@ -816,7 +816,7 @@ export function DashboardShopEditor() {
                 <span className="text-sm font-semibold text-ink flex-1">
                   PIM — Catalogue complet
                   <span className="ml-2 text-xs font-normal text-ink-muted">
-                    verse tout votre catalogue, filtrable par gamme
+                    verse tout votre catalogue, filtrable par catégorie
                   </span>
                 </span>
                 <button
@@ -825,18 +825,18 @@ export function DashboardShopEditor() {
                   onClick={() => setPimExpanded((v) => !v)}
                   className="text-xs text-indigo-700 hover:underline whitespace-nowrap"
                 >
-                  {pimExpanded ? 'Replier' : 'Déplier les gammes'}
+                  {pimExpanded ? 'Replier' : 'Déplier les catégories'}
                 </button>
               </div>
               {pimExpanded && (
                 <div className="border-t border-indigo-200 p-2">
                   {gammes.length === 0 ? (
-                    <p className="text-xs text-ink-muted italic">Chargement des gammes du PIM…</p>
+                    <p className="text-xs text-ink-muted italic">Chargement des catégories du PIM…</p>
                   ) : (
                     <>
                       <div className="flex items-center justify-between pb-1 mb-1 border-b border-indigo-100">
                         <span className="text-xs font-medium text-ink-muted">
-                          Gammes du PIM ({allPimGammeSlugs.length})
+                          Catégories du PIM ({allPimGammeSlugs.length})
                         </span>
                         <button
                           type="button"
@@ -872,7 +872,7 @@ export function DashboardShopEditor() {
                               <span className="text-sm text-ink flex-1">{g.name}</span>
                               <span
                                 className={`text-xs ${count > 0 ? 'text-ink-muted' : 'text-ink-mute-2'}`}
-                                title="Produits de votre catalogue dans cette gamme"
+                                title="Produits de votre catalogue dans cette catégorie"
                               >
                                 {count} produit{count > 1 ? 's' : ''}
                               </span>
@@ -882,7 +882,7 @@ export function DashboardShopEditor() {
                       </div>
                       {pimOn && selected.size === 0 && (
                         <p className="text-xs text-warn-fg mt-1">
-                          Aucune gamme sélectionnée — la boutique n'exposera aucun produit du PIM.
+                          Aucune catégorie sélectionnée — la boutique n'exposera aucun produit du PIM.
                         </p>
                       )}
                     </>

@@ -72,7 +72,7 @@ export function PimEditorial({
     <section
       data-testid={TEST_IDS.shop.gammeEditorial}
       className="flex flex-col gap-6 max-w-3xl"
-      aria-label="Informations sur la gamme"
+      aria-label="Informations sur la catégorie"
     >
       {definition.commercial_pitch && (
         <p

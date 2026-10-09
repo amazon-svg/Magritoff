@@ -59,7 +59,7 @@ export function DashboardTenantSpaces() {
           >
             Creez des espaces isoles sous <span className="text-ink">{currentTenant.name}</span> :
             filiales internes ou portails dedies a vos gros comptes B2B. Chaque
-            sous-espace herite de vos souscriptions aux gammes PIM.
+            sous-espace herite de vos souscriptions aux catégories PIM.
           </p>
         </div>
         {canCreate && (
