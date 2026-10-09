@@ -35,6 +35,7 @@
  *     utilisant le prix marche (decision Arnaud 2026-05-09 fix prix marche).
  */
 
+import { isFixedPriceProduct } from '@/modules/libraries';
 import type { ClariprintQuoteResult } from '@/modules/clariprint';
 
 export type PriceSource =
@@ -136,6 +137,7 @@ export function resolvePrice(
 ): PriceResolution {
   // 1. Clariprint — source officielle si validee
   if (
+    !isFixedPriceProduct(product) &&
     clariprintQuote?.success &&
     typeof clariprintQuote.priceHT === 'number' &&
     Number.isFinite(clariprintQuote.priceHT) &&

@@ -1,3 +1,4 @@
+import { isFixedPriceProduct } from '@/modules/libraries';
 /**
  * S7.12 — CheckoutPage : ≤ 2 écrans entre panier et confirmation (ADR §4.20).
  *
@@ -100,8 +101,10 @@ export function CheckoutPage({
                     {l.product.name}
                   </p>
                   <p className="text-ink-muted m-0" style={{ fontSize: '12px' }}>
-                    {qtyEx.toLocaleString('fr-FR')} exemplaire{qtyEx > 1 ? 's' : ''}
-                    {l.qty > 1 ? ` × ${l.qty} packs` : ''}
+                    {isFixedPriceProduct(l.product) ? `${l.qty} unité${l.qty > 1 ? 's' : ''}` : <>
+                      {qtyEx.toLocaleString('fr-FR')} exemplaire{qtyEx > 1 ? 's' : ''}
+                      {l.qty > 1 ? ` × ${l.qty} packs` : ''}
+                    </>}
                   </p>
                 </div>
                 <span

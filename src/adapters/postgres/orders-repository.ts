@@ -1,3 +1,4 @@
+import { resolveFixedStorefrontPrice } from './storefront-fixed-pricing.ts';
 import { readCommercialOrderDetail } from './commercial-orders-repository.ts';
 import {
   assertPrecondition,
@@ -385,6 +386,7 @@ export class PostgresOrdersRepository implements OrdersRepository {
             item['product_id'],
             item['clariprint_options'],
             money(item['unit_price_ht']),
+            locked.shop_customer_account_id,
           );
           if (classified.mismatch) {
             throw new OrderCommandRejectedError('price_changed', 'Le prix catalogue a changé.', [{
@@ -514,6 +516,7 @@ export class PostgresOrdersRepository implements OrdersRepository {
           current['product_id'],
           current['clariprint_options'],
           item.expectedUnitPriceHt,
+          locked.shop_customer_account_id,
         );
         if (classified.mismatch) throw new OrderCommandRejectedError('price_changed', 'Le prix catalogue a changé.', [{
           productLabel: item.productLabel, submitted: item.expectedUnitPriceHt, current: classified.price,
@@ -673,6 +676,7 @@ async function create(
       item.productId,
       item.clariprintOptions,
       item.expectedUnitPriceHt,
+      principal.kind === 'storefront_customer' ? principal.id : null,
     );
     if (line.mismatch) mismatches.push({
       productLabel: item.productLabel, submitted: item.expectedUnitPriceHt, current: line.price,
@@ -708,7 +712,7 @@ async function create(
       ) values($1,$2,$3,$4::jsonb,$5,$6,$7,$8)
     `, [
       order.id, line.item.productId, line.item.productLabel,
-      JSON.stringify(line.item.clariprintOptions ?? {}), line.item.quantity,
+      JSON.stringify(line.config ?? line.item.clariprintOptions ?? {}), line.item.quantity,
       line.price, lineTotal.toFixed(2), line.origin,
     ]);
   }
@@ -726,7 +730,12 @@ async function classifyLine(
   productId: unknown,
   clariprintOptions: unknown,
   submitted: string,
-): Promise<{ price: string; origin: PriceOrigin; mismatch: boolean }> {
+  accountId: string | null = null,
+): Promise<{ price: string; origin: PriceOrigin; mismatch: boolean; config?: Record<string, unknown> }> {
+  if (typeof productId === 'string') {
+    const fixed = await resolveFixedStorefrontPrice(client, shopId, productId, accountId);
+    if (fixed) return { price: fixed.price, origin: 'catalog', mismatch: fixed.price !== submitted, config: fixed.config };
+  }
   const row = (await client.query<{
     resolved_unit_price_ht: string;
     price_origin: PriceOrigin;

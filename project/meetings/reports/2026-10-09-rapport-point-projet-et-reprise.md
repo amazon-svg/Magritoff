@@ -141,3 +141,31 @@ le build passent. La suite de régression compte 3 142 tests réussis et
 rapport. La documentation de reproduction est dans
 `docs/testing/storefront-browser.md` et les logs locaux dans
 `/tmp/magrit-shop-*.log`. Le rapport et le dashboard sont actualisés.
+
+
+## Suite — produits à coût unitaire fixe
+
+Demande explicite de Xavier : distinguer les produits à prix fixe des produits
+configurables et valider création back-office, mise à disposition en boutique,
+affichage avec marge, panier et commande. Clarification reçue : « Coût HT,
+marge appliquée par Magrit ». Le raccordement variable à HopeStudio annoncé
+pour cet après-midi reste distinct. La story E4.FIXED-PRICE est créée en brouillon,
+avec livraison implemented et preuve dans son document d'implémentation.
+
+Branche de suite `codex/produits-prix-fixe`. Création manuelle, calcul commun
+catalogue/commande par PricingEngine, unités et ajout direct sans configuration.
+Le tiroir panier est corrigé pour que nom et quantité restent lisibles. Aucun
+nouveau contrat HTTP ; migration interne 0095 nécessaire. Aucune dérogation R5.
+
+Recette réelle isolée réussie : dix tests PostgreSQL, puis un test Chromium
+créant et publiant une fiche, commandant trois unités et relisant la commande
+persistée depuis le back-office. Coût 100 € HT, vente 125 € HT avec marge de
+25 %, total 375 € HT / 450 € TTC. Aucun appel de chiffrage fournisseur.
+La régression générale passe : 3 143 tests réussis, 175 ignorés ; typage
+modulaire et build passent. La suite PostgreSQL générale reste limitée par un test S3 de lecture après
+suppression (168/169 réussis au second passage), indépendant de ce parcours.
+
+La copie principale et les données métier existantes restent préservées ;
+aucun push, fusion ou déploiement. La recette reproductible est documentée dans
+`docs/testing/fixed-price-purchase.md`. Revue indépendante et approbation humaine
+restent à réaliser.

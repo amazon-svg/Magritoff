@@ -1,3 +1,5 @@
+import { FixedPriceProductForm } from '@/modules/libraries/ui/components';
+import { isFixedPriceProduct } from '@/modules/libraries';
 import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { ArrowLeft, Package, Pencil, Trash2, X, Loader2 } from 'lucide-react';
@@ -14,6 +16,7 @@ export function DashboardLibraryDetail() {
 
   const [editing, setEditing] = useState<LibraryProduct | null>(null);
   const [saving, setSaving] = useState(false);
+  const [creating, setCreating] = useState(false);
 
   const library = useMemo(() => libraries.find((l) => l.id === id) ?? null, [libraries, id]);
   const products = useMemo(() => (library ? productsByLibrary(library.id) : []), [library, productsByLibrary]);
@@ -66,6 +69,7 @@ export function DashboardLibraryDetail() {
         <h2 className="text-xl font-bold text-ink">{library.name}</h2>
         {library.description && <p className="text-sm text-ink-muted mt-1">{library.description}</p>}
         <p className="text-xs text-ink-muted mt-2">{products.length} produit(s)</p>
+        <button type="button" onClick={() => setCreating(true)} className="mt-3 rounded-lg bg-ink px-4 py-2 text-sm text-paper">Ajouter un produit à prix fixe</button>
       </div>
 
       {products.length === 0 ? (
@@ -116,7 +120,7 @@ export function DashboardLibraryDetail() {
                       {p.description && (
                         <p className="text-xs text-ink-muted mt-1 line-clamp-2">{p.description}</p>
                       )}
-                      <p className="text-sm font-bold text-ink mt-2">{p.price_ht.toFixed(2)} € HT</p>
+                      <p className="text-sm font-bold text-ink mt-2">{p.price_ht.toFixed(2)} € HT{isFixedPriceProduct(p) ? ' / unité (coût)' : ''}</p>
                       {!p.active && (
                         <span className="inline-block mt-1 text-xs bg-bg text-ink-muted px-2 py-0.5 rounded-full">
                           Inactif
@@ -130,6 +134,8 @@ export function DashboardLibraryDetail() {
           ))}
         </div>
       )}
+
+      {creating && <FixedPriceProductForm libraryId={library.id} onClose={() => setCreating(false)} />}
 
       {editing && (
         <div
@@ -177,9 +183,10 @@ export function DashboardLibraryDetail() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-ink-2 mb-1">Prix HT (€)</label>
+                <label className="block text-sm font-medium text-ink-2 mb-1">{isFixedPriceProduct(editing) ? 'Coût unitaire HT (€)' : 'Prix HT (€)'}</label>
                 <input
                   type="number"
+                  min="0.01"
                   step="0.01"
                   value={editing.price_ht}
                   onChange={(e) => setEditing({ ...editing, price_ht: parseFloat(e.target.value) || 0 })}

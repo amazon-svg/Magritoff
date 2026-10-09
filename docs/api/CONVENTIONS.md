@@ -4931,6 +4931,16 @@ Moyens : la campagne du banc (phases B et C, point 2.3) et les pages `JsonVarnis
 
 ##### 3.5 BCP-10 — Q12 tranchée : les deux parcours de configuration s'alignent sur la surcouche, et la fiche produit cesse de configurer
 
+**Précision du 9 octobre 2026 — demande de Xavier Péchoultres :** les produits
+explicitement marqués `config.pricing_mode = fixed_unit` suivent
+[E4.FIXED-PRICE](../../project/backlog/stories/E4.FIXED-PRICE.md). Le prix saisi
+en back-office est leur coût unitaire HT ; le catalogue publie le prix de vente
+calculé par PricingEngine et la commande contrôle le même montant côté serveur.
+Le geste depuis leur fiche est « Ajouter au panier », sans surcouche ni appel de
+chiffrage. L'alignement BCP-10 ci-dessous continue de concerner les produits
+configurables. Routes et schémas HTTP existants réutilisés ; aucune dérogation R5.
+
+
 > **Numéro de story : BCP-10, retenu sous la réserve de vérification habituelle.** Aucun agent de cette session n'a d'accès Notion (même limite qu'aux §8.22, §8.23 et §8.24). Vérifié dans le dépôt : aucun `BCP-10` n'y existe (ce document, artefacts BMAD, tests, scripts) ; `BCP-0` à `BCP-9` y sont tous. Si le backlog porte déjà un BCP-10, **seul le numéro change** — rien de ce qui suit n'en dépend.
 
 **La décision d'Arnaud du 2026-09-16, mot pour mot** : les deux écrans qui proposent les mêmes réglages s'alignent **sur celui qui fonctionne**, c'est-à-dire la surcouche `ProductOverlay`. Ce qui suit tranche les cinq points laissés ouverts, pour qu'aucun ne retombe sur le dev-story.

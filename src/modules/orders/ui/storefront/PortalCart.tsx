@@ -1,3 +1,4 @@
+import { isFixedPriceProduct } from '@/modules/libraries';
 import { X, Plus, Minus, MapPin, AlertTriangle } from 'lucide-react';
 import type { CartLine, BudgetInfo } from '@/modules/orders/ui/storefront/types';
 import { resolveProductImage } from '@/modules/catalog/ui/helpers';
@@ -228,7 +229,7 @@ export function PortalCart({
               return (
                 <div
                   key={line.product.id}
-                  className={`grid grid-cols-[72px_1fr_auto_auto_28px] gap-4.5 items-center px-5.5 py-4.5 ${
+                  className={`grid grid-cols-[72px_minmax(0,1fr)_28px] gap-3 items-center px-5.5 py-4.5 ${
                     i < cart.length - 1 ? 'border-b border-line' : ''
                   }`}
                 >
@@ -264,6 +265,7 @@ export function PortalCart({
                         // S-FIX-PANIER-11/05 : la quantite d'exemplaires
                         // commandes est dans config.quantity (pas dans
                         // line.qty qui represente le nombre de packs).
+                        if (isFixedPriceProduct(line.product)) return `${line.qty} unité${line.qty > 1 ? 's' : ''}`;
                         const exQty = (line.product.config as any)?.quantity;
                         const format = (line.product.config as any)?.format
                           ?? `${(line.product.config as any)?.width ?? '?'}×${(line.product.config as any)?.height ?? '?'} mm`;
@@ -300,7 +302,7 @@ export function PortalCart({
                       Siège social · Paris
                     </div>
                   </div>
-                  <div className="inline-flex items-center border border-line rounded-md bg-paper overflow-hidden">
+                  <div className="col-start-2 row-start-2 justify-self-start inline-flex items-center border border-line rounded-md bg-paper overflow-hidden">
                     <button
                       onClick={() => onUpdateQty(line.product.id, -1)}
                       className="px-2.5 py-1 text-ink-2 hover:bg-bg"
@@ -323,14 +325,14 @@ export function PortalCart({
                     </button>
                   </div>
                   <div
-                    className="font-mono text-ink text-right tabular-nums"
+                    className="col-start-2 row-start-3 font-mono text-ink tabular-nums"
                     style={{ fontSize: '14px', fontWeight: 500, fontVariantNumeric: 'tabular-nums', minWidth: '80px' }}
                   >
                     {applyTax(lineTotal, taxRate).toFixed(2)}€
                   </div>
                   <button
                     onClick={() => onRemove(line.product.id)}
-                    className="w-7 h-7 rounded-md text-ink-mute-2 hover:bg-bg hover:text-ink grid place-items-center"
+                    className="col-start-3 row-start-1 w-7 h-7 rounded-md text-ink-mute-2 hover:bg-bg hover:text-ink grid place-items-center"
                     aria-label="Retirer"
                   >
                     <X className="w-4 h-4" strokeWidth={1.5} />

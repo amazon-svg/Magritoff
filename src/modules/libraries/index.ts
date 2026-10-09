@@ -5,3 +5,4 @@ export { LibraryProductsService } from './application/library-products-service.t
 export { LibraryProductRejectedError, type LibraryProductsRepository } from './application/library-products-repository.ts';
 export { librariesModuleManifest } from './manifest.ts';
 export { librariesWorkspaceContribution } from './surface-contributions.ts';
+export { isFixedPriceProduct } from './fixed-price-product';
