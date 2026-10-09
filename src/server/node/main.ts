@@ -1,3 +1,4 @@
+import { withAuthenticatedPostgresRequest } from '../../adapters/postgres/authenticated-request-context.ts';
 import { createUnifiedOrdersRoutes } from '../api/unified-orders-routes.ts';
 import { createApiV1Application } from '../api/composition.ts';
 import { createCommercialSettingsRoutes } from '../api/commercial-settings-routes.ts';
@@ -716,6 +717,11 @@ const gescomHandler = gescomPrincipalVerifier === null
         ...quoteDocumentsRoutes,
       ],
       principalVerifier: gescomPrincipalVerifier,
+      runInRequestContext(context, operation) {
+        return context.principal.kind === 'user'
+          ? withAuthenticatedPostgresRequest({ tenantId: context.tenantId, userId: context.principal.userId }, operation)
+          : operation();
+      },
       idempotencyStore: new PostgresIdempotencyStore(
         new PostgresTransactionRunner(postgresPool, 'magrit_api'),
       ),

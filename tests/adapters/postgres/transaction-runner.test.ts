@@ -67,3 +67,42 @@ describe('PostgresTransactionRunner', () => {
     expect(() => new PostgresTransactionRunner(pool, 'role; reset role')).toThrow(/Role PostgreSQL invalide/);
   });
 });
+
+// Concurrent requests must never exchange identities, and workers retain explicit contexts.
+describe('contexte authentifié de requête PostgreSQL', () => {
+  it('hérite seulement pour le même tenant et conserve les identités explicites', async () => {
+    const { withAuthenticatedPostgresRequest } = await import('../../../src/adapters/postgres/authenticated-request-context.ts');
+    const tenant = '10000000-0000-4000-8000-000000000001' as TenantId;
+    const user = '20000000-0000-4000-8000-000000000001' as UserId;
+    const explicit = '20000000-0000-4000-8000-000000000002' as UserId;
+    const query = vi.fn().mockResolvedValue({ rows: [] });
+    const runner = new PostgresTransactionRunner({ connect: async () => ({ query, release: vi.fn() }) } as unknown as Pool);
+    await withAuthenticatedPostgresRequest({ tenantId: tenant, userId: user }, async () => {
+      await runner.run({ tenantId: tenant }, async () => undefined);
+      await runner.run({ tenantId: tenant, userId: explicit }, async () => undefined);
+      await runner.run({ tenantId: '10000000-0000-4000-8000-000000000002' as TenantId }, async () => undefined);
+      await runner.run({ tenantId: tenant, actorKind: 'service' }, async () => undefined);
+      await runner.run({}, async () => undefined);
+    });
+    await runner.run({ tenantId: tenant }, async () => undefined);
+    const contexts = query.mock.calls.filter(([sql]) => sql.includes('set_config')).map(([, values]) => values);
+    expect(contexts).toEqual([[user, tenant, ''], [explicit, tenant, ''], ['', '10000000-0000-4000-8000-000000000002', ''], ['', tenant, 'service'], ['', '', ''], ['', tenant, '']]);
+  });
+
+  it('isole les utilisateurs concurrents sur le même tenant et nettoie aussi après erreur', async () => {
+    const { withAuthenticatedPostgresRequest, authenticatedPostgresRequest } = await import('../../../src/adapters/postgres/authenticated-request-context.ts');
+    const tenant = '10000000-0000-4000-8000-000000000001' as TenantId;
+    const users = ['20000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000002'] as UserId[];
+    let ready!: () => void;
+    const barrier = new Promise<void>(resolve => { ready = resolve; });
+    const results = await Promise.all(users.map((userId, index) => withAuthenticatedPostgresRequest({ tenantId: tenant, userId }, async () => {
+      if (index === 1) ready();
+      await barrier;
+      return authenticatedPostgresRequest()?.userId;
+    })));
+    expect(results).toEqual(users);
+    expect(authenticatedPostgresRequest()).toBeUndefined();
+    await expect(withAuthenticatedPostgresRequest({ tenantId: tenant, userId: users[0]! }, async () => { throw new Error('Erreur'); })).rejects.toThrow('Erreur');
+    expect(authenticatedPostgresRequest()).toBeUndefined();
+  });
+});

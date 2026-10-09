@@ -2067,6 +2067,7 @@ export interface paths {
         /**
          * Récupère le document d’une commande
          * @description Rend le BON DE COMMANDE PDF d une commande : son horodatage, son poids, son empreinte, qui l a produit, et une URL de telechargement signee de courte duree.
+         *     La lecture accepte les commandes issues d un devis ou d une boutique. Une commande existante sans PDF rend `order.document_not_generated` ; une commande absente ou inaccessible rend `order.not_found`.
          *
          *     LES OCTETS NE TRANSITENT PAS PAR CETTE FACADE, meme doctrine que `getQuoteDocument` : servir `application/pdf` depuis `/api/v1` casserait l enveloppe `{data, meta}` du CA6. L URL signee n est emise qu apres que la chaine d autorisation a statue, et elle vaut **300 secondes**.
          *

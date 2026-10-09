@@ -185,7 +185,7 @@ export function UnifiedOrderDetailView({
       </dl></section>
 
       <OrderFilesBlock orderId={order.id} lines={lines.map((line) => ({ id: line.id, label: line.label }))} />
-      <OrderDocumentPanel orderId={order.id} />
+      <OrderDocumentPanel orderId={order.id} generationAvailable={order.origin === 'quote'} />
       <OrderUploadLinksPanel orderId={order.id} />
 
       <section className="flex flex-wrap gap-2 rounded-xl border border-line p-4" aria-label="Actions sur la commande">

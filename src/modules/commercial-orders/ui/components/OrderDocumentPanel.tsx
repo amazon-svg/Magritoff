@@ -36,9 +36,10 @@ const btnGhost =
 
 export interface OrderDocumentPanelProps {
   orderId: string;
+  generationAvailable?: boolean;
 }
 
-export function OrderDocumentPanel({ orderId }: OrderDocumentPanelProps) {
+export function OrderDocumentPanel({ orderId, generationAvailable = true }: OrderDocumentPanelProps) {
   const ordersApi = useWorkspaceApi(CommercialOrdersApiClient);
   const [document, setDocument] = useState<OrderDocumentDto | null>(null);
   const [loading, setLoading] = useState(true);
@@ -104,7 +105,7 @@ export function OrderDocumentPanel({ orderId }: OrderDocumentPanelProps) {
       {loading ? (
         <p className="text-sm text-ink-muted">Chargement…</p>
       ) : document ? (
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
           <p className="text-sm text-ink" data-testid={TEST_IDS.orderDocument.generatedLabel}>
             Produit le {formatOrderDate(document.generated_at)}
             {document.generated_by_label ? <span className="text-ink-muted"> · {document.generated_by_label}</span> : null}
@@ -121,11 +122,11 @@ export function OrderDocumentPanel({ orderId }: OrderDocumentPanelProps) {
           </a>
         </div>
       ) : (
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
           <p className="text-sm text-ink-muted" data-testid={TEST_IDS.orderDocument.emptyState}>
             Aucun bon de commande produit pour cette commande.
           </p>
-          <button
+          {generationAvailable ? <button
             type="button"
             className={btnPrimary}
             disabled={generating}
@@ -134,7 +135,7 @@ export function OrderDocumentPanel({ orderId }: OrderDocumentPanelProps) {
           >
             {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
             Produire le bon de commande
-          </button>
+          </button> : <p className="text-sm text-ink-muted">La production du bon PDF n’est pas encore disponible pour les commandes boutique.</p>}
         </div>
       )}
     </section>

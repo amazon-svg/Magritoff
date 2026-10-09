@@ -226,3 +226,21 @@ sur base temporaire ; régression générale 3 151 tests réussis, 178 ignorés,
 contrôle ciblé d’alias de capacité. Huit parcours Chromium boutiques/clients, typage
 modulaire et build passent. Recette : `docs/testing/shop-customer-management.md`.
 Même dossier habituel, aucun nouveau serveur ni push/fusion/déploiement.
+
+## Lecture des annexes des commandes boutique
+
+Demande de Xavier : erreurs rouges sur la commande atelier-lumiere
+`81419e86-4e1a-4316-aafa-2c28beb627cc`. E4.ORDER-ANNEXES corrige la transmission
+de l’identité utilisateur authentifiée aux transactions historiques du même
+tenant et la vérification PDF limitée aux commandes devis. RLS conservée,
+identités explicites et workers exclus de l’héritage ; concurrence vérifiée.
+La commande existe avec zéro fichier, zéro lien et aucun PDF : états vides
+affichés, génération PDF boutique encore indisponible et expliquée à l’écran.
+
+Deux tests PostgreSQL réels sur base temporaire et deux parcours Chromium
+375/1280 passent ; 3 157 tests de régression réussis, 180 ignorés. Typage
+modulaire, build et contrat OpenAPI passent. Aucun
+nouveau endpoint ou DTO, aucune migration/dérogation R5. Recette et preuve :
+`docs/testing/order-annexes.md`,
+`_bmad-output/implementation-artifacts/story-E4.ORDER-ANNEXES.md`.
+Dans le dossier habituel ; aucun serveur lancé/redémarré, aucun push/fusion.

@@ -71,7 +71,7 @@ export type StoreOrderDocumentParams = Readonly<{
  * connait que le contrat.
  */
 export interface OrderDocumentsRepository {
-  /** Cote ATELIER (jeton utilisateur ou cle de service `orders:read`). `null` si la commande n a pas de document. */
+  /** Cote ATELIER (jeton utilisateur ou cle de service `orders:read`). `null` si la commande existe mais n a pas de document. La commande est vérifiée dans le référentiel commun, quelle que soit son origine ; une commande absente/hors tenant doit lever une erreur order.not_found. */
   findByOrderId(tenantId: TenantId, orderId: string): Promise<OrderDocumentDto | null>;
 
   /**

@@ -28,6 +28,7 @@ import { ProjectsService } from '@/modules/projects/application/projects-service
 import { PriceRulesService } from '@/modules/pricing/application/price-rules-service';
 import { SingleCostPricingEngine } from '@/modules/pricing/application/single-cost-pricing-engine';
 import { CommercialQuotesService } from '@/modules/commercial-quotes/application/commercial-quotes-service';
+import { CommercialOrderNotFoundError } from '@/modules/commercial-orders/application/commercial-orders-repository';
 import { CommercialOrdersService } from '@/modules/commercial-orders/application/commercial-orders-service';
 import { OrderDocumentsService } from '@/modules/order-documents/application/order-documents-service';
 import type { OrderDocumentDto } from '@/modules/order-documents/api/contracts';
@@ -90,6 +91,7 @@ class InMemoryOrderDocumentsRepository implements OrderDocumentsRepository {
   private readonly byOrder = new Map<string, OrderDocumentDto>();
 
   async findByOrderId(_tenantId: TenantId, orderId: string): Promise<OrderDocumentDto | null> {
+    if (!await ordersRepository.findById(_tenantId, orderId)) throw new CommercialOrderNotFoundError();
     return this.byOrder.get(orderId) ?? null;
   }
 
