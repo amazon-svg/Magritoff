@@ -169,3 +169,17 @@ La copie principale et les données métier existantes restent préservées ;
 aucun push, fusion ou déploiement. La recette reproductible est documentée dans
 `docs/testing/fixed-price-purchase.md`. Revue indépendante et approbation humaine
 restent à réaliser.
+
+## Accès au test manuel dans le dossier habituel
+
+À la demande explicite de Xavier, les copies Git séparées ne sont plus utilisées
+pour cette suite de travail. La branche `codex/produits-prix-fixe` est transférée
+dans `/Users/xpech/dev/Magritoff` et rebasée sur le dernier `main`, qui conserve
+le commit utilisateur `448d5f6c` de `.gitignore`. La copie temporaire est retirée.
+Le code et le serveur de développement utilisent désormais le même dossier.
+
+La migration 0095 est appliquée à la seule base locale de développement
+`127.0.0.1:55432/magrit` ; aucune donnée produit ou commande n'est modifiée.
+L'interface est accessible sur `http://localhost:5176`, avec son API sur 8787.
+La réponse Vite du détail de bibliothèque contient le nouveau formulaire et
+le healthcheck de l'API répond 200. Aucun push ni fusion dans `main`.
