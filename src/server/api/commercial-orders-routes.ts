@@ -581,7 +581,7 @@ async function withCommercialOrderErrors<T>(
     if (error instanceof OrderDocumentTemplateMissingError) {
       throw problem({
         status: 409,
-        title: 'Aucun gabarit de bon de commande',
+        title: 'Gabarit de bon de commande à configurer',
         code: 'order.document_template_missing',
         detail: error.message,
       });

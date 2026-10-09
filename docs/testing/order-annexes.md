@@ -21,6 +21,8 @@ Avant tout dépôt, cette commande ne contient aucune annexe. Vérifier :
    « Télécharger ». Vérifier acheteur, lignes, montants et référence complète.
    Le bouton disparaît une fois le document produit ; le PDF reste conservé.
 3. Sans gabarit admissible, vérifier le message ; après configuration, réessayer.
+   Un PDF importé et actif ne suffit pas : ouvrir « Positionner les champs »,
+   placer au moins un champ ou un tableau de lignes, puis « Enregistrer ».
 4. Déposer un fichier via « Parcourir », puis le télécharger depuis sa ligne.
 5. Créer un lien de dépôt et le copier. Dans un navigateur sans session, ouvrir
    ce lien et déposer un fichier. Revenir à la commande et actualiser les fichiers.

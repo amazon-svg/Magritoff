@@ -266,3 +266,12 @@ Aucune dérogation R5 nouvelle.
 gouvernance passent. Recette dans docs/testing/order-annexes.md. Aucun nouveau
 serveur, push, fusion ou déploiement. Atelier Lumière n’a pas encore de gabarit
 order prêt, actif et par défaut : configuration nécessaire avant production.
+
+## Message PDF : gabarit actif sans champs
+
+Diagnostic en lecture seule : BC 2026 est actif/prêt/par défaut mais ne comporte
+ni champ positionné ni bloc de lignes. commercial-orders UI et façade HTTP,
+order-documents : message de configuration précis et lien Gabarits PDF sur le
+code existant order.document_template_missing. Aucun gabarit métier modifié.
+234 tests ciblés, typage et deux parcours Chromium passent. Aucun nouveau
+endpoint, DTO, migration ou dérogation R5 ; aucun serveur lancé ou push.

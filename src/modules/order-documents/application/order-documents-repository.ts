@@ -35,7 +35,7 @@ export class OrderDocumentAlreadyGeneratedError extends Error {
  * `quote`, jamais.
  */
 export class OrderDocumentTemplateMissingError extends Error {
-  constructor(message = 'Aucun gabarit de bon de commande actif pour ce tenant.') {
+  constructor(message = 'Le bon de commande nécessite un gabarit prêt, actif, défini par défaut et contenant au moins un champ positionné ou un tableau de lignes. Configurez-le dans Gabarits PDF.') {
     super(message);
     this.name = 'OrderDocumentTemplateMissingError';
   }

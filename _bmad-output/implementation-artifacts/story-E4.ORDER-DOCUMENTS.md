@@ -54,3 +54,15 @@ Aucun serveur lancé/redémarré ; aucun fichier ou client métier créé par le
 recettes dans la base de développement. Aucun push, fusion ou déploiement.
 Le PDF boutique prend la TVA du tenant à sa génération puis reste conservé.
 Aucun nouveau numéro attribué ; référentiels CRM et remises existants conservés.
+
+## Correction du message de configuration
+
+Retour de Xavier : « Aucun gabarit de bon de commande actif pour ce tenant ».
+Lecture locale : BC 2026 est importé, prêt, actif et par défaut, mais comporte
+zéro champ et aucun tableau de lignes ; le repository le refuse conformément
+au contrat. Message serveur/client clarifié et lien vers Gabarits PDF proposé
+sur le code existant order.document_template_missing. Aucun placement ajouté
+implicitement au PDF de Xavier, aucun gabarit ou commande modifié.
+234 tests ciblés (architecture/contrat/moteur), typage modulaire et deux parcours
+Chromium mobile/ordinateur passent ; lien de configuration et sa disparition
+après réussite vérifiés. Aucune dérogation R5, migration ou nouveau contrat.

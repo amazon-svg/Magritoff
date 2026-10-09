@@ -43,11 +43,13 @@ for (const width of [375,1280]) test(`PDF, fichier et lien de dépôt boutique (
   });
   await page.goto(`/t/magrit-development/dashboard/orders/${orderId}`);
   await page.getByRole('button', { name: 'Produire le bon de commande' }).click();
-  await expect(page.getByTestId(TEST_IDS.orderDocument.errorBanner)).toContainText('Aucun gabarit');
+  await expect(page.getByTestId(TEST_IDS.orderDocument.errorBanner)).toContainText('champ positionné');
+  await expect(page.getByRole('link', { name: 'Configurer les gabarits PDF' })).toHaveAttribute('href', '/t/magrit-development/dashboard/document-templates');
   await page.getByRole('button', { name: 'Produire le bon de commande' }).click();
   await expect(page.getByTestId(TEST_IDS.orderDocument.downloadBtn)).toHaveAttribute('href', document.download_url);
   await expect(page.getByRole('button', { name: 'Produire le bon de commande' })).toHaveCount(0);
   await expect(page.getByTestId(TEST_IDS.orderDocument.errorBanner)).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Configurer les gabarits PDF' })).toHaveCount(0);
   await page.locator('input[type="file"]').setInputFiles({ name: file.filename, mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7 BAT de recette') });
   await expect.poll(() => uploaded).toBe(true);
   await expect(page.getByText(file.filename, { exact: true })).toBeVisible();
