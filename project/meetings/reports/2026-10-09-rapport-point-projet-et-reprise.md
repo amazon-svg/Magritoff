@@ -297,3 +297,14 @@ placement et le focus clavier, rappel tableau/aperçu/enregistrement. E4.ORDER-D
 et sa preuve complétées, au statut brouillon. Parcours Chromium de deux champs
 et sauvegarde/reprise réussi, 267 tests ciblés et typage modulaire réussis.
 Aucun contrat API modifié, dérogation R5, donnée métier modifiée ou serveur lancé.
+
+## Placement PDF à la souris
+
+document-templates UI : corrige l’observation de largeur après chargement et
+retour d’aperçu, la conversion depuis le rectangle visible et les proportions
+de page avec/sans fond. Le test antérieur au clavier manquait le défaut ; le
+nouveau test échoue avant correction. Trois Chromium passent, dont dépôt depuis
+palette, déplacement et sauvegarde après aperçu/redimensionnement ; 267 tests
+ciblés, typage et build passent (avertissement existant CheckoutPage conservé).
+E4.ORDER-DOCUMENTS et preuve complétées. Aucun contrat API, dérogation R5,
+placement métier modifié implicitement, serveur lancé ou push.

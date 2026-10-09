@@ -99,10 +99,10 @@ export function PreviewOverlay({
       </div>
 
       <div className="flex-1 overflow-auto flex flex-col items-center py-8 gap-4">
-        <div className="relative border border-line-2 shadow-md" style={{ width: CANVAS_WIDTH_PX }}>
-          <canvas ref={canvasRef} className="block w-full" />
-          {render.loading && <p className="text-xs text-ink-muted p-2">Chargement du fond…</p>}
-          {render.error && <p className="text-xs text-err-fg p-2">{render.error}</p>}
+        <div className="relative shrink-0 border border-line-2 shadow-md" style={{ width: CANVAS_WIDTH_PX, aspectRatio: page ? `${page.width_pt} / ${page.height_pt}` : undefined }}>
+          <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
+          {render.loading && <p className="absolute text-xs text-ink-muted p-2">Chargement du fond…</p>}
+          {render.error && <p className="absolute text-xs text-err-fg p-2">{render.error}</p>}
 
           {page &&
             fieldMap.placements.map((placement) => {

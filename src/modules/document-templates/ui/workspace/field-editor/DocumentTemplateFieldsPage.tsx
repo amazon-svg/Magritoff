@@ -59,19 +59,19 @@ type WorkingMap = Readonly<{
   linesBlock: DocumentLinesBlockDto | null;
 }>;
 
-function useElementWidth<T extends HTMLElement>(): readonly [React.RefObject<T | null>, number] {
-  const ref = useRef<T>(null);
+function useElementWidth<T extends HTMLElement>(): readonly [React.RefCallback<T>, number] {
+  // La page apparaît après le chargement, puis est remontée à la sortie de
+  // l’aperçu : observer le nœud lorsqu’il existe, pas seulement au montage.
+  const [node, setNode] = useState<T | null>(null);
+  const ref = useCallback((element: T | null) => setNode(element), []);
   const [width, setWidth] = useState(0);
   useEffect(() => {
-    const node = ref.current;
     if (!node) return;
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (entry) setWidth(entry.contentRect.width);
-    });
+    setWidth(node.getBoundingClientRect().width);
+    const observer = new ResizeObserver(() => setWidth(node.getBoundingClientRect().width));
     observer.observe(node);
     return () => observer.disconnect();
-  }, []);
+  }, [node]);
   return [ref, width] as const;
 }
 
@@ -234,7 +234,7 @@ export function DashboardDocumentTemplateFields() {
     const point = screenPixelToPdfPoint(
       { x: event.clientX - rect.left, y: event.clientY - rect.top },
       currentPage.height_pt,
-      scale,
+      scaleToFitWidth(currentPage.width_pt, rect.width),
     );
     addPlacement(selection.field, point);
   }
@@ -246,7 +246,7 @@ export function DashboardDocumentTemplateFields() {
     const point = screenPixelToPdfPoint(
       { x: event.clientX - rect.left, y: event.clientY - rect.top },
       currentPage.height_pt,
-      scale,
+      scaleToFitWidth(currentPage.width_pt, rect.width),
     );
 
     // qa-review R3 : le DEPLACEMENT d un champ deja pose passe desormais par
@@ -532,15 +532,16 @@ export function DashboardDocumentTemplateFields() {
           <div
             ref={canvasRef}
             className="relative border border-line-2 shadow-sm bg-white w-full max-w-3xl"
+            style={currentPage ? { aspectRatio: `${currentPage.width_pt} / ${currentPage.height_pt}` } : undefined}
             data-testid={TEST_IDS.documentTemplateFields.canvas}
             onClick={handleCanvasClick}
             onDragOver={(event) => event.preventDefault()}
             onDrop={handleCanvasDrop}
           >
-            <canvas ref={backgroundCanvasRef} className="block w-full" />
-            {backgroundRender.loading && <p className="text-xs text-ink-muted p-2">Chargement du fond…</p>}
+            <canvas ref={backgroundCanvasRef} className="absolute inset-0 w-full h-full" />
+            {backgroundRender.loading && <p className="absolute text-xs text-ink-muted p-2">Chargement du fond…</p>}
             {backgroundRender.error && (
-              <p className="text-xs text-err-fg p-2">Aperçu du document expiré. Rechargez la page pour continuer.</p>
+              <p className="absolute text-xs text-err-fg p-2">Aperçu du document expiré. Rechargez la page pour continuer.</p>
             )}
 
             {currentPage &&

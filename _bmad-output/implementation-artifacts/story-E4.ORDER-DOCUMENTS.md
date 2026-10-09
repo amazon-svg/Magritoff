@@ -91,3 +91,22 @@ Un rappel indique tableau des lignes, aperçu puis enregistrement explicite.
 Chromium vérifie deux placements successifs, passage par Tableau et sauvegarde
 avec erreur/reprise sans perte. 267 tests architecture/module et typage modulaire
 réussis. Aucun contrat API, donnée métier ou dérogation R5 modifié.
+
+## Correction des coordonnées du placement à la souris
+
+Capture de Xavier : coordonnées x supérieures à 20000, champs collés en haut.
+Cause établie : useElementWidth observait uniquement au montage initial alors
+que la page PDF n’existait pas encore dans le DOM. La largeur restait à zéro,
+remplacée par 1 pixel pour la conversion. Le test précédent au clavier ne
+couvrait pas ce défaut. Le nouveau test navigateur échoue avant la correction.
+
+L’observation suit maintenant le nœud réel, au chargement et au retour d’aperçu.
+Clic et dépôt calculent l’échelle depuis le rectangle visible. Éditeur et aperçu
+gardent les proportions du PDF même sans fond ; aucune attente de chargement
+permanente lorsque le fond est absent. Aucun placement métier corrigé implicitement.
+
+Trois parcours Chromium passent : clic, dépôt depuis palette, déplacement,
+aperçu, redimensionnement et coordonnées de sauvegarde avec/sans PDF ; reprise
+après erreur serveur. Typage modulaire, 267 tests ciblés et build passent.
+Le build conserve l’avertissement préexistant de cycle de chunks CheckoutPage.
+Aucun changement de contrat API ou dérogation R5.

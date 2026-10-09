@@ -42,7 +42,11 @@ export function usePdfPageCanvas(
   const documentRef = useRef<{ url: string; doc: unknown } | null>(null);
 
   useEffect(() => {
-    if (!backgroundUrl || containerWidthPx <= 0) return;
+    if (!backgroundUrl) {
+      setState({ loading: false, error: null, pageCount: 0, widthPt: 0, heightPt: 0 });
+      return;
+    }
+    if (containerWidthPx <= 0) return;
     let cancelled = false;
 
     async function render() {
