@@ -275,3 +275,17 @@ order-documents : message de configuration précis et lien Gabarits PDF sur le
 code existant order.document_template_missing. Aucun gabarit métier modifié.
 234 tests ciblés, typage et deux parcours Chromium passent. Aucun nouveau
 endpoint, DTO, migration ou dérogation R5 ; aucun serveur lancé ou push.
+
+## Reçus de dépôt et diagnostic sauvegarde gabarit
+
+E4.DEPOSIT-RECEIPTS : order-upload-links conserve tous les reçus de la visite,
+nom/taille/date et confirmation, y compris après erreur/reprise et au quota.
+Liste locale à la visite, sans persistance après actualisation ni relecture des
+fichiers. Aucun contrat API modifié ou dérogation R5. Deux Chromium mobile/desktop.
+
+Enregistrement BC 2026 : client→API→PostgreSQL réussi sur gabarit temporaire ;
+12 tests PostgreSQL/S3 passent. Échec du navigateur utilisateur non reproduit,
+nouvelle tentative avec message précis nécessaire. document-templates UI affiche
+statut/code et les problèmes de format, conserve les modifications et adapte les
+libellés au type commande. Test Chromium de reprise réussi. 282 tests ciblés,
+types et build passent ; aucune donnée BC 2026 modifiée, serveur lancé ou push.

@@ -66,3 +66,18 @@ implicitement au PDF de Xavier, aucun gabarit ou commande modifié.
 234 tests ciblés (architecture/contrat/moteur), typage modulaire et deux parcours
 Chromium mobile/ordinateur passent ; lien de configuration et sa disparition
 après réussite vérifiés. Aucune dérogation R5, migration ou nouveau contrat.
+
+## Diagnostic de l’enregistrement des champs
+
+Capture de Xavier : erreur générique lors de la sauvegarde de BC 2026. La
+reproduction du client HTTP complet jusqu’à PostgreSQL sur un gabarit temporaire
+réussit (numéro de commande sans largeur, valeurs décimales, ETag et relecture).
+La recette annexes compte désormais 12 tests PostgreSQL/S3 réussis. La cause de
+l’échec sur le navigateur de Xavier n’est pas établie : nouvelle tentative avec
+le message précis nécessaire. Aucun champ de BC 2026 modifié implicitement.
+
+Module document-templates UI : erreurs API avec statut/code, validation locale
+explicite et maintien des modifications ; libellés aperçu/total selon le type de
+document et retour Gabarits PDF. Test Chromium : HTTP 500 visible, champ
+conservé, reprise réussie et disparition de l’erreur. Types/build et 282 tests
+ciblés passent. Aucun endpoint/DTO modifié, aucune dérogation R5 nouvelle.

@@ -30,6 +30,7 @@ import { useTenant } from '@/modules/tenants/ui/runtime';
 import { useTenantPath } from '@/modules/tenants/ui/hooks';
 import { useWorkspaceApi } from '@/platform/runtime/workspace-ui-runtime';
 import { ApiClientError } from '@/platform/api';
+import { ZodError } from 'zod';
 import { TEST_IDS } from '@/shared/presentation/testIds';
 import { DocumentTemplatesApiClient } from '@/modules/document-templates/api/client';
 import type {
@@ -355,10 +356,12 @@ export function DashboardDocumentTemplateFields() {
               'Le tableau des lignes doit avoir au moins une colonne avant d’être enregistré. Ajoutez-en une, ou supprimez le tableau si ce document n’en a pas besoin.',
           );
         } else {
-          setSaveError(cause.problem.detail ?? 'L’enregistrement a échoué. Vérifiez votre connexion et réessayez.');
+          setSaveError(`${cause.problem.detail ?? cause.problem.title} (HTTP ${cause.problem.status}, ${cause.problem.code})`);
         }
+      } else if (cause instanceof ZodError) {
+        setSaveError(`Certains réglages ont un format invalide : ${cause.issues.map(issue => `${issue.path.join('.')} : ${issue.message}`).join(' ')}. Vos modifications sont conservées.`);
       } else {
-        setSaveError('L’enregistrement a échoué. Vérifiez votre connexion et réessayez.');
+        setSaveError(cause instanceof Error ? `Enregistrement impossible : ${cause.message}. Vos modifications sont conservées.` : 'L’enregistrement a échoué. Vos modifications sont conservées. Réessayez.');
       }
     } finally {
       setSaving(false);
@@ -392,7 +395,7 @@ export function DashboardDocumentTemplateFields() {
           {loadError}
         </p>
         <Link to={tenantPath('/dashboard/document-templates')} className="text-sm text-brand hover:underline">
-          ← Gabarits de devis
+          ← Gabarits PDF
         </Link>
       </div>
     );
@@ -451,7 +454,7 @@ export function DashboardDocumentTemplateFields() {
           data-testid={TEST_IDS.documentTemplateFields.backLink}
           className="text-sm text-ink-2 hover:text-ink"
         >
-          ← Gabarits de devis
+          ← Gabarits PDF
         </Link>
         <h1 className="text-sm font-bold text-ink truncate flex-1 text-center">
           Positionner les champs — {template.name}
@@ -470,7 +473,7 @@ export function DashboardDocumentTemplateFields() {
             data-testid={TEST_IDS.documentTemplateFields.previewBtn}
             className="px-3 py-1.5 border border-line-2 rounded-lg text-sm text-ink-2 hover:bg-bg flex items-center gap-1.5"
           >
-            <Eye className="w-4 h-4" /> Aperçu avec devis
+            <Eye className="w-4 h-4" /> Aperçu avec {template.document_type === 'order' ? 'commande' : 'devis'}
           </button>
           <button
             type="button"
@@ -491,7 +494,7 @@ export function DashboardDocumentTemplateFields() {
       )}
       {!totalInclTaxMissing ? null : (
         <p className="text-xs text-ink-muted px-4 py-1">
-          Le total TTC n’apparaîtra sur aucun devis généré avec ce gabarit tant qu’il n’est pas positionné. Vous
+          Le total TTC n’apparaîtra sur aucun {template.document_type === 'order' ? 'bon de commande' : 'devis'} généré avec ce gabarit tant qu’il n’est pas positionné. Vous
           pouvez tout de même enregistrer ainsi.
         </p>
       )}

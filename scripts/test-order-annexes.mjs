@@ -31,7 +31,7 @@ try {
     environment.DATABASE_URL = url.href;
   }
   await new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, ['node_modules/vitest/vitest.mjs', 'run', 'tests/integration/postgres-order-annexes-context.test.ts', 'tests/integration/postgres-storefront-order-documents.test.ts', 'tests/integration/postgres-order-documents-repository.test.ts', 'tests/integration/postgres-order-files-repository.test.ts', 'tests/integration/postgres-order-upload-links-repository.test.ts', '--maxWorkers=1'], { env: environment, stdio: 'inherit' });
+    const child = spawn(process.execPath, ['node_modules/vitest/vitest.mjs', 'run', 'tests/integration/postgres-order-annexes-context.test.ts', 'tests/integration/postgres-storefront-order-documents.test.ts', 'tests/integration/postgres-order-documents-repository.test.ts', 'tests/integration/postgres-document-templates-repository.test.ts', 'tests/integration/postgres-order-files-repository.test.ts', 'tests/integration/postgres-order-upload-links-repository.test.ts', '--maxWorkers=1'], { env: environment, stdio: 'inherit' });
     child.once('error', reject);
     child.once('exit', code => code === 0 ? resolve() : reject(new Error(`Recette en échec (${code}).`)));
   });
