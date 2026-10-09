@@ -208,3 +208,21 @@ aucune dérogation R5. Pagination serveur historique hors périmètre ; aucune
 conformité globale revendiquée. Recette dans `docs/testing/backoffice-shops-ux.md`,
 preuve dans `_bmad-output/implementation-artifacts/story-E4.UX-BACKOFFICE.md`.
 Aucun push ni fusion ; spécification en brouillon et revue humaine à réaliser.
+
+## Fiche et pagination des clients boutique
+
+Demande de Xavier : informations générales, CA, commandes et désactivation d’un
+client boutique, avec pagination de la liste. E4.CLIENT-MANAGEMENT livre une fiche
+adressable depuis le nom du client et des listes serveur de 20 clients/commandes.
+CA HT par devise sur les commandes validées et étapes suivantes, hors brouillons
+et annulations. Désactivation avec révocation des sessions, réactivation et
+conservation des commandes/interlocuteur. Contrôle serveur de capacité et périmètre.
+
+Module shop-customers, adaptateur PostgreSQL, composition workspace et alias
+capacité roles. Quatre nouvelles opérations documentées dans OpenAPI et types
+régénérés ; API de liste historique préservée. Aucune dérogation R5. Migration 0096
+(index uniquement) appliquée à la base locale. Six tests PostgreSQL réels passent
+sur base temporaire ; régression générale 3 151 tests réussis, 178 ignorés, plus
+contrôle ciblé d’alias de capacité. Huit parcours Chromium boutiques/clients, typage
+modulaire et build passent. Recette : `docs/testing/shop-customer-management.md`.
+Même dossier habituel, aucun nouveau serveur ni push/fusion/déploiement.

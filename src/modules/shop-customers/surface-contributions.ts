@@ -40,7 +40,7 @@ export const shopCustomersCustomerPortalContribution = defineSurfaceContribution
 export const shopCustomersWorkspaceContribution = defineSurfaceContribution({
   moduleId: 'shop-customers',
   surface: 'workspace',
-  routes: [],
+  routes: [{ id: 'shop-customers.workspace.detail', moduleId: 'shop-customers', featureId: 'shop-customers.workspace-management', surface: 'workspace', path: 'shops/:shopId/customers/:customerId', mount: 'router', requiredCapabilities: ['shop-customers.manage'] }],
   navigation: [],
 } as const);
 

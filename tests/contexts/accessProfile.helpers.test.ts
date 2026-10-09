@@ -28,6 +28,11 @@ describe('resolveCapability', () => {
     expect(resolveCapability(member, false, false, 'orders.read.tenant')).toBe(false);
   });
 
+  it('accorde la fiche client au gestionnaire habilité, même sans rôle admin', () => {
+    expect(resolveCapability({ ...member, capabilities: ['can_manage_shop_customers'] }, false, false, 'shop-customers.manage')).toBe(true);
+    expect(resolveCapability(member, false, false, 'shop-customers.manage')).toBe(false);
+  });
+
   it('E10.11 — un membre NON-ADMIN porteur de can_manage_pricing voit la garde accordée, sans alias (piège §8.11 s3)', () => {
     // `pricing/manifest.ts` déclare directement `can_manage_pricing` (nom
     // canonique de la base), pas un identifiant pointé qui exigerait une

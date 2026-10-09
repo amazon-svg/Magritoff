@@ -1,7 +1,8 @@
+import { encodeCursor } from '../../modules/_shared/application/index.ts';
 import type { PoolClient } from 'pg';
 import type { TenantId, UserId } from '../../kernel/ids/index.ts';
-import { shopCustomerAccountSchema, type EnsureSelfShopCustomerResult, type ShopCustomerAccount } from '../../modules/shop-customers/api/contracts.ts';
-import { ShopCustomerRejectedError, type CreateShopCustomerRecord, type ShopCustomersRepository } from '../../modules/shop-customers/application/shop-customers-repository.ts';
+import { shopCustomerAccountSchema, type EnsureSelfShopCustomerResult, type ShopCustomerAccount, type ShopCustomerPage, type ShopCustomerDetail, type ShopCustomerOrdersPage, type UpdateShopCustomerCommand } from '../../modules/shop-customers/api/contracts.ts';
+import { ShopCustomerRejectedError, type CreateShopCustomerRecord, type ShopCustomersRepository, type ShopCustomerPageParams } from '../../modules/shop-customers/application/shop-customers-repository.ts';
 import type { PostgresTransactionRunner } from './transaction-runner.ts';
 
 type Row = Record<string, unknown>;
@@ -9,6 +10,73 @@ const COLUMNS = 'id,shop_id,email,normalized_email,full_name,auth_subject_id,sta
 
 export class PostgresShopCustomersRepository implements ShopCustomersRepository {
   constructor(private readonly tx: PostgresTransactionRunner) {}
+
+
+  listPage(actor: UserId, tenantId: string, shopId: string, page: ShopCustomerPageParams): Promise<ShopCustomerPage> {
+    return this.write(actor, tenantId, 'can_manage_shop_customers', async c => {
+      await shop(c, tenantId, shopId);
+      const rows = (await c.query<Row>(`select ${COLUMNS},
+        to_char(created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') cursor_at
+        from public.shop_customer_accounts where tenant_id=$1 and shop_id=$2
+        and ($3::timestamptz is null or (created_at,id)<($3::timestamptz,$4::uuid))
+        order by created_at desc,id desc limit $5`,
+        [tenantId, shopId, page.cursor?.sort ?? null, page.cursor?.id ?? null, page.size + 1])).rows;
+      return pageResult(rows, page.size, account);
+    });
+  }
+
+  detail(actor: UserId, tenantId: string, shopId: string, accountId: string): Promise<ShopCustomerDetail> {
+    return this.write(actor, tenantId, 'can_manage_shop_customers', async c => {
+      await shop(c, tenantId, shopId);
+      const customer = await requiredAccount(c, tenantId, shopId, accountId);
+      const count = (await c.query<{ count: string }>(`select count(*)::text count from public.tenant_orders
+        where tenant_id=$1 and shop_id=$2 and shop_customer_account_id=$3`, [tenantId, shopId, accountId])).rows[0]!;
+      const revenue = (await c.query<{ currency: string; total_ht: string; count: string }>(`
+        select currency,sum(total_ht)::text total_ht,count(*)::text count from public.tenant_orders
+        where tenant_id=$1 and shop_id=$2 and shop_customer_account_id=$3
+        and status in ('validated','in_production','shipped','delivered','invoiced')
+        group by currency order by currency`, [tenantId, shopId, accountId])).rows;
+      return { customer, orderCount: Number(count.count),
+        revenue: revenue.map(row => ({ currency: row.currency, totalHt: row.total_ht, orderCount: Number(row.count) })) };
+    });
+  }
+
+  ordersPage(actor: UserId, tenantId: string, shopId: string, accountId: string, page: ShopCustomerPageParams): Promise<ShopCustomerOrdersPage> {
+    return this.write(actor, tenantId, 'can_manage_shop_customers', async c => {
+      await shop(c, tenantId, shopId);
+      await requiredAccount(c, tenantId, shopId, accountId);
+      const rows = (await c.query<Row>(`select id,number,created_at,status,currency,total_ht::text,
+        to_char(created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') cursor_at
+        from public.tenant_orders where tenant_id=$1 and shop_id=$2 and shop_customer_account_id=$3
+        and ($4::timestamptz is null or (created_at,id)<($4::timestamptz,$5::uuid))
+        order by created_at desc,id desc limit $6`,
+        [tenantId, shopId, accountId, page.cursor?.sort ?? null, page.cursor?.id ?? null, page.size + 1])).rows;
+      return pageResult(rows, page.size, row => ({ id: String(row['id']),
+        number: row['number'] == null ? null : String(row['number']), createdAt: iso(row['created_at']),
+        status: String(row['status']), currency: String(row['currency']), totalHt: String(row['total_ht']) }));
+    });
+  }
+
+  update(actor: UserId, tenantId: string, shopId: string, accountId: string, command: UpdateShopCustomerCommand): Promise<ShopCustomerAccount> {
+    return this.write(actor, tenantId, 'can_manage_shop_customers', async c => {
+      await shop(c, tenantId, shopId);
+      await requiredAccount(c, tenantId, shopId, accountId, true);
+      const row = (await c.query<Row>(`update public.shop_customer_accounts set
+        full_name=coalesce($4,full_name),
+        status=case when $5::boolean is false then 'suspended'
+          when $5::boolean is true and status='suspended' then case when activated_at is not null then 'active' else 'invited' end
+          else status end,
+        suspended_at=case when $5::boolean is false then coalesce(suspended_at,clock_timestamp())
+          when $5::boolean is true then null else suspended_at end
+        where tenant_id=$1 and shop_id=$2 and id=$3 returning ${COLUMNS}`,
+        [tenantId, shopId, accountId, command.fullName ?? null, command.enabled ?? null])).rows[0]!;
+      if (command.enabled === false) {
+        await c.query(`update private.shop_customer_sessions set revoked_at=coalesce(revoked_at,clock_timestamp())
+          where shop_id=$1 and shop_customer_account_id=$2 and revoked_at is null`, [shopId, accountId]);
+      }
+      return account(row);
+    });
+  }
 
   list(actor: UserId, tenantId: string, shopId: string): Promise<ShopCustomerAccount[]> { return this.read(actor,tenantId,async c=>{await shop(c,tenantId,shopId);return (await c.query<Row>(`select ${COLUMNS} from public.shop_customer_accounts where tenant_id=$1 and shop_id=$2 order by created_at desc,id`,[tenantId,shopId])).rows.map(account);}); }
   findByNormalizedEmail(actor: UserId,tenantId:string,shopId:string,email:string):Promise<ShopCustomerAccount|null>{return this.read(actor,tenantId,async c=>{await shop(c,tenantId,shopId);return maybe((await c.query<Row>(`select ${COLUMNS} from public.shop_customer_accounts where tenant_id=$1 and shop_id=$2 and normalized_email=$3`,[tenantId,shopId,email])).rows[0]);});}
@@ -30,3 +98,17 @@ function account(row:Row):ShopCustomerAccount{return shopCustomerAccountSchema.p
 function iso(value:unknown){return value instanceof Date?value.toISOString():new Date(String(value)).toISOString();}
 function nullableIso(value:unknown){return value===null?null:iso(value);}
 function reject(code:ConstructorParameters<typeof ShopCustomerRejectedError>[0],message:string){return new ShopCustomerRejectedError(code,message);}
+
+
+async function requiredAccount(c: PoolClient, tenantId: string, shopId: string, id: string, lock = false): Promise<ShopCustomerAccount> {
+  const row = (await c.query<Row>(`select ${COLUMNS} from public.shop_customer_accounts
+    where tenant_id=$1 and shop_id=$2 and id=$3 ${lock ? 'for update' : ''}`, [tenantId, shopId, id])).rows[0];
+  if (!row) throw reject('account_not_found', 'Compte client introuvable dans cette boutique.');
+  return account(row);
+}
+function pageResult<T>(rows: Row[], size: number, convert: (row: Row) => T) {
+  const items = rows.slice(0, size);
+  const last = items.at(-1);
+  return { items: items.map(convert), nextCursor: rows.length > size && last
+    ? encodeCursor({ sort: String(last['cursor_at']), id: String(last['id']) }) : null };
+}

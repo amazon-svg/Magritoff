@@ -17,6 +17,8 @@ const routeLoaders: Readonly<Record<string, LazyPageLoader>> = Object.freeze({
     import('./UnifiedOrderDetailPage').then((module) => ({ default: module.UnifiedOrderDetailPage })),
   'shops.workspace.list': () =>
     import('@/modules/shops/ui').then((module) => ({ default: module.DashboardShops })),
+  'shop-customers.workspace.detail': () =>
+    import('@/modules/shop-customers/ui').then((module) => ({ default: module.ShopCustomerDetailPage })),
   'shops.workspace.edit': () =>
     import('@/modules/shops/ui').then((module) => ({ default: module.DashboardShopEditor })),
   'quote-templates.workspace.list': () => import('@/modules/quote-templates/ui').then((module) => ({ default: module.DashboardQuoteTemplates })),

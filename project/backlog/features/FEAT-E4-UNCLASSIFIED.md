@@ -16,6 +16,7 @@ stories:
   - E4.3
   - E4.4
   - E4.FIXED-PRICE
+  - E4.CLIENT-MANAGEMENT
   - E4.UX-BACKOFFICE
   - E4.WM1
   - E4.WM2
@@ -68,3 +69,5 @@ Ce fichier a vocation à disparaître. La revue produit doit répartir ses stori
 ## Questions ouvertes
 
 - Quel découpage en fonctionnalités produit retenir pour cette epic ?
+
+- [E4.CLIENT-MANAGEMENT](../stories/E4.CLIENT-MANAGEMENT.md) : fiche et pagination des clients boutique.

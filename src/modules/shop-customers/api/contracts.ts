@@ -250,3 +250,46 @@ export type ActivateStorefrontCredentialCommand = z.infer<typeof activateStorefr
 export type ShopCustomerDelegation = z.infer<typeof shopCustomerDelegationSchema>;
 export type CreateShopCustomerDelegationCommand = z.infer<typeof createShopCustomerDelegationCommandSchema>;
 export type SelfShopCustomerDelegationResult = z.infer<typeof selfShopCustomerDelegationResultSchema>;
+
+
+/** Administration bornée : curseur opaque, au plus 100 lignes par requête. */
+export const shopCustomerPageQuerySchema = z.object({
+  size: z.coerce.number().int().min(1).max(100).default(20),
+  cursor: z.string().max(1024).nullable().default(null),
+});
+export const shopCustomerPageSchema = z.object({
+  items: shopCustomerAccountsSchema,
+  nextCursor: z.string().nullable(),
+}).strict();
+export const shopCustomerOrderSchema = z.object({
+  id: z.string().uuid(),
+  number: z.string().nullable(),
+  createdAt: z.iso.datetime({ offset: true }),
+  status: z.string().min(1),
+  currency: z.string().length(3),
+  totalHt: z.string().regex(/^-?\d+(\.\d+)?$/),
+}).strict();
+export const shopCustomerOrdersPageSchema = z.object({
+  items: z.array(shopCustomerOrderSchema),
+  nextCursor: z.string().nullable(),
+}).strict();
+export const shopCustomerDetailSchema = z.object({
+  customer: shopCustomerAccountSchema,
+  orderCount: z.number().int().nonnegative(),
+  revenue: z.array(z.object({
+    currency: z.string().length(3),
+    totalHt: z.string().regex(/^-?\d+(\.\d+)?$/),
+    orderCount: z.number().int().nonnegative(),
+  }).strict()),
+}).strict();
+export const updateShopCustomerCommandSchema = z.object({
+  fullName: z.string().trim().min(1).max(200).optional(),
+  enabled: z.boolean().optional(),
+}).strict().refine(value => value.fullName !== undefined || value.enabled !== undefined,
+  'Au moins un changement est requis.');
+export type ShopCustomerPageQuery = z.input<typeof shopCustomerPageQuerySchema>;
+export type ShopCustomerPage = z.infer<typeof shopCustomerPageSchema>;
+export type ShopCustomerOrder = z.infer<typeof shopCustomerOrderSchema>;
+export type ShopCustomerOrdersPage = z.infer<typeof shopCustomerOrdersPageSchema>;
+export type ShopCustomerDetail = z.infer<typeof shopCustomerDetailSchema>;
+export type UpdateShopCustomerCommand = z.infer<typeof updateShopCustomerCommandSchema>;

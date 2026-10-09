@@ -98,6 +98,11 @@ class InMemoryShopCustomersRepository implements ShopCustomersRepository {
     private readonly shopTenants: ReadonlyMap<string, string>,
   ) {}
 
+    listPage = async () => { throw new Error('Administration non simulée dans cette recette'); };
+    detail = async () => { throw new Error('Administration non simulée dans cette recette'); };
+    ordersPage = async () => { throw new Error('Administration non simulée dans cette recette'); };
+    update = async () => { throw new Error('Administration non simulée dans cette recette'); };
+
   async list() {
     return [];
   }

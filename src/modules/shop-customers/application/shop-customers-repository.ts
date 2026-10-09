@@ -1,3 +1,4 @@
+import type { ShopCustomerPage, ShopCustomerDetail, ShopCustomerOrdersPage, UpdateShopCustomerCommand } from '../api/contracts.ts';
 import type { UserId } from '../../../kernel/ids/index.ts';
 import type { EnsureSelfShopCustomerResult, ShopCustomerAccount, ShopCustomerAccountStatus } from '../api/contracts.ts';
 
@@ -28,7 +29,13 @@ export type CreateShopCustomerRecord = Readonly<{
   customerContactId?: string | null;
 }>;
 
+export type ShopCustomerPageParams = Readonly<{ size: number; cursor: { sort: string; id: string } | null }>;
+
 export interface ShopCustomersRepository {
+  listPage(actor: UserId, tenantId: string, shopId: string, page: ShopCustomerPageParams): Promise<ShopCustomerPage>;
+  detail(actor: UserId, tenantId: string, shopId: string, accountId: string): Promise<ShopCustomerDetail>;
+  ordersPage(actor: UserId, tenantId: string, shopId: string, accountId: string, page: ShopCustomerPageParams): Promise<ShopCustomerOrdersPage>;
+  update(actor: UserId, tenantId: string, shopId: string, accountId: string, command: UpdateShopCustomerCommand): Promise<ShopCustomerAccount>;
   list(actor: UserId, tenantId: string, shopId: string): Promise<ShopCustomerAccount[]>;
   findByNormalizedEmail(
     actor: UserId,

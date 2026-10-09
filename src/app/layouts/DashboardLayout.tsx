@@ -160,7 +160,7 @@ export function DashboardLayout() {
     .flatMap((g) => g.items)
     .find((i) => i.to === location.pathname)?.label
     ?? (location.pathname.startsWith(`${basePath}/shops/`)
-      ? 'Boutiques / Réglages'
+      ? location.pathname.includes('/customers/') ? 'Boutiques / Client' : 'Boutiques / Réglages'
       : segs.slice(1).map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(' / '))
     ?? 'Atelier';
 

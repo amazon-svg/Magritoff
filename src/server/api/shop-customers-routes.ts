@@ -1,5 +1,7 @@
+import { decodeCursor } from '../../modules/_shared/application/index.ts';
+import { z } from 'zod';
 import { parseId, type UserId } from '../../kernel/ids/index.ts';
-import { createShopCustomerCommandSchema, ensureSelfShopCustomerResultSchema, shopCustomerAccountSchema, shopCustomerAccountsSchema } from '../../modules/shop-customers/api/contracts.ts';
+import { shopCustomerPageQuerySchema, shopCustomerPageSchema, shopCustomerDetailSchema, shopCustomerOrdersPageSchema, updateShopCustomerCommandSchema, createShopCustomerCommandSchema, ensureSelfShopCustomerResultSchema, shopCustomerAccountSchema, shopCustomerAccountsSchema } from '../../modules/shop-customers/api/contracts.ts';
 import { ShopCustomerRejectedError } from '../../modules/shop-customers/application/shop-customers-repository.ts';
 import type { ShopCustomersService } from '../../modules/shop-customers/application/shop-customers-service.ts';
 import { API_V1_BASE_PATH } from '../../platform/api/contracts.ts';
@@ -13,6 +15,30 @@ export function createShopCustomersRoutes(service: ShopCustomersService): readon
 export function createShopCustomerAdministrationRoutes(service: ShopCustomersService): readonly ApiRoute[] {
   const base = `${API_V1_BASE_PATH}/tenants/{tenantId}/shops/{shopId}/customers`;
   return [
+    defineJsonRoute({
+      method: 'GET', path: `${base}/page`, authentication: 'required',
+      inputSchema: null, outputSchema: shopCustomerPageSchema,
+      async handle(context) { return execute(async () => ({ status: 200,
+        body: await service.listPage(actor(context), param(context, 'tenantId'), param(context, 'shopId'), pageParams(context)) })); },
+    }),
+    defineJsonRoute({
+      method: 'GET', path: `${base}/{customerId}`, authentication: 'required',
+      inputSchema: null, outputSchema: shopCustomerDetailSchema,
+      async handle(context) { return execute(async () => ({ status: 200,
+        body: await service.detail(actor(context), param(context, 'tenantId'), param(context, 'shopId'), param(context, 'customerId')) })); },
+    }),
+    defineJsonRoute({
+      method: 'GET', path: `${base}/{customerId}/orders`, authentication: 'required',
+      inputSchema: null, outputSchema: shopCustomerOrdersPageSchema,
+      async handle(context) { return execute(async () => ({ status: 200,
+        body: await service.ordersPage(actor(context), param(context, 'tenantId'), param(context, 'shopId'), param(context, 'customerId'), pageParams(context)) })); },
+    }),
+    defineJsonRoute({
+      method: 'PATCH', path: `${base}/{customerId}`, authentication: 'required',
+      inputSchema: updateShopCustomerCommandSchema, outputSchema: shopCustomerAccountSchema,
+      async handle(context, command) { return execute(async () => ({ status: 200,
+        body: await service.update(actor(context), param(context, 'tenantId'), param(context, 'shopId'), param(context, 'customerId'), command) })); },
+    }),
     defineJsonRoute({
       method: 'GET', path: base, authentication: 'required',
       inputSchema: null, outputSchema: shopCustomerAccountsSchema,
@@ -106,4 +132,24 @@ function param(context: ApiRequestContext, name: string): string {
     });
   }
   return parsed.value;
+}
+
+
+function pageParams(context: ApiRequestContext) {
+  const url = new URL(context.request.url);
+  const result = shopCustomerPageQuerySchema.safeParse({
+    size: url.searchParams.get('page[size]') ?? undefined,
+    cursor: url.searchParams.get('page[cursor]'),
+  });
+  if (!result.success) throw new ApiHttpError({ type: 'about:blank', title: 'Pagination invalide', status: 422, code: 'api.invalid_page_params' });
+  let cursor = null;
+  try {
+    cursor = result.data.cursor ? decodeCursor(result.data.cursor) : null;
+    if (cursor && (!z.string().uuid().safeParse(cursor.id).success || !z.iso.datetime({ offset: true }).safeParse(cursor.sort).success)) {
+      throw new Error('Position invalide');
+    }
+  } catch {
+    throw new ApiHttpError({ type: 'about:blank', title: 'Curseur invalide', status: 422, code: 'api.invalid_cursor' });
+  }
+  return { size: result.data.size, cursor };
 }

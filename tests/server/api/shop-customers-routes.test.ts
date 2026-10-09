@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { encodeCursor } from '@/modules/_shared/application';
 import { parseId, type UserId } from '@/kernel';
 import {
   ShopCustomersApiClient,
@@ -37,6 +38,34 @@ describe('routes ShopCustomers API v1', () => {
       fullName: 'Client Exemple',
       status: 'invited',
     });
+  });
+
+  it('partage la pagination serveur et sa position opaque avec le client', async () => {
+    const repository = repositoryStub();
+    const list = vi.spyOn(repository, 'listPage');
+    const client = new ShopCustomersApiClient(new FetchApiClient('https://magrit.test', bridgeTo(application(repository)), () => 'jwt'));
+    const cursor = encodeCursor({ sort: '2026-10-09T08:00:00.123456Z', id: CUSTOMER });
+    await expect(client.listPage(TENANT, SHOP, { size: 20, cursor })).resolves.toMatchObject({ items: [{ id: CUSTOMER }], nextCursor: null });
+    expect(list).toHaveBeenCalledWith(actor(), TENANT, SHOP, { size: 20, cursor: { sort: '2026-10-09T08:00:00.123456Z', id: CUSTOMER } });
+  });
+
+  it.each(['page[size]=0', 'page[size]=101', 'page[size]=1.2', 'page[cursor]=broken',
+    `page[cursor]=${encodeCursor({ sort: 'not-a-date', id: CUSTOMER })}`,
+    `page[cursor]=${encodeCursor({ sort: '2026-10-09T08:00:00Z', id: 'invalid' })}`])('refuse une pagination invalide : %s', async query => {
+    const response = await application(repositoryStub())(new Request(`https://magrit.test/api/v1/tenants/${TENANT}/shops/${SHOP}/customers/page?${query}`, { headers: { Authorization: 'Bearer jwt' } }));
+    expect(response.status).toBe(422);
+  });
+
+  it('partage détail, commandes et mise à jour sans mutation de l’email', async () => {
+    const repository = repositoryStub();
+    const update = vi.spyOn(repository, 'update');
+    const client = new ShopCustomersApiClient(new FetchApiClient('https://magrit.test', bridgeTo(application(repository)), () => 'jwt'));
+    await expect(client.detail(TENANT, SHOP, CUSTOMER)).resolves.toMatchObject({ orderCount: 2, revenue: [{ totalHt: '125.00' }] });
+    await expect(client.ordersPage(TENANT, SHOP, CUSTOMER)).resolves.toEqual({ items: [], nextCursor: null });
+    await expect(client.update(TENANT, SHOP, CUSTOMER, { fullName: ' Nom corrigé ', enabled: false })).resolves.toMatchObject({ fullName: 'Nom corrigé', status: 'suspended' });
+    expect(update).toHaveBeenCalledWith(actor(), TENANT, SHOP, CUSTOMER, { fullName: 'Nom corrigé', enabled: false });
+    const response = await application(repository)(new Request(`https://magrit.test/api/v1/tenants/${TENANT}/shops/${SHOP}/customers/${CUSTOMER}`, { method: 'PATCH', headers: { Authorization: 'Bearer jwt', 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'other@example.com' }) }));
+    expect(response.status).toBe(422);
   });
 
   it('traduit le doublon boutique/email en Problem Details 409', async () => {
@@ -121,6 +150,11 @@ function application(repository: ShopCustomersRepository) {
 
 function repositoryStub(): ShopCustomersRepository {
   return {
+    listPage: async () => ({ items: [account()], nextCursor: null }),
+    detail: async () => ({ customer: account(), orderCount: 2, revenue: [{ currency: 'EUR', totalHt: '125.00', orderCount: 1 }] }),
+    ordersPage: async () => ({ items: [], nextCursor: null }),
+    update: async (_actor, _tenant, _shop, _id, command) => account({ fullName: command.fullName ?? 'Client Exemple',
+      ...(command.enabled === false ? { status: 'suspended', suspendedAt: '2026-10-09T10:00:00Z' } : {}) }),
     list: async () => [],
     findByNormalizedEmail: async () => null,
     create: async (_actor, _tenantId, shopId, record) => account({

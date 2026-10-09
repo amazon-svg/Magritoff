@@ -146,6 +146,11 @@ describe('ShopCustomerInvitationService', () => {
 
 function repositoryStub(): ShopCustomersRepository {
   return {
+    listPage: async () => { throw new Error('Administration non simulée dans cette recette'); },
+    detail: async () => { throw new Error('Administration non simulée dans cette recette'); },
+    ordersPage: async () => { throw new Error('Administration non simulée dans cette recette'); },
+    update: async () => { throw new Error('Administration non simulée dans cette recette'); },
+
     list: vi.fn(async () => []),
     findByNormalizedEmail: vi.fn(async () => null),
     create: vi.fn(async (_actor, _tenantId, shopId, record) => account({
