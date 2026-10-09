@@ -7,7 +7,7 @@
  * ECART SIGNALE AU RAPPORT DE FIN DE STORY : le wireframe decrit une
  * poignee de redimensionnement tiree sur le document pour donner une
  * largeur a l etiquette ("tirez son bord droit"). Ce lot remplace ce geste
- * par un controle explicite ("Donner une largeur" + valeur en points) —
+ * par un controle explicite ("Donner une largeur" + valeur en millimetres) —
  * fonctionnellement equivalent (active align centre/droite, cf. contrat
  * DocumentTextAlign), mais sans l affordance graphique de la poignee.
  */
@@ -17,16 +17,19 @@ import { TEST_IDS } from '@/shared/presentation/testIds';
 import type { DocumentFieldPlacementDto } from '@/modules/document-templates/api/contracts';
 import { fieldLabel, fontFromEnum, fontToEnum, FONT_FAMILY_LABELS, FONT_STYLE_LABELS, FONT_STYLES_BY_FAMILY } from './field-catalog';
 import type { FontFamilyId, FontStyleId } from './field-catalog';
+import { MillimeterInput } from './MillimeterInput';
 
 const COLOR_SWATCHES = ['#111111', '#374151', '#b91c1c', '#1d4ed8'] as const;
 
 export type FieldSettingsPanelProps = Readonly<{
   placement: DocumentFieldPlacementDto;
+  pageWidth: number;
+  pageHeight: number;
   onChange(next: DocumentFieldPlacementDto): void;
   onRemove(): void;
 }>;
 
-export function FieldSettingsPanel({ placement, onChange, onRemove }: FieldSettingsPanelProps) {
+export function FieldSettingsPanel({ placement, pageWidth, pageHeight, onChange, onRemove }: FieldSettingsPanelProps) {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const { family, style } = fontFromEnum(placement.font);
   const hasWidth = placement.width !== null && placement.width !== undefined;
@@ -40,6 +43,17 @@ export function FieldSettingsPanel({ placement, onChange, onRemove }: FieldSetti
       <h3 className="text-sm font-bold text-ink truncate" title={fieldLabel(placement.field)}>
         {fieldLabel(placement.field)}
       </h3>
+
+      <fieldset className="space-y-2">
+        <legend className="text-xs font-semibold text-ink-2 uppercase tracking-wide">Position sur la page</legend>
+        <div className="grid grid-cols-2 gap-2">
+          <MillimeterInput id="field-settings-x" label="X depuis la gauche" value={placement.x} max={pageWidth}
+            onChange={(x) => onChange({ ...placement, x })} />
+          <MillimeterInput id="field-settings-y" label="Y depuis le haut" value={pageHeight - placement.y} max={pageHeight}
+            onChange={(distance) => onChange({ ...placement, y: pageHeight - distance })} />
+        </div>
+        <p className="text-xs text-ink-muted">Origine : coin supérieur gauche. Y repère la ligne de base du texte. Validez avec Entrée ou en quittant le champ.</p>
+      </fieldset>
 
       <div className="space-y-1">
         <label htmlFor="field-settings-font-family" className="text-xs font-semibold text-ink-2 uppercase tracking-wide">
@@ -126,16 +140,9 @@ export function FieldSettingsPanel({ placement, onChange, onRemove }: FieldSetti
           Donner une largeur
         </label>
         {hasWidth && (
-          <input
-            type="number"
-            min={0}
-            max={20000}
-            value={placement.width ?? 0}
-            aria-label="Largeur en points"
-            data-testid={TEST_IDS.documentTemplateFields.widthInput}
-            onChange={(event) => onChange({ ...placement, width: Number(event.target.value) })}
-            className="w-28 px-2 py-1.5 border border-line-2 rounded-lg bg-paper text-sm"
-          />
+          <MillimeterInput id="field-settings-width" label="Largeur" value={placement.width ?? 0}
+            max={pageWidth} testId={TEST_IDS.documentTemplateFields.widthInput}
+            onChange={(width) => onChange({ ...placement, width })} />
         )}
       </div>
 

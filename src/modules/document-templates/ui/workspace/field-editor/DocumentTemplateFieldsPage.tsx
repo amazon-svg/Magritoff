@@ -342,6 +342,7 @@ export function DashboardDocumentTemplateFields() {
   }
 
   const selectedPlacement = selection.kind === 'placement' ? placements.find((p) => p.field === selection.field) ?? null : null;
+  const selectedPage = selectedPlacement ? template?.pages[selectedPlacement.page_index] : null;
 
   async function handleSave(): Promise<void> {
     if (!templateId || !fieldsEtag) return;
@@ -707,7 +708,7 @@ export function DashboardDocumentTemplateFields() {
           <p className="text-xs text-ink-muted mb-4">
             Placez les champs, ajoutez le tableau des lignes dans l’onglet Tableau, puis vérifiez l’aperçu et enregistrez.
           </p>
-          {selectedPlacement ? (
+          {selectedPlacement && selectedPage ? (
             <>
               <button
                 type="button"
@@ -725,6 +726,8 @@ export function DashboardDocumentTemplateFields() {
               </p>
               <FieldSettingsPanel
                 placement={selectedPlacement}
+                pageWidth={selectedPage.width_pt}
+                pageHeight={selectedPage.height_pt}
                 onChange={(next) => updatePlacement(selectedPlacement.field, next)}
                 onRemove={() => removePlacement(selectedPlacement.field)}
               />

@@ -110,3 +110,23 @@ aperçu, redimensionnement et coordonnées de sauvegarde avec/sans PDF ; reprise
 après erreur serveur. Typage modulaire, 267 tests ciblés et build passent.
 Le build conserve l’avertissement préexistant de cycle de chunks CheckoutPage.
 Aucun changement de contrat API ou dérogation R5.
+
+## Calage en millimètres
+
+Demande de Xavier : pouvoir caler précisément chaque élément par sa position
+en mm. document-templates UI ajoute X depuis la gauche, Y depuis le haut pour
+les champs et l’ancre de première ligne du tableau. Y est explicitement le
+repère de ligne de base. Largeurs des champs/colonnes, X de chaque colonne et
+espacement des lignes passent en mm ; les tailles de police restent en points.
+
+MillimeterInput est partagé au sein du module : saisie au centième de mm,
+validation par Entrée ou sortie du champ, rejet du vide/non-fini/hors limites.
+Un simple focus ne réarrondit pas la coordonnée PDF. Les changements au pointeur
+actualisent les valeurs affichées. Conversion 25,4 mm = 72 points ; aucune
+migration ou modification API/DTO. Aucun gabarit métier modifié implicitement.
+
+Recette navigateur étendue : saisie de positions et largeurs, espacement,
+maintien après erreur/reprise, coordonnées en points transmises et relecture
+en mm après rechargement. Trois tests Chromium, 267 tests ciblés,
+typage modulaire et build réussis. Le délai de recette attend le chargement
+à froid de PDF.js ; l’avertissement de build CheckoutPage préexistant subsiste.

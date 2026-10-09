@@ -308,3 +308,15 @@ palette, déplacement et sauvegarde après aperçu/redimensionnement ; 267 tests
 ciblés, typage et build passent (avertissement existant CheckoutPage conservé).
 E4.ORDER-DOCUMENTS et preuve complétées. Aucun contrat API, dérogation R5,
 placement métier modifié implicitement, serveur lancé ou push.
+
+## Calage précis des éléments PDF
+
+document-templates UI : saisie X/Y en mm depuis le coin supérieur gauche,
+repère vertical de ligne de base explicite. Largeurs et géométrie du tableau
+en mm, taille de police en points. Entrée/sortie du champ valide la saisie,
+vide et valeurs hors limites ne modifient pas les coordonnées. Contrat PDF en
+points conservé ; aucun endpoint, migration ou dérogation R5. Story canonique
+E4.ORDER-DOCUMENTS et preuve complétées en brouillon. Trois Chromium, 267 tests
+ciblés, typage modulaire et build réussis ; avertissement CheckoutPage existant.
+Recette mm vérifiée jusqu’aux coordonnées transmises et à la relecture après
+rechargement, y compris reprise après erreur. Aucun serveur lancé ou push.

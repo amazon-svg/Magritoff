@@ -3,6 +3,9 @@ import {fixture} from './fixtures/backoffice-shops';
 import {TEST_IDS} from '../../src/shared/presentation/testIds';
 import {PDFDocument} from 'pdf-lib';
 
+// Le chargement à froid de PDF.js sur le serveur Vite peut être lent en local.
+test.setTimeout(90000);
+
 for(const withBackground of [false,true]) {
 test(`place et déplace les champs après aperçu et redimensionnement (${withBackground?'fond PDF':'page blanche'})`,async({page})=>{
  await fixture(page);
@@ -36,9 +39,9 @@ test(`place et déplace les champs après aperçu et redimensionnement (${withBa
  });
  await page.goto(`/t/magrit-development/dashboard/document-templates/${id}/fields`);
  const canvas=page.getByTestId(TEST_IDS.documentTemplateFields.canvas);
- await expect(canvas).toBeVisible();
+ await expect(canvas).toBeVisible({timeout:30000});
  await expect.poll(async()=> (await canvas.boundingBox())!.height/(await canvas.boundingBox())!.width).toBeCloseTo(841.89/595.28,2);
- if(withBackground) await expect.poll(()=>canvas.locator('canvas').evaluate(node=>(node as HTMLCanvasElement).height)).toBeGreaterThan(500);
+ if(withBackground) await expect.poll(()=>canvas.locator('canvas').evaluate(node=>(node as HTMLCanvasElement).height),{timeout:30000}).toBeGreaterThan(500);
  await page.locator('button[data-field-id="order.number"]').click();
  let box=(await canvas.boundingBox())!;
  await canvas.click({position:{x:box.width*0.25,y:box.height*0.3}});
@@ -79,6 +82,14 @@ test('enchaîne deux champs puis conserve les modifications après une erreur de
    if(route.request().method()==='PUT'){
     expect(route.request().headers()['if-match']).toBe('"fields"');
     expect(route.request().postDataJSON().placements.map((placement:{field:string})=>placement.field)).toEqual(['order.number','order.created_at']);
+    const data=route.request().postDataJSON();
+    expect(data.placements[0].x).toBeCloseTo(72,6);
+    expect(data.placements[0].y).toBeCloseTo(841.89-144,6);
+    expect(data.placements[0].width).toBeCloseTo(108,6);
+    expect(data.lines_block.columns[0].x).toBeCloseTo(72,6);
+    expect(data.lines_block.columns[0].width).toBeCloseTo(144,6);
+    expect(data.lines_block.first_row_baseline_y).toBeCloseTo(841.89-288,6);
+    expect(data.lines_block.row_height).toBeCloseTo(18,6);
     if(!failed){failed=true;return route.fulfill({status:500,json:{type:'about:blank',title:'Erreur API',status:500,code:'server.error',request_id:'save'}});}
     map={...map,...route.request().postDataJSON()};
    }
@@ -98,6 +109,28 @@ test('enchaîne deux champs puis conserve les modifications après une erreur de
  const nextField=page.locator('[data-field-id="order.created_at"]').first();
  await nextField.focus();await nextField.press('Enter');
  await expect(page.getByTestId(TEST_IDS.documentTemplateFields.placementLabel)).toHaveCount(2);
+ // Les ajouts au clavier arrivent au centre : écarter le second avant de sélectionner le premier.
+ await page.getByLabel('Y depuis le haut (mm)',{exact:true}).fill('120');
+ await page.getByLabel('Y depuis le haut (mm)',{exact:true}).press('Enter');
+ await page.getByTestId(TEST_IDS.documentTemplateFields.placementLabel).filter({hasText:'Numéro de commande'}).click();
+ const xInput=page.getByLabel('X depuis la gauche (mm)',{exact:true});
+ await xInput.fill('25.4');await xInput.press('Enter');
+ await page.getByLabel('Y depuis le haut (mm)',{exact:true}).fill('50.8');
+ await page.getByLabel('Y depuis le haut (mm)',{exact:true}).press('Enter');
+ await page.getByTestId(TEST_IDS.documentTemplateFields.widthToggle).check();
+ await page.getByLabel('Largeur (mm)',{exact:true}).fill('38.1');
+ await page.getByLabel('Largeur (mm)',{exact:true}).press('Enter');
+ await xInput.fill('');await xInput.blur();
+ await expect(xInput).toHaveValue('25.4');
+ await page.getByRole('button',{name:'Ajouter un autre champ',exact:true}).click();
+ await page.getByTestId(TEST_IDS.documentTemplateFields.tabTable).click();
+ await page.getByTestId(TEST_IDS.documentTemplateFields.insertTableBtn).click();
+ await page.getByTestId(TEST_IDS.documentTemplateFields.addColumnSelect).selectOption('line.label');
+ await page.locator('#lines-table-anchor-x').fill('25.4');await page.locator('#lines-table-anchor-x').press('Enter');
+ await page.locator('#lines-table-anchor-y').fill('101.6');await page.locator('#lines-table-anchor-y').press('Enter');
+ await page.locator('#lines-table-column-width-0').fill('50.8');await page.locator('#lines-table-column-width-0').press('Enter');
+ await page.getByLabel('Espacement entre les lignes (mm)',{exact:true}).fill('6.35');
+ // Le clic sur Enregistrer valide également la saisie en cours par blur.
  await page.getByTestId(TEST_IDS.documentTemplateFields.saveBtn).click();
  await expect(page.getByTestId(TEST_IDS.documentTemplateFields.errorBanner)).toContainText('HTTP 500');
  await expect(page.getByText('Numéro de commande',{exact:true}).first()).toBeVisible();
@@ -105,4 +138,14 @@ test('enchaîne deux champs puis conserve les modifications après une erreur de
  await expect(page.getByTestId(TEST_IDS.documentTemplateFields.errorBanner)).toHaveCount(0);
  await expect(page.getByTestId(TEST_IDS.documentTemplateFields.saveBtn)).toBeDisabled();
  await expect(page.getByTestId(TEST_IDS.documentTemplateFields.previewBtn)).toHaveText(/commande/);
+ await page.reload();
+ await page.getByTestId(TEST_IDS.documentTemplateFields.placementLabel).filter({hasText:'Numéro de commande'}).click();
+ await expect(page.getByLabel('X depuis la gauche (mm)',{exact:true})).toHaveValue('25.4');
+ await expect(page.getByLabel('Y depuis le haut (mm)',{exact:true})).toHaveValue('50.8');
+ await expect(page.getByLabel('Largeur (mm)',{exact:true})).toHaveValue('38.1');
+ await page.getByRole('button',{name:'Ajouter un autre champ',exact:true}).click();
+ await page.getByTestId(TEST_IDS.documentTemplateFields.tabTable).click();
+ await expect(page.locator('#lines-table-anchor-y')).toHaveValue('101.6');
+ await expect(page.locator('#lines-table-column-width-0')).toHaveValue('50.8');
+ await expect(page.getByLabel('Espacement entre les lignes (mm)',{exact:true})).toHaveValue('6.35');
 });

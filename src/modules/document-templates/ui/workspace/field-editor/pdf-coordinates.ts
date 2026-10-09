@@ -12,6 +12,14 @@
 export type PdfPoint = Readonly<{ x: number; y: number }>;
 export type ScreenPixel = Readonly<{ x: number; y: number }>;
 
+export function pointsToMillimeters(points: number): number {
+  return points * 25.4 / 72;
+}
+
+export function millimetersToPoints(millimeters: number): number {
+  return millimeters * 72 / 25.4;
+}
+
 /**
  * Convertit une coordonnee PDF (points, origine bas-gauche) en position
  * ecran (pixels CSS, origine haut-gauche), pour une page de hauteur
