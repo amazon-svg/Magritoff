@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 import {fixture} from './fixtures/backoffice-shops';
 import {TEST_IDS} from '../../src/shared/presentation/testIds';
 
-test('conserve le champ après une erreur de sauvegarde puis enregistre un gabarit commande',async({page})=>{
+test('enchaîne deux champs puis conserve les modifications après une erreur de sauvegarde',async({page})=>{
  await fixture(page);
  const tenantId='20000000-0000-4000-8000-000000000001';
  const id='70000000-0000-4000-8000-000000000011';
@@ -16,7 +16,7 @@ test('conserve le champ après une erreur de sauvegarde puis enregistre un gabar
   if(path===`${prefix}/fields`){
    if(route.request().method()==='PUT'){
     expect(route.request().headers()['if-match']).toBe('"fields"');
-    expect(route.request().postDataJSON().placements[0].field).toBe('order.number');
+    expect(route.request().postDataJSON().placements.map((placement:{field:string})=>placement.field)).toEqual(['order.number','order.created_at']);
     if(!failed){failed=true;return route.fulfill({status:500,json:{type:'about:blank',title:'Erreur API',status:500,code:'server.error',request_id:'save'}});}
     map={...map,...route.request().postDataJSON()};
    }
@@ -27,6 +27,15 @@ test('conserve le champ après une erreur de sauvegarde puis enregistre un gabar
  await page.goto(`/t/magrit-development/dashboard/document-templates/${id}/fields`);
  const field=page.locator('[data-field-id="order.number"]').first();
  await field.focus();await field.press('Enter');
+ await page.getByRole('button',{name:'Ajouter un autre champ',exact:true}).click();
+ await expect(page.getByTestId(TEST_IDS.documentTemplateFields.tabFields)).toBeFocused();
+ await expect(page.getByTestId(TEST_IDS.documentTemplateFields.placementLabel)).toHaveCount(1);
+ await expect(page.locator('button[data-field-id="order.number"]')).toHaveCount(0);
+ await page.getByTestId(TEST_IDS.documentTemplateFields.tabTable).click();
+ await page.getByTestId(TEST_IDS.documentTemplateFields.tabFields).click();
+ const nextField=page.locator('[data-field-id="order.created_at"]').first();
+ await nextField.focus();await nextField.press('Enter');
+ await expect(page.getByTestId(TEST_IDS.documentTemplateFields.placementLabel)).toHaveCount(2);
  await page.getByTestId(TEST_IDS.documentTemplateFields.saveBtn).click();
  await expect(page.getByTestId(TEST_IDS.documentTemplateFields.errorBanner)).toContainText('HTTP 500');
  await expect(page.getByText('Numéro de commande',{exact:true}).first()).toBeVisible();

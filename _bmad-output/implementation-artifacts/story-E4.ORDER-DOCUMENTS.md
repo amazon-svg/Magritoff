@@ -81,3 +81,13 @@ explicite et maintien des modifications ; libellés aperçu/total selon le type 
 document et retour Gabarits PDF. Test Chromium : HTTP 500 visible, champ
 conservé, reprise réussie et disparition de l’erreur. Types/build et 282 tests
 ciblés passent. Aucun endpoint/DTO modifié, aucune dérogation R5 nouvelle.
+
+## Suite du placement des champs
+
+Retour de Xavier : une fois le champ glissé, la suite du parcours est peu claire.
+Le panneau document-templates propose « Ajouter un autre champ », qui conserve
+le placement, réaffiche la palette et remet le focus clavier sur l’onglet Champs.
+Un rappel indique tableau des lignes, aperçu puis enregistrement explicite.
+Chromium vérifie deux placements successifs, passage par Tableau et sauvegarde
+avec erreur/reprise sans perte. 267 tests architecture/module et typage modulaire
+réussis. Aucun contrat API, donnée métier ou dérogation R5 modifié.

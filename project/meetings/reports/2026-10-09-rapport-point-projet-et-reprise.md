@@ -289,3 +289,11 @@ nouvelle tentative avec message précis nécessaire. document-templates UI affic
 statut/code et les problèmes de format, conserve les modifications et adapte les
 libellés au type commande. Test Chromium de reprise réussi. 282 tests ciblés,
 types et build passent ; aucune donnée BC 2026 modifiée, serveur lancé ou push.
+
+## Guidage après placement d’un champ PDF
+
+document-templates UI : retour visible « Ajouter un autre champ » conservant le
+placement et le focus clavier, rappel tableau/aperçu/enregistrement. E4.ORDER-DOCUMENTS
+et sa preuve complétées, au statut brouillon. Parcours Chromium de deux champs
+et sauvegarde/reprise réussi, 267 tests ciblés et typage modulaire réussis.
+Aucun contrat API modifié, dérogation R5, donnée métier modifiée ou serveur lancé.

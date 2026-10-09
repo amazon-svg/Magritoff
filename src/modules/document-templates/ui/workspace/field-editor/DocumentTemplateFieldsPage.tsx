@@ -100,6 +100,15 @@ export function DashboardDocumentTemplateFields() {
   const [activeTab, setActiveTab] = useState<'fields' | 'table'>('fields');
   const [pageIndex, setPageIndex] = useState(0);
   const [selection, setSelection] = useState<FieldSelection>(NO_SELECTION);
+  const fieldsTabRef = useRef<HTMLButtonElement>(null);
+  const returnToFieldsRef = useRef(false);
+
+  useEffect(() => {
+    if (selection.kind === 'none' && returnToFieldsRef.current) {
+      returnToFieldsRef.current = false;
+      fieldsTabRef.current?.focus();
+    }
+  }, [selection]);
 
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -694,17 +703,37 @@ export function DashboardDocumentTemplateFields() {
         </div>
 
         <div className="w-72 border-l border-line-2 p-4 overflow-y-auto shrink-0">
+          <p className="text-xs text-ink-muted mb-4">
+            Placez les champs, ajoutez le tableau des lignes dans l’onglet Tableau, puis vérifiez l’aperçu et enregistrez.
+          </p>
           {selectedPlacement ? (
-            <FieldSettingsPanel
-              placement={selectedPlacement}
-              onChange={(next) => updatePlacement(selectedPlacement.field, next)}
-              onRemove={() => removePlacement(selectedPlacement.field)}
-            />
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  returnToFieldsRef.current = true;
+                  setSelection(NO_SELECTION);
+                  setActiveTab('fields');
+                }}
+                className="w-full rounded-lg border border-line-2 px-3 py-2 text-sm font-medium text-ink mb-3"
+              >
+                Ajouter un autre champ
+              </button>
+              <p className="text-xs text-ink-muted mb-4">
+                Le champ est placé. Vous pouvez ajuster ses réglages ci-dessous ou continuer à ajouter des champs.
+              </p>
+              <FieldSettingsPanel
+                placement={selectedPlacement}
+                onChange={(next) => updatePlacement(selectedPlacement.field, next)}
+                onRemove={() => removePlacement(selectedPlacement.field)}
+              />
+            </>
           ) : (
             <>
               <div className="flex border-b border-line-2 mb-3">
                 <button
                   type="button"
+                  ref={fieldsTabRef}
                   onClick={() => setActiveTab('fields')}
                   data-testid={TEST_IDS.documentTemplateFields.tabFields}
                   className={`flex-1 text-sm py-2 border-b-2 ${
