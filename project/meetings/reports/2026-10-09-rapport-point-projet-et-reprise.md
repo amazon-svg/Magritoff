@@ -183,3 +183,11 @@ La migration 0095 est appliquée à la seule base locale de développement
 L'interface est accessible sur `http://localhost:5176`, avec son API sur 8787.
 La réponse Vite du détail de bibliothèque contient le nouveau formulaire et
 le healthcheck de l'API répond 200. Aucun push ni fusion dans `main`.
+
+## Entrée unique pour les règles de prix
+
+Demande de Xavier : supprimer « Prix & marges » après constat de deux entrées
+concurrentes. L'entrée du module commercial est retirée de la navigation ;
+« Règles de prix » reste visible. Les données et la route historique ne sont
+pas supprimées. Aucun changement API ni dérogation R5. Vérification : 23 tests
+du registre des contributions réussis et typage modulaire valide.

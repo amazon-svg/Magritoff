@@ -202,7 +202,7 @@ describe('registre des contributions de surfaces', () => {
     expect(applicationContributionRegistry.forSurface('workspace').routes).toContainEqual(
       expect.objectContaining({ id: 'commercial.workspace.pricing', path: 'commercial' }),
     );
-    expect(applicationContributionRegistry.forSurface('workspace').navigation).toContainEqual(
+    expect(applicationContributionRegistry.forSurface('workspace').navigation).not.toContainEqual(
       expect.objectContaining({ id: 'commercial.workspace.navigation', label: 'Prix & marges' }),
     );
   });
