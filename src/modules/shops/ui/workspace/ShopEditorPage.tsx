@@ -388,16 +388,16 @@ export function DashboardShopEditor() {
       <fieldset disabled={saving} className="min-w-0">
       <Tabs value={editorSection} onValueChange={changeSection} className="space-y-4">
         <TabsList aria-label="Réglages de la boutique" className="grid h-auto w-full grid-cols-2 gap-1 bg-bg sm:grid-cols-4">
-          {[['catalogue', 'Catalogue'], ['clients', 'Accès et clients'], ['informations', 'Informations'], ['apparence', 'Apparence']].map(([value, label]) => <TabsTrigger key={value} value={value!} className="min-h-11 whitespace-normal">{label}</TabsTrigger>)}
+          {[['catalogue', 'Catalogue'], ['clients', 'Clients'], ['informations', 'Informations générales'], ['apparence', 'Apparence']].map(([value, label]) => <TabsTrigger key={value} value={value!} className="min-h-11 whitespace-normal">{label}</TabsTrigger>)}
         </TabsList>
       {loadError && (
         <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-err-bg p-3 text-sm text-err-fg"><p>{loadError}</p><Button variant="outline" className="min-h-11" onClick={() => void refreshOperations()}>Réessayer</Button></div>
       )}
 
-      <TabsContent value="informations" forceMount hidden={editorSection !== 'informations'}>
+      <TabsContent value="informations" forceMount hidden={editorSection !== 'informations'} className="space-y-4">
       {/* ── Infos de base ── */}
       <section className="border border-line rounded-xl p-4 bg-paper space-y-3">
-        <h2 className="font-semibold text-ink">Informations</h2>
+        <h2 className="font-semibold text-ink">Informations générales</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
             <label htmlFor="shop-setting-1" className="block text-xs font-medium text-ink-2 mb-1">Nom</label>
@@ -486,13 +486,64 @@ export function DashboardShopEditor() {
         </div>
       </section>
 
+      {/* ── Activation + bouton biblio sous le toggle ── */}
+      <section className="border border-line rounded-xl p-4 bg-paper space-y-3">
+        <h2 className="font-semibold text-ink">Publication et accès</h2>
+        <label className="flex items-center gap-3">
+          <input
+            type="checkbox"
+            checked={shop.active}
+            onChange={(e) => setShop({ ...shop, active: e.target.checked })}
+            className="w-4 h-4"
+          />
+          <div>
+            <p className="text-sm font-medium text-ink">Boutique active</p>
+            <p className="text-xs text-ink-muted">Accessible selon le mode d’accès choisi. Une boutique désactivée reste conservée et peut être réactivée.</p>
+          </div>
+        </label>
+
+        {/* S7.11 (ADR 4.20) — Mode d'accès acheteurs */}
+        <label className="block">
+          <p className="text-sm font-medium text-ink mb-1">
+            Accès des acheteurs
+          </p>
+          <select
+            data-testid={TEST_IDS.shop.accessModeSelect}
+            value={shop.access_mode ?? 'invite_only'}
+            onChange={(e) =>
+              setShop({ ...shop, access_mode: e.target.value as 'invite_only' | 'self_signup' })
+            }
+            className="min-h-11 w-full max-w-sm border border-line-2 rounded-md px-3 py-2 text-sm"
+          >
+            <option value="invite_only">Sur invitation uniquement (défaut)</option>
+            <option value="self_signup">Inscription libre au moment de commander</option>
+          </select>
+          <p className="text-xs text-ink-muted mt-1">
+            Sur invitation, seuls les clients invités peuvent accéder à la boutique.
+            En inscription libre, un visiteur peut consulter les produits et créer
+            son compte au moment de commander. La boutique peut alors être indexée
+            par les moteurs de recherche.
+          </p>
+        </label>
+
+        {/* Raccourci vers la gestion des bibliotheques (remplace l'item
+            sidebar "Bibliotheque" qui est maintenant sub-item de Boutiques) */}
+        <Link
+          to={tp('/dashboard/library')}
+          className="inline-flex items-center gap-2 text-sm text-brand hover:text-brand hover:underline"
+        >
+          <LibraryIcon className="w-4 h-4" />
+          Gérer mes bibliothèques
+        </Link>
+      </section>
+
       </TabsContent>
       <TabsContent value="apparence" forceMount hidden={editorSection !== 'apparence'}>
       {/* ── Bandeau de marque (refonte 2026-07-08) ── */}
       <section className="border border-line rounded-xl p-4 bg-paper space-y-3">
         <h2 className="font-semibold text-ink">Bandeau de marque</h2>
         <p className="text-xs text-ink-muted">
-          En-tête co-brandé de la boutique. Le <strong>logo du client</strong> (onglet Informations) est affiché proprement dans une plaque nette. Le fond utilise la
+          En-tête co-brandé de la boutique. Le <strong>logo du client</strong> (onglet Informations générales) est affiché proprement dans une plaque nette. Le fond utilise la
           <strong> couleur primaire de marque</strong> par défaut ; ajoutez une image de fond
           seulement si vous en avez une belle (photo panoramique) — le logo n'est jamais étiré.
         </p>
@@ -727,56 +778,6 @@ export function DashboardShopEditor() {
 
       </TabsContent>
       <TabsContent value="clients" forceMount hidden={editorSection !== 'clients'}>
-      {/* ── Activation + bouton biblio sous le toggle ── */}
-      <section className="border border-line rounded-xl p-4 bg-paper space-y-3">
-        <h2 className="font-semibold text-ink">Publication et accès</h2>
-        <label className="flex items-center gap-3">
-          <input
-            type="checkbox"
-            checked={shop.active}
-            onChange={(e) => setShop({ ...shop, active: e.target.checked })}
-            className="w-4 h-4"
-          />
-          <div>
-            <p className="text-sm font-medium text-ink">Boutique active</p>
-            <p className="text-xs text-ink-muted">Accessible selon le mode d’accès choisi. Une boutique désactivée reste conservée et peut être réactivée.</p>
-          </div>
-        </label>
-
-        {/* S7.11 (ADR 4.20) — Mode d'accès acheteurs */}
-        <label className="block">
-          <p className="text-sm font-medium text-ink mb-1">
-            Accès des acheteurs
-          </p>
-          <select
-            data-testid={TEST_IDS.shop.accessModeSelect}
-            value={shop.access_mode ?? 'invite_only'}
-            onChange={(e) =>
-              setShop({ ...shop, access_mode: e.target.value as 'invite_only' | 'self_signup' })
-            }
-            className="min-h-11 w-full max-w-sm border border-line-2 rounded-md px-3 py-2 text-sm"
-          >
-            <option value="invite_only">Sur invitation uniquement (défaut)</option>
-            <option value="self_signup">Inscription libre au moment de commander</option>
-          </select>
-          <p className="text-xs text-ink-muted mt-1">
-            Sur invitation, seuls les clients invités peuvent accéder à la boutique.
-            En inscription libre, un visiteur peut consulter les produits et créer
-            son compte au moment de commander. La boutique peut alors être indexée
-            par les moteurs de recherche.
-          </p>
-        </label>
-
-        {/* Raccourci vers la gestion des bibliotheques (remplace l'item
-            sidebar "Bibliotheque" qui est maintenant sub-item de Boutiques) */}
-        <Link
-          to={tp('/dashboard/library')}
-          className="inline-flex items-center gap-2 text-sm text-brand hover:text-brand hover:underline"
-        >
-          <LibraryIcon className="w-4 h-4" />
-          Gérer mes bibliothèques
-        </Link>
-      </section>
 
       {currentTenant && (
         <ShopCustomerAccountsSection tenantId={currentTenant.id} shopId={shop.id} />

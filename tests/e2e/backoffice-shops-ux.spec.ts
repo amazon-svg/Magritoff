@@ -92,7 +92,7 @@ for (const width of [375, 768, 1280]) {
     await expect(page).toHaveURL(new RegExp(shopId));
     await expect(page.getByRole('tab', { name: 'Catalogue', exact: true })).toHaveAttribute('aria-selected', 'true');
     await page.getByLabel(/Produits de recette/).check();
-    const information = page.getByRole('tab', { name: 'Informations', exact: true });
+    const information = page.getByRole('tab', { name: 'Informations générales', exact: true });
     await information.click();
     await expect(page).toHaveURL(/section=informations/);
     await page.getByLabel('Nom', { exact: true }).fill('Boutique renommée');
@@ -112,13 +112,16 @@ for (const width of [375, 768, 1280]) {
     await expect(page.getByRole('button', { name: 'Enregistrer les modifications' })).toBeDisabled();
     await page.getByRole('tab', { name: 'Catalogue', exact: true }).focus();
     await page.keyboard.press('ArrowRight');
-    await expect(page.getByRole('tab', { name: 'Accès et clients', exact: true })).toBeFocused();
-    await expect(page.getByRole('tab', { name: 'Accès et clients', exact: true })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('tab', { name: 'Clients', exact: true })).toBeFocused();
+    await expect(page.getByRole('tab', { name: 'Clients', exact: true })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByLabel(/Accès des acheteurs/)).toBeHidden();
+    await information.click();
+    await expect(page.getByRole('heading', { name: 'Publication et accès' })).toBeVisible();
     await expect(page.getByLabel(/Accès des acheteurs/)).toBeVisible();
     await noOverflow(page);
     const axe = await new AxeBuilder({ page }).include('main').withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
     expect(axe.violations, JSON.stringify(axe.violations.map(value => ({ id: value.id, nodes: value.nodes.map(node => node.target) })))).toEqual([]);
-    for (const label of ['Informations', 'Apparence', 'Catalogue']) {
+    for (const label of ['Informations générales', 'Apparence', 'Catalogue']) {
       await page.getByRole('tab', { name: label, exact: true }).click();
       await noOverflow(page);
       const result = await new AxeBuilder({ page }).include('main').withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();

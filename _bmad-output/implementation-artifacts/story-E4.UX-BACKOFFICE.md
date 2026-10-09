@@ -12,7 +12,7 @@ nommées. Les modales partagées gèrent création et suppression, retour du foc
 erreur persistante et nouvelle tentative sans perdre la saisie. Une panne de
 chargement est distincte d’une liste vide.
 
-L’éditeur répartit les réglages en Catalogue, Accès et clients, Informations et
+L’éditeur répartit les réglages en Catalogue, Clients, Informations générales et
 Apparence, avec sélection dans l’URL et navigation clavier. Les formulaires restent
 montés entre les onglets. L’enregistrement affiche un état durable ; quitter avec
 une saisie non enregistrée demande une confirmation, recharger protège aussi la
@@ -51,3 +51,7 @@ Les parcours non ciblés (import de visuels, clients, retrait de produit de bibl
 restent soumis à leur recette métier propre. Les scans automatisés et cette revue
 visuelle ne constituent pas un audit exhaustif de conformité accessibilité.
 Aucun push, déploiement ou fusion réalisé ; revue indépendante à effectuer.
+
+Ajustement demandé par Xavier : « Publication et accès » est regroupé dans
+Informations générales ; l’onglet Clients contient uniquement la gestion des
+comptes clients. La recette vérifie la présence et le masquage correspondants.
