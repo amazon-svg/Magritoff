@@ -10,7 +10,7 @@ import { PortalProduct } from '@/modules/catalog/ui/storefront';
 import { PortalCart } from '@/modules/orders/ui/storefront';
 import { PortalThankYou } from '@/modules/orders/ui/storefront';
 import { AccountHub } from '@/modules/account/ui/customer-portal';
-import { CheckoutPage } from '@/modules/orders/ui/storefront';
+import { CheckoutPage } from '@/modules/orders/ui/storefront/CheckoutPage';
 import type { PortalView, CartLine, BudgetInfo } from '@/modules/orders/ui/storefront';
 import { computePortalCartTotalHt } from '@/modules/orders/ui/storefront';
 import { ShopLayout } from '@/modules/shops/ui/storefront/ShopLayout';
