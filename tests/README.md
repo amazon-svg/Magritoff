@@ -1,5 +1,11 @@
 # Tests Magrit B4
 
+## Recette boutique portable
+
+La [recette navigateur boutique](../docs/testing/storefront-browser.md) couvre
+recherche, configuration, panier, identification et confirmation avec des API
+simulées, ainsi que les recherches accessibles sur mobile et desktop.
+
 ## RLS d etancheite multi-tenant (E9.10)
 
 Tests vitest qui verifient qu un user authentifie via JWT anon ne peut pas

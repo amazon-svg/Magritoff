@@ -34,10 +34,10 @@ jobs:
           done
           cat /tmp/magrit-a11y-runtime.log
           exit 1
-      - name: Test login, workspace, HopeStudio and accessibility
+      - name: Test login, workspace, HopeStudio, storefront and accessibility
         env:
           E2E_BASE_URL: http://localhost:5176
-        run: pnpm exec playwright test tests/e2e/_setup.spec.ts tests/e2e/a11y-dynamic.spec.ts tests/e2e/atelier-no-cart-button.spec.ts tests/e2e/hopstudio-project-import.spec.ts
+        run: pnpm exec playwright test tests/e2e/_setup.spec.ts tests/e2e/a11y-dynamic.spec.ts tests/e2e/atelier-no-cart-button.spec.ts tests/e2e/hopstudio-project-import.spec.ts tests/e2e/storefront-purchase-flow.spec.ts
       - name: Upload browser evidence
         if: always()
         uses: actions/upload-artifact@v4

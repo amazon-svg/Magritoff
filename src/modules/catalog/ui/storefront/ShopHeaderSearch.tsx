@@ -7,7 +7,7 @@
  * aucun résultat → « Demander à Magrit » (vue catalogue).
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Search, Sparkles } from 'lucide-react';
 import type { ShopProduct } from '@/modules/shops';
 import type { Gamme } from '@/modules/catalog/ui/helpers/productEnrichment';
@@ -38,6 +38,7 @@ export function ShopHeaderSearch({
   isDark = false,
   className = '',
 }: ShopHeaderSearchProps) {
+  const menuId = useId();
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -83,7 +84,7 @@ export function ShopHeaderSearch({
           data-testid={TEST_IDS.shop.headerSearchInput}
           role="combobox"
           aria-expanded={showMenu}
-          aria-controls="shop-header-search-listbox"
+          aria-controls={menuId}
           aria-label="Rechercher un produit ou une catégorie"
           placeholder="Que voulez-vous imprimer ?"
           value={query}
@@ -108,7 +109,7 @@ export function ShopHeaderSearch({
 
       {showMenu && (
         <div
-          id="shop-header-search-listbox"
+          id={menuId}
           data-testid={TEST_IDS.shop.headerSearchMenu}
           role="listbox"
           className={`absolute left-0 right-0 top-full mt-1 z-40 rounded-lg border shadow-lg overflow-hidden ${

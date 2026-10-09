@@ -101,3 +101,43 @@ et ce rapport de pilotage. API créée ou modifiée : aucune. Dérogation R5 :
 aucune. Le registre des rapports et le dashboard sont régénérés pour rendre ce
 point consultable dans le pilotage du projet. La relecture distincte et
 l'approbation de la livraison restent à réaliser avant fusion.
+
+## Suite du 9 octobre — recette navigateur boutique
+
+Mandat : « continue » dans le chat, après le point projet. Branche de suite :
+`codex/recette-boutique`, issue du commit `6f21cdc8` qui conserve le lot de
+catégories. La copie principale reste sur `main` avec son `.gitignore`
+préexistant ; aucun push, déploiement ou fusion.
+
+La boutique UX locale a été observée dans Chromium : catalogue de 82 produits,
+recherche de Flyer A5 et accès à sa configuration. Les appels de prix et IA
+sont interceptés pour la suite du parcours : cette observation ne constitue
+pas un chiffrage fournisseur réel.
+
+Deux défauts de recherche sont corrigés dans `catalog` : champ catalogue sans
+nom accessible et identifiant de menu partagé par les headers mobile/desktop.
+Le champ est nommé « Rechercher dans le catalogue » ; chaque instance du
+header crée son identifiant avec `useId`. Aucun contrat API, droit, prix ou
+modèle de données n'est modifié, aucune dérogation R5 n'est introduite.
+
+La nouvelle recette `tests/e2e/storefront-purchase-flow.spec.ts` passe : trois
+tests Chromium, dont les deux largeurs 390/1280 pixels. Le parcours vérifie
+la recherche clavier, la configuration, le panier, la séparation de session
+boutique et la confirmation. Il contrôle un pack de 500 exemplaires à
+125,00 € HT, transporté en décimal `125.00`, avec une clé d'idempotence.
+Le bouton de commande est désactivé avant connexion. L'éditorial IA absent
+est simulé pour vérifier le repli déterministe.
+
+Les API et la persistance sont simulées et les appels inattendus font échouer
+la recette d'achat. Aucun compte, email ou commande réelle n'est créé. La
+création PostgreSQL et la consultation de cette nouvelle commande dans la
+fiche commune restent à vérifier séparément ; les intégrations fournisseur
+réelles ne sont pas revendiquées.
+
+Le workflow navigateur inclut désormais ces trois tests, avec archivage des
+captures ; son exécution GitHub n'est pas revendiquée. Le typage modulaire et
+le build passent. La suite de régression compte 3 142 tests réussis et
+165 ignorés ; les dix tests de pilotage passent après actualisation du
+rapport. La documentation de reproduction est dans
+`docs/testing/storefront-browser.md` et les logs locaux dans
+`/tmp/magrit-shop-*.log`. Le rapport et le dashboard sont actualisés.
