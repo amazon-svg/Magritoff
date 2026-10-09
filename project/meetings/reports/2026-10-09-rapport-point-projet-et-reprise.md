@@ -244,3 +244,25 @@ nouveau endpoint ou DTO, aucune migration/dérogation R5. Recette et preuve :
 `docs/testing/order-annexes.md`,
 `_bmad-output/implementation-artifacts/story-E4.ORDER-ANNEXES.md`.
 Dans le dossier habituel ; aucun serveur lancé/redémarré, aucun push/fusion.
+
+## Bon PDF et parcours des pièces jointes boutique
+
+Xavier autorise les deux ajouts proposés à la PR. E4.ORDER-DOCUMENTS étend le
+moteur PDF aux commandes boutique : lignes/montants enregistrés, acheteur,
+devise et TVA du tenant ; aucune référence devis ni remise inventée. Bouton de
+production activé, document conservé et seconde production refusée. Contrat
+OpenAPI existant clarifié et types régénérés ; aucun nouveau endpoint ou DTO.
+
+La recette révèle une lecture de budget public bloquée par RLS sans session.
+Migration 0097 : fonction minimale protégée par jeton valide/non révoqué/non
+expiré, compteur de fichiers pour quota ; confirmation existante conservée et
+référence boutique corrigée. Appliquée localement, aucune mutation de données
+métier. Modules commercial-orders, order-documents, quote-documents (resolveurs
+partagés), order-upload-links, adaptateurs PostgreSQL et composition de surface.
+Aucune dérogation R5 nouvelle.
+
+3 158 tests réussis, 183 ignorés ; dix tests PostgreSQL/S3 réels sur base
+éphémère ; quatre parcours Chromium mobile/ordinateur ; types/build/OpenAPI et
+gouvernance passent. Recette dans docs/testing/order-annexes.md. Aucun nouveau
+serveur, push, fusion ou déploiement. Atelier Lumière n’a pas encore de gabarit
+order prêt, actif et par défaut : configuration nécessaire avant production.

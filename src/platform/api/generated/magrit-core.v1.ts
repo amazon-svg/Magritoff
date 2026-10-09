@@ -2080,6 +2080,7 @@ export interface paths {
         /**
          * Génère le document d’une commande
          * @description PRODUIT le bon de commande d une commande, une fois pour toutes.
+         *     Accepte les commandes issues d un devis ou d une boutique. Pour une commande boutique, reprend les lignes et montants enregistres, la TVA du tenant et les informations disponibles du client boutique ; aucune reference de devis ni remise n est inventee. En absence de numero, utilise l identifiant complet de commande. Le gabarit doit etre de type `order`, actif, pret et defini par defaut ; sinon 409 `order.document_template_missing`. Le document produit est conserve, une seconde production rend `order.document_already_generated`.
          *
          *     POURQUOI UNE OPERATION DE PRODUCTION, ALORS QUE LE DEVIS N EN A PAS. Le devis est rendu DANS l envoi, parce que toutes ses valeurs existent avant la transition. La commande ne le permet pas : son numero est attribue par la transaction de conversion, donc rien n est imprimable avant qu elle ait reussi. Produire a la conversion aurait rendu l echec DEFINITIF — une commande ne se re-convertit pas — la ou la regle « jamais regenere » interdit tout rattrapage. Cette operation deplace l echec la ou il est encore gratuit : tant qu elle n a pas reussi, elle se rejoue (docs/api/CONVENTIONS.md §8.20 §5, arbitrage (C2)).
          *

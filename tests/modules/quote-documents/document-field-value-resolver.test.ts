@@ -267,3 +267,18 @@ describe('summarizeProductConfig (repli GENERIQUE, ecart de perimetre documente)
     expect(summarizeProductConfig({ format: 'A5', amounts: { price: '10.00' } })).toBe('format: A5');
   });
 });
+
+
+describe('bon de commande boutique', () => {
+  it('imprime l’acheteur et la devise sans inventer un devis ni une remise', () => {
+    const values = resolveOrderDocumentFieldValues({ number: 'commande-boutique', createdAt: '2026-10-09T10:00:00Z', quoteNumber: null, customerReference: null, expectedDeliveryDate: null },
+      { ...EMPTY_CUSTOMER, contactName: 'Acheteur Boutique', email: 'acheteur@example.invalid' },
+      { ...TOTALS, linesSubtotal: null, globalDiscount: null, currency: 'USD' });
+    expect(values['order.quote_number']).toBeUndefined();
+    expect(values['customer.contact_name']).toBe('Acheteur Boutique');
+    expect(values['customer.email']).toBe('acheteur@example.invalid');
+    expect(values['totals.net_total']).toBe('1 216,50 USD');
+    expect(values['totals.global_discount']).toBeUndefined();
+    expect(resolveDocumentLineFieldValues({ position: 0, label: 'Article', productConfig: {}, quantity: 2, priceBeforeDiscount: null, discountRate: null, price: '25.00', currency: 'USD' })['line.price']).toBe('25,00 USD');
+  });
+});

@@ -36,10 +36,9 @@ const btnGhost =
 
 export interface OrderDocumentPanelProps {
   orderId: string;
-  generationAvailable?: boolean;
 }
 
-export function OrderDocumentPanel({ orderId, generationAvailable = true }: OrderDocumentPanelProps) {
+export function OrderDocumentPanel({ orderId }: OrderDocumentPanelProps) {
   const ordersApi = useWorkspaceApi(CommercialOrdersApiClient);
   const [document, setDocument] = useState<OrderDocumentDto | null>(null);
   const [loading, setLoading] = useState(true);
@@ -126,7 +125,7 @@ export function OrderDocumentPanel({ orderId, generationAvailable = true }: Orde
           <p className="text-sm text-ink-muted" data-testid={TEST_IDS.orderDocument.emptyState}>
             Aucun bon de commande produit pour cette commande.
           </p>
-          {generationAvailable ? <button
+          <button
             type="button"
             className={btnPrimary}
             disabled={generating}
@@ -135,7 +134,7 @@ export function OrderDocumentPanel({ orderId, generationAvailable = true }: Orde
           >
             {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
             Produire le bon de commande
-          </button> : <p className="text-sm text-ink-muted">La production du bon PDF n’est pas encore disponible pour les commandes boutique.</p>}
+          </button>
         </div>
       )}
     </section>

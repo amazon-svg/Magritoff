@@ -210,6 +210,8 @@ export class CommercialOrdersService {
     const generationInput: OrderForDocumentGeneration = {
       id: data.id,
       customerId: data.customerId,
+      ...(data.customerFallback ? { customerFallback: data.customerFallback } : {}),
+      currency: data.currency ?? 'EUR',
       number: data.number,
       createdAt: data.createdAt,
       quoteNumber: data.quoteNumber,

@@ -224,10 +224,23 @@ export class PostgresCommercialOrdersRepository implements CommercialOrdersRepos
     return this.transactions.run({ tenantId }, async (client) => {
       const orderResult = await client.query(
         `select orders.*, orders.expected_delivery_date::text as expected_delivery_date,
-                quotes.number as quote_number
+                quotes.number as quote_number,
+                coalesce(account.full_name, creator.display_name) as buyer_name,
+                coalesce(account.email, creator.email_normalized) as buyer_email,
+                case when orders.order_origin='quote' then orders.lines_subtotal else orders.total_ht end as lines_subtotal,
+                case when orders.order_origin='quote' then orders.global_discount else 0 end as global_discount,
+                case when orders.order_origin='quote' then orders.net_total else orders.total_ht end as net_total,
+                case when orders.order_origin='quote' then orders.vat_rate else tax.rate end::numeric(6,4) as vat_rate,
+                case when orders.order_origin='quote' then orders.vat_regime else tenants.tax_regime end as vat_regime,
+                case when orders.order_origin='quote' then orders.vat_amount else round(orders.total_ht*tax.rate,2) end as vat_amount,
+                case when orders.order_origin='quote' then orders.total_incl_tax else round(orders.total_ht*(1+tax.rate),2) end as total_incl_tax
          from public.tenant_orders orders
-         join public.commercial_quotes quotes on quotes.id = orders.quote_id
-         where orders.tenant_id = $1 and orders.id = $2 and orders.order_origin = 'quote'`,
+         join public.tenants tenants on tenants.id=orders.tenant_id
+         left join public.commercial_quotes quotes on quotes.id=orders.quote_id and quotes.tenant_id=orders.tenant_id
+         left join public.shop_customer_accounts account on account.id=orders.shop_customer_account_id and account.tenant_id=orders.tenant_id
+         left join public.app_users creator on creator.id=orders.created_by
+         cross join lateral (select case tenants.tax_regime when 'metropole_fr' then .2000 when 'dom_tom' then .0850 else 0 end rate) tax
+         where orders.tenant_id = $1 and orders.id = $2`,
         [tenantId, orderId],
       );
       const order = orderResult.rows[0];
@@ -235,29 +248,33 @@ export class PostgresCommercialOrdersRepository implements CommercialOrdersRepos
 
       const lines = await client.query(
         `select items.*, items.product_label as label, items.clariprint_options as product_config,
-                items.line_origin as origin
-           from public.tenant_order_items items where order_id = $1 order by position`,
-        [orderId],
+                items.line_origin as origin,
+                coalesce(items.position,(row_number() over(order by items.created_at,items.id)-1)::integer) as document_position,
+                case when $2='quote' then items.sale_price else items.line_total_ht end as document_price
+           from public.tenant_order_items items where order_id = $1 order by document_position`,
+        [orderId, order.order_origin],
       );
       return {
         id: order.id,
-        number: order.number,
+        number: order.number ?? order.id,
         createdAt: toIsoTimestamp(order.created_at),
         customerId: order.customer_id,
         quoteNumber: order.quote_number,
+        currency: order.currency,
+        ...(order.order_origin === 'storefront' ? { customerFallback: { contactName: order.buyer_name ?? null, email: order.buyer_email ?? null } } : {}),
         customerReference: order.customer_reference ?? null,
         expectedDeliveryDate: order.expected_delivery_date ?? null,
-        showDiscounts: Boolean(order.show_discounts),
+        showDiscounts: order.order_origin === 'quote' && Boolean(order.show_discounts),
         totals: toCommercialOrderTotals(order),
         lines: lines.rows.map((line) => ({
-          position: Number(line.position),
+          position: Number(line.document_position),
           label: line.label,
           descriptionHtml: line.description_html ?? null,
           productConfig: line.product_config ?? {},
           quantity: Number(line.quantity),
           customerPrice: toMoney(line.customer_price),
           discountRate: toRate(line.discount_rate),
-          salePrice: toMoney(line.sale_price),
+          salePrice: toMoney(line.document_price),
         })),
       };
     });

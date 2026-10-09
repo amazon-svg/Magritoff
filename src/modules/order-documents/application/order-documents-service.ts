@@ -108,11 +108,13 @@ export type OrderTotalsForDocumentGeneration = Readonly<{
  */
 export type OrderForDocumentGeneration = Readonly<{
   id: string;
-  customerId: string;
+  customerId: string | null;
+  customerFallback?: Readonly<{ contactName: string | null; email: string | null }>;
+  currency?: string;
   number: string;
   /** `commercial_orders.created_at` (Timestamp ISO). */
   createdAt: string;
-  quoteNumber: string;
+  quoteNumber: string | null;
   customerReference: string | null;
   /** `YYYY-MM-DD`, ou `null`. */
   expectedDeliveryDate: string | null;
@@ -169,7 +171,8 @@ export class OrderDocumentsService {
     const eligible = await this.templates.findEligibleTemplateForGeneration(tenantId, 'order');
     if (!eligible) throw new OrderDocumentTemplateMissingError();
 
-    const customer = (await this.customers.findCustomerForDocument(tenantId, order.customerId)) ?? EMPTY_CUSTOMER;
+    const customer = (order.customerId ? await this.customers.findCustomerForDocument(tenantId, order.customerId) : null)
+      ?? { ...EMPTY_CUSTOMER, ...order.customerFallback };
 
     const header: ResolvableOrderHeader = {
       number: order.number,
@@ -178,9 +181,9 @@ export class OrderDocumentsService {
       customerReference: order.customerReference,
       expectedDeliveryDate: order.expectedDeliveryDate,
     };
-    const totals: ResolvableTotals = order.totals;
+    const totals: ResolvableTotals = { ...order.totals, currency: order.currency ?? 'EUR' };
     const fieldValues = resolveOrderDocumentFieldValues(header, customer, totals);
-    const lineValues = order.lines.map((line) => resolveDocumentLineFieldValues(line));
+    const lineValues = order.lines.map((line) => resolveDocumentLineFieldValues({ ...line, currency: order.currency ?? 'EUR' }));
 
     let rendered: RenderedQuoteDocument;
     try {

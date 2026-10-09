@@ -51,3 +51,6 @@ Reproduction : [recette](../../docs/testing/order-annexes.md).
 
 La génération PDF boutique reste à implémenter ; ce lot corrige la lecture et
 l’affichage. Aucun serveur lancé ou redémarré, aucun push, fusion ou déploiement.
+
+Extension ultérieure : E4.ORDER-DOCUMENTS livre la génération PDF boutique et
+la recette des dépôts. Les limites ci-dessus décrivent ce premier commit.

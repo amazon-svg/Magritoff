@@ -1,3 +1,4 @@
+import { withAuthenticatedPostgresRequest } from '../../src/adapters/postgres/authenticated-request-context';
 import { randomUUID } from 'node:crypto';
 import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import type { Pool } from 'pg';
@@ -30,6 +31,11 @@ describeIntegration('PostgresOrderFilesRepository — PostgreSQL et S3 réels', 
     S3_SECRET_ACCESS_KEY: process.env['S3_SECRET_ACCESS_KEY'] ?? 'magrit-local-secret',
     S3_FORCE_PATH_STYLE: 'true',
   });
+
+  // Le serveur porte cette identité après vérification du jeton utilisateur.
+  function itAsUser(name: string, operation: () => Promise<void>) {
+    it(name, () => withAuthenticatedPostgresRequest({ tenantId, userId: actorId }, operation));
+  }
 
   beforeAll(async () => {
     pool = createPostgresPool();
@@ -92,7 +98,7 @@ describeIntegration('PostgresOrderFilesRepository — PostgreSQL et S3 réels', 
     storage.destroy();
   });
 
-  it('émet, confirme, relit, modifie et supprime un fichier sans Supabase', async () => {
+  itAsUser('émet, confirme, relit, modifie et supprime un fichier sans Supabase', async () => {
     const repository = new PostgresOrderFilesRepository(
       new PostgresTransactionRunner(pool, 'magrit_api'),
       storage,
@@ -164,7 +170,7 @@ describeIntegration('PostgresOrderFilesRepository — PostgreSQL et S3 réels', 
     await expect(storage.send(new GetObjectCommand({ Bucket: bucket, Key: ticket.path }))).rejects.toBeTruthy();
   });
 
-  it('refuse une confirmation sans objet et un rattachement à une ligne étrangère', async () => {
+  itAsUser('refuse une confirmation sans objet et un rattachement à une ligne étrangère', async () => {
     const repository = new PostgresOrderFilesRepository(
       new PostgresTransactionRunner(pool, 'magrit_api'),
       storage,

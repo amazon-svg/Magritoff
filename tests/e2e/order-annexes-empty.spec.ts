@@ -24,10 +24,9 @@ for (const width of [375, 1280]) test(`une commande boutique sans annexes affich
   await expect(page.getByText('Aucun fichier déposé sur cette commande.')).toBeVisible();
   await expect(page.getByText('Aucun lien de dépôt actif pour cette commande.')).toBeVisible();
   await expect(page.getByText('Aucun bon de commande produit pour cette commande.')).toBeVisible();
-  await expect(page.getByText('La production du bon PDF n’est pas encore disponible pour les commandes boutique.')).toBeVisible();
   await expect(page.getByText('Impossible de charger les fichiers de cette commande.')).toHaveCount(0);
   await expect(page.getByText('Chargement des liens de depot impossible.')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Produire le bon de commande' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Produire le bon de commande' })).toBeVisible();
   await expect.poll(() => requests.length).toBe(3);
   await page.screenshot({ path: test.info().outputPath(`annexes-${width}.png`), fullPage: true });
 });

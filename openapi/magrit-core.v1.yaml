@@ -7429,6 +7429,15 @@ paths:
       description: >-
         PRODUIT le bon de commande d une commande, une fois pour toutes.
 
+        Accepte les commandes issues d un devis ou d une boutique. Pour une
+        commande boutique, reprend les lignes et montants enregistres, la TVA
+        du tenant et les informations disponibles du client boutique ; aucune
+        reference de devis ni remise n est inventee. En absence de numero,
+        utilise l identifiant complet de commande. Le gabarit doit etre de type
+        `order`, actif, pret et defini par defaut ; sinon 409
+        `order.document_template_missing`. Le document produit est conserve,
+        une seconde production rend `order.document_already_generated`.
+
 
         POURQUOI UNE OPERATION DE PRODUCTION, ALORS QUE LE DEVIS N EN A PAS.
         Le devis est rendu DANS l envoi, parce que toutes ses valeurs existent
