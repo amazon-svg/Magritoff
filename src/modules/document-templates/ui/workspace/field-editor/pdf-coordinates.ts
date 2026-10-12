@@ -9,8 +9,35 @@
  * decision UX "reutilise EXACTEMENT la meme conversion").
  */
 
+import type { DocumentLinesBlockDto } from '@/modules/document-templates/api/contracts';
+import { maxRowsPerPage as rowCapacity } from '@/modules/document-templates/application/document-field-map-validator';
+
 export type PdfPoint = Readonly<{ x: number; y: number }>;
 export type ScreenPixel = Readonly<{ x: number; y: number }>;
+
+/** Limites d'une translation commune : conserver les espacements entre colonnes. */
+export function tableAnchorBounds(block: DocumentLinesBlockDto, pageWidth: number): { min: number; max: number } {
+  const anchor = block.columns[0]?.x ?? 0;
+  if (block.columns.length === 0) return { min: 0, max: pageWidth };
+  return {
+    min: anchor - Math.min(...block.columns.map((column) => column.x)),
+    max: anchor + pageWidth - Math.max(...block.columns.map((column) => column.x + column.width)),
+  };
+}
+
+export function moveTableWithinPage(block: DocumentLinesBlockDto, point: PdfPoint, pageWidth: number, pageHeight: number): DocumentLinesBlockDto {
+  const bounds = tableAnchorBounds(block, pageWidth);
+  // Un ancien tableau plus large que la page doit d'abord être redimensionné.
+  const x = bounds.max < bounds.min ? (block.columns[0]?.x ?? 0) : Math.max(bounds.min, Math.min(bounds.max, point.x));
+  const delta = x - (block.columns[0]?.x ?? 0);
+  const y = Math.max(0, Math.min(pageHeight, point.y));
+  return {
+    ...block,
+    first_row_baseline_y: y,
+    rows_per_page: Math.min(block.rows_per_page, rowCapacity(y, block.row_height)),
+    columns: block.columns.map((column) => ({ ...column, x: column.x + delta })),
+  };
+}
 
 export function pointsToMillimeters(points: number): number {
   return points * 25.4 / 72;

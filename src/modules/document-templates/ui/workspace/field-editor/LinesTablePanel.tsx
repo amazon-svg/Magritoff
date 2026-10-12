@@ -26,7 +26,7 @@ import type {
   DocumentPdfTemplatePageDto,
 } from '@/modules/document-templates/api/contracts';
 import { LINE_FIELD_CATALOG, lineFieldLabel } from './field-catalog';
-import { maxRowsPerPage, pointsToMillimeters } from './pdf-coordinates';
+import { maxRowsPerPage, moveTableWithinPage, pointsToMillimeters, tableAnchorBounds } from './pdf-coordinates';
 import { MillimeterInput } from './MillimeterInput';
 
 export type LinesTablePanelProps = Readonly<{
@@ -83,6 +83,7 @@ export function LinesTablePanel({ pages, currentPageIndex, linesBlock, onCreate,
   }
 
   const page = pages[linesBlock.page_index];
+  const anchorBounds = tableAnchorBounds(linesBlock, page?.width_pt ?? 20000);
   const usedFields = new Set(linesBlock.columns.map((column) => column.field));
   const availableFields = LINE_FIELD_CATALOG.filter((entry) => !usedFields.has(entry.id));
   const displayedRowsPerPage = Math.min(linesBlock.rows_per_page, cap);
@@ -120,11 +121,9 @@ export function LinesTablePanel({ pages, currentPageIndex, linesBlock, onCreate,
             id="lines-table-anchor-x"
             label="X depuis la gauche"
             value={linesBlock.columns[0]?.x ?? 0}
-            max={page?.width_pt ?? 20000}
-            onChange={(x) => {
-              const delta = x - (linesBlock.columns[0]?.x ?? 0);
-              onChange({ ...linesBlock, columns: linesBlock.columns.map((column) => ({ ...column, x: column.x + delta })) });
-            }}
+            min={anchorBounds.min}
+            max={Math.max(anchorBounds.min, anchorBounds.max)}
+            onChange={(x) => onChange(moveTableWithinPage(linesBlock, { x, y: linesBlock.first_row_baseline_y }, page?.width_pt ?? 20000, page?.height_pt ?? 20000))}
           />
           <MillimeterInput
             id="lines-table-anchor-y"
@@ -223,7 +222,7 @@ export function LinesTablePanel({ pages, currentPageIndex, linesBlock, onCreate,
               id={`lines-table-column-x-${index}`}
               label="X depuis la gauche"
               value={column.x}
-              max={page?.width_pt ?? 20000}
+              max={Math.max(0, (page?.width_pt ?? 20000) - column.width)}
               onChange={(x) => {
                 const nextColumns = [...linesBlock.columns];
                 nextColumns[index] = { ...column, x };
@@ -234,7 +233,7 @@ export function LinesTablePanel({ pages, currentPageIndex, linesBlock, onCreate,
               id={`lines-table-column-width-${index}`}
               label="Largeur"
               value={column.width}
-              max={page?.width_pt ?? 20000}
+              max={Math.max(0, (page?.width_pt ?? 20000) - column.x)}
               onChange={(width) => {
                 const nextColumns = [...linesBlock.columns];
                 nextColumns[index] = { ...column, width };
@@ -277,7 +276,8 @@ export function LinesTablePanel({ pages, currentPageIndex, linesBlock, onCreate,
               const field = event.target.value as DocumentLineFieldId;
               if (!field) return;
               const nextX = (linesBlock.columns.at(-1)?.x ?? 40) + (linesBlock.columns.at(-1)?.width ?? 80) + 10;
-              onChange({ ...linesBlock, columns: [...linesBlock.columns, defaultColumn(field, nextX)] });
+              const column = defaultColumn(field, Math.max(0, Math.min(nextX, (page?.width_pt ?? 20000) - 80)));
+              onChange({ ...linesBlock, columns: [...linesBlock.columns, column] });
             }}
           >
             <option value="">+ Ajouter une colonne</option>

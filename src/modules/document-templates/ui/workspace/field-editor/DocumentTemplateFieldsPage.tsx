@@ -45,7 +45,8 @@ import { PaletteFieldsPanel } from './PaletteFieldsPanel';
 import { FieldSettingsPanel } from './FieldSettingsPanel';
 import { LinesTablePanel } from './LinesTablePanel';
 import { PreviewOverlay } from './PreviewOverlay';
-import { pdfPointToScreenPixel, scaleToFitWidth, screenPixelToPdfPoint } from './pdf-coordinates';
+import { PlacementModelPanel } from './PlacementModelPanel';
+import { moveTableWithinPage, pdfPointToScreenPixel, scaleToFitWidth, screenPixelToPdfPoint } from './pdf-coordinates';
 import { usePdfPageCanvas } from './usePdfPageCanvas';
 import { SAMPLE_ORDER, SAMPLE_ORDER_LONG, SAMPLE_QUOTE, SAMPLE_QUOTE_LONG } from './sample-quote';
 import { NO_SELECTION, type FieldSelection } from './types';
@@ -116,6 +117,8 @@ export function DashboardDocumentTemplateFields() {
   const [conflictOpen, setConflictOpen] = useState(false);
   const [discardTarget, setDiscardTarget] = useState<string | null>(null);
 
+  const [modelOpen, setModelOpen] = useState(false);
+  const [modelApplied, setModelApplied] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewLong, setPreviewLong] = useState(false);
 
@@ -192,7 +195,13 @@ export function DashboardDocumentTemplateFields() {
   const totalInclTaxMissing = !placements.some((placement) => placement.field === 'totals.total_incl_tax');
 
   function updatePlacement(field: DocumentFieldId, next: DocumentFieldPlacementDto): void {
-    setPlacements((current) => current.map((placement) => (placement.field === field ? next : placement)));
+    const page = template?.pages[next.page_index];
+    const bounded = page ? {
+      ...next,
+      x: Math.max(0, Math.min(page.width_pt, next.x)),
+      y: Math.max(0, Math.min(page.height_pt, next.y)),
+    } : next;
+    setPlacements((current) => current.map((placement) => (placement.field === field ? bounded : placement)));
   }
 
   function removePlacement(field: DocumentFieldId): void {
@@ -277,17 +286,7 @@ export function DashboardDocumentTemplateFields() {
     // x" de `LinesTablePanel`).
     const isTableAnchor = event.dataTransfer.getData('text/document-table-anchor') === '1';
     if (isTableAnchor && linesBlock) {
-      const anchorX = linesBlock.columns[0]?.x ?? 0;
-      const deltaX = point.x - anchorX;
-      const deltaY = point.y - linesBlock.first_row_baseline_y;
-      setLinesBlock({
-        ...linesBlock,
-        first_row_baseline_y: Math.max(0, Math.round((linesBlock.first_row_baseline_y + deltaY) * 100) / 100),
-        columns: linesBlock.columns.map((column) => ({
-          ...column,
-          x: Math.max(0, Math.round((column.x + deltaX) * 100) / 100),
-        })),
-      });
+      setLinesBlock(moveTableWithinPage(linesBlock, point, currentPage.width_pt, currentPage.height_pt));
       return;
     }
 
@@ -479,7 +478,17 @@ export function DashboardDocumentTemplateFields() {
           </span>
           <button
             type="button"
+            onClick={() => setModelOpen(true)}
+            disabled={saving}
+            aria-expanded={modelOpen}
+            className="px-3 py-1.5 border border-line-2 rounded-lg text-sm text-ink-2 hover:bg-bg"
+          >
+            Copier un positionnement
+          </button>
+          <button
+            type="button"
             onClick={() => setPreviewOpen(true)}
+            disabled={modelOpen}
             data-testid={TEST_IDS.documentTemplateFields.previewBtn}
             className="px-3 py-1.5 border border-line-2 rounded-lg text-sm text-ink-2 hover:bg-bg flex items-center gap-1.5"
           >
@@ -488,7 +497,7 @@ export function DashboardDocumentTemplateFields() {
           <button
             type="button"
             onClick={() => void handleSave()}
-            disabled={saving || !dirty}
+            disabled={saving || !dirty || modelOpen}
             data-testid={TEST_IDS.documentTemplateFields.saveBtn}
             className="px-4 py-1.5 bg-brand text-brand-ink rounded-lg text-sm font-medium disabled:opacity-50"
           >
@@ -497,6 +506,29 @@ export function DashboardDocumentTemplateFields() {
         </div>
       </div>
 
+      {modelOpen && (
+        <PlacementModelPanel
+          api={api}
+          template={template}
+          hasPlacements={placements.length > 0 || linesBlock !== null}
+          onClose={() => setModelOpen(false)}
+          onApply={(map) => {
+            setPlacements(map.placements);
+            setLinesBlock(map.lines_block);
+            setSelection(NO_SELECTION);
+            setPageIndex(map.placements[0]?.page_index ?? map.lines_block?.page_index ?? 0);
+            setActiveTab('fields');
+            setSaveError(null);
+            setModelOpen(false);
+            setModelApplied(true);
+          }}
+        />
+      )}
+      {modelApplied && dirty && (
+        <p role="status" className="px-4 py-2 text-sm text-ink-2">
+          Positionnement copié. Ajustez les champs, vérifiez l’aperçu puis enregistrez.
+        </p>
+      )}
       {saveError && (
         <p className="text-sm text-err-fg px-4 py-2" data-testid={TEST_IDS.documentTemplateFields.errorBanner}>
           {saveError}

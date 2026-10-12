@@ -130,3 +130,55 @@ maintien après erreur/reprise, coordonnées en points transmises et relecture
 en mm après rechargement. Trois tests Chromium, 267 tests ciblés,
 typage modulaire et build réussis. Le délai de recette attend le chargement
 à froid de PDF.js ; l’avertissement de build CheckoutPage préexistant subsiste.
+
+## Suite du calage — 10 octobre 2026
+
+Reprise demandée par Xavier, périmètre gabarits PDF et bon de commande confirmé.
+Module document-templates, UI uniquement : coordonnées des champs bornées sur
+mise à jour, translation commune du tableau bornée par toutes ses colonnes
+(même si la première n’est pas la plus à gauche), capacité verticale recalculée
+pendant le déplacement sans dépendre du montage du panneau Tableau. Bornes X et
+largeurs des colonnes liées à la place disponible ; ajout de colonne borné sur
+la page. Saisies mm invalides : valeur précédente conservée, message accessible
+avec plage autorisée. Aucun ancien placement modifié lors de la lecture.
+
+Preuves : 269 tests Vitest modules/document-templates et architecture passent ;
+typage modulaire et build passent. Avertissement Rollup préexistant CheckoutPage.
+Quatre parcours Chromium passent : fond PDF/page blanche, sauvegarde et reprise
+après erreur avec limites mm, translation près du bord droit/inférieur puis
+sauvegarde depuis Champs (espacement et capacité contrôlés dans le PUT).
+Le test de déplacement utilise une fenêtre haute pour garder sa cible visible.
+Premier lancement Chromium empêché par le sandbox macOS ; relance hors sandbox
+réussie. Aucun contrat API, migration, dérogation R5 ou donnée métier modifiée.
+La génération du bon réel de Xavier n’a pas été rejouée dans cette reprise.
+
+## Modèle de positionnement et copie — 12 octobre 2026
+
+Demande utilisateur : « peux ton avoir un modèle de base, que l’on peut copier
+concernant le positionnement des champs ». Périmètre ajouté à la story canonique
+E4.ORDER-DOCUMENTS, en brouillon.
+
+Module document-templates UI : bouton Copier un positionnement, modèle de base
+adapté au format de la première page et au type devis/commande, ou reprise de
+la carte d’un autre gabarit prêt du même type via les lectures API existantes.
+Copie des champs, polices/largeurs et du tableau ; vérification des dimensions de
+chaque page utilisée, y compris la page de reprise. Source vide/incompatible
+refusée, erreur visible, placements courants conservés. Le bouton de remplacement
+est explicite si la destination contient déjà des placements ; Annuler quitte
+sans les modifier. Fond PDF conservé ; aucun libellé statique ajouté au fond.
+Ajustement/aperçu et sauvegarde restent explicites avec l’ETag destination.
+Aucune écriture du gabarit source ni mutation lors de l’ouverture du sélecteur.
+Sauvegarde/aperçu temporairement désactivés pendant le choix pour éviter une
+écriture ou un démontage concurrent à la lecture du modèle.
+
+API : aucun endpoint, DTO ou contrat modifié. Utilisation GET liste filtrée,
+GET détail et GET champs ; PUT champs existant seulement après Enregistrer.
+Aucune migration ou dérogation R5. Aucun gabarit métier modifié en recette.
+
+Preuves : 277 tests modules/document-templates/architecture, typage modulaire
+et build passent. Cinq parcours Chromium passent : nouvelle recette modèle de
+base → copie incompatible refusée → copie compatible → modification en mm →
+sauvegarde/relecture, puis les quatre parcours de calage existants. La recette
+contrôle absence d’écriture avant Enregistrer et source inchangée. Réponses API
+de recette ; pas de génération du bon réel de Xavier. Avertissement Rollup
+CheckoutPage préexistant. Aucun serveur lancé, push, fusion ou déploiement.

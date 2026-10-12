@@ -168,3 +168,17 @@ documents:
     owner: unassigned
     reviewedAt: null
     openItems: []
+  - id: REPORT-2026-10-10-CALAGE-GABARITS-PDF
+    kind: report
+    path: project/meetings/reports/2026-10-10-calage-gabarits-pdf.md
+    processingStatus: draft
+    owner: unassigned
+    reviewedAt: null
+    openItems: []
+  - id: REPORT-2026-10-12-MODELE-POSITIONNEMENT-PDF
+    kind: report
+    path: project/meetings/reports/2026-10-12-modele-positionnement-pdf.md
+    processingStatus: draft
+    owner: unassigned
+    reviewedAt: null
+    openItems: []

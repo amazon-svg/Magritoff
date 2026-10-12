@@ -129,6 +129,15 @@ test('enchaîne deux champs puis conserve les modifications après une erreur de
  await page.locator('#lines-table-anchor-x').fill('25.4');await page.locator('#lines-table-anchor-x').press('Enter');
  await page.locator('#lines-table-anchor-y').fill('101.6');await page.locator('#lines-table-anchor-y').press('Enter');
  await page.locator('#lines-table-column-width-0').fill('50.8');await page.locator('#lines-table-column-width-0').press('Enter');
+ // Une largeur ou une ancre hors page conserve le réglage et explique la limite.
+ await page.locator('#lines-table-column-width-0').fill('210');
+ await page.locator('#lines-table-column-width-0').press('Enter');
+ await expect(page.locator('#lines-table-column-width-0')).toHaveValue('50.8');
+ await expect(page.locator('#lines-table-column-width-0')).toHaveAttribute('aria-invalid','true');
+ await expect(page.locator('#lines-table-column-width-0-error')).toContainText('entre');
+ await page.locator('#lines-table-anchor-x').fill('200');
+ await page.locator('#lines-table-anchor-x').press('Enter');
+ await expect(page.locator('#lines-table-anchor-x')).toHaveValue('25.4');
  await page.getByLabel('Espacement entre les lignes (mm)',{exact:true}).fill('6.35');
  // Le clic sur Enregistrer valide également la saisie en cours par blur.
  await page.getByTestId(TEST_IDS.documentTemplateFields.saveBtn).click();
@@ -148,4 +157,48 @@ test('enchaîne deux champs puis conserve les modifications après une erreur de
  await expect(page.locator('#lines-table-anchor-y')).toHaveValue('101.6');
  await expect(page.locator('#lines-table-column-width-0')).toHaveValue('50.8');
  await expect(page.getByLabel('Espacement entre les lignes (mm)',{exact:true})).toHaveValue('6.35');
+});
+
+test('déplace le tableau vers les bords et enregistre depuis l’onglet Champs', async ({page}) => {
+ await page.setViewportSize({width:1440,height:1600});
+ await fixture(page);
+ const id='70000000-0000-4000-8000-000000000011';
+ const prefix=`/api/v1/document-pdf-templates/${id}`;
+ let saved=false;
+ await page.route('**/api/v1/**',async route=>{
+  const path=new URL(route.request().url()).pathname;
+  const ok=(data:unknown)=>route.fulfill({json:{data,meta:{request_id:'bounds'}},headers:{etag:'"fields"'}});
+  if(path.endsWith('/access-profile')) return route.fulfill({json:{tenantId:'20000000-0000-4000-8000-000000000001',userId:id,membership:'admin',isAdmin:true,surfaces:['workspace','backoffice'],capabilities:['can_manage_document_templates','document-templates.manage']}});
+  if(path===prefix) return ok({id,name:'Limites',document_type:'order',status:'ready',is_default:true,is_active:true,page_count:1,byte_size:100,created_at:'2026-10-10T10:00:00Z',updated_at:'2026-10-10T10:00:00Z',pages:[{index:0,width_pt:595.28,height_pt:841.89}],sha256:'a'.repeat(64),has_field_map:false,background_url:null,background_url_expires_at:null});
+  if(path===`${prefix}/fields`) {
+   if(route.request().method()==='PUT') {
+    const data=route.request().postDataJSON();
+    const block=data.lines_block;
+    expect(block.columns[1].x-block.columns[0].x).toBeCloseTo(90,6);
+    for(const column of block.columns) {
+     expect(column.x).toBeGreaterThanOrEqual(0);
+     expect(column.x+column.width).toBeLessThanOrEqual(595.28);
+    }
+    expect(block.rows_per_page).toBeLessThan(10);
+    expect(block.first_row_baseline_y-(block.rows_per_page-1)*block.row_height).toBeGreaterThanOrEqual(0);
+    saved=true;
+    return ok({template_id:id,...data});
+   }
+   return ok({template_id:id,placements:[],lines_block:null});
+  }
+  return route.fallback();
+ });
+ await page.goto(`/t/magrit-development/dashboard/document-templates/${id}/fields`);
+ await page.getByTestId(TEST_IDS.documentTemplateFields.tabTable).click();
+ await page.getByTestId(TEST_IDS.documentTemplateFields.insertTableBtn).click();
+ await page.getByTestId(TEST_IDS.documentTemplateFields.addColumnSelect).selectOption('line.label');
+ await page.getByTestId(TEST_IDS.documentTemplateFields.addColumnSelect).selectOption('line.quantity');
+ await page.getByTestId(TEST_IDS.documentTemplateFields.tabFields).click();
+ const canvas=page.getByTestId(TEST_IDS.documentTemplateFields.canvas);
+ const box=(await canvas.boundingBox())!;
+ await page.getByTestId(TEST_IDS.documentTemplateFields.tableAnchorHandle).dragTo(canvas,{targetPosition:{x:box.width*0.98,y:box.height*0.98}});
+ await page.getByTestId(TEST_IDS.documentTemplateFields.saveBtn).click();
+ await expect.poll(()=>saved).toBe(true);
+ await expect(page.getByTestId(TEST_IDS.documentTemplateFields.saveBtn)).toBeDisabled();
+ await expect(page.getByTestId(TEST_IDS.documentTemplateFields.errorBanner)).toHaveCount(0);
 });
