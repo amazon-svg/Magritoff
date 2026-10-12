@@ -72,7 +72,7 @@ export function ShopGammesSidebar({
           className={`font-mono uppercase ${isDark ? "text-gray-500" : "text-ink-mute-2"}`}
           style={{ fontSize: "10.5px", letterSpacing: "0.08em", fontWeight: 500 }}
         >
-          Gammes
+          Catégories
         </span>
         {filterCount > 0 && (
           <span
@@ -93,7 +93,7 @@ export function ShopGammesSidebar({
           className={`text-[12.5px] m-0 ${isDark ? "text-gray-500" : "text-ink-muted"}`}
           style={{ lineHeight: 1.55 }}
         >
-          Aucune gamme disponible.
+          Aucune catégorie disponible.
         </p>
       ) : (
         <ul className="flex flex-col gap-0.5 list-none p-0 m-0">
@@ -114,7 +114,7 @@ export function ShopGammesSidebar({
                   type="button"
                   data-testid={TEST_IDS.shop.gammeToggleBtn}
                   aria-expanded={isExpanded}
-                  aria-label={`Déplier la gamme ${g.name} (${totalCount} produits)`}
+                  aria-label={`Déplier la catégorie ${g.name} (${totalCount} produits)`}
                   onClick={() => onToggleGamme(g.slug)}
                   className={`w-full flex items-center gap-1.5 px-2 py-1.5 rounded-md text-left transition-colors ${
                     isExpanded

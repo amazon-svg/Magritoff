@@ -1,3 +1,4 @@
+import { withAuthenticatedPostgresRequest } from '../../src/adapters/postgres/authenticated-request-context';
 import { randomUUID } from 'node:crypto';
 import { DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import type { Pool } from 'pg';
@@ -30,6 +31,11 @@ describeIntegration('PostgresOrderDocumentsRepository — PostgreSQL et S3 réel
     S3_SECRET_ACCESS_KEY: process.env['S3_SECRET_ACCESS_KEY'] ?? 'magrit-local-secret',
     S3_FORCE_PATH_STYLE: 'true',
   });
+
+  // Le serveur porte cette identité après vérification du jeton utilisateur.
+  function itAsUser(name: string, operation: () => Promise<void>) {
+    it(name, () => withAuthenticatedPostgresRequest({ tenantId, userId: actorId }, operation));
+  }
 
   beforeAll(async () => {
     pool = createPostgresPool();
@@ -111,7 +117,7 @@ describeIntegration('PostgresOrderDocumentsRepository — PostgreSQL et S3 réel
     storage.destroy();
   });
 
-  it('stocke le bon une seule fois, avec son auteur, et isole sa lecture', async () => {
+  itAsUser('stocke le bon une seule fois, avec son auteur, et isole sa lecture', async () => {
     const repository = new PostgresOrderDocumentsRepository(
       new PostgresTransactionRunner(pool, 'magrit_api'),
       storage,
@@ -140,7 +146,7 @@ describeIntegration('PostgresOrderDocumentsRepository — PostgreSQL et S3 réel
     expect(stored.sha256).toMatch(/^[0-9a-f]{64}$/);
     expect(stored.download_url).toContain('X-Amz-Signature=');
     await expect(repository.findByOrderId(tenantId, orderId)).resolves.toMatchObject({ order_id: orderId });
-    await expect(repository.findByOrderId(foreignTenantId, orderId)).resolves.toBeNull();
+    await expect(repository.findByOrderId(foreignTenantId, orderId)).rejects.toMatchObject({ name: 'CommercialOrderNotFoundError' });
 
     await expect(
       repository.store(tenantId, actorId, {
@@ -155,7 +161,7 @@ describeIntegration('PostgresOrderDocumentsRepository — PostgreSQL et S3 réel
     await expect(object.Body?.transformToByteArray()).resolves.toEqual(bytes);
   });
 
-  it('refuse une commande absente avant tout dépôt S3', async () => {
+  itAsUser('refuse une commande absente avant tout dépôt S3', async () => {
     const repository = new PostgresOrderDocumentsRepository(
       new PostgresTransactionRunner(pool, 'magrit_api'),
       storage,

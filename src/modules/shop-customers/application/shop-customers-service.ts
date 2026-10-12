@@ -1,6 +1,7 @@
 import type { UserId } from '../../../kernel/ids/index.ts';
 import {
-  createShopCustomerCommandSchema,
+  createShopCustomerCommandSchema, updateShopCustomerCommandSchema,
+  type UpdateShopCustomerCommand,
   inferShopCustomerNameFromEmail,
   normalizeShopCustomerEmail,
   type CreateShopCustomerCommand,
@@ -9,11 +10,24 @@ import {
 } from '../api/contracts.ts';
 import {
   ShopCustomerRejectedError,
-  type ShopCustomersRepository,
+  type ShopCustomersRepository, type ShopCustomerPageParams,
 } from './shop-customers-repository.ts';
 
 export class ShopCustomersService {
   constructor(private readonly repository: ShopCustomersRepository) {}
+
+  listPage(actor: UserId, tenantId: string, shopId: string, page: ShopCustomerPageParams) {
+    return this.repository.listPage(actor, tenantId, shopId, page);
+  }
+  detail(actor: UserId, tenantId: string, shopId: string, accountId: string) {
+    return this.repository.detail(actor, tenantId, shopId, accountId);
+  }
+  ordersPage(actor: UserId, tenantId: string, shopId: string, accountId: string, page: ShopCustomerPageParams) {
+    return this.repository.ordersPage(actor, tenantId, shopId, accountId, page);
+  }
+  update(actor: UserId, tenantId: string, shopId: string, accountId: string, command: UpdateShopCustomerCommand) {
+    return this.repository.update(actor, tenantId, shopId, accountId, updateShopCustomerCommandSchema.parse(command));
+  }
 
   list(actor: UserId, tenantId: string, shopId: string): Promise<ShopCustomerAccount[]> {
     return this.repository.list(actor, tenantId, shopId);

@@ -82,6 +82,7 @@ export type ResolvableCustomer = Readonly<{
  * ici, jamais par la carte de champs (contrat §8.18 §3).
  */
 export type ResolvableTotals = Readonly<{
+  currency?: string;
   linesSubtotal: string | null;
   globalDiscount: string | null;
   netTotal: string;
@@ -91,6 +92,7 @@ export type ResolvableTotals = Readonly<{
 }>;
 
 export type ResolvableLine = Readonly<{
+  currency?: string;
   position: number;
   label: string;
   descriptionHtml?: string | null;
@@ -171,12 +173,12 @@ function applyCustomerFields(values: Record<string, string>, customer: Resolvabl
 
 /** Familles `totals.*`, PARTAGEES telles quelles entre devis et commande (contrat §8.20 §4). */
 function applyTotalsFields(values: Record<string, string>, totals: ResolvableTotals): void {
-  values['totals.net_total'] = formatMoneyFrench(totals.netTotal);
+  values['totals.net_total'] = formatMoneyFrench(totals.netTotal, totals.currency);
   values['totals.vat_rate'] = formatRatePercentFrench(totals.vatRate);
-  values['totals.vat_amount'] = formatMoneyFrench(totals.vatAmount);
-  values['totals.total_incl_tax'] = formatMoneyFrench(totals.totalInclTax);
-  if (totals.linesSubtotal !== null) values['totals.lines_subtotal'] = formatMoneyFrench(totals.linesSubtotal);
-  if (totals.globalDiscount !== null) values['totals.global_discount'] = formatMoneyFrench(totals.globalDiscount);
+  values['totals.vat_amount'] = formatMoneyFrench(totals.vatAmount, totals.currency);
+  values['totals.total_incl_tax'] = formatMoneyFrench(totals.totalInclTax, totals.currency);
+  if (totals.linesSubtotal !== null) values['totals.lines_subtotal'] = formatMoneyFrench(totals.linesSubtotal, totals.currency);
+  if (totals.globalDiscount !== null) values['totals.global_discount'] = formatMoneyFrench(totals.globalDiscount, totals.currency);
 }
 
 export function resolveDocumentFieldValues(
@@ -217,7 +219,7 @@ export type ResolvableOrderHeader = Readonly<{
   /** `commercial_orders.created_at` — LA date de commande (contrat : "nommee d apres la colonne et non l instant d envoi, qui n existe pas pour ce document"). */
   createdAt: string;
   /** `commercial_orders.quote_id -> commercial_quotes.number` : le devis d origine, pour que le client rapproche sa commande de son devis. */
-  quoteNumber: string;
+  quoteNumber: string | null;
   /** `commercial_orders.customer_reference` (E10.19a, decision D) — `null` tant que la source amont sur `commercial_quotes` n existe pas. */
   customerReference: string | null;
   /** `commercial_orders.expected_delivery_date` (`YYYY-MM-DD`) — `null` sur 100% des commandes tant qu aucun ecrivain n existe (reserve (h), §8.17), inoffensif par construction ("valeur absente = rien imprime"). */
@@ -242,8 +244,9 @@ export function resolveOrderDocumentFieldValues(
   const values: Record<string, string> = {
     'order.number': order.number,
     'order.created_at': formatShortFrenchDateFromTimestamp(order.createdAt),
-    'order.quote_number': order.quoteNumber,
   };
+
+  if (order.quoteNumber !== null) values['order.quote_number'] = order.quoteNumber;
 
   if (order.customerReference !== null && order.customerReference.trim() !== '') {
     values['order.customer_reference'] = order.customerReference;
@@ -264,7 +267,7 @@ export function resolveDocumentLineFieldValues(line: ResolvableLine): DocumentLi
     'line.position': String(line.position),
     'line.label': line.label,
     'line.quantity': String(line.quantity),
-    'line.price': formatMoneyFrench(line.price),
+    'line.price': formatMoneyFrench(line.price, line.currency),
   };
 
   const description = line.descriptionHtml ? descriptionHtmlToText(line.descriptionHtml) : null;
@@ -273,7 +276,7 @@ export function resolveDocumentLineFieldValues(line: ResolvableLine): DocumentLi
     : summarizeProductConfig(line.productConfig);
   if (summary !== null) values['line.product_config_summary'] = summary;
   if (line.priceBeforeDiscount !== null) {
-    values['line.price_before_discount'] = formatMoneyFrench(line.priceBeforeDiscount);
+    values['line.price_before_discount'] = formatMoneyFrench(line.priceBeforeDiscount, line.currency);
   }
   if (line.discountRate !== null) values['line.discount_rate'] = formatRatePercentFrench(line.discountRate);
 

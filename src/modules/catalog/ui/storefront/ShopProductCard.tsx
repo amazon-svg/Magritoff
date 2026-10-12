@@ -1,3 +1,4 @@
+import { isFixedPriceProduct } from '@/modules/libraries';
 /**
  * ShopProductCard — Story S2.3 (Epic 2 Boutique B2B Premium).
  *
@@ -106,6 +107,7 @@ export function ShopProductCard({
   className,
   pimGammes,
 }: ShopProductCardProps) {
+  const fixedPrice = isFixedPriceProduct(product);
   const template = useMemo(() => resolveMockupTemplate(product), [product]);
   // Repère famille UNIFIÉ sur la gamme PIM (cohérent méga-menu / pilules).
   const family = useMemo(() => resolveShopFamily(product, pimGammes ?? []), [product, pimGammes]);
@@ -327,7 +329,9 @@ export function ShopProductCard({
               fontVariantNumeric: "tabular-nums",
             }}
           >
-            {(product.config as any)?.source === "pim-generated" &&
+            {fixedPrice ? (
+              <span>{product.price_ht.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € HT / unité</span>
+            ) : (product.config as any)?.source === "pim-generated" &&
             (Number(product.price_ht) || 0) === 0 ? (
               // S2.33 — produit genere depuis le PIM : prix a la configuration.
               <span
@@ -357,7 +361,7 @@ export function ShopProductCard({
                 Q14-a round 2 : `onConfigure` est desormais OBLIGATOIRE, le
                 repli sur `onAddToCart` a disparu (aucun site d'appel ne
                 pouvait plus l'atteindre — les trois appelants le passent). */}
-            <button
+            {!fixedPrice && <button
               type="button"
               data-testid={TEST_IDS.shop.productCardConfigureBtn}
               aria-label={`Configurer et ajouter ${product.name}`}
@@ -369,14 +373,14 @@ export function ShopProductCard({
               style={{ fontSize: "12.5px", fontWeight: 500 }}
             >
               Configurer
-            </button>
+            </button>}
 
             {/* S-FIX-4 — Bouton Personnaliser placeholder (Canva future S5.x)
                 S-FIX-BTNS-11/05 (bug #2a Arnaud) : retire `opacity-0
                 group-hover:opacity-100` → bouton toujours visible. Le hover-
                 reveal pretait a confusion (l'acheteur ne savait pas que ces
                 boutons existaient sans survoler). */}
-            <button
+            {!fixedPrice && <button
               type="button"
               data-testid={TEST_IDS.shop.productCardPersonalizeBtn}
               aria-label={`Personnaliser ${product.name} (Canva, à venir)`}
@@ -389,7 +393,7 @@ export function ShopProductCard({
               style={{ fontSize: "12.5px", fontWeight: 500 }}
             >
               Personnaliser
-            </button>
+            </button>}
 
             {/* S-FIX-BTNS-11/05 (bug #2a) : bouton + Panier persistant.
                 Q14-a (point 3.7 (b) a (b-ter)) : le bouton reste TOUJOURS

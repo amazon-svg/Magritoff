@@ -10,6 +10,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   computeDocumentPageCount,
+  moveTableWithinPage,
+  tableAnchorBounds,
   pdfPointToScreenPixel,
   scaleToFitWidth,
   screenPixelToPdfPoint,
@@ -90,5 +92,34 @@ describe('computeDocumentPageCount (qa-review R6 — jamais code en dur dans le 
     const totalLines = 22;
     expect(computeDocumentPageCount(totalLines, { rows_per_page: 10 })).toBe(3);
     expect(computeDocumentPageCount(totalLines, { rows_per_page: 25 })).toBe(1);
+  });
+});
+
+
+describe('déplacement du tableau aux bords de page', () => {
+  const block = {
+    page_index: 0, first_row_baseline_y: 400, row_height: 20, rows_per_page: 10,
+    continuation_page_index: null,
+    columns: [
+      { field: 'line.label' as const, x: 120, width: 180, align: 'left' as const, font: 'helvetica' as const, font_size: 10, color: '#111111' },
+      { field: 'line.quantity' as const, x: 40, width: 60, align: 'right' as const, font: 'helvetica' as const, font_size: 10, color: '#111111' },
+    ],
+  };
+
+  it('préserve les espacements même si la première colonne n’est pas la plus à gauche', () => {
+    expect(tableAnchorBounds(block, 600)).toEqual({ min: 80, max: 420 });
+    const left = moveTableWithinPage(block, { x: -100, y: 400 }, 600, 800);
+    expect(left.columns.map(c => c.x)).toEqual([80, 0]);
+    const right = moveTableWithinPage(block, { x: 900, y: 400 }, 600, 800);
+    expect(right.columns.map(c => c.x)).toEqual([420, 340]);
+    expect(right.columns[0].x + right.columns[0].width).toBe(600);
+  });
+
+  it('ajuste la capacité immédiatement au déplacement vers le bas, sans panneau Tableau monté', () => {
+    const moved = moveTableWithinPage(block, { x: 120, y: 39 }, 600, 800);
+    expect(moved.rows_per_page).toBe(2);
+    expect(moved.first_row_baseline_y - (moved.rows_per_page - 1) * moved.row_height).toBeGreaterThanOrEqual(0);
+    expect(moveTableWithinPage(block, { x: 120, y: 900 }, 600, 800).first_row_baseline_y).toBe(800);
+    expect(moveTableWithinPage(block, { x: 120, y: -1 }, 600, 800).rows_per_page).toBe(1);
   });
 });

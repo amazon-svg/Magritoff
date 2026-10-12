@@ -32,6 +32,8 @@ export class PostgresOrderDocumentsRepository implements OrderDocumentsRepositor
 
   async findByOrderId(tenantId: TenantId, orderId: string): Promise<OrderDocumentDto | null> {
     const row = await this.transactions.run({ tenantId }, async (client) => {
+      const order = await client.query('select 1 from public.tenant_orders where tenant_id=$1 and id=$2', [tenantId, orderId]);
+      if (order.rowCount === 0) throw new CommercialOrderNotFoundError();
       const result = await client.query<DocumentRow>(
         `select order_id, template_id, generated_at, generated_by, generated_by_label,
                 byte_size, sha256, content_type, page_count, storage_path

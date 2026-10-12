@@ -173,15 +173,10 @@ export class PostgresOrderUploadLinksRepository implements OrderUploadLinksRepos
     const principal = await this.resolvePrincipal(token);
     if (!principal) throw new OrderUploadLinkNotFoundError();
 
-    const budget = await this.transactions.run({ tenantId: principal.tenantId }, async (client) => {
+    const budget = await this.transactions.run({}, async (client) => {
       const result = await client.query<{ max_files: number; deposited_count: number; file_count: number }>(
-        `select links.max_files, links.deposited_count,
-                (select count(*)::int from public.commercial_order_files files
-                  where files.order_id = links.order_id and files.deleted_at is null) as file_count
-           from public.commercial_order_upload_links links
-          where links.id = $1 and links.token_hash = $2 and links.revoked_at is null
-            and links.expires_at > clock_timestamp()`,
-        [principal.linkId, tokenHash(token)],
+        'select * from magrit.order_upload_link_budget($1)',
+        [tokenHash(token)],
       );
       return result.rows[0] ?? null;
     });

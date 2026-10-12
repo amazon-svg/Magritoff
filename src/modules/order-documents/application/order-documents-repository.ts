@@ -35,7 +35,7 @@ export class OrderDocumentAlreadyGeneratedError extends Error {
  * `quote`, jamais.
  */
 export class OrderDocumentTemplateMissingError extends Error {
-  constructor(message = 'Aucun gabarit de bon de commande actif pour ce tenant.') {
+  constructor(message = 'Le bon de commande nécessite un gabarit prêt, actif, défini par défaut et contenant au moins un champ positionné ou un tableau de lignes. Configurez-le dans Gabarits PDF.') {
     super(message);
     this.name = 'OrderDocumentTemplateMissingError';
   }
@@ -71,7 +71,7 @@ export type StoreOrderDocumentParams = Readonly<{
  * connait que le contrat.
  */
 export interface OrderDocumentsRepository {
-  /** Cote ATELIER (jeton utilisateur ou cle de service `orders:read`). `null` si la commande n a pas de document. */
+  /** Cote ATELIER (jeton utilisateur ou cle de service `orders:read`). `null` si la commande existe mais n a pas de document. La commande est vérifiée dans le référentiel commun, quelle que soit son origine ; une commande absente/hors tenant doit lever une erreur order.not_found. */
   findByOrderId(tenantId: TenantId, orderId: string): Promise<OrderDocumentDto | null>;
 
   /**

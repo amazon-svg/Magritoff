@@ -57,7 +57,7 @@ export const SCOPE_LABEL: Record<ScopeType, string> = {
 
 export const TARGET_LABEL: Record<TargetType, string> = {
   all: 'Tout le catalogue',
-  gamme: 'Une gamme',
+  gamme: 'Une catégorie',
   product: 'Un produit',
 };
 

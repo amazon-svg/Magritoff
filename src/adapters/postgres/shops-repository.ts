@@ -1,4 +1,6 @@
 import type { PoolClient } from 'pg';
+import { resolveFixedStorefrontPrice } from './storefront-fixed-pricing.ts';
+import { isFixedPriceProduct } from '../../modules/libraries/index.ts';
 import type { TenantId, UserId } from '../../kernel/ids/index.ts';
 import type {
   CreateShopCommand, CreateShopProductCommand, MockupTemplateType, MockupView,
@@ -206,7 +208,14 @@ export class PostgresShopsRepository implements ShopsRepository {
         gammeSlug:row['gamme_slug']===null?null:String(row['gamme_slug']),
       }));
       const pricedManual=manual.map(product=>product.productId&&pricing.has(product.productId)?{...product,priceHt:pricing.get(product.productId)!}:product);
-      return {shop:mapPublicShop(payload.shop,this.storage),taxRegime:shopTaxRegimeSchema.parse(payload.taxRegime),products:[...pricedManual,...library],gammes:payload.gammes as PublicShopCatalog['gammes'],definitions:payload.definitions,subscribedSlugs:payload.subscribedSlugs,customMockups:payload.customMockups.map(row=>mapMockup(row,this.storage))};
+      const products = [...pricedManual, ...library];
+      for (const product of products) {
+        if (!isFixedPriceProduct(product) || !product.productId) continue;
+        const fixed = await resolveFixedStorefrontPrice(client, probe.id, product.productId,
+          access.storefront?.shopId === probe.id ? access.storefront.shopCustomerAccountId : null);
+        if (fixed) product.priceHt = Number(fixed.price);
+      }
+      return {shop:mapPublicShop(payload.shop,this.storage),taxRegime:shopTaxRegimeSchema.parse(payload.taxRegime),products,gammes:payload.gammes as PublicShopCatalog['gammes'],definitions:payload.definitions,subscribedSlugs:payload.subscribedSlugs,customMockups:payload.customMockups.map(row=>mapMockup(row,this.storage))};
     });
   }
 

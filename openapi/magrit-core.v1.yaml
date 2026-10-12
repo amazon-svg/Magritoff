@@ -7351,6 +7351,10 @@ paths:
         son empreinte, qui l a produit, et une URL de telechargement signee de
         courte duree.
 
+        La lecture accepte les commandes issues d un devis ou d une boutique.
+        Une commande existante sans PDF rend `order.document_not_generated` ;
+        une commande absente ou inaccessible rend `order.not_found`.
+
 
         LES OCTETS NE TRANSITENT PAS PAR CETTE FACADE, meme doctrine que
         `getQuoteDocument` : servir `application/pdf` depuis `/api/v1` casserait
@@ -7424,6 +7428,15 @@ paths:
       summary: "Génère le document d’une commande"
       description: >-
         PRODUIT le bon de commande d une commande, une fois pour toutes.
+
+        Accepte les commandes issues d un devis ou d une boutique. Pour une
+        commande boutique, reprend les lignes et montants enregistres, la TVA
+        du tenant et les informations disponibles du client boutique ; aucune
+        reference de devis ni remise n est inventee. En absence de numero,
+        utilise l identifiant complet de commande. Le gabarit doit etre de type
+        `order`, actif, pret et defini par defaut ; sinon 409
+        `order.document_template_missing`. Le document produit est conserve,
+        une seconde production rend `order.document_already_generated`.
 
 
         POURQUOI UNE OPERATION DE PRODUCTION, ALORS QUE LE DEVIS N EN A PAS.
@@ -11187,6 +11200,156 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /tenants/{tenantId}/shops/{shopId}/customers/page:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+      - $ref: '#/components/parameters/ShopId'
+    get:
+      operationId: listShopCustomersPage
+      summary: "Liste une page de clients boutique"
+      description: >-
+        Gestion réservée aux utilisateurs Magrit autorisés dans la boutique.
+        Le CA HT cumule les commandes validées, en production, expédiées, livrées
+        ou facturées, hors brouillons et annulations, depuis la création et par devise.
+        Suspendre révoque les sessions et conserve commandes et coordonnées.
+        Réactiver restaure active si déjà activé, sinon invited (activation requise).
+      tags: [identite]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: "page[size]"
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: "page[cursor]"
+          in: query
+          schema: { type: string, maxLength: 1024 }
+      responses:
+        '200':
+          description: Résultat de gestion boutique.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/ShopCustomerPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /tenants/{tenantId}/shops/{shopId}/customers/{customerId}:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+      - $ref: '#/components/parameters/ShopId'
+      - name: customerId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      operationId: getShopCustomerDetail
+      summary: "Consulte les informations et le CA du client boutique"
+      description: >-
+        Gestion réservée aux utilisateurs Magrit autorisés dans la boutique.
+        Le CA HT cumule les commandes validées, en production, expédiées, livrées
+        ou facturées, hors brouillons et annulations, depuis la création et par devise.
+        Suspendre révoque les sessions et conserve commandes et coordonnées.
+        Réactiver restaure active si déjà activé, sinon invited (activation requise).
+      tags: [identite]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Résultat de gestion boutique.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/ShopCustomerDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+    patch:
+      operationId: updateShopCustomer
+      summary: "Modifie le nom ou suspend un client boutique"
+      description: >-
+        Gestion réservée aux utilisateurs Magrit autorisés dans la boutique.
+        Le CA HT cumule les commandes validées, en production, expédiées, livrées
+        ou facturées, hors brouillons et annulations, depuis la création et par devise.
+        Suspendre révoque les sessions et conserve commandes et coordonnées.
+        Réactiver restaure active si déjà activé, sinon invited (activation requise).
+      tags: [identite]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateShopCustomerCommand' }
+      responses:
+        '200':
+          description: Résultat de gestion boutique.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/ShopCustomerAccount' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /tenants/{tenantId}/shops/{shopId}/customers/{customerId}/orders:
+    x-legacy-facade: true
+    parameters:
+      - $ref: '#/components/parameters/LegacyTenantId'
+      - $ref: '#/components/parameters/ShopId'
+      - name: customerId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      operationId: listShopCustomerOrdersPage
+      summary: "Liste une page des commandes du client boutique"
+      description: >-
+        Gestion réservée aux utilisateurs Magrit autorisés dans la boutique.
+        Le CA HT cumule les commandes validées, en production, expédiées, livrées
+        ou facturées, hors brouillons et annulations, depuis la création et par devise.
+        Suspendre révoque les sessions et conserve commandes et coordonnées.
+        Réactiver restaure active si déjà activé, sinon invited (activation requise).
+      tags: [identite]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: "page[size]"
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: "page[cursor]"
+          in: query
+          schema: { type: string, maxLength: 1024 }
+      responses:
+        '200':
+          description: Résultat de gestion boutique.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/ShopCustomerOrdersPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
 
   /tenants/{tenantId}/shops/{shopId}/customers/self:
@@ -15240,6 +15403,55 @@ components:
       title: ShopCustomerAccountStatus
       type: string
       enum: [delegated_only, invited, active, suspended]
+    ShopCustomerPage:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/ShopCustomerAccount' } }
+        nextCursor: { type: [string, 'null'] }
+    ShopCustomerOrder:
+      type: object
+      additionalProperties: false
+      required: [id, number, createdAt, status, currency, totalHt]
+      properties:
+        id: { type: string, format: uuid }
+        number: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+        status: { type: string, minLength: 1 }
+        currency: { type: string, minLength: 3, maxLength: 3 }
+        totalHt: { type: string, pattern: '^-?\d+(\.\d+)?$' }
+    ShopCustomerOrdersPage:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/ShopCustomerOrder' } }
+        nextCursor: { type: [string, 'null'] }
+    ShopCustomerDetail:
+      type: object
+      additionalProperties: false
+      required: [customer, orderCount, revenue]
+      properties:
+        customer: { $ref: '#/components/schemas/ShopCustomerAccount' }
+        orderCount: { type: integer, minimum: 0 }
+        revenue:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [currency, totalHt, orderCount]
+            properties:
+              currency: { type: string, minLength: 3, maxLength: 3 }
+              totalHt: { type: string, pattern: '^-?\d+(\.\d+)?$' }
+              orderCount: { type: integer, minimum: 0 }
+    UpdateShopCustomerCommand:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        fullName: { type: string, minLength: 1, maxLength: 200 }
+        enabled: { type: boolean }
     ShopCustomerAccount:
       title: ShopCustomerAccount
       type: object

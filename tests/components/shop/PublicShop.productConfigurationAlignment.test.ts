@@ -92,7 +92,9 @@ describe('BCP-10 — la fiche produit ne configure, ne chiffre et n ajoute plus 
 
     expect(publicShop.match(/<ProductOverlay/g)?.length).toBe(1);
     expect(publicShop).toContain('const [overlayProduct, setOverlayProduct] = useState<ShopProduct | null>(null);');
-    expect(publicShop).toContain('const onConfigure = (product: ShopProduct) => setOverlayProduct(product);');
+    expect(publicShop).toContain('const onConfigure = (product: ShopProduct) => {');
+    expect(publicShop).toContain('if (isFixedPriceProduct(product)) addToCart(product);');
+    expect(publicShop).toContain('else setOverlayProduct(product);');
 
     // La duplication qui a produit le défaut (point (b)) : la règle "qty =
     // exemplaires, on ajoute 1 paquet" ne doit plus vivre dans PortalCatalog.

@@ -43,7 +43,7 @@ export function DashboardLibraries() {
   const handleGenerateFromPim = async () => {
     if (
       !window.confirm(
-        `Générer un produit vendable pour chacune des ${gammes.length} gammes du PIM ?\n\n` +
+        `Générer un produit vendable pour chacune des ${gammes.length} catégories du PIM ?\n\n` +
           `Les produits déjà générés seront remplacés. Vos produits ajoutés manuellement ne sont pas touchés.`,
       )
     )
@@ -145,7 +145,7 @@ export function DashboardLibraries() {
               Catalogue depuis le PIM
             </h3>
             <p className="text-sm text-ink-2 mt-0.5 max-w-xl">
-              Génère un produit vendable pour chacune des <strong>{gammes.length} gammes</strong> de
+              Génère un produit vendable pour chacune des <strong>{gammes.length} catégories</strong> de
               votre PIM. Le prix se calcule à la configuration (Clariprint) côté acheteur.
               {pimGeneratedCount > 0 && (
                 <>

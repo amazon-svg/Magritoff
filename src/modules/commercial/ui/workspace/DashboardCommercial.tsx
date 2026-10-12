@@ -170,7 +170,7 @@ export function DashboardCommercial() {
         commercial.rules.length === 0 ? (
           <EmptyState
             title="Aucune règle de prix"
-            body="Créez une première règle pour appliquer une marge, une remise ou un prix imposé à une gamme ou un produit, pour un client ou un groupe de clients. Elle s'appliquera automatiquement aux devis de ce client et à sa boutique."
+            body="Créez une première règle pour appliquer une marge, une remise ou un prix imposé à une catégorie ou un produit, pour un client ou un groupe de clients. Elle s'appliquera automatiquement aux devis de ce client et à sa boutique."
           />
         ) : (
           <div className="border border-line rounded-xl bg-paper overflow-hidden">
@@ -287,7 +287,7 @@ function PageHeader() {
         Gestion commerciale
       </h2>
       <p className="text-sm text-ink-muted max-w-xl">
-        Marges, remises et prix imposés par gamme ou produit, pour un client ou un groupe de
+        Marges, remises et prix imposés par catégorie ou produit, pour un client ou un groupe de
         clients. Ces règles s'appliquent aux devis du client et à sa boutique. Les coûts de
         production, eux, se gèrent dans le Parc machine.
       </p>
@@ -500,7 +500,7 @@ function RuleDialog({
           <div>
             {targetType === 'gamme' && (
               <>
-                <label className={labelCls}>Gamme</label>
+                <label className={labelCls}>Catégorie</label>
                 <select value={gammeSlug} onChange={(e) => setGammeSlug(e.target.value)} className={inputCls}>
                   <option value="">— choisir —</option>
                   {gammes.map((g) => (

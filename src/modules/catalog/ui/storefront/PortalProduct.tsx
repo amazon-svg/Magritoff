@@ -1,3 +1,4 @@
+import { isFixedPriceProduct } from '@/modules/libraries';
 import { useMemo } from 'react';
 import { ChevronRight } from 'lucide-react';
 import type { ShopProduct } from '@/modules/shops';
@@ -157,7 +158,7 @@ export function PortalProduct({ product, taxRate, onBack, onConfigure, pimGammes
                     {applyTax(priceDisplay.priceHT, taxRate).toFixed(0)}€
                   </div>
                   <div style={{ fontSize: '12.5px', color: '#B5B5BC', fontWeight: 400 }}>
-                    TTC · {quantity} ex. · {priceDisplay.priceHT.toFixed(2)}€ HT
+                    TTC · {isFixedPriceProduct(product) ? '1 unité' : `${quantity} ex.`} · {priceDisplay.priceHT.toFixed(2)}€ HT
                   </div>
                   {priceDisplay.badge && (
                     <span
@@ -183,7 +184,7 @@ export function PortalProduct({ product, taxRate, onBack, onConfigure, pimGammes
             className="py-3.5 px-5 rounded-lg bg-brand text-brand-ink hover:bg-black transition-colors"
             style={{ fontSize: '14.5px', fontWeight: 500, fontFamily: 'var(--font-ui)' }}
           >
-            Configurer
+            {isFixedPriceProduct(product) ? 'Ajouter au panier' : 'Configurer'}
           </button>
         </div>
       </div>

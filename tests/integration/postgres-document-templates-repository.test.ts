@@ -1,3 +1,9 @@
+import { withAuthenticatedPostgresRequest } from '../../src/adapters/postgres/authenticated-request-context';
+import { createGescomApiHandler } from '../../src/server/api/gescom-middleware';
+import { createDocumentTemplatesRoutes } from '../../src/server/api/document-templates-routes';
+import { InMemoryIdempotencyStore } from '../../src/modules/_shared/application';
+import { FetchApiClient } from '../../src/platform/api/fetch-api-client';
+import { DocumentTemplatesApiClient } from '../../src/modules/document-templates/api/client';
 import { randomUUID } from 'node:crypto';
 import { GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { PDFDocument } from 'pdf-lib';
@@ -26,6 +32,9 @@ describeIntegration('PostgresDocumentTemplatesRepository — PostgreSQL et S3 re
   });
   const bucket = 'document-pdf-templates';
 
+  function itAsUser(name: string, operation: () => Promise<void>) {
+    it(name, () => withAuthenticatedPostgresRequest({ tenantId, userId: actorId }, operation));
+  }
   beforeAll(async () => {
     pool = createPostgresPool();
     await pool.query(
@@ -52,7 +61,7 @@ describeIntegration('PostgresDocumentTemplatesRepository — PostgreSQL et S3 re
     storage.destroy();
   });
 
-  it('gere le cycle complet du gabarit et conserve son statut par defaut au remplacement', async () => {
+  itAsUser('gere le cycle complet du gabarit et conserve son statut par defaut au remplacement', async () => {
     const repository = new PostgresDocumentTemplatesRepository(
       new PostgresTransactionRunner(pool, 'magrit_api'),
       storage,
@@ -119,6 +128,19 @@ describeIntegration('PostgresDocumentTemplatesRepository — PostgreSQL et S3 re
     await expect(storage.send(new GetObjectCommand({ Bucket: bucket, Key: replacementTicket.path })))
       .rejects.toBeTruthy();
   });
+  itAsUser('enregistre via le client HTTP un champ commande sans largeur, puis le relit', async () => {
+    const repository = new PostgresDocumentTemplatesRepository(new PostgresTransactionRunner(pool, 'magrit_api'), storage);
+    const templateId = randomUUID();
+    await pool.query("insert into public.document_pdf_templates(id,tenant_id,document_type,name,status,storage_path,byte_size,sha256,page_count,pages,created_by) values($1,$2,'order','BC HTTP','ready',$3,100,$4,1,$5::jsonb,$6)", [templateId, tenantId, `${tenantId}/${templateId}.pdf`, 'a'.repeat(64), JSON.stringify([{ index:0,width_pt:595.28,height_pt:841.89 }]), actorId]);
+    const handler = createGescomApiHandler({ routes: createDocumentTemplatesRoutes(new DocumentTemplatesService({ repository })),
+      principalVerifier: { async verify() { return { kind: 'user', tenantId, userId: actorId }; } }, idempotencyStore: new InMemoryIdempotencyStore() });
+    const api = new DocumentTemplatesApiClient(new FetchApiClient('https://magrit.test', (input, init) => handler(new Request(input, init)), async () => 'fixture'));
+    const before = await api.getFields(templateId);
+    const saved = await api.replaceFields(templateId, { placements:[{ field:'order.number',page_index:0,x:535.25,y:820.5,max_lines:1,align:'left',font:'helvetica',font_size:11,color:'#111111' }],lines_block:null }, before.etag!);
+    expect(saved.data.placements).toMatchObject([{ field:'order.number',x:535.25,y:820.5,width:null }]);
+    expect((await api.getFields(templateId)).data).toEqual(saved.data);
+  });
+
 });
 
 async function makePdf(width: number, height: number, label: string): Promise<Uint8Array> {

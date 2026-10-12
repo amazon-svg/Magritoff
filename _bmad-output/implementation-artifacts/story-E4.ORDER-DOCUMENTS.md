@@ -1,0 +1,184 @@
+# E4.ORDER-DOCUMENTS — preuve d’implémentation
+
+Source : [story canonique](../../project/backlog/stories/E4.ORDER-DOCUMENTS.md).
+Branche : `codex/correction-annexes-commandes`, dans le dossier habituel.
+Spécification draft ; aucune approbation humaine revendiquée.
+
+## Modules et contrat
+
+`commercial-orders` orchestre le moteur existant `order-documents` ; lecture
+PostgreSQL commune aux deux origines. Référence devis nullable, compte boutique
+sans identifiant CRM accepté, repli sur nom/email acheteur. Total HT et montants
+lignes déjà enregistrés ; TVA calculée en SQL numeric selon le régime tenant,
+même convention que le détail/export actuel. Remises boutique masquées côté
+serveur. Référence complète UUID si absence de numéro. Devise propagée aux
+resolveurs partagés `quote-documents`, formatage décimal sans flottant ; devis
+conservent EUR par défaut. Aucun nouveau moteur PDF.
+
+Surface de commande compose le panneau existant ; bouton de production ouvert
+aux commandes boutique. GET/POST `/commercial-orders/{orderId}/documents`
+existants, OpenAPI clarifié et types dérivés régénérés, aucun nouveau DTO/endpoint.
+Erreurs sans gabarit, seconde production et téléchargement conservées.
+
+`order-upload-links` : le budget public ne peut pas être lu directement sous
+RLS sans identité utilisateur. Migration 0097 ajoute une fonction minimale
+security definer, search_path fixé, accessible uniquement au rôle API et
+conditionnée au hash du jeton valide, non expiré/non révoqué. Renvoie seulement
+les trois compteurs nécessaires. Confirmation existante garde verrous, quotas,
+canal/audit et validation ; référence boutique alignée sur le contexte public.
+Politiques RLS inchangées. Migration appliquée localement sans mutation métier.
+Aucune dérogation R5 nouvelle.
+
+## Vérifications
+
+Dix tests PostgreSQL/S3 réels sur base temporaire supprimée après recette :
+états vides/isolation ; PDF boutique téléchargé et relu avec pdf-lib, montants,
+acheteur, absence de devis, refus sans gabarit et seconde génération ; fichier
+boutique rattaché à une ligne puis téléchargé ; dépôt public hors identité HTTP,
+quota, confirmation répétée, expiration et révocation. Tests historiques devis,
+fichiers et liens adaptés au contexte authentifié réel, tous passent.
+
+Quatre tests Chromium à 375/1280, réponses HTTP métier simulées : états vides,
+génération PDF/reprise après gabarit manquant, dépôt fichier et création lien.
+Captures relues ; suite intégrée au workflow a11y, exécution CI non revendiquée.
+Test du resolveur : acheteur imprimé, absence de devis/remise et devise USD.
+Régression : 3 158 tests réussis, 183 ignorés (dont les intégrations exécutées
+séparément). Typage modulaire, build, OpenAPI et gouvernance passent.
+Lecture locale : Atelier Lumière n’a pas de gabarit order prêt/actif/par défaut ;
+sa configuration reste nécessaire pour produire le PDF sur cette boutique.
+
+## Opérations et limites
+
+Recette : [annexes](../../docs/testing/order-annexes.md).
+Aucun serveur lancé/redémarré ; aucun fichier ou client métier créé par les
+recettes dans la base de développement. Aucun push, fusion ou déploiement.
+Le PDF boutique prend la TVA du tenant à sa génération puis reste conservé.
+Aucun nouveau numéro attribué ; référentiels CRM et remises existants conservés.
+
+## Correction du message de configuration
+
+Retour de Xavier : « Aucun gabarit de bon de commande actif pour ce tenant ».
+Lecture locale : BC 2026 est importé, prêt, actif et par défaut, mais comporte
+zéro champ et aucun tableau de lignes ; le repository le refuse conformément
+au contrat. Message serveur/client clarifié et lien vers Gabarits PDF proposé
+sur le code existant order.document_template_missing. Aucun placement ajouté
+implicitement au PDF de Xavier, aucun gabarit ou commande modifié.
+234 tests ciblés (architecture/contrat/moteur), typage modulaire et deux parcours
+Chromium mobile/ordinateur passent ; lien de configuration et sa disparition
+après réussite vérifiés. Aucune dérogation R5, migration ou nouveau contrat.
+
+## Diagnostic de l’enregistrement des champs
+
+Capture de Xavier : erreur générique lors de la sauvegarde de BC 2026. La
+reproduction du client HTTP complet jusqu’à PostgreSQL sur un gabarit temporaire
+réussit (numéro de commande sans largeur, valeurs décimales, ETag et relecture).
+La recette annexes compte désormais 12 tests PostgreSQL/S3 réussis. La cause de
+l’échec sur le navigateur de Xavier n’est pas établie : nouvelle tentative avec
+le message précis nécessaire. Aucun champ de BC 2026 modifié implicitement.
+
+Module document-templates UI : erreurs API avec statut/code, validation locale
+explicite et maintien des modifications ; libellés aperçu/total selon le type de
+document et retour Gabarits PDF. Test Chromium : HTTP 500 visible, champ
+conservé, reprise réussie et disparition de l’erreur. Types/build et 282 tests
+ciblés passent. Aucun endpoint/DTO modifié, aucune dérogation R5 nouvelle.
+
+## Suite du placement des champs
+
+Retour de Xavier : une fois le champ glissé, la suite du parcours est peu claire.
+Le panneau document-templates propose « Ajouter un autre champ », qui conserve
+le placement, réaffiche la palette et remet le focus clavier sur l’onglet Champs.
+Un rappel indique tableau des lignes, aperçu puis enregistrement explicite.
+Chromium vérifie deux placements successifs, passage par Tableau et sauvegarde
+avec erreur/reprise sans perte. 267 tests architecture/module et typage modulaire
+réussis. Aucun contrat API, donnée métier ou dérogation R5 modifié.
+
+## Correction des coordonnées du placement à la souris
+
+Capture de Xavier : coordonnées x supérieures à 20000, champs collés en haut.
+Cause établie : useElementWidth observait uniquement au montage initial alors
+que la page PDF n’existait pas encore dans le DOM. La largeur restait à zéro,
+remplacée par 1 pixel pour la conversion. Le test précédent au clavier ne
+couvrait pas ce défaut. Le nouveau test navigateur échoue avant la correction.
+
+L’observation suit maintenant le nœud réel, au chargement et au retour d’aperçu.
+Clic et dépôt calculent l’échelle depuis le rectangle visible. Éditeur et aperçu
+gardent les proportions du PDF même sans fond ; aucune attente de chargement
+permanente lorsque le fond est absent. Aucun placement métier corrigé implicitement.
+
+Trois parcours Chromium passent : clic, dépôt depuis palette, déplacement,
+aperçu, redimensionnement et coordonnées de sauvegarde avec/sans PDF ; reprise
+après erreur serveur. Typage modulaire, 267 tests ciblés et build passent.
+Le build conserve l’avertissement préexistant de cycle de chunks CheckoutPage.
+Aucun changement de contrat API ou dérogation R5.
+
+## Calage en millimètres
+
+Demande de Xavier : pouvoir caler précisément chaque élément par sa position
+en mm. document-templates UI ajoute X depuis la gauche, Y depuis le haut pour
+les champs et l’ancre de première ligne du tableau. Y est explicitement le
+repère de ligne de base. Largeurs des champs/colonnes, X de chaque colonne et
+espacement des lignes passent en mm ; les tailles de police restent en points.
+
+MillimeterInput est partagé au sein du module : saisie au centième de mm,
+validation par Entrée ou sortie du champ, rejet du vide/non-fini/hors limites.
+Un simple focus ne réarrondit pas la coordonnée PDF. Les changements au pointeur
+actualisent les valeurs affichées. Conversion 25,4 mm = 72 points ; aucune
+migration ou modification API/DTO. Aucun gabarit métier modifié implicitement.
+
+Recette navigateur étendue : saisie de positions et largeurs, espacement,
+maintien après erreur/reprise, coordonnées en points transmises et relecture
+en mm après rechargement. Trois tests Chromium, 267 tests ciblés,
+typage modulaire et build réussis. Le délai de recette attend le chargement
+à froid de PDF.js ; l’avertissement de build CheckoutPage préexistant subsiste.
+
+## Suite du calage — 10 octobre 2026
+
+Reprise demandée par Xavier, périmètre gabarits PDF et bon de commande confirmé.
+Module document-templates, UI uniquement : coordonnées des champs bornées sur
+mise à jour, translation commune du tableau bornée par toutes ses colonnes
+(même si la première n’est pas la plus à gauche), capacité verticale recalculée
+pendant le déplacement sans dépendre du montage du panneau Tableau. Bornes X et
+largeurs des colonnes liées à la place disponible ; ajout de colonne borné sur
+la page. Saisies mm invalides : valeur précédente conservée, message accessible
+avec plage autorisée. Aucun ancien placement modifié lors de la lecture.
+
+Preuves : 269 tests Vitest modules/document-templates et architecture passent ;
+typage modulaire et build passent. Avertissement Rollup préexistant CheckoutPage.
+Quatre parcours Chromium passent : fond PDF/page blanche, sauvegarde et reprise
+après erreur avec limites mm, translation près du bord droit/inférieur puis
+sauvegarde depuis Champs (espacement et capacité contrôlés dans le PUT).
+Le test de déplacement utilise une fenêtre haute pour garder sa cible visible.
+Premier lancement Chromium empêché par le sandbox macOS ; relance hors sandbox
+réussie. Aucun contrat API, migration, dérogation R5 ou donnée métier modifiée.
+La génération du bon réel de Xavier n’a pas été rejouée dans cette reprise.
+
+## Modèle de positionnement et copie — 12 octobre 2026
+
+Demande utilisateur : « peux ton avoir un modèle de base, que l’on peut copier
+concernant le positionnement des champs ». Périmètre ajouté à la story canonique
+E4.ORDER-DOCUMENTS, en brouillon.
+
+Module document-templates UI : bouton Copier un positionnement, modèle de base
+adapté au format de la première page et au type devis/commande, ou reprise de
+la carte d’un autre gabarit prêt du même type via les lectures API existantes.
+Copie des champs, polices/largeurs et du tableau ; vérification des dimensions de
+chaque page utilisée, y compris la page de reprise. Source vide/incompatible
+refusée, erreur visible, placements courants conservés. Le bouton de remplacement
+est explicite si la destination contient déjà des placements ; Annuler quitte
+sans les modifier. Fond PDF conservé ; aucun libellé statique ajouté au fond.
+Ajustement/aperçu et sauvegarde restent explicites avec l’ETag destination.
+Aucune écriture du gabarit source ni mutation lors de l’ouverture du sélecteur.
+Sauvegarde/aperçu temporairement désactivés pendant le choix pour éviter une
+écriture ou un démontage concurrent à la lecture du modèle.
+
+API : aucun endpoint, DTO ou contrat modifié. Utilisation GET liste filtrée,
+GET détail et GET champs ; PUT champs existant seulement après Enregistrer.
+Aucune migration ou dérogation R5. Aucun gabarit métier modifié en recette.
+
+Preuves : 277 tests modules/document-templates/architecture, typage modulaire
+et build passent. Cinq parcours Chromium passent : nouvelle recette modèle de
+base → copie incompatible refusée → copie compatible → modification en mm →
+sauvegarde/relecture, puis les quatre parcours de calage existants. La recette
+contrôle absence d’écriture avant Enregistrer et source inchangée. Réponses API
+de recette ; pas de génération du bon réel de Xavier. Avertissement Rollup
+CheckoutPage préexistant. Aucun serveur lancé, push, fusion ou déploiement.

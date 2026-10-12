@@ -175,9 +175,12 @@ export type OrderDataForDocumentGeneration = Readonly<{
   number: string;
   /** Timestamp ISO — LA date de commande (contrat, `order.created_at`). */
   createdAt: string;
-  customerId: string;
+  customerId: string | null;
   /** `commercial_quotes.number` du devis d origine (`quote_id`), pour `order.quote_number`. */
-  quoteNumber: string;
+  quoteNumber: string | null;
+  /** Acheteur boutique utilisé lorsque le référentiel commercial ne le renseigne pas. */
+  customerFallback?: Readonly<{ contactName: string | null; email: string | null }>;
+  currency?: string;
   /** `commercial_orders.customer_reference` (E10.19a) — `null` tant que la source amont sur `commercial_quotes` n existe pas. */
   customerReference: string | null;
   /** `YYYY-MM-DD`, ou `null` (aucun ecrivain, reserve (h) du contrat E10.16/§8.17). */
@@ -266,7 +269,7 @@ export interface CommercialOrdersRepository {
    * E10.19b — lit une commande dans la forme COMPLETE necessaire a la
    * production de son bon de commande (y compris `showDiscounts`/
    * `customerReference`, jamais publiees ailleurs) et le numero du devis
-   * d origine (jointure `quote_id -> commercial_quotes.number`). `null` si
+   * d origine quand il existe ; accepte aussi une commande boutique sans devis. `null` si
    * la commande est absente/hors tenant (404 `order.not_found`, verifie par
    * le SERVICE).
    */

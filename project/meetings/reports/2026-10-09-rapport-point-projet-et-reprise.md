@@ -1,0 +1,322 @@
+---
+id: REPORT-2026-10-09-POINT-PROJET-REPRISE
+title: Point projet et reprise après les arbitrages des 7 et 8 octobre
+date: 2026-10-09
+status: draft
+source: Demande de Xavier dans le chat du 9 octobre 2026 — faire un point projet et continuer si possible
+---
+
+# Point projet et reprise — 9 octobre 2026
+
+## État constaté
+
+Référence examinée : `279d79c3`, sur `main`. Après actualisation des références
+Git, `origin/main` est à `08a1acdf` : la copie locale possède un commit
+supplémentaire, qui fait démarrer la stack complète avec `pnpm dev`.
+Ce constat décrit le dépôt et les contrôles locaux, sans preuve de déploiement.
+
+Le backlog contient 18 epics, 25 fonctionnalités et 207 stories : 11
+`verified`, 50 `implemented`, 7 `in-progress` et 139 `not-started`. Les statuts
+de spécification sont 3 `approved`, 3 `contradictory` et 201 `draft`.
+Ces statuts documentaires ne constituent pas une mesure de couverture du code :
+E4.2 décrit notamment des capacités présentes alors que son statut reste
+`not-started`. Une réconciliation sur preuves reste nécessaire.
+
+Les décisions des 7 et 8 octobre sont intégrées au dépôt et approuvées.
+Le lot commandes possède une liste et une fiche communes, un statut visible,
+des fichiers et des exports. Le parcours Magrit/HopeStudio est enregistré
+comme implémenté dans US-CONV-02 ; les suites formulaire, boutique et marges
+sont distinguées dans les questions ouvertes. Les expéditions sont reportées
+au futur périmètre MIS. Le vocabulaire PIM est désormais « catégorie de
+produits », et la modification d'un produit HopeStudio doit déclencher son
+recalcul.
+
+## Priorités pour la démonstration
+
+Le WM du 7 octobre prévoit une bascule vers la boutique le 9 octobre et une
+démonstration complète commande/boutique durant la semaine du 12 octobre.
+Cette demande ne fixe pas de nouveau périmètre fonctionnel.
+
+1. Préparer une recette boutique reproductible : recherche, configuration,
+   prix, panier, commande et consultation dans la fiche commune ; relever les
+   écarts avant d'ajouter de nouvelles capacités.
+2. Cadrer les cartes et le formulaire HopeStudio à partir de l'intégration
+   existante, avec leurs données PIM et la destination des résultats du chat
+   (`OQ-HS-PIM-FORM`, `OQ-HS-SHOP-CHAT`, `OQ-HS-MARGINS`).
+3. Vérifier les droits hérités et la navigation espace/sous-espace
+   (`OQ-UM-PORTABLE`, `OQ-B3-NAVIGATION`).
+4. Réconcilier progressivement les statuts des stories avec les preuves
+   actuelles, sans transformer un test technique en approbation produit.
+
+Les dossiers encore ouverts restent consignés dans le registre canonique :
+TVA par ligne (`OQ-TVA-LIGNE`), accès de calcul aux parcs/fournisseurs
+(`OQ-B3-PARC-CALCUL`) et transfert du dépôt pour l'administration GitHub.
+La fiscalité et les accès externes ne sont pas développés dans ce lot.
+
+## Suite réalisée : vocabulaire visible des catégories
+
+Application de la décision approuvée `PD-2026-10-07-PIM-CATEGORIE` : correction
+des titres, aides, filtres, états vides, libellés de recherche et noms
+accessibles dans les écrans PIM, boutique, règles de prix, bibliothèques et
+espaces. La navigation affiche « Catégories actives ». Les sous-catégories
+existantes conservent leur hiérarchie.
+
+Les identifiants techniques, routes, contrats API, données et règles de calcul
+conservent leur forme actuelle, comme prévu par la décision. Les messages des
+services et le vocabulaire des prompts ne sont pas couverts par ce lot
+strictement visible. Le test existant du registre des contributions attend
+maintenant le libellé approuvé. Aucun statut produit n'est modifié par l'agent.
+
+Travail isolé sur `codex/point-projet-categories`, dans
+`/private/tmp/magrit-point-20261009`. La modification préexistante de
+`.gitignore` dans la copie principale est conservée. Aucun push ni fusion.
+
+## Vérifications et limites
+
+- Typage modulaire et build : réussis avant et après les changements.
+- Validation projet : réussie ; les 207 stories sont structurellement valides.
+- Validation des spécifications auditables : réussie avec **zéro spécification
+  importée** ; elle ne prouve donc aucune conformité fonctionnelle.
+- Suite avant changement : 3 137 tests réussis, 165 ignorés, cinq échecs HTTP
+  causés par `listen EPERM` dans le bac à sable.
+- Suite après changement avec sockets locaux autorisés : les cinq tests HTTP
+  passent. L'ancienne assertion « Gammes actives » a été actualisée et son
+  fichier de 23 tests a été rejoué avec succès.
+- Suite finale : **320 fichiers réussis, 53 ignorés ; 3 142 tests réussis,
+  165 ignorés**. Les tests du pilotage et du dashboard sont inclus. Le
+  dashboard recense 14 questions ouvertes.
+- La suite finale et les contrôles du dashboard sont consignés dans les logs
+  locaux `/tmp/magrit-point-20261009-*.log` ; ces fichiers temporaires ne sont
+  pas des preuves archivées en CI.
+
+Les intégrations PostgreSQL, S3 et fournisseur ignorées par la suite standard
+ne sont pas présentées comme validées. Aucune recette visuelle navigateur,
+recette fournisseur réelle ou certification d'accessibilité n'est revendiquée.
+
+## Rapport de sortie R8
+
+Modules touchés : `catalog`, `commercial`, `pricing`, `libraries`, `shops`,
+`tenants` (présentation uniquement), ainsi que le test du registre des surfaces
+et ce rapport de pilotage. API créée ou modifiée : aucune. Dérogation R5 :
+aucune. Le registre des rapports et le dashboard sont régénérés pour rendre ce
+point consultable dans le pilotage du projet. La relecture distincte et
+l'approbation de la livraison restent à réaliser avant fusion.
+
+## Suite du 9 octobre — recette navigateur boutique
+
+Mandat : « continue » dans le chat, après le point projet. Branche de suite :
+`codex/recette-boutique`, issue du commit `6f21cdc8` qui conserve le lot de
+catégories. La copie principale reste sur `main` avec son `.gitignore`
+préexistant ; aucun push, déploiement ou fusion.
+
+La boutique UX locale a été observée dans Chromium : catalogue de 82 produits,
+recherche de Flyer A5 et accès à sa configuration. Les appels de prix et IA
+sont interceptés pour la suite du parcours : cette observation ne constitue
+pas un chiffrage fournisseur réel.
+
+Deux défauts de recherche sont corrigés dans `catalog` : champ catalogue sans
+nom accessible et identifiant de menu partagé par les headers mobile/desktop.
+Le champ est nommé « Rechercher dans le catalogue » ; chaque instance du
+header crée son identifiant avec `useId`. Aucun contrat API, droit, prix ou
+modèle de données n'est modifié, aucune dérogation R5 n'est introduite.
+
+La nouvelle recette `tests/e2e/storefront-purchase-flow.spec.ts` passe : trois
+tests Chromium, dont les deux largeurs 390/1280 pixels. Le parcours vérifie
+la recherche clavier, la configuration, le panier, la séparation de session
+boutique et la confirmation. Il contrôle un pack de 500 exemplaires à
+125,00 € HT, transporté en décimal `125.00`, avec une clé d'idempotence.
+Le bouton de commande est désactivé avant connexion. L'éditorial IA absent
+est simulé pour vérifier le repli déterministe.
+
+Les API et la persistance sont simulées et les appels inattendus font échouer
+la recette d'achat. Aucun compte, email ou commande réelle n'est créé. La
+création PostgreSQL et la consultation de cette nouvelle commande dans la
+fiche commune restent à vérifier séparément ; les intégrations fournisseur
+réelles ne sont pas revendiquées.
+
+Le workflow navigateur inclut désormais ces trois tests, avec archivage des
+captures ; son exécution GitHub n'est pas revendiquée. Le typage modulaire et
+le build passent. La suite de régression compte 3 142 tests réussis et
+165 ignorés ; les dix tests de pilotage passent après actualisation du
+rapport. La documentation de reproduction est dans
+`docs/testing/storefront-browser.md` et les logs locaux dans
+`/tmp/magrit-shop-*.log`. Le rapport et le dashboard sont actualisés.
+
+
+## Suite — produits à coût unitaire fixe
+
+Demande explicite de Xavier : distinguer les produits à prix fixe des produits
+configurables et valider création back-office, mise à disposition en boutique,
+affichage avec marge, panier et commande. Clarification reçue : « Coût HT,
+marge appliquée par Magrit ». Le raccordement variable à HopeStudio annoncé
+pour cet après-midi reste distinct. La story E4.FIXED-PRICE est créée en brouillon,
+avec livraison implemented et preuve dans son document d'implémentation.
+
+Branche de suite `codex/produits-prix-fixe`. Création manuelle, calcul commun
+catalogue/commande par PricingEngine, unités et ajout direct sans configuration.
+Le tiroir panier est corrigé pour que nom et quantité restent lisibles. Aucun
+nouveau contrat HTTP ; migration interne 0095 nécessaire. Aucune dérogation R5.
+
+Recette réelle isolée réussie : dix tests PostgreSQL, puis un test Chromium
+créant et publiant une fiche, commandant trois unités et relisant la commande
+persistée depuis le back-office. Coût 100 € HT, vente 125 € HT avec marge de
+25 %, total 375 € HT / 450 € TTC. Aucun appel de chiffrage fournisseur.
+La régression générale passe : 3 143 tests réussis, 175 ignorés ; typage
+modulaire et build passent. La suite PostgreSQL générale reste limitée par un test S3 de lecture après
+suppression (168/169 réussis au second passage), indépendant de ce parcours.
+
+La copie principale et les données métier existantes restent préservées ;
+aucun push, fusion ou déploiement. La recette reproductible est documentée dans
+`docs/testing/fixed-price-purchase.md`. Revue indépendante et approbation humaine
+restent à réaliser.
+
+## Accès au test manuel dans le dossier habituel
+
+À la demande explicite de Xavier, les copies Git séparées ne sont plus utilisées
+pour cette suite de travail. La branche `codex/produits-prix-fixe` est transférée
+dans `/Users/xpech/dev/Magritoff` et rebasée sur le dernier `main`, qui conserve
+le commit utilisateur `448d5f6c` de `.gitignore`. La copie temporaire est retirée.
+Le code et le serveur de développement utilisent désormais le même dossier.
+
+La migration 0095 est appliquée à la seule base locale de développement
+`127.0.0.1:55432/magrit` ; aucune donnée produit ou commande n'est modifiée.
+L'interface est accessible sur `http://localhost:5176`, avec son API sur 8787.
+La réponse Vite du détail de bibliothèque contient le nouveau formulaire et
+le healthcheck de l'API répond 200. Aucun push ni fusion dans `main`.
+
+## Entrée unique pour les règles de prix
+
+Demande de Xavier : supprimer « Prix & marges » après constat de deux entrées
+concurrentes. L'entrée du module commercial est retirée de la navigation ;
+« Règles de prix » reste visible. Les données et la route historique ne sont
+pas supprimées. Aucun changement API ni dérogation R5. Vérification : 23 tests
+du registre des contributions réussis et typage modulaire valide.
+
+## UX du back-office boutiques
+
+Demande de Xavier : mise en cohérence rapide avec `docs/UX_GUIDELINES.md`.
+Livraison E4.UX-BACKOFFICE sur `codex/ux-backoffice-boutiques`, dans le dossier
+habituel, sans copie Git séparée et sans nouveau serveur de développement.
+Liste avec états/actions explicites, modales accessibles, quatre onglets dans
+l’éditeur, protection des saisies et messages persistants. Menu mobile du
+back-office, palette responsive et labels de champs corrigés.
+
+Quatre tests Chromium réussis, à 375/768/1280 px, avec API simulée et scans axe
+sur les panneaux ciblés. Régression : 3 143 tests réussis, 175 ignorés ; typage
+modulaire et build réussis. Aucun changement de contrat API, migration ou droits,
+aucune dérogation R5. Pagination serveur historique hors périmètre ; aucune
+conformité globale revendiquée. Recette dans `docs/testing/backoffice-shops-ux.md`,
+preuve dans `_bmad-output/implementation-artifacts/story-E4.UX-BACKOFFICE.md`.
+Aucun push ni fusion ; spécification en brouillon et revue humaine à réaliser.
+
+## Fiche et pagination des clients boutique
+
+Demande de Xavier : informations générales, CA, commandes et désactivation d’un
+client boutique, avec pagination de la liste. E4.CLIENT-MANAGEMENT livre une fiche
+adressable depuis le nom du client et des listes serveur de 20 clients/commandes.
+CA HT par devise sur les commandes validées et étapes suivantes, hors brouillons
+et annulations. Désactivation avec révocation des sessions, réactivation et
+conservation des commandes/interlocuteur. Contrôle serveur de capacité et périmètre.
+
+Module shop-customers, adaptateur PostgreSQL, composition workspace et alias
+capacité roles. Quatre nouvelles opérations documentées dans OpenAPI et types
+régénérés ; API de liste historique préservée. Aucune dérogation R5. Migration 0096
+(index uniquement) appliquée à la base locale. Six tests PostgreSQL réels passent
+sur base temporaire ; régression générale 3 151 tests réussis, 178 ignorés, plus
+contrôle ciblé d’alias de capacité. Huit parcours Chromium boutiques/clients, typage
+modulaire et build passent. Recette : `docs/testing/shop-customer-management.md`.
+Même dossier habituel, aucun nouveau serveur ni push/fusion/déploiement.
+
+## Lecture des annexes des commandes boutique
+
+Demande de Xavier : erreurs rouges sur la commande atelier-lumiere
+`81419e86-4e1a-4316-aafa-2c28beb627cc`. E4.ORDER-ANNEXES corrige la transmission
+de l’identité utilisateur authentifiée aux transactions historiques du même
+tenant et la vérification PDF limitée aux commandes devis. RLS conservée,
+identités explicites et workers exclus de l’héritage ; concurrence vérifiée.
+La commande existe avec zéro fichier, zéro lien et aucun PDF : états vides
+affichés, génération PDF boutique encore indisponible et expliquée à l’écran.
+
+Deux tests PostgreSQL réels sur base temporaire et deux parcours Chromium
+375/1280 passent ; 3 157 tests de régression réussis, 180 ignorés. Typage
+modulaire, build et contrat OpenAPI passent. Aucun
+nouveau endpoint ou DTO, aucune migration/dérogation R5. Recette et preuve :
+`docs/testing/order-annexes.md`,
+`_bmad-output/implementation-artifacts/story-E4.ORDER-ANNEXES.md`.
+Dans le dossier habituel ; aucun serveur lancé/redémarré, aucun push/fusion.
+
+## Bon PDF et parcours des pièces jointes boutique
+
+Xavier autorise les deux ajouts proposés à la PR. E4.ORDER-DOCUMENTS étend le
+moteur PDF aux commandes boutique : lignes/montants enregistrés, acheteur,
+devise et TVA du tenant ; aucune référence devis ni remise inventée. Bouton de
+production activé, document conservé et seconde production refusée. Contrat
+OpenAPI existant clarifié et types régénérés ; aucun nouveau endpoint ou DTO.
+
+La recette révèle une lecture de budget public bloquée par RLS sans session.
+Migration 0097 : fonction minimale protégée par jeton valide/non révoqué/non
+expiré, compteur de fichiers pour quota ; confirmation existante conservée et
+référence boutique corrigée. Appliquée localement, aucune mutation de données
+métier. Modules commercial-orders, order-documents, quote-documents (resolveurs
+partagés), order-upload-links, adaptateurs PostgreSQL et composition de surface.
+Aucune dérogation R5 nouvelle.
+
+3 158 tests réussis, 183 ignorés ; dix tests PostgreSQL/S3 réels sur base
+éphémère ; quatre parcours Chromium mobile/ordinateur ; types/build/OpenAPI et
+gouvernance passent. Recette dans docs/testing/order-annexes.md. Aucun nouveau
+serveur, push, fusion ou déploiement. Atelier Lumière n’a pas encore de gabarit
+order prêt, actif et par défaut : configuration nécessaire avant production.
+
+## Message PDF : gabarit actif sans champs
+
+Diagnostic en lecture seule : BC 2026 est actif/prêt/par défaut mais ne comporte
+ni champ positionné ni bloc de lignes. commercial-orders UI et façade HTTP,
+order-documents : message de configuration précis et lien Gabarits PDF sur le
+code existant order.document_template_missing. Aucun gabarit métier modifié.
+234 tests ciblés, typage et deux parcours Chromium passent. Aucun nouveau
+endpoint, DTO, migration ou dérogation R5 ; aucun serveur lancé ou push.
+
+## Reçus de dépôt et diagnostic sauvegarde gabarit
+
+E4.DEPOSIT-RECEIPTS : order-upload-links conserve tous les reçus de la visite,
+nom/taille/date et confirmation, y compris après erreur/reprise et au quota.
+Liste locale à la visite, sans persistance après actualisation ni relecture des
+fichiers. Aucun contrat API modifié ou dérogation R5. Deux Chromium mobile/desktop.
+
+Enregistrement BC 2026 : client→API→PostgreSQL réussi sur gabarit temporaire ;
+12 tests PostgreSQL/S3 passent. Échec du navigateur utilisateur non reproduit,
+nouvelle tentative avec message précis nécessaire. document-templates UI affiche
+statut/code et les problèmes de format, conserve les modifications et adapte les
+libellés au type commande. Test Chromium de reprise réussi. 282 tests ciblés,
+types et build passent ; aucune donnée BC 2026 modifiée, serveur lancé ou push.
+
+## Guidage après placement d’un champ PDF
+
+document-templates UI : retour visible « Ajouter un autre champ » conservant le
+placement et le focus clavier, rappel tableau/aperçu/enregistrement. E4.ORDER-DOCUMENTS
+et sa preuve complétées, au statut brouillon. Parcours Chromium de deux champs
+et sauvegarde/reprise réussi, 267 tests ciblés et typage modulaire réussis.
+Aucun contrat API modifié, dérogation R5, donnée métier modifiée ou serveur lancé.
+
+## Placement PDF à la souris
+
+document-templates UI : corrige l’observation de largeur après chargement et
+retour d’aperçu, la conversion depuis le rectangle visible et les proportions
+de page avec/sans fond. Le test antérieur au clavier manquait le défaut ; le
+nouveau test échoue avant correction. Trois Chromium passent, dont dépôt depuis
+palette, déplacement et sauvegarde après aperçu/redimensionnement ; 267 tests
+ciblés, typage et build passent (avertissement existant CheckoutPage conservé).
+E4.ORDER-DOCUMENTS et preuve complétées. Aucun contrat API, dérogation R5,
+placement métier modifié implicitement, serveur lancé ou push.
+
+## Calage précis des éléments PDF
+
+document-templates UI : saisie X/Y en mm depuis le coin supérieur gauche,
+repère vertical de ligne de base explicite. Largeurs et géométrie du tableau
+en mm, taille de police en points. Entrée/sortie du champ valide la saisie,
+vide et valeurs hors limites ne modifient pas les coordonnées. Contrat PDF en
+points conservé ; aucun endpoint, migration ou dérogation R5. Story canonique
+E4.ORDER-DOCUMENTS et preuve complétées en brouillon. Trois Chromium, 267 tests
+ciblés, typage modulaire et build réussis ; avertissement CheckoutPage existant.
+Recette mm vérifiée jusqu’aux coordonnées transmises et à la relecture après
+rechargement, y compris reprise après erreur. Aucun serveur lancé ou push.

@@ -2,6 +2,7 @@ import type { UserAccessProfile } from '@/modules/roles';
 
 const WORKSPACE_CAPABILITY_ALIASES: Readonly<Record<string, string>> = Object.freeze({
   'shops.manage': 'can_manage_shops',
+  'shop-customers.manage': 'can_manage_shop_customers',
   'orders.read.tenant': 'can_validate',
   'orders.transition': 'can_modify',
 });

@@ -1,4 +1,4 @@
-import { useWorkspaceApi, useWorkspaceUiRuntime } from '@/platform/runtime/workspace-ui-runtime';
+import { useWorkspaceApi } from '@/platform/runtime/workspace-ui-runtime';
 import { ShopCustomersApiClient } from '@/modules/shop-customers';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
@@ -17,6 +17,8 @@ export function useShopCustomerAccountManagement(tenantId: string, shopId: strin
   const targetKeyRef = useRef(targetKey);
   targetKeyRef.current = targetKey;
   const [accounts, setAccounts] = useState<ShopCustomerAccount[]>([]);
+  const [page, setPage] = useState<{ cursor: string | null; previous: (string | null)[] }>({ cursor: null, previous: [] });
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,26 +31,31 @@ export function useShopCustomerAccountManagement(tenantId: string, shopId: strin
     setLoading(true);
     setError(null);
     try {
-      const nextAccounts = await api.list(tenantId, shopId);
-      if (version === requestVersion.current) setAccounts(nextAccounts);
+      const result = await api.listPage(tenantId, shopId, { size: 20, cursor: page.cursor });
+      if (version === requestVersion.current) { setAccounts(result.items); setNextCursor(result.nextCursor); }
     } catch (cause) {
       if (version === requestVersion.current) {
+        setAccounts([]); setNextCursor(null);
         setError(shopCustomerManagementError(cause, 'Impossible de charger les comptes boutique.'));
       }
     } finally {
       if (version === requestVersion.current) setLoading(false);
     }
-  }, [api, shopId, tenantId]);
+  }, [api, shopId, tenantId, page.cursor]);
 
   useEffect(() => {
+    setAccounts([]);
+    setPage({ cursor: null, previous: [] });
+    setNextCursor(null);
     setSaving(false);
     setIssuingFor(null);
     setActivation(null);
     setDelegating(false);
+  }, [tenantId, shopId]);
+
+  useEffect(() => {
     void refresh();
-    return () => {
-      requestVersion.current += 1;
-    };
+    return () => { requestVersion.current += 1; };
   }, [refresh]);
 
   const inviteByEmail = async (email: string): Promise<boolean> => {
@@ -61,12 +68,8 @@ export function useShopCustomerAccountManagement(tenantId: string, shopId: strin
       if (operationTarget !== targetKeyRef.current) return false;
 
       setActivation(result.activation);
-      setAccounts((current) => {
-        const withoutAccount = current.filter(
-          (candidate) => candidate.id !== result.customer.id,
-        );
-        return [result.customer, ...withoutAccount];
-      });
+      if (page.cursor !== null) setPage({ cursor: null, previous: [] });
+      else await refresh();
       return true;
     } catch (cause) {
       if (operationTarget === targetKeyRef.current) {
@@ -116,6 +119,10 @@ export function useShopCustomerAccountManagement(tenantId: string, shopId: strin
 
   return {
     accounts,
+    nextCursor,
+    pageNumber: page.previous.length + 1,
+    previousPage: () => setPage(current => current.previous.length ? { cursor: current.previous.at(-1) ?? null, previous: current.previous.slice(0, -1) } : current),
+    nextPage: () => { if (nextCursor) setPage(current => ({ cursor: nextCursor, previous: [...current.previous, current.cursor] })); },
     loading,
     saving,
     error,

@@ -21,9 +21,11 @@
  * Commandes).
  */
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router';
 import { FileText, Loader2 } from 'lucide-react';
 import { TEST_IDS } from '@/shared/presentation/testIds';
 import { useWorkspaceApi } from '@/platform/runtime/workspace-ui-runtime';
+import { useTenantPath } from '@/modules/tenants/ui/hooks';
 import { ApiClientError } from '@/platform/api';
 import { CommercialOrdersApiClient } from '../../api/client';
 import type { OrderDocumentDto } from '@/modules/order-documents';
@@ -39,15 +41,18 @@ export interface OrderDocumentPanelProps {
 }
 
 export function OrderDocumentPanel({ orderId }: OrderDocumentPanelProps) {
+  const tenantPath = useTenantPath();
   const ordersApi = useWorkspaceApi(CommercialOrdersApiClient);
   const [document, setDocument] = useState<OrderDocumentDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [templateMissing, setTemplateMissing] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setTemplateMissing(false);
     try {
       const found = await ordersApi.getDocument(orderId);
       setDocument(found);
@@ -65,6 +70,7 @@ export function OrderDocumentPanel({ orderId }: OrderDocumentPanelProps) {
   const handleGenerate = useCallback(async () => {
     setGenerating(true);
     setError(null);
+    setTemplateMissing(false);
     try {
       const produced = await ordersApi.generateDocument(orderId);
       setDocument(produced);
@@ -77,6 +83,11 @@ export function OrderDocumentPanel({ orderId }: OrderDocumentPanelProps) {
       // telechargement jusqu a un rafraichissement manuel de la page.
       if (cause instanceof ApiClientError && cause.problem.code === 'order.document_already_generated') {
         await load();
+        return;
+      }
+      if (cause instanceof ApiClientError && cause.problem.code === 'order.document_template_missing') {
+        setTemplateMissing(true);
+        setError('Configurez un gabarit de bon de commande prêt, actif et par défaut, avec au moins un champ positionné ou un tableau de lignes.');
         return;
       }
       // 409 `order.document_template_missing` (ou toute autre erreur) remonte
@@ -100,11 +111,16 @@ export function OrderDocumentPanel({ orderId }: OrderDocumentPanelProps) {
           {error}
         </p>
       )}
+      {templateMissing && (
+        <Link to={tenantPath('/dashboard/document-templates')} className={btnGhost}>
+          Configurer les gabarits PDF
+        </Link>
+      )}
 
       {loading ? (
         <p className="text-sm text-ink-muted">Chargement…</p>
       ) : document ? (
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
           <p className="text-sm text-ink" data-testid={TEST_IDS.orderDocument.generatedLabel}>
             Produit le {formatOrderDate(document.generated_at)}
             {document.generated_by_label ? <span className="text-ink-muted"> · {document.generated_by_label}</span> : null}
@@ -121,7 +137,7 @@ export function OrderDocumentPanel({ orderId }: OrderDocumentPanelProps) {
           </a>
         </div>
       ) : (
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
           <p className="text-sm text-ink-muted" data-testid={TEST_IDS.orderDocument.emptyState}>
             Aucun bon de commande produit pour cette commande.
           </p>

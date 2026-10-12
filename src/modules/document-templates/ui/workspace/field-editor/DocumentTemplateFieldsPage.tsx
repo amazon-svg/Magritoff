@@ -30,6 +30,7 @@ import { useTenant } from '@/modules/tenants/ui/runtime';
 import { useTenantPath } from '@/modules/tenants/ui/hooks';
 import { useWorkspaceApi } from '@/platform/runtime/workspace-ui-runtime';
 import { ApiClientError } from '@/platform/api';
+import { ZodError } from 'zod';
 import { TEST_IDS } from '@/shared/presentation/testIds';
 import { DocumentTemplatesApiClient } from '@/modules/document-templates/api/client';
 import type {
@@ -44,7 +45,8 @@ import { PaletteFieldsPanel } from './PaletteFieldsPanel';
 import { FieldSettingsPanel } from './FieldSettingsPanel';
 import { LinesTablePanel } from './LinesTablePanel';
 import { PreviewOverlay } from './PreviewOverlay';
-import { pdfPointToScreenPixel, scaleToFitWidth, screenPixelToPdfPoint } from './pdf-coordinates';
+import { PlacementModelPanel } from './PlacementModelPanel';
+import { moveTableWithinPage, pdfPointToScreenPixel, scaleToFitWidth, screenPixelToPdfPoint } from './pdf-coordinates';
 import { usePdfPageCanvas } from './usePdfPageCanvas';
 import { SAMPLE_ORDER, SAMPLE_ORDER_LONG, SAMPLE_QUOTE, SAMPLE_QUOTE_LONG } from './sample-quote';
 import { NO_SELECTION, type FieldSelection } from './types';
@@ -58,19 +60,19 @@ type WorkingMap = Readonly<{
   linesBlock: DocumentLinesBlockDto | null;
 }>;
 
-function useElementWidth<T extends HTMLElement>(): readonly [React.RefObject<T | null>, number] {
-  const ref = useRef<T>(null);
+function useElementWidth<T extends HTMLElement>(): readonly [React.RefCallback<T>, number] {
+  // La page apparaît après le chargement, puis est remontée à la sortie de
+  // l’aperçu : observer le nœud lorsqu’il existe, pas seulement au montage.
+  const [node, setNode] = useState<T | null>(null);
+  const ref = useCallback((element: T | null) => setNode(element), []);
   const [width, setWidth] = useState(0);
   useEffect(() => {
-    const node = ref.current;
     if (!node) return;
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (entry) setWidth(entry.contentRect.width);
-    });
+    setWidth(node.getBoundingClientRect().width);
+    const observer = new ResizeObserver(() => setWidth(node.getBoundingClientRect().width));
     observer.observe(node);
     return () => observer.disconnect();
-  }, []);
+  }, [node]);
   return [ref, width] as const;
 }
 
@@ -99,6 +101,15 @@ export function DashboardDocumentTemplateFields() {
   const [activeTab, setActiveTab] = useState<'fields' | 'table'>('fields');
   const [pageIndex, setPageIndex] = useState(0);
   const [selection, setSelection] = useState<FieldSelection>(NO_SELECTION);
+  const fieldsTabRef = useRef<HTMLButtonElement>(null);
+  const returnToFieldsRef = useRef(false);
+
+  useEffect(() => {
+    if (selection.kind === 'none' && returnToFieldsRef.current) {
+      returnToFieldsRef.current = false;
+      fieldsTabRef.current?.focus();
+    }
+  }, [selection]);
 
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -106,6 +117,8 @@ export function DashboardDocumentTemplateFields() {
   const [conflictOpen, setConflictOpen] = useState(false);
   const [discardTarget, setDiscardTarget] = useState<string | null>(null);
 
+  const [modelOpen, setModelOpen] = useState(false);
+  const [modelApplied, setModelApplied] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewLong, setPreviewLong] = useState(false);
 
@@ -182,7 +195,13 @@ export function DashboardDocumentTemplateFields() {
   const totalInclTaxMissing = !placements.some((placement) => placement.field === 'totals.total_incl_tax');
 
   function updatePlacement(field: DocumentFieldId, next: DocumentFieldPlacementDto): void {
-    setPlacements((current) => current.map((placement) => (placement.field === field ? next : placement)));
+    const page = template?.pages[next.page_index];
+    const bounded = page ? {
+      ...next,
+      x: Math.max(0, Math.min(page.width_pt, next.x)),
+      y: Math.max(0, Math.min(page.height_pt, next.y)),
+    } : next;
+    setPlacements((current) => current.map((placement) => (placement.field === field ? bounded : placement)));
   }
 
   function removePlacement(field: DocumentFieldId): void {
@@ -224,7 +243,7 @@ export function DashboardDocumentTemplateFields() {
     const point = screenPixelToPdfPoint(
       { x: event.clientX - rect.left, y: event.clientY - rect.top },
       currentPage.height_pt,
-      scale,
+      scaleToFitWidth(currentPage.width_pt, rect.width),
     );
     addPlacement(selection.field, point);
   }
@@ -236,7 +255,7 @@ export function DashboardDocumentTemplateFields() {
     const point = screenPixelToPdfPoint(
       { x: event.clientX - rect.left, y: event.clientY - rect.top },
       currentPage.height_pt,
-      scale,
+      scaleToFitWidth(currentPage.width_pt, rect.width),
     );
 
     // qa-review R3 : le DEPLACEMENT d un champ deja pose passe desormais par
@@ -267,17 +286,7 @@ export function DashboardDocumentTemplateFields() {
     // x" de `LinesTablePanel`).
     const isTableAnchor = event.dataTransfer.getData('text/document-table-anchor') === '1';
     if (isTableAnchor && linesBlock) {
-      const anchorX = linesBlock.columns[0]?.x ?? 0;
-      const deltaX = point.x - anchorX;
-      const deltaY = point.y - linesBlock.first_row_baseline_y;
-      setLinesBlock({
-        ...linesBlock,
-        first_row_baseline_y: Math.max(0, Math.round((linesBlock.first_row_baseline_y + deltaY) * 100) / 100),
-        columns: linesBlock.columns.map((column) => ({
-          ...column,
-          x: Math.max(0, Math.round((column.x + deltaX) * 100) / 100),
-        })),
-      });
+      setLinesBlock(moveTableWithinPage(linesBlock, point, currentPage.width_pt, currentPage.height_pt));
       return;
     }
 
@@ -332,6 +341,7 @@ export function DashboardDocumentTemplateFields() {
   }
 
   const selectedPlacement = selection.kind === 'placement' ? placements.find((p) => p.field === selection.field) ?? null : null;
+  const selectedPage = selectedPlacement ? template?.pages[selectedPlacement.page_index] : null;
 
   async function handleSave(): Promise<void> {
     if (!templateId || !fieldsEtag) return;
@@ -355,10 +365,12 @@ export function DashboardDocumentTemplateFields() {
               'Le tableau des lignes doit avoir au moins une colonne avant d’être enregistré. Ajoutez-en une, ou supprimez le tableau si ce document n’en a pas besoin.',
           );
         } else {
-          setSaveError(cause.problem.detail ?? 'L’enregistrement a échoué. Vérifiez votre connexion et réessayez.');
+          setSaveError(`${cause.problem.detail ?? cause.problem.title} (HTTP ${cause.problem.status}, ${cause.problem.code})`);
         }
+      } else if (cause instanceof ZodError) {
+        setSaveError(`Certains réglages ont un format invalide : ${cause.issues.map(issue => `${issue.path.join('.')} : ${issue.message}`).join(' ')}. Vos modifications sont conservées.`);
       } else {
-        setSaveError('L’enregistrement a échoué. Vérifiez votre connexion et réessayez.');
+        setSaveError(cause instanceof Error ? `Enregistrement impossible : ${cause.message}. Vos modifications sont conservées.` : 'L’enregistrement a échoué. Vos modifications sont conservées. Réessayez.');
       }
     } finally {
       setSaving(false);
@@ -392,7 +404,7 @@ export function DashboardDocumentTemplateFields() {
           {loadError}
         </p>
         <Link to={tenantPath('/dashboard/document-templates')} className="text-sm text-brand hover:underline">
-          ← Gabarits de devis
+          ← Gabarits PDF
         </Link>
       </div>
     );
@@ -451,7 +463,7 @@ export function DashboardDocumentTemplateFields() {
           data-testid={TEST_IDS.documentTemplateFields.backLink}
           className="text-sm text-ink-2 hover:text-ink"
         >
-          ← Gabarits de devis
+          ← Gabarits PDF
         </Link>
         <h1 className="text-sm font-bold text-ink truncate flex-1 text-center">
           Positionner les champs — {template.name}
@@ -466,16 +478,26 @@ export function DashboardDocumentTemplateFields() {
           </span>
           <button
             type="button"
+            onClick={() => setModelOpen(true)}
+            disabled={saving}
+            aria-expanded={modelOpen}
+            className="px-3 py-1.5 border border-line-2 rounded-lg text-sm text-ink-2 hover:bg-bg"
+          >
+            Copier un positionnement
+          </button>
+          <button
+            type="button"
             onClick={() => setPreviewOpen(true)}
+            disabled={modelOpen}
             data-testid={TEST_IDS.documentTemplateFields.previewBtn}
             className="px-3 py-1.5 border border-line-2 rounded-lg text-sm text-ink-2 hover:bg-bg flex items-center gap-1.5"
           >
-            <Eye className="w-4 h-4" /> Aperçu avec devis
+            <Eye className="w-4 h-4" /> Aperçu avec {template.document_type === 'order' ? 'commande' : 'devis'}
           </button>
           <button
             type="button"
             onClick={() => void handleSave()}
-            disabled={saving || !dirty}
+            disabled={saving || !dirty || modelOpen}
             data-testid={TEST_IDS.documentTemplateFields.saveBtn}
             className="px-4 py-1.5 bg-brand text-brand-ink rounded-lg text-sm font-medium disabled:opacity-50"
           >
@@ -484,6 +506,29 @@ export function DashboardDocumentTemplateFields() {
         </div>
       </div>
 
+      {modelOpen && (
+        <PlacementModelPanel
+          api={api}
+          template={template}
+          hasPlacements={placements.length > 0 || linesBlock !== null}
+          onClose={() => setModelOpen(false)}
+          onApply={(map) => {
+            setPlacements(map.placements);
+            setLinesBlock(map.lines_block);
+            setSelection(NO_SELECTION);
+            setPageIndex(map.placements[0]?.page_index ?? map.lines_block?.page_index ?? 0);
+            setActiveTab('fields');
+            setSaveError(null);
+            setModelOpen(false);
+            setModelApplied(true);
+          }}
+        />
+      )}
+      {modelApplied && dirty && (
+        <p role="status" className="px-4 py-2 text-sm text-ink-2">
+          Positionnement copié. Ajustez les champs, vérifiez l’aperçu puis enregistrez.
+        </p>
+      )}
       {saveError && (
         <p className="text-sm text-err-fg px-4 py-2" data-testid={TEST_IDS.documentTemplateFields.errorBanner}>
           {saveError}
@@ -491,7 +536,7 @@ export function DashboardDocumentTemplateFields() {
       )}
       {!totalInclTaxMissing ? null : (
         <p className="text-xs text-ink-muted px-4 py-1">
-          Le total TTC n’apparaîtra sur aucun devis généré avec ce gabarit tant qu’il n’est pas positionné. Vous
+          Le total TTC n’apparaîtra sur aucun {template.document_type === 'order' ? 'bon de commande' : 'devis'} généré avec ce gabarit tant qu’il n’est pas positionné. Vous
           pouvez tout de même enregistrer ainsi.
         </p>
       )}
@@ -520,15 +565,16 @@ export function DashboardDocumentTemplateFields() {
           <div
             ref={canvasRef}
             className="relative border border-line-2 shadow-sm bg-white w-full max-w-3xl"
+            style={currentPage ? { aspectRatio: `${currentPage.width_pt} / ${currentPage.height_pt}` } : undefined}
             data-testid={TEST_IDS.documentTemplateFields.canvas}
             onClick={handleCanvasClick}
             onDragOver={(event) => event.preventDefault()}
             onDrop={handleCanvasDrop}
           >
-            <canvas ref={backgroundCanvasRef} className="block w-full" />
-            {backgroundRender.loading && <p className="text-xs text-ink-muted p-2">Chargement du fond…</p>}
+            <canvas ref={backgroundCanvasRef} className="absolute inset-0 w-full h-full" />
+            {backgroundRender.loading && <p className="absolute text-xs text-ink-muted p-2">Chargement du fond…</p>}
             {backgroundRender.error && (
-              <p className="text-xs text-err-fg p-2">Aperçu du document expiré. Rechargez la page pour continuer.</p>
+              <p className="absolute text-xs text-err-fg p-2">Aperçu du document expiré. Rechargez la page pour continuer.</p>
             )}
 
             {currentPage &&
@@ -691,17 +737,39 @@ export function DashboardDocumentTemplateFields() {
         </div>
 
         <div className="w-72 border-l border-line-2 p-4 overflow-y-auto shrink-0">
-          {selectedPlacement ? (
-            <FieldSettingsPanel
-              placement={selectedPlacement}
-              onChange={(next) => updatePlacement(selectedPlacement.field, next)}
-              onRemove={() => removePlacement(selectedPlacement.field)}
-            />
+          <p className="text-xs text-ink-muted mb-4">
+            Placez les champs, ajoutez le tableau des lignes dans l’onglet Tableau, puis vérifiez l’aperçu et enregistrez.
+          </p>
+          {selectedPlacement && selectedPage ? (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  returnToFieldsRef.current = true;
+                  setSelection(NO_SELECTION);
+                  setActiveTab('fields');
+                }}
+                className="w-full rounded-lg border border-line-2 px-3 py-2 text-sm font-medium text-ink mb-3"
+              >
+                Ajouter un autre champ
+              </button>
+              <p className="text-xs text-ink-muted mb-4">
+                Le champ est placé. Vous pouvez ajuster ses réglages ci-dessous ou continuer à ajouter des champs.
+              </p>
+              <FieldSettingsPanel
+                placement={selectedPlacement}
+                pageWidth={selectedPage.width_pt}
+                pageHeight={selectedPage.height_pt}
+                onChange={(next) => updatePlacement(selectedPlacement.field, next)}
+                onRemove={() => removePlacement(selectedPlacement.field)}
+              />
+            </>
           ) : (
             <>
               <div className="flex border-b border-line-2 mb-3">
                 <button
                   type="button"
+                  ref={fieldsTabRef}
                   onClick={() => setActiveTab('fields')}
                   data-testid={TEST_IDS.documentTemplateFields.tabFields}
                   className={`flex-1 text-sm py-2 border-b-2 ${

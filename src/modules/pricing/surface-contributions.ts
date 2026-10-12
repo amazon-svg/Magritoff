@@ -37,10 +37,6 @@ export const pricingWorkspaceContribution = defineSurfaceContribution({
       routeId: 'pricing.workspace.rules',
       groupId: 'commercial',
       label: 'Règles de prix',
-      // 'badge-percent' est deja pris par le module Commercial (meme groupe
-      // de navigation, ordre adjacent 160) : 'percent' reste dans le meme
-      // vocabulaire visuel (pourcentage/marge) sans collision (qa-review
-      // E10.6, R4).
       iconId: 'percent',
       order: 165,
     },

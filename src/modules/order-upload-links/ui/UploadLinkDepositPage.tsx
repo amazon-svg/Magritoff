@@ -11,10 +11,9 @@
  * commande, consigne) est affiche EN PREMIER, avant tout formulaire — sans
  * lui, un inconnu ne sait ni si le lien est le bon, ni quel fichier envoyer.
  *
- * ARBITRAGE (E), DEPOT SEUL : cette page ne relit JAMAIS ce qui a ete
- * depose (ni par ce lien, ni par un autre) — un COMPTEUR ("2 sur 10"), et
- * rien de plus. Pas de liste de fichiers, pas de telechargement, pas de
- * prix, pas de statut de commande.
+ * Reçus des envois de la visite conservés après chaque confirmation, sur
+ * demande de Xavier (09/10/2026). Aucun accès serveur aux pièces des autres
+ * déposants : la liste reprend uniquement les réponses de confirmation.
  *
  * Aucun appel Supabase direct, aucune dependance a une session workspace :
  * tout passe par `OrderUploadLinkDepositApiClient` (`../api/client.ts`), le
@@ -82,7 +81,7 @@ export function UploadLinkDepositPage() {
   const [pending, setPending] = useState<PendingDeposit | null>(null);
   const [dropzoneError, setDropzoneError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
-  const [lastDeposit, setLastDeposit] = useState<OrderUploadLinkDepositDto | null>(null);
+  const [deposits, setDeposits] = useState<readonly OrderUploadLinkDepositDto[]>([]);
 
   const client = token ? new OrderUploadLinkDepositApiClient(apiClient, token) : null;
 
@@ -111,6 +110,7 @@ export function UploadLinkDepositPage() {
   }, [token]);
 
   useEffect(() => {
+    setDeposits([]);
     void loadContext();
   }, [loadContext]);
 
@@ -185,7 +185,7 @@ export function UploadLinkDepositPage() {
       updatePending({ status: 'confirming', progress: 100 });
       try {
         const deposit = await client.confirmFile({ file_id: ticket.file_id, filename: file.name }, idempotencyKey);
-        setLastDeposit(deposit);
+        setDeposits(current => [...current.filter(item => item.file_id !== deposit.file_id), deposit]);
         setDepositedCount(deposit.deposited_count);
         setPending(null);
       } catch (cause) {
@@ -246,7 +246,6 @@ export function UploadLinkDepositPage() {
         return;
       }
       setDropzoneError(null);
-      setLastDeposit(null);
       void runDeposit(file);
     },
     [context, depositedCount, runDeposit],
@@ -317,15 +316,23 @@ export function UploadLinkDepositPage() {
           {UPLOAD_LINK_DEPOSIT_COPY.depositedCount(depositedCount, context.max_files)}
         </p>
 
-        {lastDeposit && (
-          <div
-            className="border border-brand/40 bg-brand/5 rounded-lg p-3 text-center space-y-1"
-            data-testid={TEST_IDS.uploadLinkDepot.successBanner}
-          >
-            <CheckCircle2 className="w-5 h-5 text-brand mx-auto" />
-            <p className="text-sm font-medium text-ink">{UPLOAD_LINK_DEPOSIT_COPY.depositSuccessTitle}</p>
-            <p className="text-xs text-ink-muted">{UPLOAD_LINK_DEPOSIT_COPY.depositSuccessBody(lastDeposit.filename)}</p>
-          </div>
+        {deposits.length > 0 && (
+          <section className="border border-line-2 rounded-lg p-3 space-y-3" aria-label="Fichiers envoyés pendant cette visite">
+            <h2 className="text-sm font-medium text-ink">Fichiers envoyés ({deposits.length})</h2>
+            <p className="text-xs text-ink-muted">Envois confirmés pendant cette visite.</p>
+            <ul className="space-y-3" aria-live="polite">
+              {deposits.map(deposit => (
+                <li key={deposit.file_id} className="flex items-start gap-2" data-testid={TEST_IDS.uploadLinkDepot.successBanner}>
+                  <CheckCircle2 className="w-5 h-5 text-brand shrink-0" aria-hidden="true" />
+                  <div className="min-w-0">
+                    <p className="text-sm text-ink break-words">{deposit.filename}</p>
+                    <p className="text-xs text-ink-muted">{Math.ceil(deposit.byte_size / 1024)} Ko · Reçu le {new Date(deposit.deposited_at).toLocaleString('fr-FR')}</p>
+                    <p className="text-xs text-ink-muted">Transmis à l’imprimeur</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
 
         {!atCapacity && !pending && (

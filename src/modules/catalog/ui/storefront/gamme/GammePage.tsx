@@ -94,7 +94,7 @@ export function GammePage({
   const { options, patchOptions, phase, retry, confirm, addDisabled } =
     useProductConfigurator(defaultProduct, { liveRecalc: true, taxRate, clariprintGateway: clariprint });
 
-  const title = gamme?.name ?? gammeSlug ?? 'Gamme';
+  const title = gamme?.name ?? gammeSlug ?? 'Catégorie';
 
   const priceHT =
     phase.kind === 'ready'
@@ -273,7 +273,7 @@ export function GammePage({
           <p className="text-ink m-0" style={{ fontSize: '15px', fontWeight: 500 }}>
             {gamme
               ? `Aucun produit ${gamme.name} n'est encore proposé dans cette boutique.`
-              : 'Cette gamme n\'existe pas dans le catalogue.'}
+              : 'Cette catégorie n\'existe pas dans le catalogue.'}
           </p>
           <p className="text-ink-muted m-0" style={{ fontSize: '13px' }}>
             Décrivez votre besoin à Magrit : elle vous propose une configuration et un prix.
@@ -311,12 +311,12 @@ export function GammePage({
 
       {/* S7.4 — Produits liés de la gamme (ShopProductCard inchangé) */}
       {gammeProducts.length > 1 && (
-        <section data-testid={TEST_IDS.shop.gammeRelated} aria-label="Produits de la gamme">
+        <section data-testid={TEST_IDS.shop.gammeRelated} aria-label="Produits de la catégorie">
           <h2
             className="text-ink m-0 mb-3"
             style={{ fontSize: '19px', fontWeight: 500, letterSpacing: '-0.01em' }}
           >
-            Produits de la gamme
+            Produits de la catégorie
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
             {gammeProducts.slice(0, 6).map((p) => (

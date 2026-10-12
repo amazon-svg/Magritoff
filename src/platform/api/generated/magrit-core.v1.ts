@@ -2067,6 +2067,7 @@ export interface paths {
         /**
          * Récupère le document d’une commande
          * @description Rend le BON DE COMMANDE PDF d une commande : son horodatage, son poids, son empreinte, qui l a produit, et une URL de telechargement signee de courte duree.
+         *     La lecture accepte les commandes issues d un devis ou d une boutique. Une commande existante sans PDF rend `order.document_not_generated` ; une commande absente ou inaccessible rend `order.not_found`.
          *
          *     LES OCTETS NE TRANSITENT PAS PAR CETTE FACADE, meme doctrine que `getQuoteDocument` : servir `application/pdf` depuis `/api/v1` casserait l enveloppe `{data, meta}` du CA6. L URL signee n est emise qu apres que la chaine d autorisation a statue, et elle vaut **300 secondes**.
          *
@@ -2079,6 +2080,7 @@ export interface paths {
         /**
          * Génère le document d’une commande
          * @description PRODUIT le bon de commande d une commande, une fois pour toutes.
+         *     Accepte les commandes issues d un devis ou d une boutique. Pour une commande boutique, reprend les lignes et montants enregistres, la TVA du tenant et les informations disponibles du client boutique ; aucune reference de devis ni remise n est inventee. En absence de numero, utilise l identifiant complet de commande. Le gabarit doit etre de type `order`, actif, pret et defini par defaut ; sinon 409 `order.document_template_missing`. Le document produit est conserve, une seconde production rend `order.document_already_generated`.
          *
          *     POURQUOI UNE OPERATION DE PRODUCTION, ALORS QUE LE DEVIS N EN A PAS. Le devis est rendu DANS l envoi, parce que toutes ses valeurs existent avant la transition. La commande ne le permet pas : son numero est attribue par la transaction de conversion, donc rien n est imprimable avant qu elle ait reussi. Produire a la conversion aurait rendu l echec DEFINITIF — une commande ne se re-convertit pas — la ou la regle « jamais regenere » interdit tout rattrapage. Cette operation deplace l echec la ou il est encore gratuit : tant qu elle n a pas reussi, elle se rejoue (docs/api/CONVENTIONS.md §8.20 §5, arbitrage (C2)).
          *
@@ -4107,6 +4109,87 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenantId}/shops/{shopId}/customers/page": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Liste une page de clients boutique
+         * @description Gestion réservée aux utilisateurs Magrit autorisés dans la boutique. Le CA HT cumule les commandes validées, en production, expédiées, livrées ou facturées, hors brouillons et annulations, depuis la création et par devise. Suspendre révoque les sessions et conserve commandes et coordonnées. Réactiver restaure active si déjà activé, sinon invited (activation requise).
+         */
+        get: operations["listShopCustomersPage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenantId}/shops/{shopId}/customers/{customerId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+                customerId: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * Consulte les informations et le CA du client boutique
+         * @description Gestion réservée aux utilisateurs Magrit autorisés dans la boutique. Le CA HT cumule les commandes validées, en production, expédiées, livrées ou facturées, hors brouillons et annulations, depuis la création et par devise. Suspendre révoque les sessions et conserve commandes et coordonnées. Réactiver restaure active si déjà activé, sinon invited (activation requise).
+         */
+        get: operations["getShopCustomerDetail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Modifie le nom ou suspend un client boutique
+         * @description Gestion réservée aux utilisateurs Magrit autorisés dans la boutique. Le CA HT cumule les commandes validées, en production, expédiées, livrées ou facturées, hors brouillons et annulations, depuis la création et par devise. Suspendre révoque les sessions et conserve commandes et coordonnées. Réactiver restaure active si déjà activé, sinon invited (activation requise).
+         */
+        patch: operations["updateShopCustomer"];
+        trace?: never;
+    };
+    "/tenants/{tenantId}/shops/{shopId}/customers/{customerId}/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+                customerId: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * Liste une page des commandes du client boutique
+         * @description Gestion réservée aux utilisateurs Magrit autorisés dans la boutique. Le CA HT cumule les commandes validées, en production, expédiées, livrées ou facturées, hors brouillons et annulations, depuis la création et par devise. Suspendre révoque les sessions et conserve commandes et coordonnées. Réactiver restaure active si déjà activé, sinon invited (activation requise).
+         */
+        get: operations["listShopCustomerOrdersPage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenantId}/shops/{shopId}/customers/self": {
         parameters: {
             query?: never;
@@ -6119,6 +6202,37 @@ export interface components {
          * @enum {string}
          */
         ShopCustomerAccountStatus: "delegated_only" | "invited" | "active" | "suspended";
+        ShopCustomerPage: {
+            items: components["schemas"]["ShopCustomerAccount"][];
+            nextCursor: string | null;
+        };
+        ShopCustomerOrder: {
+            /** Format: uuid */
+            id: string;
+            number: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            status: string;
+            currency: string;
+            totalHt: string;
+        };
+        ShopCustomerOrdersPage: {
+            items: components["schemas"]["ShopCustomerOrder"][];
+            nextCursor: string | null;
+        };
+        ShopCustomerDetail: {
+            customer: components["schemas"]["ShopCustomerAccount"];
+            orderCount: number;
+            revenue: {
+                currency: string;
+                totalHt: string;
+                orderCount: number;
+            }[];
+        };
+        UpdateShopCustomerCommand: {
+            fullName?: string;
+            enabled?: boolean;
+        };
         /** ShopCustomerAccount */
         ShopCustomerAccount: {
             id: components["schemas"]["Uuid"];
@@ -10493,6 +10607,11 @@ export type Civility = components['schemas']['Civility'];
 export type Address = components['schemas']['Address'];
 export type ShopCustomerEmail = components['schemas']['ShopCustomerEmail'];
 export type ShopCustomerAccountStatus = components['schemas']['ShopCustomerAccountStatus'];
+export type ShopCustomerPage = components['schemas']['ShopCustomerPage'];
+export type ShopCustomerOrder = components['schemas']['ShopCustomerOrder'];
+export type ShopCustomerOrdersPage = components['schemas']['ShopCustomerOrdersPage'];
+export type ShopCustomerDetail = components['schemas']['ShopCustomerDetail'];
+export type UpdateShopCustomerCommand = components['schemas']['UpdateShopCustomerCommand'];
 export type ShopCustomerAccount = components['schemas']['ShopCustomerAccount'];
 export type CreateShopCustomerCommand = components['schemas']['CreateShopCustomerCommand'];
 export type InviteShopCustomerCommand = components['schemas']['InviteShopCustomerCommand'];
@@ -19465,6 +19584,143 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    listShopCustomersPage: {
+        parameters: {
+            query?: {
+                "page[size]"?: number;
+                "page[cursor]"?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Résultat de gestion boutique. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["ShopCustomerPage"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getShopCustomerDetail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+                customerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Résultat de gestion boutique. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["ShopCustomerDetail"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    updateShopCustomer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+                customerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateShopCustomerCommand"];
+            };
+        };
+        responses: {
+            /** @description Résultat de gestion boutique. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["ShopCustomerAccount"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    listShopCustomerOrdersPage: {
+        parameters: {
+            query?: {
+                "page[size]"?: number;
+                "page[cursor]"?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Identifiant du tenant transmis par la façade historique. */
+                tenantId: components["parameters"]["LegacyTenantId"];
+                /** @description Identifiant de la boutique dans le tenant. */
+                shopId: components["parameters"]["ShopId"];
+                customerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Résultat de gestion boutique. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["ShopCustomerOrdersPage"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             422: components["responses"]["UnprocessableEntity"];
         };
     };

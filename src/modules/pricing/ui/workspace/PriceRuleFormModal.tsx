@@ -35,9 +35,9 @@ const btnGhost =
 
 const SCOPE_LABELS: Record<PriceRuleScope, string> = {
   global: 'Globale (tout le catalogue, tous les clients)',
-  range: 'Gamme de produits',
+  range: 'Catégorie de produits',
   customer: 'Client',
-  customer_range: 'Client + gamme',
+  customer_range: 'Client + catégorie',
 };
 
 function customerDisplayName(customer: CustomerDto): string {
@@ -231,7 +231,7 @@ export function PriceRuleFormModal({ onClose, editing, onCreate, onUpdate, onSav
           {needsRange && (
             <div>
               <label className={labelCls} htmlFor="price-rule-range">
-                Gamme de produits
+                Catégorie de produits
               </label>
               <select
                 id="price-rule-range"
@@ -242,7 +242,7 @@ export function PriceRuleFormModal({ onClose, editing, onCreate, onUpdate, onSav
                 disabled={isEditing || loadingRefs}
                 data-testid={TEST_IDS.pricing.rangeSelect}
               >
-                <option value="">{loadingRefs ? 'Chargement…' : 'Sélectionner une gamme'}</option>
+                <option value="">{loadingRefs ? 'Chargement…' : 'Sélectionner une catégorie'}</option>
                 {ranges.map((range) => (
                   <option key={range.id} value={range.id}>
                     {range.name}

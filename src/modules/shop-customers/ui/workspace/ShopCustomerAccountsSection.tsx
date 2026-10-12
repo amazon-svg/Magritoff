@@ -1,3 +1,7 @@
+import { Link } from 'react-router';
+import { useTenantPath } from '@/modules/tenants/ui/hooks';
+import { Button } from '@/shared/ui/button';
+import { Pagination } from '@/shared/ui/pagination';
 import { useState, type FormEvent } from 'react';
 import { Check, Copy, ExternalLink, Loader2, Mail, RefreshCw, UserRound } from 'lucide-react';
 import type { ShopCustomerAccount } from '@/modules/shop-customers';
@@ -12,10 +16,11 @@ const STATUS_LABELS: Record<ShopCustomerAccount['status'], string> = {
   delegated_only: 'Préparé',
   invited: 'Invitation en attente',
   active: 'Actif',
-  suspended: 'Suspendu',
+  suspended: 'Désactivé',
 };
 
 export function ShopCustomerAccountsSection({ tenantId, shopId }: Props) {
+  const tp = useTenantPath();
   const [email, setEmail] = useState('');
   const [copied, setCopied] = useState(false);
   const management = useShopCustomerAccountManagement(tenantId, shopId);
@@ -74,21 +79,21 @@ export function ShopCustomerAccountsSection({ tenantId, shopId }: Props) {
     <section className="border border-line rounded-xl bg-paper overflow-hidden">
       <div className="p-4 flex flex-wrap items-start justify-between gap-3 border-b border-line">
         <div>
-          <h3 className="font-semibold text-ink flex items-center gap-2">
+          <h2 className="font-semibold text-ink flex items-center gap-2">
             <UserRound className="w-5 h-5" strokeWidth={1.5} />
             Comptes clients de cette boutique
-          </h3>
+          </h2>
           <p className="text-xs text-ink-muted mt-1 max-w-2xl">
             Ces comptes sont propres à cette boutique et ne sont pas des utilisateurs Magrit.
             Une même adresse utilisée dans une autre boutique créera un autre compte.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => void openAsSelf()}
             disabled={delegating}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line-2 text-sm font-medium text-ink hover:bg-bg disabled:opacity-50"
+            className="inline-flex min-h-11 items-center gap-1.5 px-3 py-2 rounded-lg border border-line-2 text-sm font-medium text-ink hover:bg-bg disabled:opacity-50"
           >
             {delegating ? <Loader2 className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4" />}
             Se connecter à la boutique
@@ -97,7 +102,7 @@ export function ShopCustomerAccountsSection({ tenantId, shopId }: Props) {
             type="button"
             onClick={() => void refresh()}
             disabled={loading}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line-2 text-sm text-ink-2 hover:bg-bg disabled:opacity-50"
+            className="inline-flex min-h-11 items-center gap-1.5 px-3 py-2 rounded-lg border border-line-2 text-sm text-ink-2 hover:bg-bg disabled:opacity-50"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             Actualiser
@@ -119,13 +124,13 @@ export function ShopCustomerAccountsSection({ tenantId, shopId }: Props) {
             onChange={(event) => setEmail(event.target.value)}
             placeholder="client@entreprise.fr"
             autoComplete="email"
-            className="mt-1 w-full px-3 py-2 border border-line-2 rounded-lg bg-paper text-sm"
+            className="mt-1 min-h-11 w-full px-3 py-2 border border-line-2 rounded-lg bg-paper text-sm"
           />
         </label>
         <button
           type="submit"
           disabled={saving}
-          className="self-end inline-flex justify-center items-center gap-1.5 px-4 py-2 rounded-lg bg-ink text-paper text-sm disabled:opacity-50"
+          className="self-end min-h-11 inline-flex justify-center items-center gap-1.5 px-4 py-2 rounded-lg bg-ink text-paper text-sm disabled:opacity-50"
         >
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
           {saving ? 'Envoi…' : 'Envoyer l’invitation'}
@@ -169,19 +174,19 @@ export function ShopCustomerAccountsSection({ tenantId, shopId }: Props) {
       )}
 
       {loading ? (
-        <div className="p-8 grid place-items-center text-ink-muted">
+        <div role="status" aria-label="Chargement des clients" className="p-8 grid place-items-center text-ink-muted">
           <Loader2 className="w-5 h-5 animate-spin" />
         </div>
-      ) : accounts.length === 0 ? (
+      ) : accounts.length === 0 && !error ? (
         <p className="p-6 text-sm text-ink-muted text-center">
           Aucun compte client n’est encore rattaché à cette boutique.
         </p>
       ) : (
         <div className="divide-y divide-line">
           {accounts.map((account) => (
-            <div key={account.id} className="px-4 py-3 flex items-center justify-between gap-4">
+            <div key={account.id} className="px-4 py-3 flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-sm font-medium text-ink truncate">{account.fullName}</p>
+                <Link to={tp(`/dashboard/shops/${shopId}/customers/${account.id}`)} className="inline-flex min-h-11 items-center text-sm font-medium text-ink underline underline-offset-4 hover:text-brand">{account.fullName}</Link>
                 <p className="text-xs text-ink-muted truncate">{account.email}</p>
               </div>
               <div className="shrink-0 flex items-center gap-2">
@@ -204,6 +209,11 @@ export function ShopCustomerAccountsSection({ tenantId, shopId }: Props) {
           ))}
         </div>
       )}
+      <Pagination aria-label="Pages des clients" className="flex flex-wrap items-center gap-3 border-t border-line p-4">
+        <Button variant="outline" className="min-h-11" disabled={loading || saving || management.pageNumber === 1} onClick={management.previousPage}>Précédente</Button>
+        <span role="status" className="text-sm text-ink-muted">Page {management.pageNumber} · 20 clients maximum</span>
+        <Button variant="outline" className="min-h-11" disabled={loading || saving || error !== null || !management.nextCursor} onClick={management.nextPage}>Suivante</Button>
+      </Pagination>
     </section>
   );
 }

@@ -1,3 +1,4 @@
+import { isFixedPriceProduct } from '@/modules/libraries';
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router';
 import { Loader2 } from 'lucide-react';
@@ -243,7 +244,10 @@ export function PublicShop() {
   // (`orders/ui/storefront/cartLine.ts`) ; ce composant se contente de
   // l'appeler, comme `GammePage.handleAdd`.
   const [overlayProduct, setOverlayProduct] = useState<ShopProduct | null>(null);
-  const onConfigure = (product: ShopProduct) => setOverlayProduct(product);
+  const onConfigure = (product: ShopProduct) => {
+    if (isFixedPriceProduct(product)) addToCart(product);
+    else setOverlayProduct(product);
+  };
   const handleOverlayConfirm = (productConfigured: ShopProduct, qty: number) => {
     // `packCount` est désormais OBLIGATOIRE dans `toPackLine` (round 3,
     // qa-review) : ce geste d'ajout normal déclare explicitement `ONE_PACK`

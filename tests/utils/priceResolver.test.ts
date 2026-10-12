@@ -25,6 +25,10 @@ const baseProduct = {
 };
 
 describe('resolvePrice - hierarchie de resolution', () => {
+  it('utilise le prix serveur fixe même si un ancien chiffrage fournisseur est présent', () => {
+    expect(resolvePrice({ price_ht: 125, config: { pricing_mode: 'fixed_unit' } },
+      { success: true, priceHT: 99 })).toMatchObject({ priceHT: 125, source: 'library_cached' });
+  });
   it('1. Clariprint valide → source=clariprint (priorite absolue)', () => {
     const quote: ClariprintQuoteResult = { success: true, priceHT: 95.50 };
     const res = resolvePrice(baseProduct, quote);

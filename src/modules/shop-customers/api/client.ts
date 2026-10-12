@@ -1,5 +1,7 @@
 import { API_V1_BASE_PATH, FetchApiClient } from '../../../platform/api/index.ts';
 import {
+  shopCustomerPageSchema, shopCustomerDetailSchema, shopCustomerOrdersPageSchema, updateShopCustomerCommandSchema,
+  type ShopCustomerPageQuery, type UpdateShopCustomerCommand,
   createShopCustomerCommandSchema,
   issueStorefrontActivationCommandSchema,
   issueStorefrontActivationResultSchema,
@@ -23,6 +25,20 @@ import {
 
 export class ShopCustomersApiClient {
   constructor(private readonly client: FetchApiClient) {}
+
+  listPage(tenantId: string, shopId: string, page: ShopCustomerPageQuery = {}) {
+    return this.client.request({ path: `${API_V1_BASE_PATH}/tenants/${tenantId}/shops/${shopId}/customers/page${pageQuery(page)}`, responseSchema: shopCustomerPageSchema });
+  }
+  detail(tenantId: string, shopId: string, accountId: string) {
+    return this.client.request({ path: `${API_V1_BASE_PATH}/tenants/${tenantId}/shops/${shopId}/customers/${accountId}`, responseSchema: shopCustomerDetailSchema });
+  }
+  ordersPage(tenantId: string, shopId: string, accountId: string, page: ShopCustomerPageQuery = {}) {
+    return this.client.request({ path: `${API_V1_BASE_PATH}/tenants/${tenantId}/shops/${shopId}/customers/${accountId}/orders${pageQuery(page)}`, responseSchema: shopCustomerOrdersPageSchema });
+  }
+  update(tenantId: string, shopId: string, accountId: string, command: UpdateShopCustomerCommand) {
+    return this.client.request({ method: 'PATCH', path: `${API_V1_BASE_PATH}/tenants/${tenantId}/shops/${shopId}/customers/${accountId}`,
+      body: updateShopCustomerCommandSchema.parse(command), responseSchema: shopCustomerAccountSchema });
+  }
 
   list(tenantId: string, shopId: string): Promise<ShopCustomerAccount[]> {
     return this.client.request({
@@ -91,4 +107,11 @@ export class ShopCustomersApiClient {
       responseSchema: selfShopCustomerDelegationResultSchema,
     });
   }
+}
+
+
+function pageQuery(page: ShopCustomerPageQuery) {
+  const query = new URLSearchParams({ 'page[size]': String(page.size ?? 20) });
+  if (page.cursor) query.set('page[cursor]', page.cursor);
+  return `?${query.toString()}`;
 }

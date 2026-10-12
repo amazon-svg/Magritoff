@@ -26,7 +26,8 @@ import type {
   DocumentPdfTemplatePageDto,
 } from '@/modules/document-templates/api/contracts';
 import { LINE_FIELD_CATALOG, lineFieldLabel } from './field-catalog';
-import { maxRowsPerPage } from './pdf-coordinates';
+import { maxRowsPerPage, moveTableWithinPage, pointsToMillimeters, tableAnchorBounds } from './pdf-coordinates';
+import { MillimeterInput } from './MillimeterInput';
 
 export type LinesTablePanelProps = Readonly<{
   pages: readonly DocumentPdfTemplatePageDto[];
@@ -82,6 +83,7 @@ export function LinesTablePanel({ pages, currentPageIndex, linesBlock, onCreate,
   }
 
   const page = pages[linesBlock.page_index];
+  const anchorBounds = tableAnchorBounds(linesBlock, page?.width_pt ?? 20000);
   const usedFields = new Set(linesBlock.columns.map((column) => column.field));
   const availableFields = LINE_FIELD_CATALOG.filter((entry) => !usedFields.has(entry.id));
   const displayedRowsPerPage = Math.min(linesBlock.rows_per_page, cap);
@@ -114,49 +116,38 @@ export function LinesTablePanel({ pages, currentPageIndex, linesBlock, onCreate,
         <span id="lines-table-anchor-label" className="text-xs font-semibold text-ink-2 uppercase tracking-wide">
           Ancre (première ligne)
         </span>
-        <div className="flex items-center gap-2 text-sm" role="group" aria-labelledby="lines-table-anchor-label">
-          <label htmlFor="lines-table-anchor-x" className="text-ink-muted">
-            x
-          </label>
-          <input
+        <div className="grid grid-cols-2 gap-2" role="group" aria-labelledby="lines-table-anchor-label">
+          <MillimeterInput
             id="lines-table-anchor-x"
-            type="number"
+            label="X depuis la gauche"
             value={linesBlock.columns[0]?.x ?? 0}
-            className="w-20 px-2 py-1.5 border border-line-2 rounded-lg bg-paper"
-            onChange={(event) => {
-              const delta = Number(event.target.value) - (linesBlock.columns[0]?.x ?? 0);
-              onChange({ ...linesBlock, columns: linesBlock.columns.map((column) => ({ ...column, x: column.x + delta })) });
-            }}
+            min={anchorBounds.min}
+            max={Math.max(anchorBounds.min, anchorBounds.max)}
+            onChange={(x) => onChange(moveTableWithinPage(linesBlock, { x, y: linesBlock.first_row_baseline_y }, page?.width_pt ?? 20000, page?.height_pt ?? 20000))}
           />
-          <label htmlFor="lines-table-anchor-y" className="text-ink-muted">
-            y
-          </label>
-          <input
+          <MillimeterInput
             id="lines-table-anchor-y"
-            type="number"
-            value={linesBlock.first_row_baseline_y}
-            className="w-20 px-2 py-1.5 border border-line-2 rounded-lg bg-paper"
-            onChange={(event) => onChange({ ...linesBlock, first_row_baseline_y: Number(event.target.value) })}
+            label="Y depuis le haut"
+            value={(page?.height_pt ?? 0) - linesBlock.first_row_baseline_y}
+            max={page?.height_pt ?? 20000}
+            onChange={(distance) => onChange({ ...linesBlock, first_row_baseline_y: (page?.height_pt ?? 0) - distance })}
           />
         </div>
+        <p className="text-xs text-ink-muted">Origine : coin supérieur gauche. Y repère la ligne de base de la première ligne. Validez avec Entrée ou en quittant le champ.</p>
       </div>
 
       <div className="space-y-1">
-        <label htmlFor="lines-table-row-height" className="text-xs font-semibold text-ink-2 uppercase tracking-wide">
-          Se répète toutes les — pt
-        </label>
-        <input
+        <MillimeterInput
           id="lines-table-row-height"
-          type="number"
+          label="Espacement entre les lignes"
           min={4}
           max={200}
           value={linesBlock.row_height}
-          data-testid={TEST_IDS.documentTemplateFields.rowHeightInput}
-          onChange={(event) => onChange({ ...linesBlock, row_height: Number(event.target.value) })}
-          className="w-24 px-2 py-1.5 border border-line-2 rounded-lg bg-paper text-sm"
+          testId={TEST_IDS.documentTemplateFields.rowHeightInput}
+          onChange={(row_height) => onChange({ ...linesBlock, row_height })}
         />
-        <p className="text-xs text-ink-muted" title="Cette ligne grisée est un repère : elle montre où s’écrira la 2ᵉ ligne du devis, pas une donnée réelle.">
-          La 2ᵉ ligne du devis s’écrirait {linesBlock.row_height} pt plus bas (repère, pas une donnée réelle).
+        <p className="text-xs text-ink-muted" title="Cette ligne grisée montre la position de la 2ᵉ ligne du document.">
+          La 2ᵉ ligne s’écrirait {Number(pointsToMillimeters(linesBlock.row_height).toFixed(2))} mm plus bas.
         </p>
       </div>
 
@@ -222,36 +213,30 @@ export function LinesTablePanel({ pages, currentPageIndex, linesBlock, onCreate,
           <div
             key={`${column.field}-${index}`}
             data-testid={TEST_IDS.documentTemplateFields.columnRow}
-            className="flex items-center gap-1.5 border border-line-2 rounded-lg p-1.5"
+            className="grid grid-cols-2 gap-2 border border-line-2 rounded-lg p-2"
           >
-            <span className="text-xs text-ink-2 flex-1 truncate">
+            <span className="text-xs text-ink-2 col-span-2 truncate">
               {index + 1}. {lineFieldLabel(column.field)}
             </span>
-            <label htmlFor={`lines-table-column-x-${index}`} className="text-xs text-ink-muted">
-              x
-            </label>
-            <input
+            <MillimeterInput
               id={`lines-table-column-x-${index}`}
-              type="number"
+              label="X depuis la gauche"
               value={column.x}
-              className="w-16 px-1 py-1 border border-line-2 rounded bg-paper text-xs"
-              onChange={(event) => {
+              max={Math.max(0, (page?.width_pt ?? 20000) - column.width)}
+              onChange={(x) => {
                 const nextColumns = [...linesBlock.columns];
-                nextColumns[index] = { ...column, x: Number(event.target.value) };
+                nextColumns[index] = { ...column, x };
                 onChange({ ...linesBlock, columns: nextColumns });
               }}
             />
-            <label htmlFor={`lines-table-column-width-${index}`} className="text-xs text-ink-muted">
-              l.
-            </label>
-            <input
+            <MillimeterInput
               id={`lines-table-column-width-${index}`}
-              type="number"
+              label="Largeur"
               value={column.width}
-              className="w-16 px-1 py-1 border border-line-2 rounded bg-paper text-xs"
-              onChange={(event) => {
+              max={Math.max(0, (page?.width_pt ?? 20000) - column.x)}
+              onChange={(width) => {
                 const nextColumns = [...linesBlock.columns];
-                nextColumns[index] = { ...column, width: Number(event.target.value) };
+                nextColumns[index] = { ...column, width };
                 onChange({ ...linesBlock, columns: nextColumns });
               }}
             />
@@ -291,7 +276,8 @@ export function LinesTablePanel({ pages, currentPageIndex, linesBlock, onCreate,
               const field = event.target.value as DocumentLineFieldId;
               if (!field) return;
               const nextX = (linesBlock.columns.at(-1)?.x ?? 40) + (linesBlock.columns.at(-1)?.width ?? 80) + 10;
-              onChange({ ...linesBlock, columns: [...linesBlock.columns, defaultColumn(field, nextX)] });
+              const column = defaultColumn(field, Math.max(0, Math.min(nextX, (page?.width_pt ?? 20000) - 80)));
+              onChange({ ...linesBlock, columns: [...linesBlock.columns, column] });
             }}
           >
             <option value="">+ Ajouter une colonne</option>

@@ -1,3 +1,4 @@
+import { withAuthenticatedPostgresRequest } from '../../src/adapters/postgres/authenticated-request-context';
 import { createHash, randomUUID } from 'node:crypto';
 import { DeleteObjectCommand } from '@aws-sdk/client-s3';
 import type { Pool } from 'pg';
@@ -28,6 +29,11 @@ describeIntegration('PostgresOrderUploadLinksRepository — PostgreSQL et S3 ré
     S3_SECRET_ACCESS_KEY: process.env['S3_SECRET_ACCESS_KEY'] ?? 'magrit-local-secret',
     S3_FORCE_PATH_STYLE: 'true',
   });
+
+  // Le serveur porte cette identité après vérification du jeton utilisateur.
+  function itAsUser(name: string, operation: () => Promise<void>) {
+    it(name, () => withAuthenticatedPostgresRequest({ tenantId, userId: actorId }, operation));
+  }
 
   beforeAll(async () => {
     pool = createPostgresPool();
@@ -88,7 +94,7 @@ describeIntegration('PostgresOrderUploadLinksRepository — PostgreSQL et S3 ré
     storage.destroy();
   });
 
-  it('ne persiste que le hash, dépose un fichier puis révoque le lien', async () => {
+  itAsUser('ne persiste que le hash, dépose un fichier puis révoque le lien', async () => {
     const repository = new PostgresOrderUploadLinksRepository(
       new PostgresTransactionRunner(pool, 'magrit_api'),
       storage,

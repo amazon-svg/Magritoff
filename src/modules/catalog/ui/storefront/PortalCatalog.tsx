@@ -395,6 +395,7 @@ export function PortalCatalog({
               aria-expanded={showSearchMenu}
               aria-controls={TEST_IDS.shop.catalogSearchMenu}
               aria-autocomplete="list"
+              aria-label="Rechercher dans le catalogue"
               placeholder="cartes de visite pour l'équipe direction, papier premium, livrées avant fin de mois"
               className="flex-1 bg-transparent border-0 focus:outline-none text-ink placeholder:text-ink-mute-2"
               style={{ fontSize: '15px', fontWeight: 400, letterSpacing: '-0.005em' }}

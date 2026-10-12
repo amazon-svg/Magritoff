@@ -184,7 +184,8 @@ export class CommercialOrdersService {
    * NOMINAL, contrat §8.20 §6).
    */
   async getDocument(tenantId: TenantId, orderId: string): Promise<OrderDocumentDto> {
-    await this.getSummary(tenantId, orderId);
+    // Document repository verifies the shared order table for both origins.
+    // A quote-only summary would reject existing storefront orders.
     return this.documents.getForOrder(tenantId, orderId);
   }
 
@@ -209,6 +210,8 @@ export class CommercialOrdersService {
     const generationInput: OrderForDocumentGeneration = {
       id: data.id,
       customerId: data.customerId,
+      ...(data.customerFallback ? { customerFallback: data.customerFallback } : {}),
+      currency: data.currency ?? 'EUR',
       number: data.number,
       createdAt: data.createdAt,
       quoteNumber: data.quoteNumber,

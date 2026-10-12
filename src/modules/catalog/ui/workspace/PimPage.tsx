@@ -165,12 +165,12 @@ export function DashboardAdminPIM() {
     }
 
     if (todo.length === 0) {
-      alert('Toutes les gammes sont déjà couvertes.');
+      alert('Toutes les catégories sont déjà couvertes.');
       return;
     }
 
     const label = regenerateAll ? 'régénérer' : 'pré-générer';
-    if (!confirm(`Vais ${label} ${todo.length} définition(s) (${gammes.length} gammes × ${LOCALES.length} langues). Cela peut prendre quelques minutes. Continuer ?`)) {
+    if (!confirm(`Vais ${label} ${todo.length} définition(s) (${gammes.length} catégories × ${LOCALES.length} langues). Cela peut prendre quelques minutes. Continuer ?`)) {
       return;
     }
 
@@ -341,7 +341,7 @@ export function DashboardAdminPIM() {
             Base partagée de définitions produits (SEO / GEO / commercial). Lecture libre, écriture admin.
           </p>
           <div className="flex gap-4 mt-2 text-xs text-ink-muted">
-            <span>Gammes : {gammes.length}</span>
+            <span>Catégories : {gammes.length}</span>
             <span>Définitions : {definitions.length}</span>
             <span>Validées humain : {definitions.filter((d) => d.validated_by === 'human').length}</span>
           </div>
@@ -434,7 +434,7 @@ export function DashboardAdminPIM() {
                 color="amber"
                 label="Rejetés"
                 value={ingestReport.rejected.length}
-                hint="Trop pauvres ou aucune gamme matchée"
+                hint="Trop pauvres ou aucune catégorie matchée"
               />
               <ReportBadge
                 color="red"
@@ -475,7 +475,7 @@ export function DashboardAdminPIM() {
               Pré-générer en masse
             </h3>
             <p className="text-sm text-ink-muted">
-              Génère via LLM les définitions manquantes pour toutes les gammes × langues.
+              Génère via LLM les définitions manquantes pour toutes les catégories × langues.
               Les résultats atterrissent en <strong>validated_by=pending</strong> pour relecture.
             </p>
           </div>
@@ -688,7 +688,7 @@ function DefinitionEditorModal(props: {
             />
           </Field>
 
-          <Field label="Image URL" hint="image produit affichée sur la boutique (override variation-spécifique de l'image par défaut de la gamme)">
+          <Field label="Image URL" hint="image produit affichée sur la boutique (override variation-spécifique de l'image par défaut de la catégorie)">
             <input
               type="url"
               value={editing.image_url ?? ''}
@@ -793,7 +793,7 @@ function GammeImageInput({
         onBlur={() => {
           if (val !== initial) onSave(val);
         }}
-        placeholder="URL d'image par défaut pour cette gamme…"
+        placeholder="URL d'image par défaut pour cette catégorie…"
         className="flex-1 min-w-0 bg-transparent border-0 focus:outline-none text-xs text-ink"
       />
       {val && (
@@ -874,13 +874,13 @@ function NewProductButton({
       {open && (
         <div className="absolute right-0 z-20 mt-2 w-72 bg-paper border border-line rounded-xl shadow-lg p-4 space-y-3">
           <div>
-            <label className="block text-sm font-medium text-ink-2 mb-1">Gamme</label>
+            <label className="block text-sm font-medium text-ink-2 mb-1">Catégorie</label>
             <select
               value={gammeSlug}
               onChange={(e) => setGammeSlug(e.target.value)}
               className="w-full px-3 py-2 border border-line-2 rounded-lg bg-paper text-ink text-sm"
             >
-              <option value="">— choisir une gamme —</option>
+              <option value="">— choisir une catégorie —</option>
               {gammes.map((g) => (
                 <option key={g.slug} value={g.slug}>{g.name}</option>
               ))}

@@ -28,6 +28,7 @@ export type NewShopInput = {
 interface ShopsContextType {
   shops: Shop[];
   loading: boolean;
+  error: string | null;
   refresh: () => Promise<void>;
   createShop: (input: NewShopInput) => Promise<Shop | null>;
   updateShop: (id: string, patch: Partial<Shop>) => Promise<void>;
@@ -51,16 +52,19 @@ export function ShopsProvider({ children }: { children: ReactNode }) {
   const { currentTenant } = useTenant();
   const [shops, setShops] = useState<Shop[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const shopsApi = useWorkspaceApi(ShopsApiClient);
 
   const refresh = useCallback(async () => {
     if (!user || !currentTenant) {
       setShops([]);
+      setError(null);
       return;
     }
     setLoading(true);
+    setError(null);
     try { setShops((await shopsApi.list(currentTenant.id)).map(fromShopDto)); }
-    catch (error) { console.error('[Shops] fetch failed', error instanceof Error ? error.message : error); }
+    catch (cause) { setError('Impossible de charger les boutiques. Vérifiez votre connexion et réessayez.'); console.error('[Shops] fetch failed', cause instanceof Error ? cause.message : cause); }
     finally { setLoading(false); }
   }, [user, currentTenant?.id, shopsApi]);
 
@@ -142,6 +146,7 @@ export function ShopsProvider({ children }: { children: ReactNode }) {
       value={{
         shops,
         loading,
+        error,
         refresh,
         createShop,
         updateShop,

@@ -94,7 +94,7 @@ export function PortalHome({
           className="text-ink-muted m-0 max-w-[620px]"
           style={{ fontSize: '14.5px', lineHeight: 1.55 }}
         >
-          Choisissez une gamme, configurez format, papier et finition — le prix
+          Choisissez une catégorie, configurez format, papier et finition — le prix
           s'affiche immédiatement. Une question&nbsp;? Magrit vous répond.
         </p>
       </div>
@@ -107,7 +107,7 @@ export function PortalHome({
         <div className="px-5 lg:px-9 py-8 bg-bg" data-testid={TEST_IDS.shop.homeGammeGrid}>
           <div className="flex items-baseline mb-4">
             <h3 className="text-ink m-0" style={{ fontSize: '17px', fontWeight: 500 }}>
-              Nos gammes
+              Nos catégories
             </h3>
             <button
               onClick={() => onView('catalog')}

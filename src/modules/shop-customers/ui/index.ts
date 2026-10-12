@@ -4,3 +4,5 @@ export { StorefrontDelegationBanner } from './storefront/StorefrontDelegationBan
 export { StorefrontLoginForm } from './storefront/StorefrontLoginForm';
 export { StorefrontPasswordResetPage } from './storefront/StorefrontPasswordResetPage';
 export { ShopCustomerAccountsSection } from './workspace/ShopCustomerAccountsSection';
+
+export { ShopCustomerDetailPage } from './workspace/ShopCustomerDetailPage';

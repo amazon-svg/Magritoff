@@ -218,6 +218,8 @@ export type GescomApiHandlerOptions = Readonly<{
   idempotencyStore: IdempotencyStore;
   clock?: Clock;
   requestIdFactory?: () => string;
+  /** Execution context supplied by the server after authentication and tenant checks. */
+  runInRequestContext?: <T>(context: GescomRequestContext, operation: () => Promise<T>) => Promise<T>;
   onUnexpectedError?: (error: unknown, requestId: string) => void;
 }>;
 
@@ -395,7 +397,8 @@ export function createGescomApiHandler(options: GescomApiHandlerOptions) {
         ifMatch,
       });
 
-      const result = await route.execute(context, input);
+      const execute = () => route.execute(context, input);
+      const result = await (options.runInRequestContext ? options.runInRequestContext(context, execute) : execute());
       const body = buildEnvelope(result, requestId);
       const headers: Record<string, string> = { ...(result.headers ?? {}) };
       if (result.etag !== undefined) headers[ETAG_HEADER] = result.etag;

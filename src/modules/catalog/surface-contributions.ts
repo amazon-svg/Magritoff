@@ -49,7 +49,7 @@ export const catalogWorkspaceContribution = defineSurfaceContribution({
       id: 'catalog.workspace.gammes-navigation', moduleId: 'catalog',
       featureId: 'catalog.workspace-gammes', surface: 'workspace',
       routeId: 'catalog.workspace.gammes', groupId: 'catalog',
-      label: 'Gammes actives', iconId: 'layers', order: 220,
+      label: 'Catégories actives', iconId: 'layers', order: 220,
     },
   ],
 } as const);

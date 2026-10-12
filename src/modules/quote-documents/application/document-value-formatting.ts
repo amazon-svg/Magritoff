@@ -37,13 +37,13 @@ export function formatShortFrenchDateFromTimestamp(isoTimestamp: string): string
  * milliers, virgule decimale). Le signe est conserve tel quel (une remise
  * globale peut etre negative, contrat E10.10a).
  */
-export function formatMoneyFrench(amount: string): string {
+export function formatMoneyFrench(amount: string, currency = 'EUR'): string {
   const negative = amount.trim().startsWith('-');
   const unsigned = negative ? amount.trim().slice(1) : amount.trim();
   const [integerPart, decimalPart = '00'] = unsigned.split('.');
   const grouped = groupThousands(integerPart ?? '0');
   const sign = negative ? '-' : '';
-  return `${sign}${grouped},${decimalPart.padEnd(2, '0').slice(0, 2)} €`;
+  return `${sign}${grouped},${decimalPart.padEnd(2, '0').slice(0, 2)} ${currency === 'EUR' ? '€' : currency}`;
 }
 
 /**
