@@ -27,3 +27,4 @@ quality-reports/
 *.local.json
 
 dist-server/
+.preprod-deploy.lock

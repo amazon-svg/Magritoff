@@ -57,6 +57,9 @@ Depuis le checkout sur le VPS : `bash scripts/preprod/deploy.sh` (avec un compte
 autorise a utiliser Docker). Le script construit les images, demarre les services
 de stockage, applique les migrations, prepare les comptes runtime et les buckets,
 puis demarre l'API, le front et les quatre workers. Il ne configure pas Apache.
+Le referentiel des 81 gammes PIM est synchronise apres les migrations, avant
+le remplacement des conteneurs. Il n'importe pas les donnees de demonstration
+et n'active aucune categorie pour un tenant.
 Les volumes existants sont conserves. Ne jamais utiliser `down -v`.
 
 Verifier `/api/v1/health`, puis le parcours inscription / verification de l'email /
@@ -71,11 +74,61 @@ avec leurs variables exactes ; ne pas recopier les secrets de developpement.
 
 ## 5. CI/CD et sauvegardes
 
-La CI devra tester le commit avant livraison, puis se connecter au VPS avec une
-cle dediee et un `known_hosts` verifie pour demander le checkout du commit et
-l'execution de `deploy.sh`. Ne pas activer le deploiement automatique tant que
-la premiere livraison manuelle et les sauvegardes n'ont pas ete validees. Le
-workflow sera raccorde une fois le chemin du checkout et l'acces SSH connus.
+Le workflow `.github/workflows/preprod.yml` teste les commits pousses sur
+`codex/preprod-compose` (typage, Vitest et build). Le deploiement sur le VPS
+reste desactive tant que la variable de depot `PREPROD_AUTO_DEPLOY` ne vaut
+pas exactement `true`. Les migrations ne sont pas interrompues par un nouveau
+push : les executions sont serialisees et le script pose un verrou sur le VPS.
+La CI livre uniquement le SHA teste, qui doit encore etre la tete de la branche.
+
+### Preparation SSH de la CI
+
+La cle de la CI est differente de `~/.ssh/magritoff_github`, utilisee par le VPS
+pour lire GitHub. Generer une nouvelle cle Ed25519 sans phrase de passe sur le
+poste d'administration (ne pas reutiliser une cle personnelle). Transmettre
+uniquement la partie publique au VPS.
+
+Mettre a jour le checkout sur le VPS vers la branche publiee, en conservant
+`.env.preprod.local`. Dans `~ubuntu/.ssh/authorized_keys`, ajouter la cle publique
+de la CI sur une seule ligne, precedee de :
+
+```text
+restrict,command="/usr/bin/bash /opt/magritoff-preprod/scripts/preprod/ssh-entrypoint.sh" ssh-ed25519 CLE_PUBLIQUE commentaire
+```
+
+Cette cle accepte uniquement `deploy SHA_COMPLET`. L'entree SSH rejette les
+commandes shell, tunnels et sessions interactives. Le compte ubuntu doit deja
+avoir un sudo sans mot de passe permettant de lancer le script (`sudo -n true`
+est un premier controle). L'acces Docker permet d'administrer le serveur ; le
+depot et les personnes qui peuvent modifier sa branche restent de confiance.
+
+Lire la cle publique d'hote directement depuis la session SSH existante :
+`sudo cat /etc/ssh/ssh_host_ed25519_key.pub`. Construire la ligne known_hosts
+`151.80.58.131 ssh-ed25519 CLE_PUBLIQUE_HOTE`. Ne pas utiliser un ssh-keyscan
+non verifie comme preuve de l'identite du VPS.
+
+Dans les secrets Actions du depot, enregistrer :
+
+- `PREPROD_SSH_PRIVATE_KEY` : cle privee dediee de la CI ;
+- `PREPROD_SSH_KNOWN_HOSTS` : ligne known_hosts verifiee ci-dessus.
+
+Les secrets applicatifs et les mots de passe PostgreSQL restent sur le VPS.
+La variable optionnelle `PREPROD_HOST` permet de remplacer `151.80.58.131`.
+Le workflow utilise les secrets du depot, sans dependance aux fonctions
+d'environnements proteges qui varient selon l'abonnement GitHub d'un depot prive.
+
+### Activation
+
+Verifier d'abord la sauvegarde/restauration et une livraison manuelle. Configurer
+les deux secrets puis mettre `PREPROD_AUTO_DEPLOY=true` pour deployer les prochains
+pushes de la branche de preprod. Remettre cette variable a `false` pour suspendre
+les livraisons automatiques ; les tests continuent a fonctionner.
+
+Le lancement manuel avec `workflow_dispatch` et l'option `deploy` est aussi
+prevu, mais le bouton GitHub `Run workflow` exige que ce fichier existe sur la
+branche par defaut. Tant que le workflow reste uniquement sur la branche de
+preprod, utiliser les pushes sur cette branche comme declencheur. Modifier les
+variables seul ne declenche pas une livraison.
 
 Sauvegarder PostgreSQL par `pg_dump`, les objets S3 et le fichier de secrets vers
 un stockage hors de ce VPS chez le meme hebergeur. Verifier une restauration.

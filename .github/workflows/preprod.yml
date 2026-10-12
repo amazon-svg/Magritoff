@@ -1,0 +1,80 @@
+name: Preprod
+
+on:
+  push:
+    branches: [codex/preprod-compose]
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: Deployer ce commit sur le VPS apres les tests
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: magritoff-preprod
+  # Ne pas interrompre une migration ou un remplacement de conteneurs.
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - name: Verifier les scripts shell
+        run: |
+          for script in scripts/preprod/*.sh; do bash -n "$script"; done
+
+  deploy:
+    needs: validate
+    if: >-
+      github.ref == 'refs/heads/codex/preprod-compose' &&
+      ((github.event_name == 'push' && vars.PREPROD_AUTO_DEPLOY == 'true') ||
+       (github.event_name == 'workflow_dispatch' && inputs.deploy))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Deployer le commit valide par SSH
+        env:
+          PREPROD_SSH_PRIVATE_KEY: ${{ secrets.PREPROD_SSH_PRIVATE_KEY }}
+          PREPROD_SSH_KNOWN_HOSTS: ${{ secrets.PREPROD_SSH_KNOWN_HOSTS }}
+          PREPROD_HOST: ${{ vars.PREPROD_HOST || '151.80.58.131' }}
+          RELEASE_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$PREPROD_SSH_PRIVATE_KEY" || { echo 'Secret SSH prive absent'; exit 1; }
+          test -n "$PREPROD_SSH_KNOWN_HOSTS" || { echo 'Secret known_hosts absent'; exit 1; }
+          [[ "$PREPROD_HOST" =~ ^[A-Za-z0-9.-]+$ ]] || exit 1
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]] || exit 1
+          ssh_dir="$(mktemp -d)"
+          trap 'rm -rf "$ssh_dir"' EXIT
+          chmod 700 "$ssh_dir"
+          printf '%s\n' "$PREPROD_SSH_PRIVATE_KEY" > "$ssh_dir/id_ed25519"
+          printf '%s\n' "$PREPROD_SSH_KNOWN_HOSTS" > "$ssh_dir/known_hosts"
+          chmod 600 "$ssh_dir/id_ed25519" "$ssh_dir/known_hosts"
+          ssh -i "$ssh_dir/id_ed25519" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$ssh_dir/known_hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=30 -o ServerAliveCountMax=5 \
+            "ubuntu@$PREPROD_HOST" "deploy $RELEASE_SHA"
+      - name: Verifier la facade HTTPS
+        run: |
+          curl --fail --silent --show-error --retry 3 --max-time 30 \
+            https://magritt.clariprint.fr/api/v1/health
+          curl --fail --silent --show-error --retry 3 --max-time 30 \
+            --output /dev/null https://magritt.clariprint.fr/

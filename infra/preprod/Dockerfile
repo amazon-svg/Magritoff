@@ -8,6 +8,7 @@ COPY public ./public
 COPY config ./config
 COPY openapi ./openapi
 COPY infra/postgres ./infra/postgres
+COPY infra/pim ./infra/pim
 COPY scripts/db ./scripts/db
 COPY scripts/infra ./scripts/infra
 COPY index.html vite.config.ts tsconfig*.json ./
