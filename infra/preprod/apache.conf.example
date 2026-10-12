@@ -1,0 +1,41 @@
+# Exemple a adapter apres audit des vhosts et mise en place des certificats.
+# Modules : proxy, proxy_http, ssl, headers, rewrite.
+<VirtualHost *:443>
+    ServerName magritt.clariprint.fr
+    SSLEngine on
+    SSLCertificateFile /etc/letsencrypt/live/magritt.clariprint.fr/fullchain.pem
+    SSLCertificateKeyFile /etc/letsencrypt/live/magritt.clariprint.fr/privkey.pem
+    ProxyRequests Off
+    ProxyPreserveHost On
+    RequestHeader set X-Forwarded-Proto "https"
+    # Supprimer les valeurs du navigateur ; mod_proxy ajoute l'IP observee.
+    RequestHeader unset X-Forwarded-For
+    LimitRequestBody 104857600
+    ProxyPass /api/ http://127.0.0.1:18787/api/ timeout=180
+    ProxyPassReverse /api/ http://127.0.0.1:18787/api/
+    ProxyPass / http://127.0.0.1:18080/
+    ProxyPassReverse / http://127.0.0.1:18080/
+</VirtualHost>
+
+# Sous-domaine propose pour le stockage. Conserver Host et le chemin exact
+# pour les signatures S3. Ne pas ajouter d'authentification HTTP devant S3.
+<VirtualHost *:443>
+    ServerName fichiers-magritt.clariprint.fr
+    SSLEngine on
+    SSLCertificateFile /etc/letsencrypt/live/fichiers-magritt.clariprint.fr/fullchain.pem
+    SSLCertificateKeyFile /etc/letsencrypt/live/fichiers-magritt.clariprint.fr/privkey.pem
+    ProxyRequests Off
+    ProxyPreserveHost On
+    AllowEncodedSlashes NoDecode
+    LimitRequestBody 104857600
+    ProxyPass / http://127.0.0.1:18333/ nocanon timeout=180
+    ProxyPassReverse / http://127.0.0.1:18333/
+    Header always set Access-Control-Allow-Origin "https://magritt.clariprint.fr"
+    Header always set Access-Control-Allow-Methods "GET, HEAD, PUT, POST, DELETE, OPTIONS"
+    Header always set Access-Control-Allow-Headers "*"
+    Header always set Access-Control-Expose-Headers "ETag"
+    Header always merge Vary "Origin"
+    RewriteEngine On
+    RewriteCond %{REQUEST_METHOD} =OPTIONS
+    RewriteRule ^ - [R=204,L]
+</VirtualHost>
