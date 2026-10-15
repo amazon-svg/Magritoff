@@ -169,3 +169,8 @@ l'opération ni la table de taux tenue à jour.
 - Source, responsable et mode de mise à jour du référentiel configurable
   des taux de TVA par pays.
 - Le responsable fiscal ou comptable consulté sur ces points n'est pas nommé.
+
+
+## Orientation ultérieure à examiner — WM du 14 octobre
+
+Le brouillon [PD-2026-10-14-LOTS-LIVRAISON](PD-2026-10-14-lots-livraison.md) propose des groupes indivisibles issus d’un même calcul, une ligne par destination, et précise le parcours lorsque la livraison est inconnue. Il complète les arbitrages du 8 octobre sans les remplacer tant qu’il n’est pas approuvé. Le verrou transitoire d’un pays unique demeure une question ouverte.
