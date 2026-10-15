@@ -8,7 +8,9 @@ owner: unassigned
 source: user-request
 stories:
   - E10.23
-decisions: []
+decisions:
+  - PD-2026-10-07-TVA-LIGNE
+  - PD-2026-10-14-LOTS-LIVRAISON
 ---
 
 # Fiscalité des lignes et facturation électronique

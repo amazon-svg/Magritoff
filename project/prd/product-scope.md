@@ -67,3 +67,8 @@ supersedes: []
 ## Règle d'évolution
 
 Une nouvelle capacité modifiant un comportement existant doit mettre à jour le domaine, l'epic, les stories et les tests concernés. Les anciennes exigences sont marquées `superseded` ou `deprecated` avec un lien vers leur remplacement.
+
+
+## Bêta avancée — orientation du WM du 14 octobre à approuver
+
+[PD-2026-10-14-STUDIO-BETA](../decisions/product/PD-2026-10-14-studio-beta.md) propose de prioriser Clariprint Studio jusqu’aux boutiques (chat, formulaires et prix), cible semaine du 19 octobre. La première phase produit les prix et porte la gestion commerciale ; l’interface de description des parcs Clariprint Data vient dans une seconde phase. Cette distinction ne supprime pas les besoins durables des parcs. Clariprint Studio/HopeStudio est distinct du sujet « Studio et contenus » ci-dessus. Les propositions sur les lots et la livraison sont portées par PD-2026-10-14-LOTS-LIVRAISON, sans présumer le verrou d’un pays unique ni lever les arbitrages fiscaux.

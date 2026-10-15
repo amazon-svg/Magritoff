@@ -11,8 +11,11 @@ stories:
   - E10.9
   - E10.10
   - E10.22
+  - E10.25
+  - E10.26
 decisions:
   - PD-2026-10-01-B5
+  - PD-2026-10-14-LOTS-LIVRAISON
 ---
 
 # Devis commerciaux

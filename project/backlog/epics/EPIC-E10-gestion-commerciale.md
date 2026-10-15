@@ -19,6 +19,7 @@ features:
   - FEAT-E10-EXPORTS
   - FEAT-E10-INVOICING
 decisions:
+  - PD-2026-10-14-LOTS-LIVRAISON
   - PD-2026-10-01-B5
 ---
 
@@ -75,3 +76,8 @@ L'export historique indique que plusieurs lots E10 sont livrés et que d'autres 
 - statut actuel des lots annoncés livrés après l'export du 4 septembre ;
 - périmètre exact des remises au-delà de la ligne ;
 - articulation avec les entités juridiques de facturation.
+
+
+## Lots de livraison proposés le 14 octobre
+
+[PD-2026-10-14-LOTS-LIVRAISON](../../decisions/product/PD-2026-10-14-lots-livraison.md), encore en brouillon, complète le lot fiscal E10.23 avec E10.25 (groupes indivisibles issus d’un calcul) et E10.26 (devis sans livraison puis révision). Ces éléments ne modifient ni le gel de E10.8 ni le report du suivi des expéditions E10.24.

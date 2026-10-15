@@ -44,6 +44,18 @@ documents:
       - Rendre les points projet consultables dans l’interface de pilotage avec une lecture adaptée.
       - Distinguer dans le backlog la bêta avancée des améliorations ultérieures.
       - Programmer la revue des idées de l’analyse GelatoConnect.
+  - id: MEET-CR-WM14102026-MAGRIT-IA
+    kind: meeting
+    path: project/meetings/2026/CR_WM14102026_Magrit_IA.md
+    processingStatus: review
+    owner: Codex (intégration documentaire)
+    contentHash: sha256:8af163ef39427935b054a40ab54743b3dd4678f4e72c7aac51e81df3a0b259b0
+    reviewedAt: null
+    openItems:
+      - Relire le rapport REPORT-2026-10-15-INTEGRATION-WM14102026 et approuver ou amender PD-2026-10-14-STUDIO-BETA et PD-2026-10-14-LOTS-LIVRAISON.
+      - Relire les nouvelles stories E10.25/E10.26 et les compléments E10.23/E1.WM1 ; confirmer les contrats Studio et les critères concernés.
+      - Nommer le référent fiscal, préciser les régimes et ventilations par lot, arbitrer OQ-LIVRAISON-PAYS-UNIQUE et clarifier la portée de « commande qui devient la facture ».
+      - Confirmer les états SMTP/VPS/DNS/GitHub et la recette Studio, puis affecter les actions externes et échéances manquantes du rapport d’intégration.
   - id: MEET-CR-WM210926-MAGRIT-IA
     kind: meeting
     path: project/meetings/2026/CR_WM210926_Magrit_IA.md
@@ -182,3 +194,18 @@ documents:
     owner: unassigned
     reviewedAt: null
     openItems: []
+  - id: REPORT-2026-10-14-PREPARATION-REUNION
+    kind: report
+    path: project/meetings/reports/2026-10-14-rapport-preparation-reunion.md
+    processingStatus: draft
+    owner: unassigned
+    reviewedAt: null
+    openItems: []
+  - id: REPORT-2026-10-15-INTEGRATION-WM14102026
+    kind: report
+    path: project/meetings/reports/2026-10-15-integration-wm14102026.md
+    processingStatus: review
+    owner: Codex (intégration documentaire)
+    reviewedAt: null
+    openItems:
+      - Relire la correspondance avec le compte rendu et les artefacts proposés, puis consigner l’approbation et les arbitrages restant ouverts.
