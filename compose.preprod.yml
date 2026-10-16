@@ -27,9 +27,11 @@ x-runtime: &runtime
     S3_REGION: us-east-1
     S3_FORCE_PATH_STYLE: 'true'
     MAGRIT_FROM_EMAIL: ${MAGRIT_FROM_EMAIL:-Magrit <noreply@magrit.local>}
-    MAIL_HOST: mail
-    MAIL_PORT: 1025
-    MAIL_SECURE: 'false'
+    MAIL_HOST: ${MAIL_HOST:-mail}
+    MAIL_PORT: ${MAIL_PORT:-1025}
+    MAIL_SECURE: ${MAIL_SECURE:-false}
+    MAIL_USER: ${MAIL_USER:-}
+    MAIL_PASSWORD: ${MAIL_PASSWORD:-}
   depends_on:
     postgres: {condition: service_healthy}
     s3: {condition: service_healthy}

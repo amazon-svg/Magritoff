@@ -73,8 +73,10 @@ jobs:
             -o ConnectTimeout=15 -o ServerAliveInterval=30 -o ServerAliveCountMax=5 \
             "ubuntu@$PREPROD_HOST" "deploy $RELEASE_SHA"
       - name: Verifier la facade HTTPS
+        env:
+          PREPROD_APP_URL: ${{ vars.PREPROD_APP_URL || 'https://preprod.magritapp.com' }}
         run: |
           curl --fail --silent --show-error --retry 3 --max-time 30 \
-            https://magritt.clariprint.fr/api/v1/health
+            "${PREPROD_APP_URL%/}/api/v1/health"
           curl --fail --silent --show-error --retry 3 --max-time 30 \
-            --output /dev/null https://magritt.clariprint.fr/
+            --output /dev/null "${PREPROD_APP_URL%/}/"

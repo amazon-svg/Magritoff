@@ -1,7 +1,9 @@
 # Preprod sur le VPS Apache existant
 
-Destination : `https://magritt.clariprint.fr`. Le stockage utilise le sous-domaine
-propose `fichiers-magritt.clariprint.fr`, a creer ou remplacer avant de deployer.
+Destination : `https://preprod.magritapp.com`. Le stockage conserve son sous-domaine
+`fichiers-magritt.clariprint.fr` ; la migration du domaine applicatif ne change
+pas les adresses des objets. Pour une installation existante, suivre
+[la procedure de changement de domaine et SMTP](domain-mailtrap-migration.md).
 Les deux noms doivent pointer vers ce VPS (A, et AAAA uniquement si IPv6 fonctionne).
 
 ## 1. Audit avant installation
@@ -67,8 +69,13 @@ session, les fichiers et un export. Aucune donnee de developpement n'est importe
 automatiquement. Le statut sain de l'API ne garantit pas que les integrations
 externes et les workers ont execute tous les parcours fonctionnels.
 
-Les emails sont captures dans Mailpit : un tunnel SSH vers `127.0.0.1:18025`
-permet de consulter les liens d'activation. La preprod n'envoie pas d'emails reels.
+Par defaut, les emails sont captures dans Mailpit : un tunnel SSH vers
+`127.0.0.1:18025` permet de consulter les liens d'activation. Pour l'envoi reel
+avec Mailtrap Email Sending, reporter les valeurs de `env.mailtrap.example`
+dans `.env.preprod.local`, avec le mot de passe SMTP fourni par Mailtrap.
+Le domaine d'expedition doit etre valide. Apres recreation des conteneurs,
+les nouveaux messages sont envoyes aux destinataires ; Mailpit reste disponible
+mais ne recoit plus les messages tant que cette configuration SMTP est active.
 Clariprint, HopeStudio et les autres integrations restent a configurer separement
 avec leurs variables exactes ; ne pas recopier les secrets de developpement.
 
@@ -114,6 +121,7 @@ Dans les secrets Actions du depot, enregistrer :
 
 Les secrets applicatifs et les mots de passe PostgreSQL restent sur le VPS.
 La variable optionnelle `PREPROD_HOST` permet de remplacer `151.80.58.131`.
+`PREPROD_APP_URL` permet de remplacer l'URL utilisee par le controle HTTPS final.
 Le workflow utilise les secrets du depot, sans dependance aux fonctions
 d'environnements proteges qui varient selon l'abonnement GitHub d'un depot prive.
 
